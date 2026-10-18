@@ -1,0 +1,16 @@
+.git
+.env
+.env.*
+!.env.example
+**/node_modules
+**/vendor
+**/.next
+**/generated
+**/*.tsbuildinfo
+artifacts
+storage
+backups
+coverage
+test-results
+playwright-report
+.DS_Store

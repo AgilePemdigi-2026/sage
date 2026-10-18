@@ -1,0 +1,11 @@
+{
+  "autoload": {
+    "psr-4": {
+      "Contracts\\": "./",
+      "App\\": "./"
+    }
+  },
+  "scripts": {
+    "post-install-cmd": "php -r \"throw new Exception('FIXTURE_MUST_NOT_EXECUTE');\""
+  }
+}

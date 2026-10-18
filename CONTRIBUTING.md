@@ -1,6 +1,6 @@
 # Alur kontribusi
 
-Status: aturan kerja untuk implementasi mendatang; baseline pertama berisi dokumentasi planning.
+Status: workflow aktif; milestone dan Issues telah dibuat. Fondasi ENV-01 dan seed QA-01 sedang dikerjakan melalui branch/PR.
 
 ## Tanggung jawab
 
@@ -21,11 +21,11 @@ Pembagian di atas merupakan rencana tanggung jawab. Setiap issue/PR mencatat sco
 - Gunakan ID backlog internal dari [product backlog](docs/PRODUCT_BACKLOG.md); nomor issue GitHub ditambahkan setelah issue benar-benar dibuat.
 - Cantumkan requirement, scope, file yang terkait, dependensi, acceptance criteria, dan bukti yang harus dilampirkan.
 - Milestone: `Sprint 1`, `Sprint 2`, `Sprint 3` dengan tanggal akhir review masing-masing.
-- Label yang direncanakan: `planning`, `github`, `repository`, `analyzer`, `graph`, `document`, `export`, `data`, `testing`, `ui`, `bug`, `blocked`.
+- Label area: `planning`, `github`, `repository`, `analyzer`, `graph`, `document`, `export`, `data`, `testing`, `ui`, `bug`, `blocked`.
 - Status kerja: `Backlog`, `Ready`, `In progress`, `In review`, `Done`; pekerjaan dengan dependensi belum terpenuhi diberi `blocked`.
 - Template task dan bug tersedia di [.github/ISSUE_TEMPLATE](.github/ISSUE_TEMPLATE).
 
-Dokumentasi ini tidak berarti Issues, label, milestone, atau Projects sudah dibuat di GitHub.
+Issues, label, dan milestone telah dibuat; mapping ada di product backlog. Label `P0`/`P1`/`P2`, `ready`, `in-progress`, dan `blocked` menandai prioritas serta kesiapan. GitHub Projects belum dibuat dan bukan syarat workflow ini.
 
 ## Paket pekerjaan
 

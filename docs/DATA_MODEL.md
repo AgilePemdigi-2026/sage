@@ -1,6 +1,6 @@
 # Model data dan lifecycle
 
-Status: rancangan persistensi PostgreSQL/Prisma; belum ada schema ORM atau migrasi yang dijalankan.
+Status: entitas produk di bawah tetap rancangan DATA-01. ENV-01 menambahkan schema/migrasi infrastruktur `WorkerHeartbeat` untuk readiness dan pemeriksaan persistensi; ini belum membuktikan session, credential, atau isolasi user.
 
 ## Entitas
 

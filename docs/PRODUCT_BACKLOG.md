@@ -1,6 +1,6 @@
 # Product backlog
 
-Status: baseline planning; ID di bawah adalah ID internal, bukan nomor GitHub Issue. Issues, assignment akun anggota, label, dan milestone belum dibuat. Kolom paket menunjukkan rencana penanggung jawab deliverable sesuai [alur kontribusi](../CONTRIBUTING.md). Iltizam menangani review teknis dan merge PR.
+Status: backlog terhubung ke 28 GitHub Issues dan tiga milestone sprint. ID internal tetap dipakai untuk traceability; nomor issue nyata tercantum di bawah. Assignment akun selain Iltizam menunggu username anggota. Kolom paket menunjukkan rencana penanggung jawab deliverable sesuai [alur kontribusi](../CONTRIBUTING.md). Iltizam menangani review teknis dan merge PR.
 
 ## Prioritas dan estimasi
 
@@ -12,36 +12,36 @@ Ukuran S/M/L/XL/XXL adalah estimasi relatif awal per paket, belum dikalibrasi te
 
 ## Paket pekerjaan
 
-| ID | Deliverable | Sprint | Prioritas / ukuran | Penanggung jawab paket | Dependensi | Status |
-| --- | --- | --- | --- | --- | --- | --- |
-| PLAN-01 | Baseline planning dan workflow issue | 1 | P0 / M | Iltizam | - | Done (baseline dokumentasi) |
-| ENV-01 | Spike stack, versi, Docker, limits awal, renderer diagram | 1 | P0 / L | Iltizam | PLAN-01 | Planned |
-| DATA-01 | Schema, migrasi, session/credential storage, isolasi user | 1 | P0 / L | Zarra | ENV-01 | Planned |
-| QA-01 | Fixture/oracle PHP, JS, TS dan benchmark awal | 1-2 | P0 / L | Zarra | PLAN-01 | Planned |
-| GH-01 | Login GitHub App, callback, session, dan error | 1 | P0 / L | Iltizam | ENV-01, DATA-01 | Planned |
-| GH-02 | Daftar instalasi/private berizin dan resolve public pihak lain | 1 | P0 / L | Rizqy | GH-01 | Planned |
-| REP-01 | UI/API target, search, branch, commit, validasi | 1 | P0 / L | Rizqy | GH-02 | Planned |
-| REP-02 | Full SHA immutable dan snapshot aman | 1 | P0 / L | Iltizam | REP-01, DATA-01 | Planned |
-| ANA-01 | Queue durable dan global analysis slot | 1 | P0 / L | Iltizam | DATA-01 | Planned |
-| ANA-02 | Deteksi bahasa, exclusion, dan batas file | 1 | P0 / M | Zarra | REP-02 | Planned |
-| ANA-05 | Contracts CCM/evidence dan validator | 1-2 | P0 / L | Iltizam | ENV-01, QA-01 | Planned |
-| ANA-03 | Adapter JavaScript/TypeScript dan resolver | 1-2 | P0 / XXL | Iltizam | ANA-05, QA-01 | Planned |
-| ANA-04 | Adapter PHP dan resolver | 1-2 | P0 / XXL | Iltizam | ANA-05, QA-01 | Planned |
-| ANA-06 | Canonical CKG, provenance, dan persistensi | 2 | P0 / L | Iltizam | ANA-03, ANA-04, ANA-05 | Planned |
-| DOC-01 | Tiga artefak dan Architecture Definition Document | 2 | P0 / XL | Zarra | ANA-06 | Planned |
-| ANA-07 | Pipeline sembilan tahap, progress, failure/retry, atomic result | 1-2 | P0 / XL | Rizqy | ANA-01, ANA-02, ANA-06, DOC-01 | Planned |
-| GRAPH-01 | Graph canvas, mode, legend, zoom, dan counts | 2 | P1 / XL | Valentina | ANA-06 | Planned |
-| GRAPH-02 | Node Query dan filter kategori gabungan | 2 | P1 / M | Valentina | GRAPH-01 | Planned |
-| GRAPH-03 | Inspector, incoming/outgoing, evidence, source preview | 2 | P0 / L | Valentina | GRAPH-01, REP-02 | Planned |
-| EXP-01 | Markdown mandiri beserta failure/retry | 2 | P0 / L | Zarra | DOC-01 | Planned |
-| EXP-02 | PDF, print layout, diagram, dan download | 2 | P0 / L | Zarra | DOC-01, ENV-01 | Planned |
-| HIST-01 | History per user, search, empty/error, navigasi | 2 | P1 / M | Rizqy | DATA-01, ANA-01 | Planned |
-| DATA-02 | Penghapusan analysis dan cleanup storage/export | 2 | P1 / M | Zarra | DATA-01, EXP-01, EXP-02 | Planned |
-| QA-02 | Integrasi penuh, GitHub nyata, error, dan release evidence | 2 | P0 / L | Rizqy | GH-01, REP-02, ANA-07, GRAPH-03, EXP-01, EXP-02, HIST-01, DATA-02 | Planned |
-| QA-03 | Responsivitas, keyboard, bahasa UI, dan visual QA | 1-2 | P1 / L | Valentina | GRAPH-03, EXP-02, REP-01, HIST-01 | Planned |
-| REL-01 | MVP freeze lokal dan panduan setup/demo teruji | 2 | P0 / M | Iltizam | QA-02, QA-03 | Planned |
-| FIN-01 | Regression fixes, performa, dan polish | 3 | P2 / L | Iltizam | REL-01 | Planned |
-| FIN-02 | Review akhir, dokumentasi pengguna, dan demo | 3 | P2 / M | Zarra | FIN-01 | Planned |
+| ID | Deliverable | Sprint | Prioritas / ukuran | Penanggung jawab paket | Dependensi | Status | Issue |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| PLAN-01 | Baseline planning dan workflow issue | 1 | P0 / M | Iltizam | - | Done (baseline dokumentasi) | [#1](https://github.com/AgilePemdigi-2026/sage/issues/1) |
+| ENV-01 | Spike stack, versi, Docker, limits awal, renderer diagram | 1 | P0 / L | Iltizam | PLAN-01 | In review | [#2](https://github.com/AgilePemdigi-2026/sage/issues/2) |
+| DATA-01 | Schema, migrasi, session/credential storage, isolasi user | 1 | P0 / L | Zarra | ENV-01 | Planned | [#3](https://github.com/AgilePemdigi-2026/sage/issues/3) |
+| QA-01 | Fixture/oracle PHP, JS, TS dan benchmark awal | 1-2 | P0 / L | Zarra | PLAN-01 | In progress | [#4](https://github.com/AgilePemdigi-2026/sage/issues/4) |
+| GH-01 | Login GitHub App, callback, session, dan error | 1 | P0 / L | Iltizam | ENV-01, DATA-01 | Planned | [#5](https://github.com/AgilePemdigi-2026/sage/issues/5) |
+| GH-02 | Daftar instalasi/private berizin dan resolve public pihak lain | 1 | P0 / L | Rizqy | GH-01 | Planned | [#6](https://github.com/AgilePemdigi-2026/sage/issues/6) |
+| REP-01 | UI/API target, search, branch, commit, validasi | 1 | P0 / L | Rizqy | GH-02 | Planned | [#7](https://github.com/AgilePemdigi-2026/sage/issues/7) |
+| REP-02 | Full SHA immutable dan snapshot aman | 1 | P0 / L | Iltizam | REP-01, DATA-01 | Planned | [#8](https://github.com/AgilePemdigi-2026/sage/issues/8) |
+| ANA-01 | Queue durable dan global analysis slot | 1 | P0 / L | Iltizam | DATA-01 | Planned | [#9](https://github.com/AgilePemdigi-2026/sage/issues/9) |
+| ANA-02 | Deteksi bahasa, exclusion, dan batas file | 1 | P0 / M | Zarra | REP-02 | Planned | [#10](https://github.com/AgilePemdigi-2026/sage/issues/10) |
+| ANA-05 | Contracts CCM/evidence dan validator | 1-2 | P0 / L | Iltizam | ENV-01, QA-01 | Planned | [#11](https://github.com/AgilePemdigi-2026/sage/issues/11) |
+| ANA-03 | Adapter JavaScript/TypeScript dan resolver | 1-2 | P0 / XXL | Iltizam | ANA-05, QA-01 | Planned | [#12](https://github.com/AgilePemdigi-2026/sage/issues/12) |
+| ANA-04 | Adapter PHP dan resolver | 1-2 | P0 / XXL | Iltizam | ANA-05, QA-01 | Planned | [#13](https://github.com/AgilePemdigi-2026/sage/issues/13) |
+| ANA-06 | Canonical CKG, provenance, dan persistensi | 2 | P0 / L | Iltizam | ANA-03, ANA-04, ANA-05 | Planned | [#14](https://github.com/AgilePemdigi-2026/sage/issues/14) |
+| DOC-01 | Tiga artefak dan Architecture Definition Document | 2 | P0 / XL | Zarra | ANA-06 | Planned | [#15](https://github.com/AgilePemdigi-2026/sage/issues/15) |
+| ANA-07 | Pipeline sembilan tahap, progress, failure/retry, atomic result | 1-2 | P0 / XL | Rizqy | ANA-01, ANA-02, ANA-06, DOC-01 | Planned | [#16](https://github.com/AgilePemdigi-2026/sage/issues/16) |
+| GRAPH-01 | Graph canvas, mode, legend, zoom, dan counts | 2 | P1 / XL | Valentina | ANA-06 | Planned | [#17](https://github.com/AgilePemdigi-2026/sage/issues/17) |
+| GRAPH-02 | Node Query dan filter kategori gabungan | 2 | P1 / M | Valentina | GRAPH-01 | Planned | [#18](https://github.com/AgilePemdigi-2026/sage/issues/18) |
+| GRAPH-03 | Inspector, incoming/outgoing, evidence, source preview | 2 | P0 / L | Valentina | GRAPH-01, REP-02 | Planned | [#19](https://github.com/AgilePemdigi-2026/sage/issues/19) |
+| EXP-01 | Markdown mandiri beserta failure/retry | 2 | P0 / L | Zarra | DOC-01 | Planned | [#20](https://github.com/AgilePemdigi-2026/sage/issues/20) |
+| EXP-02 | PDF, print layout, diagram, dan download | 2 | P0 / L | Zarra | DOC-01, ENV-01 | Planned | [#21](https://github.com/AgilePemdigi-2026/sage/issues/21) |
+| HIST-01 | History per user, search, empty/error, navigasi | 2 | P1 / M | Rizqy | DATA-01, ANA-01 | Planned | [#22](https://github.com/AgilePemdigi-2026/sage/issues/22) |
+| DATA-02 | Penghapusan analysis dan cleanup storage/export | 2 | P1 / M | Zarra | DATA-01, EXP-01, EXP-02 | Planned | [#23](https://github.com/AgilePemdigi-2026/sage/issues/23) |
+| QA-02 | Integrasi penuh, GitHub nyata, error, dan release evidence | 2 | P0 / L | Rizqy | GH-01, REP-02, ANA-07, GRAPH-03, EXP-01, EXP-02, HIST-01, DATA-02 | Planned | [#24](https://github.com/AgilePemdigi-2026/sage/issues/24) |
+| QA-03 | Responsivitas, keyboard, bahasa UI, dan visual QA | 1-2 | P1 / L | Valentina | GRAPH-03, EXP-02, REP-01, HIST-01 | Planned | [#25](https://github.com/AgilePemdigi-2026/sage/issues/25) |
+| REL-01 | MVP freeze lokal dan panduan setup/demo teruji | 2 | P0 / M | Iltizam | QA-02, QA-03 | Planned | [#26](https://github.com/AgilePemdigi-2026/sage/issues/26) |
+| FIN-01 | Regression fixes, performa, dan polish | 3 | P2 / L | Iltizam | REL-01 | Planned | [#27](https://github.com/AgilePemdigi-2026/sage/issues/27) |
+| FIN-02 | Review akhir, dokumentasi pengguna, dan demo | 3 | P2 / M | Zarra | FIN-01 | Planned | [#28](https://github.com/AgilePemdigi-2026/sage/issues/28) |
 
 Paket QA-01 menutup oracle minimum lebih dahulu; fixture tambahan dapat diteruskan paralel hingga Sprint 2. Dependensi ANA-05 mengacu pada oracle minimum tersebut, bukan menunggu seluruh benchmark final.
 
@@ -82,6 +82,6 @@ Paket QA-01 menutup oracle minimum lebih dahulu; fixture tambahan dapat diterusk
 
 Judul rencana: `[ID] Ringkasan deliverable`. Salin acceptance criteria, dependencies, test case, dan requirement dari traceability. Petakan username anggota sebelum assignment; username Iltizam yang telah diverifikasi adalah `iltizamhasan3`.
 
-Tulis nomor issue nyata kembali ke tabel mapping pada implementasi berikutnya. Hindari nomor contoh yang dapat disalahartikan sebagai issue yang sudah dibuat. Paket besar boleh dipecah menjadi sub-issue, dengan parent tetap terbuka sampai seluruh acceptance terpenuhi.
+Mapping issue nyata telah ditulis pada tabel paket; milestone paket `1-2` mengikuti Sprint 2 sebagai batas acceptance, dengan dasar tetap dikerjakan Sprint 1. Hindari nomor contoh yang dapat disalahartikan sebagai issue yang sudah dibuat. Paket besar boleh dipecah menjadi sub-issue, dengan parent tetap terbuka sampai seluruh acceptance terpenuhi.
 
 Definisi fitur selesai mengikuti [Definition of Done](DEFINITION_OF_DONE.md), bukan jumlah commit atau keberhasilan tampilan dummy.

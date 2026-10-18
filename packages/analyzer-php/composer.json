@@ -1,0 +1,7 @@
+{
+  "name": "sage/analyzer-php",
+  "description": "Trusted PHP parser adapter for source inspection",
+  "type": "library",
+  "require": { "php": ">=8.4 <8.5", "nikic/php-parser": "5.9.0" },
+  "config": { "platform": { "php": "8.4.0" }, "allow-plugins": false, "sort-packages": true }
+}

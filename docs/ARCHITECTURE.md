@@ -1,6 +1,6 @@
 # Arsitektur sistem
 
-Status: rancangan awal untuk stack yang telah disepakati; compatibility spike dan implementasi belum dijalankan.
+Status: arsitektur produk tetap rancangan; fondasi web/worker/database dan probe ENV-01 tersedia. Detail command dan batas bukti ada di [setup lokal](LOCAL_SETUP.md). Queue, auth, analyzer semantik, serta ekspor produk belum diimplementasikan.
 
 ## Komponen
 
@@ -21,7 +21,7 @@ LLM tidak terhubung ke jalur MVP. Framework backend tambahan, graph database, da
 
 ## Rencana Docker Compose
 
-Tiga service awal: `web`, `worker`, dan `db`. Image worker memuat Node.js, runtime PHP, dependency parser yang dipin, serta Chromium untuk ekspor PDF. Program PHP hanya menjalankan adapter milik aplikasi.
+Tiga service jangka panjang: `web`, `worker`, dan `db`; service `migrate` berjalan sekali sebelum web/worker untuk menerapkan migrasi. Image worker memuat Node.js, runtime PHP, dependency parser yang dipin, serta Chromium untuk ekspor PDF. Program PHP hanya menjalankan adapter milik aplikasi.
 
 - Web dipublikasikan ke loopback host, dengan target awal port 3000; port final mengikuti konfigurasi lokal.
 - PostgreSQL berada pada jaringan internal Compose; port database tidak perlu dipublikasikan secara default.
@@ -99,4 +99,4 @@ tests/fixtures/           source uji kecil dengan oracle yang direview
 tests/e2e/                alur aplikasi dan ekspor
 ```
 
-Struktur tersebut belum dibuat. Nama folder dapat disesuaikan pada ENV-01 dengan menjaga batas tanggung jawab dan dependency contracts.
+Workspace web/worker/database, parser probe, renderer probe, serta tests/fixtures sudah dibuat. packages/contracts masih berupa batas modul; contracts CCM dan struktur E2E produk mengikuti issue berikutnya.

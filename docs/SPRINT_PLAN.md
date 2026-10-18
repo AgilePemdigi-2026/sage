@@ -14,7 +14,7 @@ Satu siklus = 14 hari pengerjaan + 7 hari review user story. Tanggal 26 Oktober 
 
 Target feature-complete: 15 November 2026. Review penerimaan MVP: 16-22 November 2026. Sprint 3 berfokus pada finishing, bukan penundaan sengaja fitur wajib yang belum ada.
 
-Pada 18 Oktober, repository baru memiliki baseline planning dan belum ada bukti eksekusi aplikasi. Kalender minggu pertama tidak boleh diisi sebagai pekerjaan selesai secara retrospektif. Kapasitas sisa Sprint 1 dan estimasi harus ditinjau pada issue ENV-01.
+Baseline awal 18 Oktober berisi planning. Pada tanggal yang sama, ENV-01 dan seed QA-01 mulai diimplementasikan; status serta bukti fondasi dicatat di [pemeriksaan environment](ENVIRONMENT_CHECKS.md), terpisah dari acceptance fitur produk. Kalender minggu pertama tidak boleh diisi sebagai pekerjaan selesai secara retrospektif. Kapasitas sisa Sprint 1 dan estimasi harus ditinjau pada issue ENV-01.
 
 ## Sprint 1: fondasi dan jalur dasar dua bahasa
 

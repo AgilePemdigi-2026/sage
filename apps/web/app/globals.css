@@ -1,0 +1,11 @@
+@import "tailwindcss";
+
+@theme {
+  --color-ink: #061e42;
+  --color-accent: #2ac6ae;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+body { margin: 0; background: #f5f7fa; color: #061e42; font-family: "Inter", sans-serif; }
+::selection { background: #2ac6ae; color: #061e42; }

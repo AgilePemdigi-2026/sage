@@ -1,0 +1,2 @@
+* text=auto
+tests/fixtures/source-bounds/a/same.ts -text whitespace=cr-at-eol

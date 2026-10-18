@@ -19,7 +19,7 @@ Baseline: 18 Oktober 2026, Asia/Jakarta. `Disepakati` adalah keputusan project; 
 | D-11 | Satu siklus sprint terdiri atas dua minggu pengerjaan dan satu minggu review | Disepakati | Mulai 12 Oktober 2026; tanggal lengkap di sprint plan |
 | D-12 | Seluruh fitur MVP selesai pada Sprint 2; Sprint 3 finishing | Disepakati | Generator dokumen, graph, history, dan ekspor masuk Sprint 2 |
 | D-13 | Tanggung jawab dibagi berdasarkan modul dan deliverable; Iltizam melakukan review teknis dan merge PR | Disepakati | Scope, penanggung jawab, dan hasil aktual dicatat pada issue/PR |
-| D-14 | Pembagian kerja memakai Issues, milestone sprint, commit/PR, dan bukti verifikasi | Disepakati | Issue nyata belum dibuat pada baseline ini |
+| D-14 | Pembagian kerja memakai Issues, milestone sprint, commit/PR, dan bukti verifikasi | Disepakati | 28 Issues dan tiga milestone dibuat pada 18 Oktober 2026; mapping di product backlog |
 | D-15 | Pesan commit Conventional Commit, satu baris/satu kalimat | Disepakati | Rincian pekerjaan dan bukti ada di issue/PR |
 
 ## Rancangan teknis awal

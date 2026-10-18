@@ -2,7 +2,7 @@
 
 Status: baseline planning, 18 Oktober 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Seluruh perilaku aplikasi masih Planned/NOT_RUN; keberadaan mapping tidak membuktikan implementasi.
 
-Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Rincian perilaku dibaca bersama sumber dan PRD, bukan digantikan hanya oleh judul. ID backlog adalah ID internal; nomor issue GitHub belum tersedia. Test ID merujuk [test plan](TEST_PLAN.md).
+Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Rincian perilaku dibaca bersama sumber dan PRD, bukan digantikan hanya oleh judul. ID backlog adalah ID internal; nomor issue GitHub tersedia pada tabel product backlog. Test ID merujuk [test plan](TEST_PLAN.md).
 
 ## Requirement SRS
 
