@@ -1,0 +1,57 @@
+{
+  "issue": "QA-01-S1 #31",
+  "date": "2026-10-18",
+  "timezone": "Asia/Jakarta",
+  "requirements": [
+    "APP-10",
+    "NFR-06"
+  ],
+  "sourceBaseCommit": "f7a2f893c67cbcad784a164d9eea7ace81460d3e",
+  "implementationCommitReference": "Full head SHA recorded in the pull request for this branch.",
+  "submissionAccount": "zarrrafirdaus",
+  "humanReview": {
+    "status": "PENDING",
+    "reviewer": "iltizamhasan3"
+  },
+  "expectedFactsOrigin": "Source reading and literal snippets; not generated from analyzer output.",
+  "environment": {
+    "image": "sage-worker:local",
+    "imageId": "sha256:59e39dd37767801dcc15a46c46a71d5ff82ff4237276b9abb3bc2604eca33419",
+    "node": "24.22.0",
+    "npm": "11.17.0",
+    "platform": "linux",
+    "arch": "arm64"
+  },
+  "fixtureManifestSha256": "41697b000ef84741303d82828740fcfb6cd0c0a52355dfd2b742bf94c3a54148",
+  "fixtureFiles": 15,
+  "oracleSpans": 12,
+  "checks": [
+    {
+      "command": "npm run db:generate",
+      "actual": "PASS"
+    },
+    {
+      "command": "npm run check",
+      "expected": "lint, typecheck, and all unit/integrity tests pass",
+      "actual": "PASS",
+      "tests": 10,
+      "passed": 10,
+      "failed": 0
+    },
+    {
+      "command": "npm run fixtures:verify",
+      "expected": "15 files and 12 oracle spans pass integrity verification",
+      "actual": "PASS"
+    },
+    {
+      "command": "git diff --check",
+      "actual": "PASS"
+    }
+  ],
+  "limitations": [
+    "Human review remains pending; no reviewer approval is fabricated.",
+    "T-ANA-03/T-ANA-04 semantic CCM/graph acceptance NOT_RUN; this package verifies source-derived oracle integrity only.",
+    "Representative benchmark and expanded capability fixtures remain in QA-01 #4.",
+    "Repository fixture source, Composer scripts, and plugin configuration are not executed."
+  ]
+}
