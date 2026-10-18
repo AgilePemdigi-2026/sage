@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "status": "PROVISIONAL_NOT_YET_ENFORCED",
+  "maxArchiveBytes": 26214400,
+  "maxExtractedBytes": 104857600,
+  "maxSourceFileBytes": 1048576,
+  "maxFiles": 2000,
+  "maxExtractionRatio": 20,
+  "snapshotTimeoutSeconds": 60,
+  "analysisTimeoutSeconds": 300,
+  "parserTimeoutSeconds": 10,
+  "exportTimeoutSeconds": 60,
+  "note": "Initial conservative ceilings; REP-02/ANA-02/ANA-07 must enforce and test these before accepting arbitrary repositories. Seed fixtures do not establish production capacity."
+}

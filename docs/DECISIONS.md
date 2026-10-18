@@ -19,8 +19,9 @@ Baseline: 18 Oktober 2026, Asia/Jakarta. `Disepakati` adalah keputusan project; 
 | D-11 | Satu siklus sprint terdiri atas dua minggu pengerjaan dan satu minggu review | Disepakati | Mulai 12 Oktober 2026; tanggal lengkap di sprint plan |
 | D-12 | Seluruh fitur MVP selesai pada Sprint 2; Sprint 3 finishing | Disepakati | Generator dokumen, graph, history, dan ekspor masuk Sprint 2 |
 | D-13 | Tanggung jawab dibagi berdasarkan modul dan deliverable; Iltizam melakukan review teknis dan merge PR | Disepakati | Scope, penanggung jawab, dan hasil aktual dicatat pada issue/PR |
-| D-14 | Pembagian kerja memakai Issues, milestone sprint, commit/PR, dan bukti verifikasi | Disepakati | Issue nyata belum dibuat pada baseline ini |
+| D-14 | Pembagian kerja memakai Issues, milestone sprint, commit/PR, dan bukti verifikasi | Disepakati | 28 Issues awal dan tiga milestone dibuat pada 18 Oktober 2026; revisi pembagian menambah 11 issue fase/finishing menjadi 39, mapping di product backlog |
 | D-15 | Pesan commit Conventional Commit, satu baris/satu kalimat | Disepakati | Rincian pekerjaan dan bukti ada di issue/PR |
+| D-16 | Pembagian dinilai berdasarkan bobot pekerjaan dan bukti kontribusi tiap sprint; jumlah issue boleh berbeda | Disepakati 18 Oktober 2026 | Queue ke Rizqy, PHP ke Zarra, PDF/proyeksi diagram ke Valentina; fase Sprint 1 dan empat paket finishing eksplisit; ukuran parent hanya scope sisa, tanpa memindahkan bukti historis |
 
 ## Rancangan teknis awal
 
@@ -33,10 +34,10 @@ Baseline: 18 Oktober 2026, Asia/Jakarta. `Disepakati` adalah keputusan project; 
 | A-05 | Graph JSONB berversi dan artefak tersimpan pada persistent volume | DATA-01 |
 | A-06 | Publish result bundle atomik sesudah sembilan stage; generator gagal berarti analysis gagal | DOC-01 |
 | A-07 | Export job terpisah, deduplikasi per format/document hash, file ready hanya sesudah ditulis | EXP-01, EXP-02 |
-| A-08 | Software Engineering Diagram berupa proyeksi struktur/dependency dari CKG | DOC-01 |
+| A-08 | Software Engineering Diagram berupa proyeksi struktur/dependency dari CKG | DOC-02, DOC-01 |
 | A-09 | Authenticated encryption untuk credential, key terpisah di environment; session server-side | GH-01, DATA-01 |
 | A-10 | Delete hanya untuk analysis terminal tanpa export aktif; cleanup idempotent dan akses langsung dicabut | DATA-02 |
-| A-11 | Renderer diagram statis kandidat Mermaid; pemilihan final menunggu print/Markdown spike | ENV-01, DOC-01 |
+| A-11 | Mermaid telah lolos probe SVG/PDF ENV-01; proyeksi diagram produk dan Markdown/PDF terintegrasi tetap perlu diuji | DOC-02, DOC-01, EXP-01, EXP-02 |
 | A-12 | Query AND kategori; focus context diberi penanda; hitungan canonical tidak berubah | GRAPH-01, GRAPH-02 |
 | A-13 | Batas resource wajib sebelum repository arbitrer; nilai dari fixture/benchmark lokal | ENV-01, QA-01 |
 
@@ -67,22 +68,22 @@ Nomor berikut mengikuti Appendix C. `Sebagian` berarti keputusan inti tersedia t
 | 3 | Server/framework/database/deployment | Sebagian; stack dan Docker lokal dipilih, produksi menunggu dosen | Iltizam / ENV-01; produksi eksternal |
 | 4 | Dokumentasi pengguna | Rancangan awal; panduan setup/demo dan troubleshooting ditulis dari command yang benar-benar lulus | Zarra / REL-01 |
 | 5 | Parser/library/framework/storage | Sebagian; pilihan utama disepakati, versi/renderer dipin pada spike | Iltizam / ENV-01 |
-| 6 | Hardware minimum | TBD; benchmark CPU/RAM/disk dan limits | Iltizam / QA-01 sebelum release |
-| 7 | Static analysis tool | Sebagian; Compiler API dan PHP-Parser dipilih, kemampuan perlu fixture | Iltizam / ANA-03, ANA-04 |
-| 8 | PDF/Markdown generator | Sebagian; document model dan Playwright dipilih, renderer diagram diuji | Iltizam / DOC-01, EXP-01, EXP-02 |
-| 9 | Database/storage/persistence | Sebagian; PostgreSQL/Prisma dan volume, schema/migrasi belum dijalankan | Iltizam / DATA-01 |
+| 6 | Hardware minimum | TBD; benchmark CPU/RAM/disk dan limits | Zarra bersama Iltizam / QA-01 sebelum release |
+| 7 | Static analysis tool | Sebagian; Compiler API dan PHP-Parser dipilih, kemampuan perlu fixture | Iltizam (JS/TS), Zarra (PHP) / ANA-03, ANA-04 |
+| 8 | PDF/Markdown generator | Sebagian; document model dan Playwright dipilih, renderer diagram diuji | Zarra (catalog/MD), Valentina (diagram/PDF) / DOC-01, DOC-02, EXP-01, EXP-02 |
+| 9 | Database/storage/persistence | Sebagian; PostgreSQL/Prisma dan volume; migrasi infrastruktur sudah diuji ENV-01, entitas produk belum | Zarra / DATA-01 |
 | 10 | Provider/model LLM | Ditunda secara sengaja sampai MVP freeze | Iltizam / keputusan setelah Sprint 2 |
-| 11 | Pembaruan progress | Rancangan awal polling; interval/backoff diuji | Iltizam / ANA-07 |
+| 11 | Pembaruan progress | Rancangan awal polling; interval/backoff diuji | Rizqy / ANA-07 |
 | 12 | Format pesan | Rancangan awal JSON/CCM schema v1; validator dan kompatibilitas diuji | Iltizam / ANA-05 |
 | 13 | Protokol dan keamanan komunikasi | Sebagian; HTTP loopback lokal, HTTPS produksi menunggu deployment; callback/session wajib aman | Iltizam / GH-01 |
 | 14 | Prioritas fitur | Ditutup untuk scope; seluruh enam fitur wajib pada target lokal, prioritas tugas dicatat di backlog | Iltizam / baseline |
 | 15 | Respons UI maksimum | TBD; target terukur ditetapkan setelah benchmark, tanpa ETA/persentase palsu | Valentina / QA-03 |
-| 16 | Durasi maksimum analisis | TBD; timeout/config berdasarkan benchmark repository uji | Iltizam / QA-01 |
+| 16 | Durasi maksimum analisis | TBD; timeout/config berdasarkan benchmark repository uji | Zarra / QA-01 |
 | 17 | Ukuran repository | TBD; batas compressed/extracted/files diterapkan setelah spike | Iltizam / ENV-01 |
-| 18 | Konkurensi | Sebagian; satu analysis global disepakati, kapasitas antrean/user tetap dibenchmark | Iltizam / ANA-01 |
+| 18 | Konkurensi | Sebagian; satu analysis global disepakati, kapasitas antrean/user tetap dibenchmark | Rizqy / ANA-01 |
 | 19 | Kebijakan safety tambahan | TBD eksternal; tidak ada kebijakan tambahan yang diasumsikan | Iltizam / konfirmasi dosen bila ada |
 | 20 | Penyimpanan token | Rancangan awal encryption/session server-side; expiry/revocation wajib diuji | Iltizam / GH-01, DATA-01 |
-| 21 | Enkripsi/data at rest | Sebagian; credential encryption dirancang, storage/host produksi mengikuti lingkungan dosen | Iltizam / DATA-01 |
+| 21 | Enkripsi/data at rest | Sebagian; credential encryption dirancang, storage/host produksi mengikuti lingkungan dosen | Zarra / DATA-01 |
 | 22 | Retensi/penghapusan | Sebagian; sampai user menghapus, cleanup lokal dirancang; backup produksi TBD | Zarra / DATA-02 |
 | 23 | Regulasi/kebijakan/sertifikasi | TBD eksternal; tidak ada klaim kepatuhan atau sertifikasi | Iltizam / bila ditentukan dosen |
 | 24 | Kebutuhan tambahan | Sebagian; UI Indonesia/mobile, public repository pihak lain, dan deletion ditambahkan sebagai requirement lokal | Iltizam / traceability |
@@ -91,12 +92,12 @@ Nomor berikut mengikuti Appendix C. `Sebagian` berarti keputusan inti tersedia t
 
 | Risiko | Dampak | Mitigasi dan pemilik |
 | --- | --- | --- |
-| Target luas analyzer melebihi waktu | Fitur tampak lengkap tetapi resolver salah | Capability matrix + fixture per konstruksi; unresolved jujur; Iltizam |
+| Target luas analyzer melebihi waktu | Fitur tampak lengkap tetapi resolver salah | Capability matrix + fixture per konstruksi; unresolved jujur; Iltizam/Zarra |
 | Antrean review dan integrasi antarmodul | Paket yang siap tertahan sebelum terintegrasi | PR kecil, dependensi jelas, dan bukti verifikasi tersedia sebelum review; seluruh tim |
-| Dua bahasa dan perubahan mayor library | Kontrak adapter tidak kompatibel | Pin versi, spike dua bahasa di Sprint 1, contracts tunggal; Iltizam |
+| Dua bahasa dan perubahan mayor library | Kontrak adapter tidak kompatibel | Pin versi, spike dua bahasa di Sprint 1, contracts tunggal; Iltizam/Zarra |
 | GitHub App/izin belum dikonfigurasi | Private repo dan login belum dapat dibuktikan | Tutup GH-01 lebih awal; jangan ganti dengan demo palsu saat release; Iltizam |
 | Fixture belum tersedia | Tidak ada oracle untuk ketepatan graph | QA-01 membuat source kecil dan expected output yang direview sebelum klaim analyzer; Zarra |
-| Scope dipadatkan ke Sprint 2 | Testing/ekspor tertunda | Integrasi tipis awal, generator dimulai sebelum semua UI selesai, reestimasi tiap review; Iltizam |
+| Scope dipadatkan ke Sprint 2 | Testing/ekspor tertunda | Integrasi tipis awal, generator dimulai sebelum semua UI selesai, reestimasi tiap review termasuk beban review/merge; seluruh tim |
 | Repo besar/berbahaya | Resource habis atau source mengeksekusi sesuatu | Batas ekstraksi, worker terpisah, tanpa eksekusi target, timeout; Iltizam |
 | File private masuk Git/log/public URL | Kebocoran data | Ignore storage/secret, redaction, otorisasi, pemeriksaan diff; seluruh tim |
 | Dokumentasi planning dianggap bukti runtime | Pelaporan progres keliru | Status planned vs tested dan bukti per issue; Rizqy/Zarra |

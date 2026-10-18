@@ -16,3 +16,5 @@ backups/
 *.log
 *.pem
 *.key
+*.tsbuildinfo
+packages/database/generated/

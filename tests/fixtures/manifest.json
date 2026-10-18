@@ -1,0 +1,276 @@
+{
+  "schemaVersion": 1,
+  "reviewStatus": "DRAFT_AWAITING_TEAM_REVIEW",
+  "reviewedBy": null,
+  "scope": "Seed fixture/oracle QA-01; evidence integrity and parser syntax probes only. Semantic CCM/edge acceptance remains NOT_RUN.",
+  "files": [
+    {
+      "path": "js-static/base.js",
+      "sha256": "8afe01e73dadbeb414d4f5ccb5071d4a84bf4a7f165e38d366d212c1ed231e04",
+      "sizeBytes": 78,
+      "language": "javascript",
+      "syntaxValid": true
+    },
+    {
+      "path": "js-static/main.js",
+      "sha256": "956e0df38b130ff4eb39d15c6edcf2a794adb85621a7097de04fefe1648de511",
+      "sizeBytes": 249,
+      "language": "javascript",
+      "syntaxValid": true
+    },
+    {
+      "path": "js-static/legacy.cjs",
+      "sha256": "fa35ce78f51d5a651f4aad24c03663982cc018bc83d29078cfe2f1a913f3921f",
+      "sizeBytes": 67,
+      "language": "javascript",
+      "syntaxValid": true
+    },
+    {
+      "path": "js-static/bridge.cjs",
+      "sha256": "be637fe76c14ba9fb5ead3b9cb259acc6b92aa8d1ee3be3a4471376fef522273",
+      "sizeBytes": 115,
+      "language": "javascript",
+      "syntaxValid": true
+    },
+    {
+      "path": "ts-contracts/models.ts",
+      "sha256": "ab097f896ad7c0bc301ef76219cd0fc1ba7040c41b64a91fc107e9b6fb6e3124",
+      "sizeBytes": 81,
+      "language": "typescript",
+      "syntaxValid": true
+    },
+    {
+      "path": "ts-contracts/service.ts",
+      "sha256": "a6ba981d150939c1275c5ecf61108d0fda2908adf3fcef8217b678a672eeb077",
+      "sizeBytes": 295,
+      "language": "typescript",
+      "syntaxValid": true
+    },
+    {
+      "path": "php-namespaces/contracts.php",
+      "sha256": "f08ce7f0b69b2bb838516cc6c72a62892cbdd9ae63d6a5d82470fbb5a2f40035",
+      "sizeBytes": 138,
+      "language": "php",
+      "syntaxValid": true
+    },
+    {
+      "path": "php-namespaces/service.php",
+      "sha256": "3ca7f74201f92a91cd8b86b26f6629a9cc927d2a06c47b8b2bcb85eb7bb39d3d",
+      "sizeBytes": 310,
+      "language": "php",
+      "syntaxValid": true
+    },
+    {
+      "path": "php-namespaces/composer.json",
+      "sha256": "ab37217578198a8433734e425f1b84e4c9785697559fc51a0a08240be5363faf",
+      "sizeBytes": 198,
+      "language": null,
+      "syntaxValid": null
+    },
+    {
+      "path": "source-bounds/a/same.ts",
+      "sha256": "4dd7fb290d6118c26c37259ea852f8c9c700db3679cbdfd214d57aafd3493e2e",
+      "sizeBytes": 62,
+      "language": "typescript",
+      "syntaxValid": true
+    },
+    {
+      "path": "source-bounds/b/same.ts",
+      "sha256": "47d13cfa854defeb77d14bf9499874cdf3e1f7554fe3ce1ce517a38e87f57514",
+      "sizeBytes": 61,
+      "language": "typescript",
+      "syntaxValid": true
+    },
+    {
+      "path": "mixed-languages/example.py",
+      "sha256": "8efa1d8d82b9c71fce4f47f1dd30ff2b1d33bdb80a55c3caa91bfb909aab5fa9",
+      "sizeBytes": 56,
+      "language": null,
+      "syntaxValid": null
+    },
+    {
+      "path": "failure-cases/invalid.js",
+      "sha256": "81ebaee8acfca11ba5c5e31c9b16a875ca5f5a88e8ced26430be2d0af9daba1a",
+      "sizeBytes": 15,
+      "language": "javascript",
+      "syntaxValid": false
+    },
+    {
+      "path": "failure-cases/invalid.php",
+      "sha256": "01be60367f31b6ad8774c6f8cce38eb22afd88aec26ce3829e688efe8d831b4e",
+      "sizeBytes": 14,
+      "language": "php",
+      "syntaxValid": false
+    },
+    {
+      "path": "unsafe-inputs/plugin.config.js",
+      "sha256": "e1c2bf21317198dc3dc1374209bf8fde9e02375e695ee6779139ac7c3fca3124",
+      "sizeBytes": 44,
+      "language": "javascript",
+      "syntaxValid": true
+    }
+  ],
+  "oracles": [
+    {
+      "path": "js-static/main.js",
+      "kind": "Class",
+      "target": "Widget",
+      "snippet": "class Widget extends Base",
+      "evidence": {
+        "startByte": 96,
+        "endByte": 121,
+        "startLine": 3,
+        "startColumn": 8,
+        "endLine": 3,
+        "endColumn": 33
+      }
+    },
+    {
+      "path": "js-static/main.js",
+      "kind": "CALLS",
+      "target": "decorate",
+      "snippet": "decorate(this.label)",
+      "evidence": {
+        "startByte": 164,
+        "endByte": 184,
+        "startLine": 5,
+        "startColumn": 21,
+        "endLine": 5,
+        "endColumn": 41
+      }
+    },
+    {
+      "path": "js-static/main.js",
+      "kind": "Unresolved",
+      "target": "DYNAMIC_LOAD",
+      "snippet": "import(name)",
+      "evidence": {
+        "startByte": 233,
+        "endByte": 245,
+        "startLine": 7,
+        "startColumn": 44,
+        "endLine": 7,
+        "endColumn": 56
+      }
+    },
+    {
+      "path": "js-static/bridge.cjs",
+      "kind": "IMPORTS",
+      "target": "legacy.cjs",
+      "snippet": "require(\"./legacy.cjs\")",
+      "evidence": {
+        "startByte": 15,
+        "endByte": 38,
+        "startLine": 1,
+        "startColumn": 16,
+        "endLine": 1,
+        "endColumn": 39
+      }
+    },
+    {
+      "path": "ts-contracts/models.ts",
+      "kind": "Interface",
+      "target": "Identifiable",
+      "snippet": "interface Identifiable { id: string; }",
+      "evidence": {
+        "startByte": 7,
+        "endByte": 45,
+        "startLine": 1,
+        "startColumn": 8,
+        "endLine": 1,
+        "endColumn": 46
+      }
+    },
+    {
+      "path": "ts-contracts/service.ts",
+      "kind": "IMPLEMENTS",
+      "target": "Identifiable",
+      "snippet": "Service extends Base implements Identifiable",
+      "evidence": {
+        "startByte": 68,
+        "endByte": 112,
+        "startLine": 2,
+        "startColumn": 14,
+        "endLine": 2,
+        "endColumn": 58
+      }
+    },
+    {
+      "path": "ts-contracts/service.ts",
+      "kind": "Unresolved",
+      "target": "UNKNOWN_RECEIVER",
+      "snippet": "(receiver as { run: () => unknown }).run()",
+      "evidence": {
+        "startByte": 249,
+        "endByte": 291,
+        "startLine": 7,
+        "startColumn": 10,
+        "endLine": 7,
+        "endColumn": 52
+      }
+    },
+    {
+      "path": "php-namespaces/service.php",
+      "kind": "EXTENDS",
+      "target": "Contracts\\Base",
+      "snippet": "Service extends Base implements Renderable",
+      "evidence": {
+        "startByte": 130,
+        "endByte": 172,
+        "startLine": 6,
+        "startColumn": 7,
+        "endLine": 6,
+        "endColumn": 49
+      }
+    },
+    {
+      "path": "php-namespaces/service.php",
+      "kind": "Unresolved",
+      "target": "UNKNOWN_RECEIVER",
+      "snippet": "$target->run()",
+      "evidence": {
+        "startByte": 292,
+        "endByte": 306,
+        "startLine": 9,
+        "startColumn": 54,
+        "endLine": 9,
+        "endColumn": 68
+      }
+    },
+    {
+      "path": "source-bounds/a/same.ts",
+      "kind": "Function",
+      "target": "café",
+      "snippet": "function café() { return \"é\"; }",
+      "evidence": {
+        "startByte": 27,
+        "endByte": 60,
+        "startLine": 2,
+        "startColumn": 8,
+        "endLine": 2,
+        "endColumn": 39
+      }
+    },
+    {
+      "path": "source-bounds/b/same.ts",
+      "kind": "SourceSpan",
+      "target": "judul",
+      "snippet": "judul = \"arsitektur 😀\"",
+      "evidence": {
+        "startByte": 34,
+        "endByte": 59,
+        "startLine": 2,
+        "startColumn": 14,
+        "endLine": 2,
+        "endColumn": 36
+      }
+    }
+  ],
+  "pendingCoverage": [
+    "Complete declaration/edge oracle per capability matrix",
+    "JSX/TSX, alias, enum, PHP trait/enum",
+    "Archive traversal/symlink/size and worker interruption",
+    "Real GitHub public/private repositories",
+    "Team review and representative benchmark"
+  ]
+}

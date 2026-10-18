@@ -1,6 +1,6 @@
 # Kontrak API
 
-Status: rancangan API `v1` untuk implementasi; endpoint belum tersedia. Root rencana adalah `/api`. ID internal bersifat opaque dan tidak menggantikan pemeriksaan session/pemilik.
+Status: endpoint produk `v1` masih rancangan dan belum tersedia. Fondasi ENV-01 menyediakan `GET /api/health`: HTTP 200 ketika koneksi database tersedia, atau HTTP 503 dengan status `unavailable` tanpa detail error internal. Health check tidak memerlukan session dan tidak menyediakan data pengguna. Root rencana produk adalah `/api`; ID opaque tidak menggantikan pemeriksaan session/pemilik.
 
 ## Aturan umum
 

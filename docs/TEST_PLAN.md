@@ -1,12 +1,12 @@
 # Test plan
 
-Status: seluruh test case berikut `NOT_RUN` pada baseline 18 Oktober 2026. Dokumen ini menetapkan apa yang harus diuji, bukan hasil fresh execution. Status/bukti aktual nantinya disimpan di issue/PR dan artefak pengujian yang aman.
+Status: seluruh 24 acceptance test produk berikut tetap `NOT_RUN`. Probe fondasi ENV-01 dan integritas seed QA-01 dicatat terpisah di [pemeriksaan environment](ENVIRONMENT_CHECKS.md); probe tidak menutup acceptance produk. Bukti aktual dilampirkan pada issue/PR serta artefak yang aman.
 
 ## Strategi
 
 Gunakan tiga lapis: unit/contract untuk parser, CCM dan proyeksi; integrasi untuk database/worker/GitHub boundary; E2E untuk user story dan ekspor. Mock hanya membuktikan perilaku pada boundary yang digantikan; release gate tetap memerlukan integrasi GitHub nyata dan file keluaran nyata.
 
-Playwright digunakan untuk browser E2E dan export PDF. Framework unit test dipilih saat ENV-01 sesuai workspace yang dibuat. Test harus menilai perilaku/hasil yang penting, bukan mengulang implementasi atau hanya memeriksa keberadaan komponen.
+Playwright digunakan untuk browser E2E dan export PDF. Fondasi memakai Node.js test runner melalui tsx untuk unit/integrity tests. Test harus menilai perilaku/hasil yang penting, bukan mengulang implementasi atau hanya memeriksa keberadaan komponen.
 
 ## Fixture dan oracle
 
@@ -25,6 +25,14 @@ Untuk tiap fixture simpan source, full SHA atau manifest hash lokal, config, exp
 | `unsafe-inputs` | URL non-GitHub, traversal, symlink, archive berlebihan, konfigurasi/plugin executable |
 
 Fixture JSX/TSX, type alias, enum, PHP trait, dan semantik framework ditambahkan saat capability spike. Angka 37 node/88 edge pada mockup bukan oracle sampai source lengkapnya tersedia dan direview.
+
+## Penerimaan fase dan regression
+
+Paket QA-01-S1, ANA-05-S1, ANA-03-S1, ANA-04-S1, ANA-07-S1, GRAPH-01-S1, QA-03-S1, dan UI-01 memiliki scope awal yang diuji terpisah. Rekam kasus uji yang dipakai serta batasnya: stub stage tidak membuktikan sembilan tahap analisis nyata; canvas fixture tidak membuktikan CKG dari repository. Parent tetap memerlukan kasus penerimaan lengkap. DOC-02 menguji proyeksi diagram dari CKG dan keamanan rendering, lalu DOC-01/EXP-01/EXP-02 memverifikasi konsistensi dokumen serta file nyata.
+
+Sesudah freeze, FIN-01 (Iltizam) mengulang analyzer/worker/CCM/CKG/evidence dan benchmark; FIN-03 (Rizqy) mengulang GitHub/repository/queue/pipeline/history/integrasi; FIN-04 (Valentina) mengulang graph/UI/keyboard/lima viewport dan render visual seluruh halaman PDF. FIN-02 (Zarra) memverifikasi dokumen, panduan, serta replay demo setelah hasil regression tersedia. Catat hasil bersih jika tidak ada temuan; issue bug hanya untuk kegagalan yang benar-benar ditemukan.
+
+Rincian scope dan bukti mengikuti [alokasi sprint](SPRINT_ALLOCATION.md). Penggunaan bukti fase pada parent tidak dihitung sebagai kontribusi baru tanpa aktivitas verifikasi baru yang dicatat.
 
 ## Kasus penerimaan
 

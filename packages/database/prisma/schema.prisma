@@ -1,0 +1,15 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// Infrastruktur ENV-01; entitas produk dan autentikasi ditambahkan pada DATA-01.
+model WorkerHeartbeat {
+  id        String   @id
+  startedAt DateTime @default(now())
+  lastSeen  DateTime @updatedAt
+}

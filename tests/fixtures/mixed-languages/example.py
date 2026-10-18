@@ -1,0 +1,1 @@
+raise RuntimeError("UNSUPPORTED_FILE_MUST_NOT_EXECUTE")

@@ -15,6 +15,8 @@ assignees: ""
 - Pelaksana implementasi:
 - Pemeriksa/verifier:
 - Dependensi issue dan base commit:
+- Parent/sub-issue dan fase sprint (bila ada):
+- Estimasi relatif untuk scope item ini; batas terhadap scope parent/anak:
 
 ## Tujuan dan scope
 
@@ -38,6 +40,7 @@ Daftar file, tujuan perubahan, dependensi, cara menjalankan, dan checklist verif
 - Expected vs actual:
 - Bukti yang aman untuk repository publik:
 - Keterbatasan atau pengujian yang belum dijalankan:
+- Bukti yang dirujuk dari fase lain (hindari menghitung kontribusi yang sama dua kali):
 
 ## Penyelesaian
 

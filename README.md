@@ -2,9 +2,23 @@
 
 Source-code Architecture Graph Extraction for Evidence-Grounded Software Architecture Documentation.
 
-SAGE direncanakan sebagai aplikasi web untuk menganalisis repository GitHub, menampilkan Code Knowledge Graph yang dapat ditelusuri ke source code, dan menghasilkan dokumentasi arsitektur dalam Markdown serta PDF.
+SAGE dikembangkan sebagai aplikasi web untuk menganalisis repository GitHub, menampilkan Code Knowledge Graph yang dapat ditelusuri ke source code, dan menghasilkan dokumentasi arsitektur dalam Markdown serta PDF.
 
-**Status per 18 Oktober 2026: baseline planning.** Repository ini belum berisi aplikasi, Docker Compose yang dapat dijalankan, migrasi database, atau hasil pengujian fitur. Seluruh contoh kontrak dan struktur direktori aplikasi dalam dokumentasi adalah rancangan implementasi.
+**Status per 18 Oktober 2026: fondasi Sprint 1 (ENV-01 dan seed QA-01).** Workspace web/worker, Docker Compose, migrasi infrastruktur, parser probe, dan seed fixture tersedia. Login, pemilihan repository, pipeline analisis, graph, history, dan ekspor produk masih berada pada issue terpisah. Probe kompatibilitas bukan bukti bahwa fitur MVP telah selesai.
+
+## Menjalankan fondasi lokal
+
+Siapkan Docker Engine/Compose lalu jalankan dari root repository:
+
+```sh
+node scripts/setup-local.mjs
+docker compose build
+docker compose up --wait --wait-timeout 180
+```
+
+Buka [SAGE lokal](http://localhost:3000). Script setup menggunakan Node untuk membuat `.env` dengan password acak tanpa menimpa konfigurasi lama. PHP, PostgreSQL, dependency aplikasi, dan Chromium berada di container.
+
+Command, migrasi, smoke test, dan batas pengujian dijelaskan pada [setup lokal](docs/LOCAL_SETUP.md). Mapping 39 Issues serta milestone ada di [product backlog](docs/PRODUCT_BACKLOG.md); pembagian deliverable tiap anggota ada di [alokasi sprint](docs/SPRINT_ALLOCATION.md).
 
 ## Keputusan utama
 
@@ -32,6 +46,7 @@ SAGE direncanakan sebagai aplikasi web untuk menganalisis repository GitHub, men
 | [Design guidelines](docs/DESIGN_GUIDELINES.md) | Acuan Figma, token, bahasa UI, state, dan responsivitas |
 | [Product backlog](docs/PRODUCT_BACKLOG.md) | Paket pekerjaan, dependensi, acceptance criteria, dan penanggung jawab |
 | [Sprint plan](docs/SPRINT_PLAN.md) | Kalender pengerjaan/review dan target setiap sprint |
+| [Alokasi sprint](docs/SPRINT_ALLOCATION.md) | Scope tiap anggota, issue fase/integrasi, serta bukti kontribusi |
 | [Definition of Done](docs/DEFINITION_OF_DONE.md) | Syarat sebuah deliverable dan MVP dinyatakan selesai |
 | [Test plan](docs/TEST_PLAN.md) | Fixture, test case, integrasi GitHub, dan verifikasi ekspor |
 | [Keputusan dan risiko](docs/DECISIONS.md) | Keputusan yang disepakati, rancangan awal, TBD, dan risiko |
@@ -53,7 +68,7 @@ Mulai dari PRD, keputusan, spesifikasi analisis, lalu backlog dan sprint plan. K
 | Ekspor PDF | Playwright/Chromium dari halaman cetak terkontrol |
 | Lingkungan lokal | Docker Compose dan persistent volumes |
 
-Versi dependency, renderer diagram statis, dan batas resource akan dipin setelah compatibility spike. Tidak ada klaim bahwa integrasi stack telah lulus pengujian pada baseline planning ini.
+Dependency aplikasi dipin pada lockfile; base image dipin dengan digest pada Dockerfile/Compose. Mermaid diuji sebagai renderer SVG/PDF; generator artefak produk tetap masuk DOC-01. Batas awal dan hasil spike dicatat pada panduan lokal serta bukti ENV-01.
 
 ## Kalender
 
@@ -69,9 +84,7 @@ Baseline planning disusun pada 18 Oktober 2026. Tanggal sprint bukan bukti bahwa
 
 ## Pelaksanaan berikutnya
 
-1. Turunkan backlog menjadi GitHub Issues menggunakan template yang tersedia.
-2. Lengkapi konfigurasi GitHub App dan repository uji tanpa menyimpan secret di Git.
-3. Buktikan compatibility stack dan setup Docker sebelum menambah fitur.
-4. Jalankan acceptance criteria dan lampirkan bukti sebelum mengubah status pekerjaan menjadi Done.
-
-Panduan menjalankan aplikasi akan ditambahkan ketika command, image, dan konfigurasi yang dirujuk sudah benar-benar tersedia.
+1. Review bukti ENV-01 dan seed fixture/oracle QA-01.
+2. Implementasikan entitas produk, isolasi user, dan credential/session storage pada DATA-01.
+3. Lengkapi GitHub App untuk GH-01 tanpa menyimpan secret di Git.
+4. Tutup setiap paket setelah acceptance dan review terpenuhi.

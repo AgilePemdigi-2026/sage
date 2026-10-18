@@ -1,0 +1,344 @@
+{
+  "date": "2026-10-18T11:06:33.437Z",
+  "baselineCommit": "9689776a1d16224e7ff117fa442d168c80219334",
+  "scope": "ENV-01 runtime compatibility and QA-01 seed integrity; product acceptance NOT_RUN",
+  "environment": {
+    "os": "Linux containers on macOS arm64",
+    "vmCpus": 2,
+    "vmMemoryGiB": 4,
+    "node": "24.22.0",
+    "php": "8.4.26",
+    "postgres": "17.11",
+    "dockerEngine": "29.5.2",
+    "compose": "5.6.0"
+  },
+  "sourceFilesSha256": {
+    ".npmrc": "ae37c40c64d0a0e8526b5087ee3177db4ff43daeccf7db2a07ac90949ddc5fc9",
+    "Dockerfile": "ab764fc3b60e9846d74413caef980a43e08b14203140a7dd528f561d2f53dee5",
+    "apps/web/app/api/health/route.ts": "ae9efdca562ab19102032e934ec0d67664dbd5f6c6e2d30e82439fe6cf43118f",
+    "apps/web/app/globals.css": "8e7df65c098fa737b367ad35131ae31cd348bc05f6be067bee91657a6ec51bd5",
+    "apps/web/app/layout.tsx": "9064f6953452a8e313d840788f31cb60b926959e2e0be396eeb9509c30f434ec",
+    "apps/web/app/page.tsx": "790f3f3e190a9bcd194af9c331fe699e021edc5b0b71657930cae3ae4b71046e",
+    "apps/web/next-env.d.ts": "879741880b6ab48da99dcc06dcc674d381c9826137b0496bf7bb368f302de9fc",
+    "apps/web/next.config.ts": "be3e1b3085e8f877bd72595a06ffa41fbd21ca7b5b8bfe763004bcfb18078505",
+    "apps/web/package.json": "cd92afd0f3993f566278736b1e52ee84a67676011e63fae6989c339458d39d28",
+    "apps/web/postcss.config.mjs": "b783348d5618047d0f37e12acd15c5a2c5f02809d8711e0764c9cea52750346c",
+    "apps/web/tsconfig.json": "dd04437a58010e71d0b52babfc33b9144c667d844639259fe10a47d4adf9dfb9",
+    "apps/worker/package.json": "91fca53b0c913e0e9b9fd8592346bd09aa22c6d1dda45807302c7d93d1719bf1",
+    "apps/worker/src/health.ts": "6e0f025d0954f517c0d405db8307a57b4db13480431a613bfa4ee6007173f5a8",
+    "apps/worker/src/index.ts": "185671fc2235c2193c52d60f334629d05faa906aa155a7d0413a323263e2efbb",
+    "compose.yaml": "2052d7f06b663ac625ffb0fbf3331c7b27aad57aaaf3ddb5dee1ec7fca0a8cac",
+    "config/analysis-limits.json": "129d1e622849af27ba251ed3a1eed9080897bd719879bfb1c5b5df05f505ffc3",
+    "eslint.config.mjs": "8195f306ff6256fee65fbdbdd1f957cbf25426505ee9626c9d64a6867b05787e",
+    "package-lock.json": "c3fb9bca3771e60022b3b5ef8674645d902629fffbdd4326079fb46592ee3fd1",
+    "package.json": "8436ecfb907a38059e7b0a27b9660d85b43d90b02eb3cf1c77ffdd925b600fce",
+    "packages/analyzer-js/package.json": "a54e9588b24bd676f65848f1f8fd18774cb5dfbc87b554c1e62573009d76d1a0",
+    "packages/analyzer-js/src/probe.ts": "b142932ee792c2da722b8357c99ccb443e4f038e3217ccf7357dc41fdc9e2aec",
+    "packages/analyzer-php/bin/probe.php": "afe3af7eaa605ba798aa223ea07b1a24d153f806e868742cbd162612a68f0778",
+    "packages/analyzer-php/composer.json": "ec81a1420f174df056bc1d7733c09767e1741750333306578f51bc9e8a8b72b8",
+    "packages/analyzer-php/composer.lock": "84b7c498f04c1e3df32cc0d943913f7da3e72488f302642cc57bc5ae23dfc440",
+    "packages/analyzer-php/package.json": "94be7b701c7ce02fda8ff002a24e0eeba258a4406a774a71a8e659b74754f7de",
+    "packages/analyzer-php/src/probe.ts": "d0501b944fd0308ad40722a069feda3f6067147a44109c09e57a5a1e8ffb5500",
+    "packages/contracts/README.md": "a3fbf9ddf55edbc48ad22f685c9ff772395c47f6ea9969647331e50679e8c65d",
+    "packages/database/package.json": "c8c99e4e77d9cf682f98a649455f065d5990f6b62ce16b4f0b5ec4cf1f8d956f",
+    "packages/database/prisma.config.ts": "8c50117c5ac0d50ea802d0eb24fe66b1f5388afc6bca01303fc21b528bedc387",
+    "packages/database/prisma/migrations/202610180001_environment/migration.sql": "477d4f74b2c0097943643997903c205d01348f53cf228f8b080ce51b51c5c319",
+    "packages/database/prisma/migrations/migration_lock.toml": "1db17a8d051aa136110736752c5e1f8b7ed92b6ea8e803112fbbe2497047c210",
+    "packages/database/prisma/schema.prisma": "f893626bcf46bc03d1e83c651bd0e14a1f8b285ff7257f1d639448cb7479cf45",
+    "packages/database/src/index.ts": "6c889c379e527505c31559f4cd250f72db3ea703deced2ac5e533360b8f4e07b",
+    "packages/documents/package.json": "05b728c5d373ed36273a80c43d59d036fb66d25a51aa8897528ad8841e696763",
+    "packages/documents/src/probe.ts": "5ef7e5142f165c0294dee4d0d8343ba92af2aa5648df559dbdba5cdb597593e4",
+    "scripts/browser-smoke.ts": "e9a943e311a599411cdedc0b261c6f2bd4d867cf8de83ff00699fb2a4f9dbe94",
+    "scripts/persistence.ts": "dac53be209453db9230515b9ef0e0235d1dd4c2d75a563c25cf2c449ab523e0c",
+    "scripts/setup-local.mjs": "5e84e625e6ac781ed1bea147c39d9fcd61aa40ac449fab1107d65cadf2d5099e",
+    "scripts/smoke.ts": "d3798c9bf5f8a8b80afd1b4f0c60fe44169d83f086ab105b38205b05c4148c62",
+    "scripts/verify-fixtures.ts": "76d5426155a4332ae78239d2cf64eba41ec38902475c692505d296f9858a387a",
+    "tests/environment.test.ts": "75324e216066c3b6a9f10a8442986818b482b8e5b8c1bff318fbe0ac7b4ef4c1",
+    "tests/fixtures.test.ts": "76dd33b4844216f2767bbdc7b30ea4d334faddd737cc6d0a2038527d28323090",
+    "tests/fixtures/README.md": "5021edad1db8c091c07623546af35100bef0c4e02ae798eef7225d83e8992b65",
+    "tests/fixtures/failure-cases/invalid.js": "81ebaee8acfca11ba5c5e31c9b16a875ca5f5a88e8ced26430be2d0af9daba1a",
+    "tests/fixtures/failure-cases/invalid.php": "01be60367f31b6ad8774c6f8cce38eb22afd88aec26ce3829e688efe8d831b4e",
+    "tests/fixtures/js-static/base.js": "8afe01e73dadbeb414d4f5ccb5071d4a84bf4a7f165e38d366d212c1ed231e04",
+    "tests/fixtures/js-static/bridge.cjs": "be637fe76c14ba9fb5ead3b9cb259acc6b92aa8d1ee3be3a4471376fef522273",
+    "tests/fixtures/js-static/legacy.cjs": "fa35ce78f51d5a651f4aad24c03663982cc018bc83d29078cfe2f1a913f3921f",
+    "tests/fixtures/js-static/main.js": "956e0df38b130ff4eb39d15c6edcf2a794adb85621a7097de04fefe1648de511",
+    "tests/fixtures/manifest.json": "263d3cf96857c32c1d4986a21803e7ebff36025115cb2effae507d50bddfc2c3",
+    "tests/fixtures/mixed-languages/example.py": "8efa1d8d82b9c71fce4f47f1dd30ff2b1d33bdb80a55c3caa91bfb909aab5fa9",
+    "tests/fixtures/php-namespaces/composer.json": "ab37217578198a8433734e425f1b84e4c9785697559fc51a0a08240be5363faf",
+    "tests/fixtures/php-namespaces/contracts.php": "f08ce7f0b69b2bb838516cc6c72a62892cbdd9ae63d6a5d82470fbb5a2f40035",
+    "tests/fixtures/php-namespaces/service.php": "3ca7f74201f92a91cd8b86b26f6629a9cc927d2a06c47b8b2bcb85eb7bb39d3d",
+    "tests/fixtures/source-bounds/a/same.ts": "4dd7fb290d6118c26c37259ea852f8c9c700db3679cbdfd214d57aafd3493e2e",
+    "tests/fixtures/source-bounds/b/same.ts": "47d13cfa854defeb77d14bf9499874cdf3e1f7554fe3ce1ce517a38e87f57514",
+    "tests/fixtures/ts-contracts/models.ts": "ab097f896ad7c0bc301ef76219cd0fc1ba7040c41b64a91fc107e9b6fb6e3124",
+    "tests/fixtures/ts-contracts/service.ts": "a6ba981d150939c1275c5ecf61108d0fda2908adf3fcef8217b678a672eeb077",
+    "tests/fixtures/unsafe-inputs/plugin.config.js": "e1c2bf21317198dc3dc1374209bf8fde9e02375e695ee6779139ac7c3fca3124",
+    "tsconfig.json": "755e76929d744c7068743e5f41ee1e825ef5e2e483f860d3e06f4d6640c0348f"
+  },
+  "checks": {
+    "cleanDockerBuild": "PASS",
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "unitTests": {
+      "passed": 3,
+      "failed": 0
+    },
+    "migration": "PASS",
+    "servicesHealthy": [
+      "web",
+      "worker",
+      "db"
+    ],
+    "runtimeUserIds": {
+      "web": 1000,
+      "worker": 1000
+    },
+    "databaseDownHttpStatus": 503,
+    "databaseDownResponseRedacted": "PASS",
+    "databasePersistenceAfterRecreate": "PASS",
+    "storagePdfHashAfterRecreate": "PASS",
+    "pdfTextAndVisualInspection": "PASS: one A4 page, diagram/text readable, no clipping",
+    "homeVisualInspection": "PASS: 360 and 1440 px"
+  },
+  "smokeReport": {
+    "date": "2026-10-18T11:06:33.437Z",
+    "node": "v24.22.0",
+    "platform": "linux",
+    "arch": "arm64",
+    "checks": [
+      {
+        "name": "database-and-migration",
+        "status": "PASS"
+      },
+      {
+        "name": "fixture-integrity",
+        "files": 15,
+        "oracles": 11,
+        "status": "PASS",
+        "semanticAcceptance": "NOT_RUN"
+      },
+      {
+        "name": "js-static/base.js",
+        "status": "PASS",
+        "milliseconds": 3.33,
+        "sizeBytes": 78,
+        "parserVersion": "5.9.3",
+        "valid": true,
+        "diagnostics": [],
+        "statementKinds": [
+          "ClassDeclaration",
+          "FunctionDeclaration"
+        ]
+      },
+      {
+        "name": "js-static/main.js",
+        "status": "PASS",
+        "milliseconds": 1.49,
+        "sizeBytes": 249,
+        "parserVersion": "5.9.3",
+        "valid": true,
+        "diagnostics": [],
+        "statementKinds": [
+          "ImportDeclaration",
+          "ThrowStatement",
+          "ClassDeclaration",
+          "FunctionDeclaration"
+        ]
+      },
+      {
+        "name": "js-static/legacy.cjs",
+        "status": "PASS",
+        "milliseconds": 0.38,
+        "sizeBytes": 67,
+        "parserVersion": "5.9.3",
+        "valid": true,
+        "diagnostics": [],
+        "statementKinds": [
+          "ExpressionStatement"
+        ]
+      },
+      {
+        "name": "js-static/bridge.cjs",
+        "status": "PASS",
+        "milliseconds": 0.39,
+        "sizeBytes": 115,
+        "parserVersion": "5.9.3",
+        "valid": true,
+        "diagnostics": [],
+        "statementKinds": [
+          "FirstStatement",
+          "ExpressionStatement"
+        ]
+      },
+      {
+        "name": "ts-contracts/models.ts",
+        "status": "PASS",
+        "milliseconds": 0.46,
+        "sizeBytes": 81,
+        "parserVersion": "5.9.3",
+        "valid": true,
+        "diagnostics": [],
+        "statementKinds": [
+          "InterfaceDeclaration",
+          "ClassDeclaration"
+        ]
+      },
+      {
+        "name": "ts-contracts/service.ts",
+        "status": "PASS",
+        "milliseconds": 0.53,
+        "sizeBytes": 295,
+        "parserVersion": "5.9.3",
+        "valid": true,
+        "diagnostics": [],
+        "statementKinds": [
+          "ImportDeclaration",
+          "ClassDeclaration",
+          "FunctionDeclaration"
+        ]
+      },
+      {
+        "name": "php-namespaces/contracts.php",
+        "status": "PASS",
+        "milliseconds": 64.79,
+        "sizeBytes": 138,
+        "valid": true,
+        "parserVersion": "v5.9.0",
+        "phpVersion": "8.4.26",
+        "statementKinds": [
+          "Stmt_Namespace"
+        ],
+        "diagnostics": []
+      },
+      {
+        "name": "php-namespaces/service.php",
+        "status": "PASS",
+        "milliseconds": 24.88,
+        "sizeBytes": 310,
+        "valid": true,
+        "parserVersion": "v5.9.0",
+        "phpVersion": "8.4.26",
+        "statementKinds": [
+          "Stmt_Namespace"
+        ],
+        "diagnostics": []
+      },
+      {
+        "name": "source-bounds/a/same.ts",
+        "status": "PASS",
+        "milliseconds": 0.75,
+        "sizeBytes": 62,
+        "parserVersion": "5.9.3",
+        "valid": true,
+        "diagnostics": [],
+        "statementKinds": [
+          "FunctionDeclaration"
+        ]
+      },
+      {
+        "name": "source-bounds/b/same.ts",
+        "status": "PASS",
+        "milliseconds": 0.24,
+        "sizeBytes": 61,
+        "parserVersion": "5.9.3",
+        "valid": true,
+        "diagnostics": [],
+        "statementKinds": [
+          "FirstStatement"
+        ]
+      },
+      {
+        "name": "failure-cases/invalid.js",
+        "status": "PASS",
+        "milliseconds": 0.37,
+        "sizeBytes": 15,
+        "parserVersion": "5.9.3",
+        "valid": false,
+        "diagnostics": [
+          {
+            "code": 1005,
+            "message": "'}' expected."
+          }
+        ],
+        "statementKinds": [
+          "ClassDeclaration"
+        ]
+      },
+      {
+        "name": "failure-cases/invalid.php",
+        "status": "PASS",
+        "milliseconds": 17.26,
+        "sizeBytes": 14,
+        "valid": false,
+        "diagnostics": [
+          {
+            "message": "Syntax error, unexpected '{', expecting T_STRING",
+            "line": 1
+          }
+        ]
+      },
+      {
+        "name": "unsafe-inputs/plugin.config.js",
+        "status": "PASS",
+        "milliseconds": 0.17,
+        "sizeBytes": 44,
+        "parserVersion": "5.9.3",
+        "valid": true,
+        "diagnostics": [],
+        "statementKinds": [
+          "ThrowStatement"
+        ]
+      },
+      {
+        "name": "chromium-mermaid-pdf",
+        "status": "PASS",
+        "chromium": "156.0.8078.4"
+      }
+    ],
+    "scope": "ENV-01 compatibility and QA-01 seed integrity; not application acceptance",
+    "peakRssKiB": 339264
+  },
+  "browserReport": {
+    "date": "2026-10-18T11:06:40.170Z",
+    "scope": "Foundation page only; full T-UI-01 NOT_RUN",
+    "checks": [
+      {
+        "width": 360,
+        "status": "PASS",
+        "horizontalOverflow": false,
+        "pageErrors": 0
+      },
+      {
+        "width": 390,
+        "status": "PASS",
+        "horizontalOverflow": false,
+        "pageErrors": 0
+      },
+      {
+        "width": 768,
+        "status": "PASS",
+        "horizontalOverflow": false,
+        "pageErrors": 0
+      },
+      {
+        "width": 1024,
+        "status": "PASS",
+        "horizontalOverflow": false,
+        "pageErrors": 0
+      },
+      {
+        "width": 1440,
+        "status": "PASS",
+        "horizontalOverflow": false,
+        "pageErrors": 0
+      }
+    ]
+  },
+  "limitations": [
+    "No real GitHub login/repository analysis",
+    "No semantic CCM/edge oracle comparison",
+    "Team fixture review pending",
+    "Archive and pipeline limits not yet enforced",
+    "Node RSS excludes PHP/Chromium child processes",
+    "Only Linux arm64 executed; other architectures NOT_RUN"
+  ]
+}
