@@ -53,5 +53,18 @@ export type {
   EnqueueAnalysisInput,
   RenewAnalysisLeaseOptions,
 } from "./queue.ts";
+export {
+  completeAnalysisStage,
+  failAnalysisStage,
+  initializeAnalysisStages,
+  readAnalysisStages,
+  startAnalysisStage,
+} from "./stages.ts";
+export type {
+  AnalysisStageFailureCode,
+  AnalysisStageTargetContext,
+  PersistedAnalysisStageInput,
+  ReadonlyJsonValue,
+} from "./stages.ts";
 export type { EncryptedCredential } from "./credentials.ts";
 export type { ResolvedSession } from "./session.ts";
