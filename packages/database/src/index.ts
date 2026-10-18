@@ -17,3 +17,26 @@ export async function disconnectDatabase() {
   await state.sageDatabase?.$disconnect();
   delete state.sageDatabase;
 }
+
+export {
+  findAnalysisForUser,
+  findArchitectureDocumentForUser,
+  findExportForUser,
+  findGitHubConnectionForUser,
+  findGitHubInstallationForUser,
+  findGraphBundleForUser,
+  findJobForUser,
+  findSourceFileForUser,
+  findStorageObjectForUser,
+} from "./access.ts";
+export {
+  decryptCredential,
+  encryptCredential,
+  readGitHubCredential,
+  replaceGitHubCredential,
+  revokeGitHubCredentialForUser,
+  storeGitHubCredential,
+} from "./credentials.ts";
+export { createSession, hashSessionToken, resolveSession, revokeSession } from "./session.ts";
+export type { EncryptedCredential } from "./credentials.ts";
+export type { ResolvedSession } from "./session.ts";

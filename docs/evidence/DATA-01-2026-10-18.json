@@ -1,0 +1,90 @@
+{
+  "issue": "DATA-01 #3",
+  "date": "2026-10-18",
+  "timezone": "Asia/Jakarta",
+  "sourceBaseCommit": "ca7827406e1170d07298210c6993d94b25a27568",
+  "implementationCommitReference": "Full implementation SHA is recorded on this branch pull request.",
+  "responsibleAccount": "zarrrafirdaus",
+  "humanAcceptance": "PENDING_REVIEW",
+  "environment": {
+    "node": "24.22.0",
+    "npm": "11.17.0",
+    "prisma": "7.10.1",
+    "postgres": "17.11",
+    "platform": "linux",
+    "arch": "arm64",
+    "appImageId": "sha256:59e39dd37767801dcc15a46c46a71d5ff82ff4237276b9abb3bc2604eca33419"
+  },
+  "checks": [
+    {
+      "command": "npm run check",
+      "actual": "PASS",
+      "baselineTests": 10,
+      "databaseUnitTests": 8,
+      "failed": 0
+    },
+    {
+      "command": "npm run test:data:integration",
+      "actual": "PASS",
+      "tests": 1,
+      "kind": "Actual isolated PostgreSQL with two user fixtures"
+    },
+    {
+      "command": "npm run build",
+      "actual": "PASS"
+    },
+    {
+      "command": "prisma migrate deploy (empty database and baseline upgrade)",
+      "actual": "PASS"
+    },
+    {
+      "command": "prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code",
+      "actual": "PASS",
+      "databases": [
+        "clean",
+        "upgrade"
+      ]
+    },
+    {
+      "command": "node --import tsx scripts/data-check.ts seed; recreate isolated PostgreSQL container preserving named volume; node --import tsx scripts/data-check.ts check",
+      "actual": "PASS"
+    },
+    {
+      "command": "Isolated setup-local checks: fresh env, existing env, idempotence, permissions, symlink rejection",
+      "actual": "PASS"
+    },
+    {
+      "command": "docker compose --env-file <private-test.env> config --quiet",
+      "actual": "PASS"
+    },
+    {
+      "command": "git diff --check",
+      "actual": "PASS"
+    }
+  ],
+  "persistence": {
+    "sha256": "f0c7b09e52aa6c3bf5699e20a64f5cd5475a618d4afc66bb4bb610ff359d02d7",
+    "dataBytes": 5689,
+    "afterSha256": "f0c7b09e52aa6c3bf5699e20a64f5cd5475a618d4afc66bb4bb610ff359d02d7",
+    "matched": true,
+    "mode": "container recreate, named PostgreSQL volume retained"
+  },
+  "fileSha256": {
+    "packages/database/prisma/schema.prisma": "7053f85d0b302287a37e4bfe73166c26751f9660e596c0c94f78099571e3f036",
+    "packages/database/prisma/migrations/202610180002_data01/migration.sql": "071aedc7fd7c2789b334c0d4c9d57ec055b2c9840fb4819b84f7e497a9407d98",
+    "packages/database/src/session.ts": "1535cfdbcf01e3b969dbeee058f4a2983d7a2b2db43d7e9f47c9719f40bfcc04",
+    "packages/database/src/credentials.ts": "d20d38280fa53144e890d0a7386757ced2ab95651a7b9b65abefaa2b1b7319da",
+    "packages/database/src/access.ts": "b250ce123ac101e307ee43c9da27c61ff5254f95538d089174cbf5e92e6a297b",
+    "tests/database.test.ts": "399cf2a38826a078fd9888696e21f87c090eb7fb536458d784d6eee8cb3cf742",
+    "tests/database.integration.ts": "f44ffa004ef0af60b6022f0581fbe7901b3c7905b2b2e2bff8d0e5582f90bf01",
+    "scripts/data-check.ts": "fae89162ef74d193edb7982728820f5051129f4cee3fc12be657e519f1663b59",
+    "scripts/setup-local.mjs": "cf60a72082426607b5682c35b97e8dea3d0d12926a883393b974797a10fe822f"
+  },
+  "limitations": [
+    "Synthetic test rows prove storage/access primitives, not real GitHub OAuth or analysis results.",
+    "OAuth callback must choose create vs owner-scoped credential replacement.",
+    "Global queue claim/recovery, deletion lifecycle and filesystem authorization remain separate issues.",
+    "JSON graph/document structure and atomic result publication remain analyzer/document pipeline work.",
+    "Single server encryption key; replacing it requires reauthentication/re-encryption; no transparent multi-key rotation."
+  ]
+}

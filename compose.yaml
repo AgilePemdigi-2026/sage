@@ -50,6 +50,7 @@ services:
     environment:
       <<: *database-environment
       NEXT_TELEMETRY_DISABLED: "1"
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?Jalankan npm run setup:local terlebih dahulu}
     ports:
       - "127.0.0.1:${WEB_PORT:-3000}:3000"
     volumes:
@@ -76,6 +77,7 @@ services:
       <<: *database-environment
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
       STORAGE_ROOT: /app/storage
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?Jalankan npm run setup:local terlebih dahulu}
     volumes:
       - storage:/app/storage
     depends_on:

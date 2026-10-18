@@ -1,6 +1,6 @@
 # Fondasi lokal
 
-Scope: ENV-01 ([#2](https://github.com/AgilePemdigi-2026/sage/issues/2)) dan seed QA-01 ([#4](https://github.com/AgilePemdigi-2026/sage/issues/4)). Tersedia halaman awal berbahasa Indonesia, database PostgreSQL, migrasi infrastruktur, heartbeat worker, serta probe syntax dan renderer. Login GitHub dan analisis repository belum tersedia.
+Scope: ENV-01 ([#2](https://github.com/AgilePemdigi-2026/sage/issues/2)), DATA-01 ([#3](https://github.com/AgilePemdigi-2026/sage/issues/3)), dan seed QA-01 ([#4](https://github.com/AgilePemdigi-2026/sage/issues/4)). Tersedia halaman awal berbahasa Indonesia, PostgreSQL, heartbeat worker, schema/migrasi produk, helper session dan kredensial, query owner-scoped, serta probe syntax dan renderer. Login GitHub HTTP dan analisis repository belum tersedia.
 
 ## Prasyarat dan menjalankan
 
@@ -14,7 +14,7 @@ docker compose up --wait --wait-timeout 180
 docker compose ps
 ```
 
-Script membuat password hex acak dan izin file `.env` hanya untuk pemilik. File yang sudah ada dipertahankan. Jangan gunakan nilai placeholder `.env.example` sebagai password aktual. Ubah `WEB_PORT` pada `.env` jika port 3000 terpakai, lalu recreate container web.
+Script membuat password PostgreSQL acak serta `CREDENTIAL_ENCRYPTION_KEY` base64 acak 32 byte, kemudian membatasi izin `.env` hanya untuk pemilik. Jika `.env` sudah ada, password dan key yang sudah ada dipertahankan; nilai yang belum ada ditambahkan tanpa menampilkan rahasia. Compose memberikan key ke web dan worker saja, tidak ke container database. Jangan salin placeholder `.env.example` menjadi konfigurasi aktif. Ubah `WEB_PORT` pada `.env` jika port 3000 terpakai, lalu recreate container web.
 
 Buka [http://localhost:3000](http://localhost:3000). Hanya web dipublikasikan, pada loopback host. Database tidak memiliki port host. `migrate` selesai dengan exit 0 sebelum web/worker dimulai; status Exited (0) pada service ini sesuai rancangan.
 
@@ -56,19 +56,21 @@ docker compose up --wait --wait-timeout 180
 docker compose exec -T worker node --import tsx scripts/persistence.ts check
 ```
 
-Probe menulis marker ke database, memeriksa marker setelah container dibuat ulang, lalu menghapusnya. Named volumes `sage_database` dan `sage_storage` tetap ada setelah `down`. Jangan menambahkan flag `-v` kecuali memang hendak menghapus database dan artefak lokal.
+Probe ENV-01 menulis marker heartbeat ke database, memeriksa marker setelah container dibuat ulang, lalu menghapusnya. Named volumes `sage_database` dan `sage_storage` tetap ada setelah `down`. Jangan menambahkan flag `-v` kecuali memang hendak menghapus database dan artefak lokal.
+
+Pemeriksaan persistensi DATA-01 tersedia pada `scripts/data-check.ts` dengan fase `seed` dan `check`. Fase ini menyimpan fixture user, session hash, kredensial terenkripsi, analysis, metadata file, graph, dan dokumen di PostgreSQL. File marker berisi ID fixture disimpan di `STORAGE_ROOT` untuk pemeriksaan sesudah restart. Jalankan hanya melalui harness database terisolasi: script mewajibkan `SAGE_DATABASE_TESTS=1` dan nama database `sage_data01` atau `sage_data01_fresh`; database stack lokal biasa ditolak. Setelah container database dibuat ulang tanpa menghapus named volume, jalankan fase `check`; pemeriksaan sukses menghapus fixture dan marker volume.
 
 ## Migrasi dan pengembangan
 
-Migrasi pertama hanya menyediakan `WorkerHeartbeat`; entitas User/Session/Analysis dan isolasi akses belum masuk acceptance DATA-01. Saat menambah migrasi, commit SQL dan schema bersama-sama. `migrate deploy` berjalan otomatis ketika stack dimulai; perubahan database yang membutuhkan koordinasi diterangkan pada PR.
+Schema/migrasi menyediakan User, Session, GitHubConnection, GitHubInstallation, Repository, Analysis, Job, AnalysisStage, SourceFile, AnalysisLimitation, GraphBundle, ArchitectureDocument, Export, StorageObject, dan WorkerSlot serta mempertahankan `WorkerHeartbeat`. `migrate deploy` berjalan otomatis ketika stack dimulai; perubahan database yang membutuhkan koordinasi diterangkan pada PR. WorkerSlot belum menjalankan claim/lock, dan model tersimpan belum berarti semua lifecycle tersedia.
 
-Untuk tooling pada host gunakan Node 24 dan npm yang tercantum pada `package.json`, lalu `npm ci` dan `npm run db:generate`. Pemeriksaan runtime PHP/PDF/database direkomendasikan melalui container agar versi sama. Build web tidak memerlukan koneksi database ataupun GitHub App.
+Untuk tooling pada host gunakan Node 24 dan npm yang tercantum pada `package.json`, lalu `npm ci` dan `npm run db:generate`. Integration test DATA-01 harus dijalankan pada database uji terisolasi yang sama dengan guard di atas; ia menguji dua user yang memakai repository publik sama, session expiry/revocation, token terenkripsi/tampering, owner predicates, composite foreign keys, dan constraints. Pemeriksaan runtime PHP/PDF/database direkomendasikan melalui container agar versi sama. Build web tidak memerlukan koneksi database ataupun GitHub App.
 
 ## Batas awal dan pekerjaan tersisa
 
 Compose membatasi web 768 MiB, worker 2 GiB, dan database 384 MiB. Web/worker berjalan non-root dengan capabilities dihapus. Volume storage hanya dibaca oleh web dan dapat ditulis worker.
 
-`config/analysis-limits.json` memuat calon batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Batas repository tersebut **belum diterapkan** karena snapshot/pipeline belum ada; REP-02/ANA-02/ANA-07 harus menerapkan dan mengujinya sebelum menerima repository arbitrer. Probe PHP memiliki timeout sendiri dan hanya dipakai untuk fixture tepercaya pada tahap ini.
+`config/analysis-limits.json` memuat calon batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Batas repository tersebut **belum diterapkan** karena snapshot/pipeline belum ada; REP-02/ANA-02/ANA-07 harus menerapkan dan mengujinya sebelum menerima repository arbitrer. Login/OAuth HTTP, claim/recovery queue #9, lifecycle deletion #23, penyimpanan berkas nyata, dan validasi isi tiga artefak dokumen masih menunggu issue masing-masing. Probe PHP memiliki timeout sendiri dan hanya dipakai untuk fixture tepercaya pada tahap ini.
 
 Mermaid memakai strict mode pada sample tepercaya. Escape label/source, pembatasan ukuran diagram, pengujian injeksi, serta validasi output untuk konten repository tetap wajib pada DOC-01/EXP-02. Chromium tidak boleh dipakai membuka URL bebas dari input pengguna.
 
