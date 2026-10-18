@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="320" viewBox="0 0 1200 320" role="img" aria-labelledby="title description">
+  <title id="title">SAGE — Pahami struktur kode, telusuri buktinya</title>
+  <desc id="description">Ilustrasi konsep source code menuju model kode dan graph arsitektur, dengan warna navy dan teal.</desc>
+  <rect width="1200" height="320" rx="20" fill="#f0f7f6"/>
+  <rect x="1" y="1" width="1198" height="318" rx="19" fill="none" stroke="#d5e6e2" stroke-width="2"/>
+  <rect x="48" y="40" width="208" height="28" rx="6" fill="#d5f3ea"/>
+  <text x="62" y="59" fill="#185f52" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="700" letter-spacing="1.5">KNOWLEDGE FROM CODE</text>
+  <text x="44" y="151" fill="#061e42" font-family="Arial, Helvetica, sans-serif" font-size="80" font-weight="700" letter-spacing="-4">SAGE<tspan fill="#168675">.</tspan></text>
+  <text x="48" y="201" fill="#061e42" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700">Pahami struktur kode.</text>
+  <text x="48" y="237" fill="#52637b" font-family="Arial, Helvetica, sans-serif" font-size="25">Telusuri buktinya.</text>
+  <text x="48" y="282" fill="#52637b" font-family="Arial, Helvetica, sans-serif" font-size="14">PHP · JavaScript · TypeScript</text>
+  <g stroke="#b6cec8" stroke-width="2" fill="none">
+    <path d="M714 161h44M782 161h46M939 161h66"/>
+    <path d="M1034 107v-24h70v32M1034 215v26h70v-34"/>
+  </g>
+  <rect x="590" y="116" width="124" height="90" rx="12" fill="#fff" stroke="#b6cec8" stroke-width="2"/>
+  <g stroke="#061e42" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="m637 140-10 10 10 10m30-20 10 10-10 10m-10-25-10 30"/>
+  </g>
+  <text x="652" y="187" text-anchor="middle" fill="#344b68" font-family="Arial, Helvetica, sans-serif" font-size="13">Source code</text>
+  <circle cx="770" cy="161" r="12" fill="#2ac6ae"/>
+  <path d="m767 157 4 4-4 4" fill="none" stroke="#061e42" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="828" y="116" width="112" height="90" rx="12" fill="#fff" stroke="#b6cec8" stroke-width="2"/>
+  <g fill="#d5f3ea" stroke="#168675" stroke-width="1.5">
+    <rect x="854" y="138" width="12" height="12" rx="2"/>
+    <rect x="874" y="138" width="40" height="12" rx="2"/>
+    <rect x="854" y="158" width="60" height="8" rx="2"/>
+  </g>
+  <text x="884" y="187" text-anchor="middle" fill="#344b68" font-family="Arial, Helvetica, sans-serif" font-size="13">Model kode</text>
+  <g fill="#fff" stroke="#168675" stroke-width="2">
+    <circle cx="1034" cy="83" r="22"/>
+    <circle cx="1034" cy="161" r="29" fill="#2ac6ae"/>
+    <circle cx="1034" cy="241" r="22"/>
+    <circle cx="1114" cy="121" r="18"/>
+    <circle cx="1114" cy="199" r="18"/>
+  </g>
+  <path d="M1034 105v27m0 58v29m24-69 40-21m-40 44 40 18" fill="none" stroke="#168675" stroke-width="2"/>
+  <g fill="#061e42"><circle cx="1034" cy="83" r="4"/><circle cx="1034" cy="161" r="5"/><circle cx="1034" cy="241" r="4"/><circle cx="1114" cy="121" r="3"/><circle cx="1114" cy="199" r="3"/></g>
+  <text x="992" y="289" fill="#344b68" font-family="Arial, Helvetica, sans-serif" font-size="13">Graph arsitektur</text>
+</svg>
