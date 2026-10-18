@@ -1,0 +1,48 @@
+{
+  "issue": "ANA-05-S1 #32",
+  "date": "2026-10-18",
+  "timezone": "Asia/Jakarta",
+  "sourceBaseCommit": "ca7827406e1170d07298210c6993d94b25a27568",
+  "implementationCommitReference": "Full implementation SHA is recorded on the pull request.",
+  "responsibleAccount": "iltizamhasan3",
+  "humanAcceptance": "PENDING_REVIEW",
+  "environment": {
+    "node": "24.22.0",
+    "npm": "11.17.0",
+    "platform": "linux",
+    "arch": "arm64",
+    "imageId": "sha256:59e39dd37767801dcc15a46c46a71d5ff82ff4237276b9abb3bc2604eca33419"
+  },
+  "checks": [
+    {
+      "command": "npm run check",
+      "actual": "PASS",
+      "tests": 17,
+      "passed": 17,
+      "failed": 0
+    },
+    {
+      "command": "git diff --check",
+      "actual": "PASS"
+    }
+  ],
+  "fileSha256": {
+    "packages/contracts/src/index.ts": "9c11848ced227917e38fe03263fdc0130c13fbff469e72a7aa15fbe6add03bab",
+    "packages/contracts/examples/minimum-ccm.json": "7da578824ad651dadfc917858efb5102f82a35dd3017c957c8d255296f56d8ab",
+    "packages/contracts/examples/minimum-ccm.source.ts": "1baccc79a196f530ad1ac14bafb98b5b0c219f7a6bc386b6fe5e5e2b21d9d9b7",
+    "tests/contracts.test.ts": "599ad3dba3a98a9fafc1806d32c6d915607b844a401960d6df428d1f7dd6d707"
+  },
+  "coverage": [
+    "CCM v1 types/registries and checked-in valid payload",
+    "Actual source byte length/SHA-256 and Unicode/CRLF evidence",
+    "Duplicate IDs, dangling edges/parents, parent cycles and invalid paths rejected",
+    "Unresolved placeholder/reference rules and stable errors",
+    "Stable IDs/canonical JSON/hash under collection and object-key reordering",
+    "Unknown envelope fields, non-enumerable schema/attributes and sparse attributes fail closed"
+  ],
+  "limitations": [
+    "No parser/resolver implementation or semantic completeness claim.",
+    "Full cross-language capability acceptance and resource limits remain ANA-05 #11.",
+    "Human PR review and merge pending."
+  ]
+}

@@ -80,6 +80,10 @@ CCM memuat `schemaVersion`, identitas snapshot, provenance analyzer/resolver/con
 
 Canonical serialization mengurutkan file, node, edge, dan limitation dengan aturan tetap. Timestamp/job progress berada di envelope analisis, bukan konten yang dibandingkan untuk replay. Config hash mencakup parser, resolver, exclusion rules, dan taxonomy version.
 
+Implementasi minimum v1 berada di `packages/contracts`: registry PHP/JavaScript/TypeScript, kategori node/edge, origin, resolution/reason, tipe CCM, ID deterministik, JSON/hash canonical, dan validator runtime. Validator menerima byte source secara terpisah dari payload serializable; hash/ukuran file serta setiap evidence diverifikasi terhadap byte tersebut. Offset evidence memakai byte UTF-8 berbasis nol dengan batas akhir eksklusif; baris dan kolom berbasis satu, kolom dihitung dalam Unicode code point, mengikuti konvensi CRLF dan BOM pada fixture QA-01.
+
+Status valid hanya menyatakan struktur payload dan konsistensinya dengan byte source yang diberikan. Status ini belum membuktikan kelengkapan temuan adapter, ketepatan semantik resolver, batas resource, persistensi/API, ataupun replay pipeline. Penerimaan ANA-05 lengkap tetap memerlukan oracle PHP/JS/TS yang direview dan integrasi analyzer.
+
 ## Canonical graph dan proyeksi UI
 
 Canonical CKG adalah hasil lengkap yang menjadi dasar seluruh hitungan. Focus menampilkan node terpilih dan relasi langsungnya; overview mengelompokkan module; all references menampilkan lingkup reference yang diminta. Query/filter hanya mengubah proyeksi tampilan.

@@ -1,0 +1,55 @@
+{
+  "schemaVersion": 1,
+  "snapshot": {
+    "repository": "example/sage",
+    "branch": "main",
+    "commitSha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "provenance": {
+    "analyzer": {
+      "name": "sage-contracts",
+      "version": "0.1.0"
+    },
+    "resolver": {
+      "name": "sage-static-resolver",
+      "version": "0.1.0"
+    },
+    "configHash": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "files": [
+    {
+      "path": "examples/minimum-ccm.source.ts",
+      "language": "typescript",
+      "sha256": "1baccc79a196f530ad1ac14bafb98b5b0c219f7a6bc386b6fe5e5e2b21d9d9b7",
+      "sizeBytes": 23,
+      "status": "processed"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node_8085896d0e6b52cca000e17b96039b954eec7e7594472a1b796673ecbc0906bb",
+      "kind": "Class",
+      "name": "Sample",
+      "qualifiedName": "Sample",
+      "language": "typescript",
+      "filePath": "examples/minimum-ccm.source.ts",
+      "location": {
+        "filePath": "examples/minimum-ccm.source.ts",
+        "fileSha256": "1baccc79a196f530ad1ac14bafb98b5b0c219f7a6bc386b6fe5e5e2b21d9d9b7",
+        "startByte": 7,
+        "endByte": 22,
+        "startLine": 1,
+        "endLine": 1,
+        "startColumn": 8,
+        "endColumn": 23,
+        "role": "declaration"
+      },
+      "parentId": null,
+      "origin": "source",
+      "signature": null,
+      "attributes": {}
+    }
+  ],
+  "edges": [],
+  "limitations": []
+}
