@@ -533,3 +533,5 @@ export function canonicalizeCcm(input: unknown, sourceBytes: Readonly<Record<str
   const json = JSON.stringify(value);
   return { ok: true, value, json, sha256: digest(json) };
 }
+
+export * from "./stages.ts";

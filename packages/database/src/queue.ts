@@ -101,6 +101,39 @@ function requireClaim(claim: AnalysisJobClaim): void {
   }
 }
 
+/** Snapshot the lease handle synchronously so callers cannot mutate it while a DB operation awaits. */
+export function snapshotAnalysisJobClaim(input: AnalysisJobClaim): AnalysisJobClaim {
+  if (!input || typeof input !== "object") throw new Error("Claim analisis tidak valid.");
+  const prototype = Object.getPrototypeOf(input);
+  if (prototype !== Object.prototype && prototype !== null) throw new Error("Claim analisis harus berupa object biasa.");
+  const descriptors = Object.getOwnPropertyDescriptors(input);
+  const fields = ["jobId", "analysisId", "ownerUserId", "attempt", "leaseToken", "leaseExpiresAt"] as const;
+  if (Reflect.ownKeys(input).length !== fields.length || Reflect.ownKeys(input).some((key) => typeof key !== "string" || !fields.includes(key as typeof fields[number]))) {
+    throw new Error("Claim analisis memiliki field yang tidak valid.");
+  }
+  for (const field of fields) {
+    const descriptor = descriptors[field];
+    if (!descriptor || !descriptor.enumerable || !("value" in descriptor)) throw new Error("Claim analisis harus memakai properti data biasa.");
+  }
+  const leaseExpiresAtValue = descriptors.leaseExpiresAt.value;
+  // A claim passed between worker processes may have crossed JSON serialization.
+  // This timestamp is informational only; all authorization uses the database clock.
+  const leaseExpiryMilliseconds = leaseExpiresAtValue instanceof Date
+    ? Date.prototype.getTime.call(leaseExpiresAtValue) as number
+    : typeof leaseExpiresAtValue === "string" ? Date.parse(leaseExpiresAtValue) : Number.NaN;
+  if (!Number.isFinite(leaseExpiryMilliseconds)) throw new Error("Waktu lease claim tidak valid.");
+  const claim = Object.freeze({
+    jobId: descriptors.jobId.value as string,
+    analysisId: descriptors.analysisId.value as string,
+    ownerUserId: descriptors.ownerUserId.value as string,
+    attempt: descriptors.attempt.value as number,
+    leaseToken: descriptors.leaseToken.value as string,
+    leaseExpiresAt: new Date(leaseExpiryMilliseconds),
+  });
+  requireClaim(claim);
+  return claim;
+}
+
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
 }
@@ -476,10 +509,10 @@ export async function claimAnalysisJob(db: PrismaClient, options: ClaimAnalysisJ
 /** Renews only the current, unexpired lease; stale workers cannot revive it. */
 export async function renewAnalysisLease(
   db: PrismaClient,
-  claim: AnalysisJobClaim,
+  inputClaim: AnalysisJobClaim,
   options: RenewAnalysisLeaseOptions = {},
 ): Promise<Date | null> {
-  requireClaim(claim);
+  const claim = snapshotAnalysisJobClaim(inputClaim);
   const leaseDurationMs = requireLeaseDuration(options.leaseDurationMs);
   const leaseTokenHash = sha256(claim.leaseToken);
   return db.$transaction(async (tx) => {
@@ -487,7 +520,7 @@ export async function renewAnalysisLease(
     const rows = await tx.$queryRaw<Array<{ slotUpdated: boolean; jobUpdated: boolean; leaseExpiresAt: Date | null }>>`
       WITH renewed_slot AS (
         UPDATE "WorkerSlot" AS slot
-        SET "leaseUntil" = clock_timestamp() + (${leaseDurationMs} * INTERVAL '1 millisecond'),
+        SET "leaseUntil" = GREATEST(slot."leaseUntil", clock_timestamp() + (${leaseDurationMs} * INTERVAL '1 millisecond')),
             "heartbeatAt" = clock_timestamp(), "updatedAt" = clock_timestamp()
         WHERE slot."slotKey" = ${ANALYSIS_SLOT} AND slot."jobId" = ${claim.jobId}
           AND slot."ownerUserId" = ${claim.ownerUserId} AND slot."leaseTokenHash" = ${leaseTokenHash}
@@ -522,10 +555,10 @@ export async function renewAnalysisLease(
 /** Fails a running analysis only while its matching lease remains current. */
 export async function failAnalysisJob(
   db: PrismaClient,
-  claim: AnalysisJobClaim,
+  inputClaim: AnalysisJobClaim,
   errorCode = "ANALYSIS_FAILED",
 ): Promise<boolean> {
-  requireClaim(claim);
+  const claim = snapshotAnalysisJobClaim(inputClaim);
   if (typeof errorCode !== "string" || !/^[A-Z][A-Z0-9_]{0,63}$/.test(errorCode)) throw new Error("Kode error analisis tidak valid.");
   const leaseTokenHash = sha256(claim.leaseToken);
 
