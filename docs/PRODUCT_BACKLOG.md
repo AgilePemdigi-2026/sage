@@ -2,7 +2,7 @@
 
 Status per 18 Oktober 2026: **39 GitHub Issues**, tiga milestone sprint, dan delapan relasi parent/sub-issue sudah dibuat. Revisi pembagian memakai bobot pekerjaan serta bukti kontribusi tiap sprint; jumlah issue tidak harus sama. Penanggung jawab paket mengikuti [alur kontribusi](../CONTRIBUTING.md); Iltizam melakukan review teknis dan merge PR.
 
-Akun Iltizam (`iltizamhasan3`), Rizqy (`rizqy-fadhil`), dan Valentina (`liliks13`) sudah dipetakan. Paket Zarra tetap mencantumkan namanya, dengan assignee GitHub kosong sampai undangan diterima. Ringkasan lintas anggota ada di [alokasi sprint](SPRINT_ALLOCATION.md).
+Seluruh akun sudah dipetakan dan assignment aktif: Iltizam (`iltizamhasan3`), Rizqy (`rizqy-fadhil`), Valentina (`liliks13`), serta Zarra (`zarrrafirdaus`). Sepuluh paket Zarra sudah di-assign ke akunnya. Ringkasan lintas anggota ada di [alokasi sprint](SPRINT_ALLOCATION.md).
 
 ## Prioritas, estimasi, dan fase
 
@@ -19,7 +19,7 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | ID | Deliverable | Sprint | Prioritas / ukuran | Penanggung jawab | Dependensi | Parent | Status | Issue |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | PLAN-01 | Baseline planning dan workflow issue | 1 | P0 / M | Iltizam | - | - | Done (baseline dokumentasi) | [#1](https://github.com/AgilePemdigi-2026/sage/issues/1) |
-| ENV-01 | Spike stack, versi, Docker, limits awal, renderer diagram | 1 | P0 / L | Iltizam | PLAN-01 | - | In review | [#2](https://github.com/AgilePemdigi-2026/sage/issues/2) |
+| ENV-01 | Spike stack, versi, Docker, limits awal, renderer diagram | 1 | P0 / L | Iltizam | PLAN-01 | - | Done (merged PR #29) | [#2](https://github.com/AgilePemdigi-2026/sage/issues/2) |
 | DATA-01 | Schema, migrasi, session/credential storage, isolasi user | 1 | P0 / L | Zarra | ENV-01 | - | Planned | [#3](https://github.com/AgilePemdigi-2026/sage/issues/3) |
 | QA-01-S1 | Oracle minimum PHP/JS/TS dan review evidence Sprint 1 | 1 | P0 / M | Zarra | PLAN-01 | QA-01 | Planned | [#31](https://github.com/AgilePemdigi-2026/sage/issues/31) |
 | UI-01 | Fondasi shell UI dan komponen state login/target/progress | 1 | P0 / L | Valentina | ENV-01 | - | Planned | [#30](https://github.com/AgilePemdigi-2026/sage/issues/30) |
@@ -126,4 +126,4 @@ Judul memakai `[ID] Ringkasan deliverable`. Seluruh nomor di tabel adalah issue 
 
 Tinjau bobot, dependensi, waktu review, serta bukti perubahan/tes/review yang substantif per anggota pada setiap sprint. Jumlah issue/commit merupakan penunjuk keterlacakan, bukan ukuran effort yang setara. Rencana ini belum membuktikan actual effort atau menjamin kapasitas; penyesuaian dicatat pada issue dan decision log.
 
-Definisi selesai mengikuti [Definition of Done](DEFINITION_OF_DONE.md). Saat ini PLAN-01 Done, ENV-01 In review, dan QA-01 In progress untuk seed; acceptance produk tetap mengikuti [test plan](TEST_PLAN.md).
+Definisi selesai mengikuti [Definition of Done](DEFINITION_OF_DONE.md). Saat ini PLAN-01 Done, ENV-01 Done setelah PR #29 di-merge, dan QA-01 In progress untuk seed; acceptance produk tetap mengikuti [test plan](TEST_PLAN.md).

@@ -22,6 +22,8 @@ Baseline: 18 Oktober 2026, Asia/Jakarta. `Disepakati` adalah keputusan project; 
 | D-14 | Pembagian kerja memakai Issues, milestone sprint, commit/PR, dan bukti verifikasi | Disepakati | 28 Issues awal dan tiga milestone dibuat pada 18 Oktober 2026; revisi pembagian menambah 11 issue fase/finishing menjadi 39, mapping di product backlog |
 | D-15 | Pesan commit Conventional Commit, satu baris/satu kalimat | Disepakati | Rincian pekerjaan dan bukti ada di issue/PR |
 | D-16 | Pembagian dinilai berdasarkan bobot pekerjaan dan bukti kontribusi tiap sprint; jumlah issue boleh berbeda | Disepakati 18 Oktober 2026 | Queue ke Rizqy, PHP ke Zarra, PDF/proyeksi diagram ke Valentina; fase Sprint 1 dan empat paket finishing eksplisit; ukuran parent hanya scope sisa, tanpa memindahkan bukti historis |
+| D-17 | Zarra bergabung sebagai `zarrrafirdaus`; seluruh paketnya memakai assignee tersebut | Diterapkan 18 Oktober 2026 | Sepuluh issue di-assign; kepemilikan dan bobot pekerjaan tidak berubah |
+| D-18 | PR tetap wajib, dengan minimum approval 0 agar penulis dapat merge PR sendiri setelah pemeriksaan | Diterapkan 18 Oktober 2026 | Review/bukti tetap dicatat; resolusi percakapan, pembatasan push/merge, enforcement admin, serta larangan force push/delete tetap berlaku |
 
 ## Rancangan teknis awal
 
