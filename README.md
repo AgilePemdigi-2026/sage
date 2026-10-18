@@ -9,7 +9,7 @@ SAGE dikembangkan untuk membantu memahami arsitektur repository GitHub melalui *
 📖 [Panduan lokal](docs/LOCAL_SETUP.md) · 🎯 [Product backlog](docs/PRODUCT_BACKLOG.md) · 🗓️ [Sprint plan](docs/SPRINT_PLAN.md) · 🤝 [Kontribusi](CONTRIBUTING.md)
 
 > 🚧 **Dalam pengembangan — Sprint 1, per 18 Oktober 2026.**
-> Fondasi web/worker, Docker Compose, migrasi infrastruktur, parser probe, dan seed fixture tersedia; ENV-01 sudah masuk `main` melalui PR #29. Login GitHub, analisis repository, graph, history, serta ekspor produk masih dikerjakan pada issue masing-masing. Probe fondasi belum membuktikan MVP lengkap.
+> Fondasi web/worker dan Docker, model data/session/kredensial, isolasi pengguna, oracle minimum PHP/JS/TS, serta kontrak CCM/evidence sudah masuk `main`. Login GitHub HTTP, analisis repository, graph, history, serta ekspor produk masih dikerjakan pada issue masing-masing. Halaman yang tersedia saat ini adalah halaman awal dan health check; pengujian backend belum berarti seluruh MVP tersedia di UI.
 
 ## 🎯 Kemampuan yang ditargetkan
 
@@ -24,27 +24,88 @@ SAGE dikembangkan untuk membantu memahami arsitektur repository GitHub melalui *
 
 Seluruh kemampuan di atas masuk target MVP lokal. Status implementasi serta acceptance criteria mengikuti [backlog](docs/PRODUCT_BACKLOG.md) dan [test plan](docs/TEST_PLAN.md).
 
-## 🚀 Menjalankan di lokal
+## 🚀 Menjalankan aplikasi di lokal
 
-Siapkan **Docker Engine/Compose** dan Node.js untuk script setup, lalu jalankan dari root repository:
+Gunakan **Docker Engine/Desktop dengan Compose** yang sudah aktif dan **Node.js 24** untuk script setup. PHP, PostgreSQL, runtime aplikasi, serta Chromium dijalankan di container; tidak perlu memasangnya satu per satu pada host.
+
+### 1. Clone dan siapkan konfigurasi
 
 ```sh
+git clone https://github.com/AgilePemdigi-2026/sage.git
+cd sage
 node scripts/setup-local.mjs
-docker compose build
-docker compose up --wait --wait-timeout 180
+docker compose config --quiet
 ```
 
-Buka **[http://localhost:3000](http://localhost:3000)**.
+Sudah punya repository-nya? Masuk ke folder `sage` dan mulai dari command setup. Script membuat `.env` privat dengan password PostgreSQL dan key enkripsi acak. Jika `.env` sudah ada, nilai lama dipertahankan dan key yang belum tersedia ditambahkan. Tidak perlu menyalin placeholder `.env.example`.
 
-Script setup membuat `.env` dengan password acak tanpa menimpa konfigurasi lama. PHP, PostgreSQL, dependency aplikasi, dan Chromium berada di container. Versi runtime serta dependency dipin pada konfigurasi proyek.
+### 2. Build lalu start aplikasi
 
-📘 Command lengkap, migrasi, smoke test, dan troubleshooting tersedia di [panduan setup lokal](docs/LOCAL_SETUP.md). Hasil pengujian fondasi beserta batas buktinya ada di [pemeriksaan environment](docs/ENVIRONMENT_CHECKS.md).
+```sh
+docker compose build
+docker compose up -d --wait --wait-timeout 180
+docker compose ps
+```
+
+**Build menyiapkan image; `up` menjalankan aplikasinya.** Tunggu command `up` selesai. Service `web`, `worker`, dan `db` seharusnya berstatus **healthy**. Service `migrate` boleh berstatus **Exited (0)** karena tugas migrasinya sudah selesai.
+
+### 3. Buka aplikasi di browser
+
+| Tujuan | Alamat |
+| --- | --- |
+| 🌿 Halaman aplikasi | **[http://localhost:3000](http://localhost:3000)** |
+| 💚 Pemeriksaan layanan | [http://localhost:3000/api/health](http://localhost:3000/api/health) |
+
+Halaman aplikasi yang tersedia sekarang adalah fondasi landing page; login dan alur analisis repository menyusul sesuai backlog. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
+
+### 4. Stop, jalankan kembali, atau perbarui
+
+```sh
+# Menghentikan aplikasi; data pada volume tetap tersimpan.
+docker compose stop
+
+# Menjalankan kembali aplikasi yang sudah dibuild.
+docker compose up -d --wait --wait-timeout 180
+```
+
+Setelah menarik perubahan kode terbaru:
+
+```sh
+git pull --ff-only
+node scripts/setup-local.mjs
+docker compose build
+docker compose up -d --wait --wait-timeout 180
+```
+
+Untuk memeriksa kendala:
+
+```sh
+docker compose ps --all
+docker compose logs --tail=100 web worker migrate
+```
+
+Jika port 3000 dipakai aplikasi lain, ubah `WEB_PORT=3001` di `.env`, jalankan kembali command `up`, lalu buka `http://localhost:3001`. Pada macOS dengan Colima, mulai VM dan pilih Docker context terlebih dahulu sesuai [panduan lokal](docs/LOCAL_SETUP.md#prasyarat-dan-menjalankan).
+
+📘 Migrasi, smoke test, persistensi, dan troubleshooting lebih lengkap tersedia di [panduan setup lokal](docs/LOCAL_SETUP.md). Bukti implementasi: [DATA-01](docs/DATA-01_CHECKS.md), [kontrak CCM](docs/ANA-05-S1_CHECKS.md), serta [oracle minimum](docs/QA-01-S1_CHECKS.md).
 
 ## 🧰 Stack teknologi
 
+<p>
+  <a href="https://nextjs.org/"><img src="docs/assets/tech/nextjs.svg" alt="Next.js" title="Next.js" width="40" height="40" /></a>
+  <a href="https://react.dev/"><img src="docs/assets/tech/react.svg" alt="React" title="React" width="40" height="40" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="docs/assets/tech/typescript.svg" alt="TypeScript" title="TypeScript" width="40" height="40" /></a>
+  <a href="https://tailwindcss.com/"><img src="docs/assets/tech/tailwindcss.svg" alt="Tailwind CSS" title="Tailwind CSS" width="40" height="40" /></a>
+  <a href="https://nodejs.org/"><img src="docs/assets/tech/nodejs.svg" alt="Node.js" title="Node.js" width="40" height="40" /></a>
+  <a href="https://www.php.net/"><img src="docs/assets/tech/php.svg" alt="PHP" title="PHP" width="40" height="40" /></a>
+  <a href="https://www.postgresql.org/"><img src="docs/assets/tech/postgresql.svg" alt="PostgreSQL" title="PostgreSQL" width="40" height="40" /></a>
+  <a href="https://www.prisma.io/"><img src="docs/assets/tech/prisma.svg" alt="Prisma" title="Prisma" width="40" height="40" /></a>
+  <a href="https://www.docker.com/"><img src="docs/assets/tech/docker.svg" alt="Docker" title="Docker" width="40" height="40" /></a>
+  <a href="https://playwright.dev/"><img src="docs/assets/tech/playwright.svg" alt="Playwright" title="Playwright" width="40" height="40" /></a>
+</p>
+
 | Area | Teknologi |
 | --- | --- |
-| 🖥️ Web dan API | Next.js App Router · TypeScript · Tailwind CSS |
+| 🖥️ Web dan API | Next.js App Router · React · TypeScript · Tailwind CSS |
 | ⚙️ Pemrosesan | Worker Node.js terpisah dari proses web |
 | 🗄️ Database | PostgreSQL · Prisma ORM |
 | 🟨 Analyzer JavaScript/TypeScript | TypeScript Compiler API |
@@ -53,7 +114,7 @@ Script setup membuat `.env` dengan password acak tanpa menimpa konfigurasi lama.
 | 📄 Dokumen dan PDF | Mermaid untuk rendering diagram · Playwright/Chromium untuk PDF |
 | 🐳 Lingkungan lokal | Docker Compose · Persistent volumes |
 
-Dependency dipin pada lockfile dan base image memakai digest. Renderer SVG/PDF sudah melewati probe fondasi; generator artefak produk serta ekspor terotorisasi tetap perlu diimplementasikan dan diuji.
+Logo disimpan lokal; sumber dan lisensinya tersedia di [aset teknologi](docs/assets/tech/README.md). Dependency dipin pada lockfile dan base image memakai digest. Renderer SVG/PDF sudah melewati probe fondasi; generator artefak produk serta ekspor terotorisasi tetap perlu diimplementasikan dan diuji.
 
 ## 🧭 Prinsip pengembangan
 
@@ -113,7 +174,7 @@ Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Con
 
 ## 📌 Langkah berikutnya
 
-1. Lengkapi model data produk, session/credential storage, dan isolasi pengguna pada **DATA-01**.
-2. Review serta lengkapi oracle minimum PHP/JS/TS pada **QA-01-S1**.
-3. Hubungkan GitHub App pada **GH-01**, lalu lanjutkan paket sesuai dependensi.
-4. Tutup setiap issue setelah acceptance criteria, bukti, dan review terpenuhi.
+1. Hubungkan login GitHub App, callback, dan session HTTP pada **GH-01 #5**.
+2. Kembangkan adapter deklarasi **JS/TS #33** dan **PHP #34** di atas kontrak serta oracle yang sudah tersedia.
+3. Lanjutkan queue/pipeline dan UI sesuai dependensi pada backlog.
+4. Terima setiap issue setelah scope, bukti pengujian, review, dan merge terpenuhi.
