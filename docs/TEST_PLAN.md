@@ -26,6 +26,14 @@ Untuk tiap fixture simpan source, full SHA atau manifest hash lokal, config, exp
 
 Fixture JSX/TSX, type alias, enum, PHP trait, dan semantik framework ditambahkan saat capability spike. Angka 37 node/88 edge pada mockup bukan oracle sampai source lengkapnya tersedia dan direview.
 
+## Penerimaan fase dan regression
+
+Paket QA-01-S1, ANA-05-S1, ANA-03-S1, ANA-04-S1, ANA-07-S1, GRAPH-01-S1, QA-03-S1, dan UI-01 memiliki scope awal yang diuji terpisah. Rekam kasus uji yang dipakai serta batasnya: stub stage tidak membuktikan sembilan tahap analisis nyata; canvas fixture tidak membuktikan CKG dari repository. Parent tetap memerlukan kasus penerimaan lengkap. DOC-02 menguji proyeksi diagram dari CKG dan keamanan rendering, lalu DOC-01/EXP-01/EXP-02 memverifikasi konsistensi dokumen serta file nyata.
+
+Sesudah freeze, FIN-01 (Iltizam) mengulang analyzer/worker/CCM/CKG/evidence dan benchmark; FIN-03 (Rizqy) mengulang GitHub/repository/queue/pipeline/history/integrasi; FIN-04 (Valentina) mengulang graph/UI/keyboard/lima viewport dan render visual seluruh halaman PDF. FIN-02 (Zarra) memverifikasi dokumen, panduan, serta replay demo setelah hasil regression tersedia. Catat hasil bersih jika tidak ada temuan; issue bug hanya untuk kegagalan yang benar-benar ditemukan.
+
+Rincian scope dan bukti mengikuti [alokasi sprint](SPRINT_ALLOCATION.md). Penggunaan bukti fase pada parent tidak dihitung sebagai kontribusi baru tanpa aktivitas verifikasi baru yang dicatat.
+
 ## Kasus penerimaan
 
 Setiap ID di bawah adalah kontrak pengujian yang akan diimplementasikan; seluruhnya berstatus `NOT_RUN`.

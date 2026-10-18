@@ -18,7 +18,7 @@ docker compose up --wait --wait-timeout 180
 
 Buka [SAGE lokal](http://localhost:3000). Script setup menggunakan Node untuk membuat `.env` dengan password acak tanpa menimpa konfigurasi lama. PHP, PostgreSQL, dependency aplikasi, dan Chromium berada di container.
 
-Command, migrasi, smoke test, dan batas pengujian dijelaskan pada [setup lokal](docs/LOCAL_SETUP.md). Mapping 28 Issues serta milestone ada di [product backlog](docs/PRODUCT_BACKLOG.md).
+Command, migrasi, smoke test, dan batas pengujian dijelaskan pada [setup lokal](docs/LOCAL_SETUP.md). Mapping 39 Issues serta milestone ada di [product backlog](docs/PRODUCT_BACKLOG.md); pembagian deliverable tiap anggota ada di [alokasi sprint](docs/SPRINT_ALLOCATION.md).
 
 ## Keputusan utama
 
@@ -46,6 +46,7 @@ Command, migrasi, smoke test, dan batas pengujian dijelaskan pada [setup lokal](
 | [Design guidelines](docs/DESIGN_GUIDELINES.md) | Acuan Figma, token, bahasa UI, state, dan responsivitas |
 | [Product backlog](docs/PRODUCT_BACKLOG.md) | Paket pekerjaan, dependensi, acceptance criteria, dan penanggung jawab |
 | [Sprint plan](docs/SPRINT_PLAN.md) | Kalender pengerjaan/review dan target setiap sprint |
+| [Alokasi sprint](docs/SPRINT_ALLOCATION.md) | Scope tiap anggota, issue fase/integrasi, serta bukti kontribusi |
 | [Definition of Done](docs/DEFINITION_OF_DONE.md) | Syarat sebuah deliverable dan MVP dinyatakan selesai |
 | [Test plan](docs/TEST_PLAN.md) | Fixture, test case, integrasi GitHub, dan verifikasi ekspor |
 | [Keputusan dan risiko](docs/DECISIONS.md) | Keputusan yang disepakati, rancangan awal, TBD, dan risiko |
