@@ -12,6 +12,6 @@
     "types": ["node"],
     "allowImportingTsExtensions": true
   },
-  "include": ["apps/worker/**/*.ts", "packages/**/*.ts", "scripts/**/*.ts", "tests/*.test.ts", "tests/*.integration.ts"],
+  "include": ["apps/worker/**/*.ts", "packages/**/*.ts", "scripts/**/*.ts", "tests/*.test.ts", "tests/*.integration.ts", "tests/helpers/**/*.ts"],
   "exclude": ["node_modules", "packages/database/generated", "tests/fixtures"]
 }
