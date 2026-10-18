@@ -77,4 +77,4 @@ Baseline revisi harus mengestimasi paket yang sudah dipecah sebelum membuat gari
 
 ## Ketergantungan yang harus diselesaikan awal
 
-Konfigurasi GitHub App/callback, penerimaan undangan Zarra, repository uji yang disediakan tim, review oracle fixture, serta penerapan batas resource masih perlu pekerjaan nyata. Versi/renderer fondasi sudah diuji pada ENV-01; integrasi produk belum diterima. Tidak ada blocker tersebut yang dinyatakan selesai hanya karena sudah memiliki rencana.
+Pemetaan akun empat anggota dan assignment Zarra telah selesai. Konfigurasi GitHub App/callback, repository uji yang disediakan tim, review oracle fixture, serta penerapan batas resource masih perlu pekerjaan nyata. Versi/renderer fondasi sudah diuji pada ENV-01; integrasi produk belum diterima. Tidak ada blocker tersebut yang dinyatakan selesai hanya karena sudah memiliki rencana.

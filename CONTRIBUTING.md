@@ -1,6 +1,6 @@
 # Alur kontribusi
 
-Status: workflow aktif; milestone dan Issues telah dibuat. Fondasi ENV-01 dan seed QA-01 sedang dikerjakan melalui branch/PR.
+Status: workflow aktif; milestone dan Issues telah dibuat. Fondasi ENV-01 sudah di-merge melalui PR #29; pengembangan oracle QA-01 masih dilanjutkan.
 
 ## Tanggung jawab
 
@@ -13,7 +13,7 @@ Pekerjaan direncanakan berdasarkan modul, deliverable, dan dependensi antar-issu
 | Valentina Hermawan | Shell UI/mobile/desktop, graph/inspector, proyeksi diagram, PDF, dan regression visual |
 | Zarra Firdaus Ananda Salia | Model data/session/credential, oracle, adapter PHP, catalog/ADD, Markdown, cleanup, dan panduan/demo |
 
-Pembagian di atas merupakan rencana tanggung jawab. Setiap issue/PR mencatat scope, pelaksana, pemeriksa, dan hasil aktualnya. Akun GitHub yang dipetakan adalah Iltizam `iltizamhasan3`, Rizqy `rizqy-fadhil`, dan Valentina `liliks13`. Penanggung jawab Zarra tetap tercantum pada paketnya, dengan assignee GitHub kosong sampai undangan diterima. Scope tiap sprint mengikuti [alokasi sprint](docs/SPRINT_ALLOCATION.md).
+Pembagian di atas merupakan rencana tanggung jawab. Setiap issue/PR mencatat scope, pelaksana, pemeriksa, dan hasil aktualnya. Akun GitHub yang dipetakan adalah Iltizam `iltizamhasan3`, Rizqy `rizqy-fadhil`, Valentina `liliks13`, dan Zarra `zarrrafirdaus`. Semua akun sudah terverifikasi sebagai kolaborator dan seluruh paket Zarra telah di-assign ke akunnya. Scope tiap sprint mengikuti [alokasi sprint](docs/SPRINT_ALLOCATION.md).
 
 ## Issues dan milestone
 
@@ -39,7 +39,7 @@ Penanggung jawab paket memperbarui branch dari base yang sesuai, memeriksa diff,
 
 Gunakan branch seperti `feat/12-github-callback`, `fix/34-source-preview`, atau `docs/56-test-plan`; nomor hanya contoh dan harus diganti dengan nomor issue nyata. Satu branch berfokus pada satu paket atau beberapa issue yang memiliki dependensi kuat.
 
-Alur kerja: issue siap -> pengerjaan paket -> verifikasi -> commit -> PR -> review teknis oleh Iltizam -> merge oleh Iltizam ke `main`. Commit awal baseline planning dibuat langsung pada repository yang masih kosong. Proteksi `main` kini mewajibkan PR, satu approval yang diperbarui setelah perubahan, serta penyelesaian percakapan review; force push dan penghapusan diblokir. Akun yang terdaftar untuk push/merge adalah `iltizamhasan3`; administrator tetap dapat mengubah pengaturan proteksi. Pemeriksaan wajib CI ditambahkan setelah workflow CI tersedia.
+Alur kerja: issue siap -> pengerjaan paket -> verifikasi -> commit -> PR -> review teknis oleh Iltizam -> merge oleh Iltizam ke `main`. Commit awal baseline planning dibuat langsung pada repository yang masih kosong. Proteksi `main` mewajibkan PR dan penyelesaian percakapan review; minimum approval adalah 0 sehingga PR buatan sendiri dapat di-merge setelah diperiksa tanpa menunggu approval akun lain. GitHub tetap tidak menyediakan self-approval. Review teknis dan bukti verifikasi tetap dicatat; force push dan penghapusan diblokir. Akun yang terdaftar untuk push/merge adalah `iltizamhasan3`; administrator tetap dapat mengubah pengaturan proteksi. Pemeriksaan wajib CI ditambahkan setelah workflow CI tersedia.
 
 PR menjelaskan perubahan, ID requirement, issue, dan bukti pengujian. Gunakan `Closes #N` hanya ketika acceptance criteria issue sudah terpenuhi dan PR ditujukan ke default branch. Untuk pekerjaan parsial, gunakan `Refs #N`. Penutupan issue harus mencerminkan hasil review, termasuk saat menggunakan otomatisasi GitHub.
 

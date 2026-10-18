@@ -9,7 +9,7 @@ Revisi 18 Oktober 2026 telah diterapkan pada GitHub Issues. Dasar pembagian adal
 | Iltizam Muhammad Hasan | `iltizamhasan3` | Aktif; review teknis dan merge PR |
 | Rizqy Fadhil Athallah | `rizqy-fadhil` | Aktif |
 | Valentina Hermawan | `liliks13` | Aktif |
-| Zarra Firdaus Ananda Salia | Menunggu undangan diterima | Nama owner tetap di issue; assignee kosong |
+| Zarra Firdaus Ananda Salia | `zarrrafirdaus` | Aktif; 10 paket sudah di-assign |
 
 ## Deliverable tiap anggota
 
