@@ -123,7 +123,8 @@
         "startColumn": 8,
         "endLine": 3,
         "endColumn": 33
-      }
+      },
+      "role": "declaration"
     },
     {
       "path": "js-static/main.js",
@@ -137,7 +138,9 @@
         "startColumn": 21,
         "endLine": 5,
         "endColumn": 41
-      }
+      },
+      "role": "reference",
+      "resolution": "resolved"
     },
     {
       "path": "js-static/main.js",
@@ -151,7 +154,10 @@
         "startColumn": 44,
         "endLine": 7,
         "endColumn": 56
-      }
+      },
+      "role": "reference",
+      "resolution": "unresolved",
+      "reason": "The module specifier is computed from the runtime value name, so source alone cannot identify a single imported file."
     },
     {
       "path": "js-static/bridge.cjs",
@@ -165,7 +171,9 @@
         "startColumn": 16,
         "endLine": 1,
         "endColumn": 39
-      }
+      },
+      "role": "reference",
+      "resolution": "resolved"
     },
     {
       "path": "ts-contracts/models.ts",
@@ -179,7 +187,8 @@
         "startColumn": 8,
         "endLine": 1,
         "endColumn": 46
-      }
+      },
+      "role": "declaration"
     },
     {
       "path": "ts-contracts/service.ts",
@@ -193,7 +202,9 @@
         "startColumn": 14,
         "endLine": 2,
         "endColumn": 58
-      }
+      },
+      "role": "reference",
+      "resolution": "resolved"
     },
     {
       "path": "ts-contracts/service.ts",
@@ -207,7 +218,10 @@
         "startColumn": 10,
         "endLine": 7,
         "endColumn": 52
-      }
+      },
+      "role": "reference",
+      "resolution": "unresolved",
+      "reason": "The receiver is declared unknown and narrowed only by an inline cast, so source does not establish a concrete run() implementation."
     },
     {
       "path": "php-namespaces/service.php",
@@ -221,7 +235,9 @@
         "startColumn": 7,
         "endLine": 6,
         "endColumn": 49
-      }
+      },
+      "role": "reference",
+      "resolution": "resolved"
     },
     {
       "path": "php-namespaces/service.php",
@@ -235,7 +251,10 @@
         "startColumn": 54,
         "endLine": 9,
         "endColumn": 68
-      }
+      },
+      "role": "reference",
+      "resolution": "unresolved",
+      "reason": "The receiver has only the broad object type at this call site, so source does not identify a concrete runtime class or run() implementation."
     },
     {
       "path": "source-bounds/a/same.ts",
@@ -249,7 +268,8 @@
         "startColumn": 8,
         "endLine": 2,
         "endColumn": 39
-      }
+      },
+      "role": "declaration"
     },
     {
       "path": "source-bounds/b/same.ts",
@@ -263,7 +283,23 @@
         "startColumn": 14,
         "endLine": 2,
         "endColumn": 36
-      }
+      },
+      "role": "context"
+    },
+    {
+      "path": "php-namespaces/service.php",
+      "kind": "Class",
+      "target": "App\\Service",
+      "snippet": "class Service extends Base implements Renderable {",
+      "evidence": {
+        "startByte": 124,
+        "endByte": 174,
+        "startLine": 6,
+        "startColumn": 1,
+        "endLine": 6,
+        "endColumn": 51
+      },
+      "role": "declaration"
     }
   ],
   "pendingCoverage": [
@@ -272,5 +308,49 @@
     "Archive traversal/symlink/size and worker interruption",
     "Real GitHub public/private repositories",
     "Team review and representative benchmark"
+  ],
+  "languageCoverage": [
+    {
+      "language": "javascript",
+      "minimumOracles": {
+        "declarations": 1,
+        "references": 1
+      },
+      "limitations": [
+        {
+          "path": "js-static/main.js",
+          "target": "DYNAMIC_LOAD",
+          "reason": "The module specifier is computed from the runtime value name, so source alone cannot identify a single imported file."
+        }
+      ]
+    },
+    {
+      "language": "typescript",
+      "minimumOracles": {
+        "declarations": 1,
+        "references": 1
+      },
+      "limitations": [
+        {
+          "path": "ts-contracts/service.ts",
+          "target": "UNKNOWN_RECEIVER",
+          "reason": "The receiver is declared unknown and narrowed only by an inline cast, so source does not establish a concrete run() implementation."
+        }
+      ]
+    },
+    {
+      "language": "php",
+      "minimumOracles": {
+        "declarations": 1,
+        "references": 1
+      },
+      "limitations": [
+        {
+          "path": "php-namespaces/service.php",
+          "target": "UNKNOWN_RECEIVER",
+          "reason": "The receiver has only the broad object type at this call site, so source does not identify a concrete runtime class or run() implementation."
+        }
+      ]
+    }
   ]
 }
