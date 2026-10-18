@@ -24,7 +24,9 @@
     "smoke": "tsx scripts/smoke.ts",
     "smoke:browser": "tsx scripts/browser-smoke.ts",
     "fixtures:verify": "tsx scripts/verify-fixtures.ts",
-    "check": "npm run lint && npm run typecheck && npm test"
+    "check": "npm run lint && npm run typecheck && npm test && npm run test:data",
+    "test:data": "tsx --test tests/database.test.ts",
+    "test:data:integration": "tsx --test tests/database.integration.ts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

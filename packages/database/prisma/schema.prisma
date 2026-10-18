@@ -7,7 +7,382 @@ datasource db {
   provider = "postgresql"
 }
 
-// Infrastruktur ENV-01; entitas produk dan autentikasi ditambahkan pada DATA-01.
+enum GitHubConnectionStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+}
+
+enum GitHubInstallationStatus {
+  ACTIVE
+  SUSPENDED
+  REMOVED
+}
+
+enum RepositoryVisibility {
+  PUBLIC
+  PRIVATE
+  INTERNAL
+  UNKNOWN
+}
+
+enum AnalysisStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  COMPLETED_WITH_LIMITATIONS
+  FAILED
+}
+
+enum AnalysisStageStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum JobType {
+  ANALYSIS
+  EXPORT
+  CLEANUP
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+}
+
+enum ExportFormat {
+  MARKDOWN
+  PDF
+}
+
+enum ExportStatus {
+  QUEUED
+  GENERATING
+  READY
+  FAILED
+}
+
+enum StorageObjectType {
+  SOURCE_ARCHIVE
+  SOURCE_FILE
+  GRAPH_BUNDLE
+  ARCHITECTURE_DOCUMENT
+  EXPORT
+  OTHER
+}
+
+enum StorageObjectStatus {
+  ACTIVE
+  DELETION_PENDING
+  DELETED
+}
+
+model User {
+  id                  String               @id @default(cuid())
+  githubUserId        String               @unique
+  login               String
+  displayName         String?
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  sessions            Session[]
+  githubConnections   GitHubConnection[]
+  githubInstallations GitHubInstallation[]
+  analyses            Analysis[]
+  jobs                Job[]
+  exports             Export[]
+  storageObjects      StorageObject[]
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([id, userId])
+  @@index([userId, expiresAt])
+}
+
+model GitHubConnection {
+  id              String                 @id @default(cuid())
+  userId          String
+  githubUserId    String
+  githubLogin     String
+  encryptedToken  String
+  tokenNonce      String
+  tokenAuthTag    String
+  encryptionKeyId String
+  tokenExpiresAt  DateTime?
+  revokedAt       DateTime?
+  status          GitHubConnectionStatus @default(ACTIVE)
+  createdAt       DateTime               @default(now())
+  updatedAt       DateTime               @updatedAt
+  user            User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, githubUserId])
+  @@unique([id, userId])
+  @@index([userId, status])
+}
+
+model GitHubInstallation {
+  id             String                   @id @default(cuid())
+  ownerUserId    String
+  installationId String
+  accountLogin   String
+  accountType    String
+  permissions    Json?
+  suspendedAt    DateTime?
+  status         GitHubInstallationStatus @default(ACTIVE)
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  owner          User                     @relation(fields: [ownerUserId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerUserId, installationId])
+  @@unique([id, ownerUserId])
+  @@index([ownerUserId, status])
+}
+
+model Repository {
+  id                 String               @id @default(cuid())
+  githubRepositoryId String               @unique
+  ownerLogin         String
+  name               String
+  fullName           String               @unique
+  visibility         RepositoryVisibility @default(UNKNOWN)
+  defaultBranch      String?
+  archived           Boolean              @default(false)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  analyses           Analysis[]
+
+  @@index([ownerLogin, name])
+}
+
+model Analysis {
+  id                   String                @id @default(cuid())
+  ownerUserId          String
+  repositoryId         String
+  retryParentId        String?
+  branchName           String
+  commitSha            String
+  configuration        Json
+  configurationHash    String
+  analyzerVersion      String
+  schemaVersion        String
+  status               AnalysisStatus        @default(QUEUED)
+  errorCode            String?
+  resultHash           String?
+  queuedAt             DateTime              @default(now())
+  startedAt            DateTime?
+  completedAt          DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  owner                User                  @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  repository           Repository            @relation(fields: [repositoryId], references: [id], onDelete: Restrict)
+  retryParent          Analysis?             @relation("AnalysisRetry", fields: [retryParentId, ownerUserId], references: [id, ownerUserId], onDelete: Restrict)
+  retries              Analysis[]            @relation("AnalysisRetry")
+  stages               AnalysisStage[]
+  sourceFiles          SourceFile[]
+  limitations          AnalysisLimitation[]
+  graphBundle          GraphBundle?
+  architectureDocument ArchitectureDocument?
+  exports              Export[]
+  jobs                 Job[]                 @relation("JobAnalysisOwner")
+  storageObjects       StorageObject[]
+
+  @@unique([id, ownerUserId])
+  @@index([ownerUserId, createdAt])
+  @@index([repositoryId, commitSha])
+  @@index([retryParentId, ownerUserId])
+}
+
+model Job {
+  id             String      @id @default(cuid())
+  ownerUserId    String
+  analysisId     String?
+  exportId       String?
+  type           JobType
+  status         JobStatus   @default(QUEUED)
+  enqueuedAt     DateTime    @default(now())
+  startedAt      DateTime?
+  finishedAt     DateTime?
+  leaseExpiresAt DateTime?
+  heartbeatAt    DateTime?
+  attempt        Int         @default(0)
+  errorCode      String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+  owner          User        @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  analysis       Analysis?   @relation("JobAnalysisOwner", fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Restrict)
+  export         Export?     @relation("JobExportOwner", fields: [exportId, ownerUserId], references: [id, ownerUserId], onDelete: Restrict)
+  workerSlot     WorkerSlot?
+
+  @@unique([id, ownerUserId])
+  @@index([ownerUserId, status, enqueuedAt])
+  @@index([analysisId, ownerUserId])
+  @@index([exportId, ownerUserId])
+}
+
+model AnalysisStage {
+  id          String              @id @default(cuid())
+  ownerUserId String
+  analysisId  String
+  sequence    Int
+  key         String
+  status      AnalysisStageStatus @default(PENDING)
+  startedAt   DateTime?
+  finishedAt  DateTime?
+  errorCode   String?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  analysis    Analysis            @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+
+  @@unique([analysisId, sequence])
+  @@unique([analysisId, key])
+  @@index([ownerUserId, status])
+}
+
+model SourceFile {
+  id               String         @id @default(cuid())
+  ownerUserId      String
+  analysisId       String
+  storageObjectId  String?
+  path             String
+  language         String?
+  byteLength       BigInt
+  sha256           String
+  processingStatus String
+  createdAt        DateTime       @default(now())
+  analysis         Analysis       @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+  storageObject    StorageObject? @relation(fields: [storageObjectId, analysisId, ownerUserId], references: [id, analysisId, ownerUserId], onDelete: Restrict)
+
+  @@unique([analysisId, path])
+  @@index([ownerUserId, analysisId])
+}
+
+model AnalysisLimitation {
+  id                String   @id @default(cuid())
+  ownerUserId       String
+  analysisId        String
+  path              String?
+  stageKey          String
+  code              String
+  safeExplanation   String
+  affectedPartCount Int?
+  createdAt         DateTime @default(now())
+  analysis          Analysis @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+
+  @@index([ownerUserId, analysisId])
+  @@index([analysisId, stageKey])
+}
+
+model GraphBundle {
+  id                String   @id @default(cuid())
+  ownerUserId       String
+  analysisId        String
+  schemaVersion     String
+  configurationHash String
+  nodes             Json
+  edges             Json
+  nodeCount         Int
+  edgeCount         Int
+  contentHash       String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  analysis          Analysis @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+
+  @@unique([analysisId, ownerUserId])
+  @@index([ownerUserId, createdAt])
+}
+
+model ArchitectureDocument {
+  id                         String   @id @default(cuid())
+  ownerUserId                String
+  analysisId                 String
+  title                      String
+  documentModelVersion       String
+  interfaceCatalog           Json
+  softwareEngineeringDiagram Json
+  umlClassDiagram            Json
+  contentHash                String
+  generatedAt                DateTime @default(now())
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+  analysis                   Analysis @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+  exports                    Export[]
+
+  @@unique([analysisId, ownerUserId])
+  @@unique([id, analysisId, ownerUserId])
+  @@index([ownerUserId, generatedAt])
+}
+
+model Export {
+  id                     String               @id @default(cuid())
+  ownerUserId            String
+  analysisId             String
+  architectureDocumentId String
+  storageObjectId        String?
+  format                 ExportFormat
+  rendererVersion        String
+  status                 ExportStatus         @default(QUEUED)
+  contentHash            String?
+  errorCode              String?
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  readyAt                DateTime?
+  owner                  User                 @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  analysis               Analysis             @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+  architectureDocument   ArchitectureDocument @relation(fields: [architectureDocumentId, analysisId, ownerUserId], references: [id, analysisId, ownerUserId], onDelete: Restrict)
+  storageObject          StorageObject?       @relation(fields: [storageObjectId, analysisId, ownerUserId], references: [id, analysisId, ownerUserId], onDelete: Restrict)
+  jobs                   Job[]                @relation("JobExportOwner")
+
+  @@unique([id, ownerUserId])
+  @@index([ownerUserId, status, createdAt])
+  @@index([analysisId, ownerUserId])
+}
+
+model StorageObject {
+  id          String              @id @default(cuid())
+  ownerUserId String
+  analysisId  String
+  type        StorageObjectType
+  storageKey  String              @unique
+  sha256      String
+  byteLength  BigInt
+  status      StorageObjectStatus @default(ACTIVE)
+  deletedAt   DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+  owner       User                @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  analysis    Analysis            @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+  sourceFiles SourceFile[]
+  exports     Export[]
+
+  @@unique([id, ownerUserId])
+  @@unique([id, analysisId, ownerUserId])
+  @@index([ownerUserId, status, createdAt])
+  @@index([analysisId, ownerUserId])
+}
+
+model WorkerSlot {
+  slotKey     String    @id @default("analysis")
+  jobId       String?   @unique
+  ownerUserId String?
+  leaseUntil  DateTime?
+  heartbeatAt DateTime?
+  updatedAt   DateTime  @updatedAt
+  job         Job?      @relation(fields: [jobId, ownerUserId], references: [id, ownerUserId], onDelete: SetNull)
+
+  @@unique([jobId, ownerUserId])
+}
+
 model WorkerHeartbeat {
   id        String   @id
   startedAt DateTime @default(now())

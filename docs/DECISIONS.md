@@ -108,3 +108,9 @@ Nomor berikut mengikuti Appendix C. `Sebagian` berarti keputusan inti tersedia t
 ## Perubahan keputusan
 
 Setiap perubahan mencatat tanggal, alasan, alternatif, dampak requirement/kontrak, dan issue terkait. Keputusan eksternal tidak ditebak. Penutupan TBD teknis memerlukan hasil pembuktian, bukan hanya nama library.
+
+## Pembuktian DATA-01 — 18 Oktober 2026
+
+Schema/migrasi PostgreSQL produk, composite ownership FK, session hash SHA-256, dan credential AES-256-GCM telah diimplementasikan pada DATA-01 (#3). Token session memakai 32 byte acak dengan TTL default 30 hari; callback dapat menentukan TTL dan tetap wajib menerapkan cookie/CSRF pada GH-01. Key credential adalah base64 32 byte di environment server; nonce 12 byte, tag 16 byte, AAD mengikat pemilik/ID koneksi/key ID. Ini dipilih agar token tidak tersimpan plaintext dan ciphertext yang dipindah konteks gagal dibuka. Key tunggal belum mendukung rotasi transparan; gunakan reautentikasi/re-enkripsi saat mengganti key.
+
+Migrasi kosong/upgrade, isolasi dua pengguna, expiry/revocation, refresh/reconnect, serta persistensi setelah container database uji dibuat ulang lulus. Detail command dan batas berada pada [bukti DATA-01](DATA-01_CHECKS.md). Login HTTP, claim queue, validasi dokumen/graph dan lifecycle penghapusan belum diterima oleh hasil ini; keputusan deployment/backup dosen tetap terbuka.
