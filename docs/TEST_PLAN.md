@@ -1,0 +1,82 @@
+# Test plan
+
+Status: seluruh test case berikut `NOT_RUN` pada baseline 18 Oktober 2026. Dokumen ini menetapkan apa yang harus diuji, bukan hasil fresh execution. Status/bukti aktual nantinya disimpan di issue/PR dan artefak pengujian yang aman.
+
+## Strategi
+
+Gunakan tiga lapis: unit/contract untuk parser, CCM dan proyeksi; integrasi untuk database/worker/GitHub boundary; E2E untuk user story dan ekspor. Mock hanya membuktikan perilaku pada boundary yang digantikan; release gate tetap memerlukan integrasi GitHub nyata dan file keluaran nyata.
+
+Playwright digunakan untuk browser E2E dan export PDF. Framework unit test dipilih saat ENV-01 sesuai workspace yang dibuat. Test harus menilai perilaku/hasil yang penting, bukan mengulang implementasi atau hanya memeriksa keberadaan komponen.
+
+## Fixture dan oracle
+
+Repository uji lengkap dari tim belum tersedia. QA-01 harus menyiapkan minimal fixture lokal kecil JavaScript, TypeScript, dan PHP, disusul repository GitHub public pihak lain/fixture public serta private yang diotorisasi pengguna.
+
+Untuk tiap fixture simpan source, full SHA atau manifest hash lokal, config, expected declaration/edge/evidence/limitations, dan nama pemeriksa. Oracle disusun dari source yang dibaca/direview; jangan menjadikan output analyzer yang diuji sebagai satu-satunya expected output.
+
+| Fixture rencana | Isi minimum |
+| --- | --- |
+| `js-static` | ESM/CommonJS statis, function/class, calls, member, external/dynamic reference |
+| `ts-contracts` | Interface, tipe, extends/implements, imports lintas file, alias, callback, receiver unresolved |
+| `php-namespaces` | Namespace/use, class/interface, member, extends/implements, calls, pemetaan Composer statis |
+| `mixed-languages` | PHP/JS/TS didukung dan satu file bahasa lain yang harus dikecualikan |
+| `source-bounds` | Unicode, LF/CRLF, file sama nama di path berbeda, evidence utama dan konteks |
+| `failure-cases` | Syntax invalid, tidak ada source didukung, limit terlampaui, duplicate submission, worker terhenti |
+| `unsafe-inputs` | URL non-GitHub, traversal, symlink, archive berlebihan, konfigurasi/plugin executable |
+
+Fixture JSX/TSX, type alias, enum, PHP trait, dan semantik framework ditambahkan saat capability spike. Angka 37 node/88 edge pada mockup bukan oracle sampai source lengkapnya tersedia dan direview.
+
+## Kasus penerimaan
+
+Setiap ID di bawah adalah kontrak pengujian yang akan diimplementasikan; seluruhnya berstatus `NOT_RUN`.
+
+| ID | Langkah/skenario | Expected result |
+| --- | --- | --- |
+| T-GH-01 | Login GitHub nyata, buka session/repositories, logout | Session valid dan milik user; token tidak ada di browser; logout mencabut session |
+| T-GH-02 | Tolak izin, gagalkan callback, ulang state, coba lagi | Pesan Indonesia tepat, state replay ditolak, tidak membentuk koneksi palsu, retry tersedia |
+| T-GH-03 | Public pihak lain, private berizin/tanpa izin, token dicabut, rate limit | Public/private sesuai hak dapat dibaca; akses lain ditolak; error aman dan dapat dipulihkan |
+| T-REP-01 | List/search, empty/no match, branch loading/error/retry | Data tidak terhapus oleh filter; branch berasal dari GitHub; state dan reset sesuai |
+| T-REP-02 | Commit kosong/eksplisit/invalid; HEAD berubah saat queued | Full SHA dibekukan saat submission; invalid ditolak; snapshot tetap sesuai target tersimpan |
+| T-ANA-01 | Dua request bersamaan, dua worker, restart dengan antrean | Maksimal satu analysis RUNNING global; antrean diproses tanpa duplikasi atau kehilangan target |
+| T-ANA-02 | Jalankan sembilan stage; paksa satu stage/generator gagal | Urutan tepat, progress aktual, next stage pending saat gagal, hasil hanya tersedia setelah bundle lengkap |
+| T-ANA-03 | Jalankan adapter pada fixture PHP, JavaScript, TypeScript | Deklarasi, relasi, kind, resolusi, dan limitation cocok oracle per kemampuan |
+| T-ANA-04 | Replay snapshot/config sama; cek Unicode/CRLF/bounds/ID | Canonical graph/hash stabil; tidak ada dangling edge; source snippet menunjuk lokasi sebenarnya |
+| T-ANA-05 | Mixed language, file parse gagal, tidak ada source didukung | Partial yang sah menjadi completed with limitations; tidak ada source berhasil menjadi failed |
+| T-ANA-06 | Matikan worker aktif lalu retry | Percobaan lama failed/interrupted; percobaan baru memakai SHA/config yang sama dan izin diperiksa ulang |
+| T-GRAPH-01 | Buka context, focus/overview/all references, zoom/fit | Graph sesuai analisis; canonical dan subset counts jelas; unresolved tetap terbedakan |
+| T-GRAPH-02 | Cari node, combine kategori, no result, reset | Query AND kategori; edge sesuai endpoint/konteks; canonical result tidak berubah |
+| T-GRAPH-03 | Pilih node, incoming/outgoing, buka/tutup source preview, unavailable | Location/bounds/evidence benar dan dari snapshot; loading/error/focus kembali sesuai |
+| T-DOC-01 | Bandingkan tiga artefak dengan CKG/source | Contract/signature/dependency terbukti; unresolved dan provenance terpelihara; tidak ada fakta tambahan |
+| T-EXP-01 | Ekspor dan buka Markdown pada viewer bersih | Tiga artefak, diagram source, evidence, context, limitation lengkap; tidak bergantung path lokal |
+| T-EXP-02 | Ekspor dan buka PDF, ekstrak teks, render seluruh halaman | File valid, teks sesuai, diagram terbaca, tidak terpotong, font dan evidence sesuai |
+| T-EXP-03 | Gagalkan ekspor, double submit, retry, download bukan pemilik | State benar, deduplikasi bekerja, graph tidak berubah, retry berhasil pada document hash sama, akses ditolak |
+| T-HIST-01 | Empty history, list berbagai status, query nama/SHA, buka record | Hanya milik user; query/reset benar; terminal sukses ke graph, queued/running/failed ke progress |
+| T-DATA-01 | Migrasi bersih, restart Docker, dua user mengakses ID yang sama | Persistensi utuh, credential/session aman, user lain ditolak pada graph/source/doc/export/job |
+| T-DATA-02 | Delete terminal/active/export aktif; simulasikan cleanup gagal | Active ditolak; akses hilang saat cleanup; file dan record turunan hilang sebelum selesai; cleanup idempotent |
+| T-UI-01 | Periksa viewport 360/390/768/1024/1440, keyboard, status/error | UI Indonesia, context terbaca, canvas/source terkontrol, fokus/label/warna diperiksa |
+| T-SEC-01 | Unsafe inputs, config executable, source berisi HTML/script, secret scan | Tidak ada eksekusi source, SSRF/traversal, injeksi render, akses lintas user, atau secret di artefak |
+| T-REL-01 | Fresh Docker setup -> login -> target -> analysis -> graph -> ADD -> MD/PDF -> history/delete | Semua alur nyata dan error wajib lulus; panduan dapat direplay; limitation dan versi tercatat |
+
+## Skenario GitHub nyata
+
+GH-01 memerlukan konfigurasi GitHub App lokal yang dimiliki project. Uji minimal satu akun yang diotorisasi, satu public repository pihak lain, satu private repository yang diizinkan, dan percobaan akses private tanpa izin. Rahasia, OTP, token, serta private key tidak disimpan sebagai fixture atau bukti publik.
+
+Testing dengan fake callback atau mock GitHub API tetap berguna untuk determinisme error, tetapi harus diberi label mocked dan tidak menggantikan bukti login/izin nyata. Bila repository private uji belum disediakan, status pengujian tersebut tetap blocked/not run dan release gate belum lulus.
+
+## Verifikasi export
+
+Bandingkan Markdown/PDF dengan document model yang sama, bukan hanya pesan berhasil. Periksa signature, daftar class/interface, relasi unresolved, evidence, SHA, dan limitation. Hash graph/document sebelum dan sesudah export harus tetap sama.
+
+PDF diperiksa dengan parser serta render visual semua halaman untuk clipping/font/diagram. Markdown harus memuat isi mandiri dan source diagram yang valid; diagram Markdown dapat memerlukan viewer yang mendukung formatnya, tetapi source relasi tetap tersedia dalam teks.
+
+## Benchmark dan batas
+
+Rekam mesin, OS/Docker, CPU/RAM, versi package/image, ukuran repository, jumlah file/node/edge, durasi per stage, peak memory, respons query, dan ukuran export. Dari pengukuran tersebut tetapkan batas repository, timeout, pagination, interval polling, dan budget layout graph.
+
+Tidak ada angka performa hasil eksekusi atau hardware minimum yang telah ditetapkan pada baseline. Batas wajib ada sebelum pemrosesan repository arbitrer; nilai awal dapat konservatif dan harus terlihat pada UI ketika dilampaui.
+
+## Format bukti
+
+Setiap hasil run mencatat tanggal, commit aplikasi, full SHA/hash fixture, schema/config/parser versions, lingkungan, test IDs, command/langkah nyata, expected vs actual, status pass/fail, serta lokasi artefak yang aman. Bedakan run baru, hasil tersimpan, mock, dan review dokumen.
+
+Hasil pengujian yang mengandung source private tidak diunggah ke repository publik. Issue dapat menyimpan ringkasan yang disamarkan dan identitas run, dengan bukti sensitif disimpan pada lokasi yang disetujui pemilik.
