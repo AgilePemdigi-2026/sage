@@ -15,6 +15,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/worker/package.json apps/worker/package.json
 COPY packages/database/package.json packages/database/package.json
 COPY packages/analyzer-js/package.json packages/analyzer-js/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/analyzer-php/package.json packages/analyzer-php/package.json
 COPY packages/documents/package.json packages/documents/package.json
 RUN npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache /root/.npm
@@ -31,6 +32,7 @@ COPY package.json package-lock.json .npmrc ./
 COPY apps/worker/package.json apps/worker/package.json
 COPY packages/database/package.json packages/database/package.json
 COPY packages/analyzer-js/package.json packages/analyzer-js/package.json
+COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/analyzer-php/package.json packages/analyzer-php/package.json
 COPY packages/documents/package.json packages/documents/package.json
 RUN npm ci --omit=dev --workspace @sage/worker --include-workspace-root=false --cache /tmp/npm-cache && rm -rf /tmp/npm-cache /root/.npm

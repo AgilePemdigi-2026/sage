@@ -3,6 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/probe.ts" },
-  "dependencies": { "typescript": "5.9.3" }
+  "exports": { ".": "./src/index.ts" },
+  "dependencies": { "@sage/contracts": "0.1.0", "typescript": "5.9.3" }
 }
