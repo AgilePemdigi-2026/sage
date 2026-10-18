@@ -38,5 +38,20 @@ export {
   storeGitHubCredential,
 } from "./credentials.ts";
 export { createSession, hashSessionToken, resolveSession, revokeSession } from "./session.ts";
+export {
+  AnalysisQueueInvariantError,
+  claimAnalysisJob,
+  enqueueAnalysis,
+  failAnalysisJob,
+  getOwnerAnalysisProgress,
+  renewAnalysisLease,
+} from "./queue.ts";
+export type {
+  AnalysisJobClaim,
+  ClaimAnalysisJobOptions,
+  EnqueuedAnalysis,
+  EnqueueAnalysisInput,
+  RenewAnalysisLeaseOptions,
+} from "./queue.ts";
 export type { EncryptedCredential } from "./credentials.ts";
 export type { ResolvedSession } from "./session.ts";

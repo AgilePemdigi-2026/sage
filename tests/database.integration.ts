@@ -170,7 +170,7 @@ test("DATA-01 owner isolation, sessions, credentials and database constraints", 
         contentHash: "1".repeat(64),
       },
     });
-    const job = await db.job.create({ data: { ownerUserId: userA.id, analysisId: analysisA.id, type: "ANALYSIS", status: "COMPLETED" } });
+    const job = await db.job.create({ data: { ownerUserId: userA.id, analysisId: analysisA.id, type: "ANALYSIS", status: "COMPLETED", queueSequence: 1n } });
 
     // The same public repository is valid for both users; all result records remain owner-bound.
     assert.equal(analysisA.repositoryId, analysisB.repositoryId);

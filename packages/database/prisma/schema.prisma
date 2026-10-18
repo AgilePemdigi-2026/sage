@@ -208,6 +208,7 @@ model Job {
   ownerUserId    String
   analysisId     String?
   exportId       String?
+  queueSequence  BigInt?
   type           JobType
   status         JobStatus   @default(QUEUED)
   enqueuedAt     DateTime    @default(now())
@@ -372,13 +373,15 @@ model StorageObject {
 }
 
 model WorkerSlot {
-  slotKey     String    @id @default("analysis")
-  jobId       String?   @unique
-  ownerUserId String?
-  leaseUntil  DateTime?
-  heartbeatAt DateTime?
-  updatedAt   DateTime  @updatedAt
-  job         Job?      @relation(fields: [jobId, ownerUserId], references: [id, ownerUserId], onDelete: SetNull)
+  slotKey             String    @id @default("analysis")
+  jobId               String?   @unique
+  ownerUserId         String?
+  leaseUntil          DateTime?
+  heartbeatAt         DateTime?
+  leaseTokenHash      String?
+  lastEnqueueSequence BigInt    @default(0)
+  updatedAt           DateTime  @updatedAt
+  job                 Job?      @relation(fields: [jobId, ownerUserId], references: [id, ownerUserId], onDelete: SetNull)
 
   @@unique([jobId, ownerUserId])
 }

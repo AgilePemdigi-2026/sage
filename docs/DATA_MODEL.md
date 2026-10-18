@@ -1,6 +1,6 @@
 # Model data dan lifecycle
 
-Status: DATA-01 menambahkan schema dan migrasi PostgreSQL untuk entitas produk di bawah, helper session/kredensial, query yang selalu membatasi pemilik, serta integration dan persistence checks. Ini belum menyediakan login/OAuth HTTP, pipeline analisis, claim queue, ataupun cleanup lifecycle.
+Status: DATA-01 menyediakan schema PostgreSQL, helper session/kredensial, query owner-scoped, serta integration dan persistence checks. ANA-01 menambahkan API enqueue/claim/lease/recovery yang diuji dengan PostgreSQL dan proses terpisah. Login/OAuth HTTP, consumer pipeline analisis, dan cleanup lifecycle masih menunggu integrasi masing-masing.
 
 ## Entitas
 
@@ -14,7 +14,7 @@ Model ini memperinci empat entitas konseptual pada SRS agar queue, source eviden
 | `GitHubInstallation` | `ownerUserId`, ID instalasi, account, status, permission metadata; akses instalasi tetap harus divalidasi oleh integrasi GitHub |
 | `Repository` | ID GitHub unik, owner/name, visibility; record global dapat dipakai beberapa user dan tidak memberi hak baca hasil analysis |
 | `Analysis` | `ownerUserId`, `repositoryId`, branch, full SHA, config/schema/analyzer versions, status, retry parent, timestamps, error code, result hash |
-| `Job` | Type `ANALYSIS`/`EXPORT`/`CLEANUP`, pemilik, relasi analysis/export opsional, status, enqueue/start/end, lease/heartbeat, attempt metadata |
+| `Job` | Type `ANALYSIS`/`EXPORT`/`CLEANUP`, pemilik, relasi analysis/export opsional, status, enqueue/start/end, lease/heartbeat, attempt metadata, dan FIFO `queueSequence` untuk analysis |
 | `AnalysisStage` | `ownerUserId`, `analysisId`, sequence/key, status, timestamps, error code; unik per analysis/sequence dan analysis/key |
 | `SourceFile` | Pemilik/analysis, path, language, byte length, SHA-256, processing status, relasi storage opsional |
 | `AnalysisLimitation` | Pemilik/analysis, path opsional, stage, code, penjelasan aman, jumlah bagian terdampak |
@@ -22,7 +22,7 @@ Model ini memperinci empat entitas konseptual pada SRS agar queue, source eviden
 | `ArchitectureDocument` | Maksimal satu per analysis, title, versi model, `interfaceCatalog`, `softwareEngineeringDiagram`, `umlClassDiagram` sebagai JSON, content hash, generated timestamp |
 | `Export` | Pemilik/analysis/document, format, versi renderer, status, storage reference, content hash, error code |
 | `StorageObject` | Pemilik/analysis, jenis objek, opaque storage key unik, hash, ukuran, status penghapusan |
-| `WorkerSlot` | Baris slot global dan lease untuk integrasi worker mendatang; model ini belum mengimplementasikan lock/claim |
+| `WorkerSlot` | Slot global `analysis`, relasi job/pemilik, lease/heartbeat, hash token lease, dan counter FIFO; row lock menserialkan enqueue/claim/renew/fail |
 
 `GraphBundle` dapat memakai JSONB dengan schema validation untuk MVP. Pemisahan ke tabel node/edge dilakukan bila benchmark membuktikan kebutuhan; keberadaan Code Knowledge Graph tidak mewajibkan graph database.
 
@@ -31,7 +31,7 @@ Model ini memperinci empat entitas konseptual pada SRS agar queue, source eviden
 - Setiap analysis memiliki tepat satu pemilik dan satu target full SHA yang tidak berubah.
 - Repository yang sama dapat dianalisis oleh beberapa user; result bundle milik user lain tidak dapat dibuka hanya karena repository-nya publik.
 - Pipeline nantinya membuat sembilan stage berurutan; schema saat ini menyimpan stage dan membatasi sequence/key duplikat, tetapi belum menegakkan jumlah sembilan.
-- `WorkerSlot` hanya menyediakan bentuk data. Aturan maksimal satu analysis `RUNNING`, claim atomik, dan recovery lease menunggu #9.
+- ANA-01 menegakkan maksimal satu analysis dan satu ANALYSIS Job `RUNNING` lewat partial unique index PostgreSQL serta claim atomik pada slot tetap. Lease mengikuti waktu database; recovery menandai percobaan interrupted sebagai gagal. Detail ada di [ANA-01](ANA-01_CHECKS.md).
 - Kelengkapan graph/document untuk status terminal divalidasi oleh worker/pipeline yang belum tersedia.
 - Dokumen maksimal satu per analysis; varian PDF/Markdown disimpan sebagai export terpisah dari dokumen logis.
 - Retry adalah analysis baru dengan target/config salinan dan FK parent; bukan overwrite hasil percobaan sebelumnya.
@@ -95,7 +95,7 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 ## Cakupan yang masih menunggu issue lain
 
 - #5 menambahkan login dan integrasi GitHub HTTP yang memakai resolver session serta helper kredensial ini.
-- #9 menentukan claim queue atomik, batas worker global, retry, dan recovery lease.
+- API antrean #9 sudah tersedia; consumer sembilan tahap dan publikasi hasil sukses tetap #35/#16. Retry produk memerlukan pemeriksaan izin baru dan analysis ID baru pada integrasi pipeline.
 - #23 menentukan alur penghapusan analysis dan objek storage secara idempotent.
 - DOC-01 memvalidasi tiga artefak dokumen; kolom JSON saat ini menyimpan struktur dan belum menjamin validitas kontennya.
 - Pipeline analisis harus menegakkan kelengkapan graph/document dan hash sebelum menyatakan analysis selesai.

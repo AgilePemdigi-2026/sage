@@ -62,7 +62,7 @@ Pemeriksaan persistensi DATA-01 tersedia pada `scripts/data-check.ts` dengan fas
 
 ## Migrasi dan pengembangan
 
-Schema/migrasi menyediakan User, Session, GitHubConnection, GitHubInstallation, Repository, Analysis, Job, AnalysisStage, SourceFile, AnalysisLimitation, GraphBundle, ArchitectureDocument, Export, StorageObject, dan WorkerSlot serta mempertahankan `WorkerHeartbeat`. `migrate deploy` berjalan otomatis ketika stack dimulai; perubahan database yang membutuhkan koordinasi diterangkan pada PR. WorkerSlot belum menjalankan claim/lock, dan model tersimpan belum berarti semua lifecycle tersedia.
+Schema/migrasi menyediakan User, Session, GitHubConnection, GitHubInstallation, Repository, Analysis, Job, AnalysisStage, SourceFile, AnalysisLimitation, GraphBundle, ArchitectureDocument, Export, StorageObject, dan WorkerSlot serta mempertahankan `WorkerHeartbeat`. `migrate deploy` berjalan otomatis ketika stack dimulai; perubahan database yang membutuhkan koordinasi diterangkan pada PR. ANA-01 menambahkan enqueue/claim/lease/recovery dan partial index global; consumer aplikasi tetap menunggu runner/pipeline. Lihat [hasil pengujian antrean](ANA-01_CHECKS.md).
 
 Untuk tooling pada host gunakan Node 24 dan npm yang tercantum pada `package.json`, lalu `npm ci` dan `npm run db:generate`. Integration test DATA-01 harus dijalankan pada database uji terisolasi yang sama dengan guard di atas; ia menguji dua user yang memakai repository publik sama, session expiry/revocation, token terenkripsi/tampering, owner predicates, composite foreign keys, dan constraints. Pemeriksaan runtime PHP/PDF/database direkomendasikan melalui container agar versi sama. Build web tidak memerlukan koneksi database ataupun GitHub App.
 
@@ -70,7 +70,7 @@ Untuk tooling pada host gunakan Node 24 dan npm yang tercantum pada `package.jso
 
 Compose membatasi web 768 MiB, worker 2 GiB, dan database 384 MiB. Web/worker berjalan non-root dengan capabilities dihapus. Volume storage hanya dibaca oleh web dan dapat ditulis worker.
 
-`config/analysis-limits.json` memuat calon batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Batas repository tersebut **belum diterapkan** karena snapshot/pipeline belum ada; REP-02/ANA-02/ANA-07 harus menerapkan dan mengujinya sebelum menerima repository arbitrer. Login/OAuth HTTP, claim/recovery queue #9, lifecycle deletion #23, penyimpanan berkas nyata, dan validasi isi tiga artefak dokumen masih menunggu issue masing-masing. Probe PHP memiliki timeout sendiri dan hanya dipakai untuk fixture tepercaya pada tahap ini.
+`config/analysis-limits.json` memuat calon batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Batas repository tersebut **belum diterapkan** karena snapshot/pipeline belum ada; REP-02/ANA-02/ANA-07 harus menerapkan dan mengujinya sebelum menerima repository arbitrer. Login/OAuth HTTP, consumer pipeline, lifecycle deletion #23, penyimpanan berkas nyata, dan validasi isi tiga artefak dokumen masih menunggu issue masing-masing. API claim/recovery #9 sudah diuji terpisah. Parser PHP memiliki timeout sendiri.
 
 Mermaid memakai strict mode pada sample tepercaya. Escape label/source, pembatasan ukuran diagram, pengujian injeksi, serta validasi output untuk konten repository tetap wajib pada DOC-01/EXP-02. Chromium tidak boleh dipakai membuka URL bebas dari input pengguna.
 
