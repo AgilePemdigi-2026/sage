@@ -3,5 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "exports": { ".": "./src/probe.ts" }
+  "dependencies": { "@sage/contracts": "0.1.0" },
+  "exports": { ".": "./src/index.ts" }
 }

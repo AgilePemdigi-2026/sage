@@ -17,7 +17,7 @@
     "build": "npm run generate --workspace @sage/database && npm run build --workspace @sage/web",
     "typecheck": "tsc --noEmit && npm run typecheck --workspace @sage/web",
     "lint": "eslint .",
-    "test": "tsx --test tests/environment.test.ts tests/fixtures.test.ts tests/contracts.test.ts tests/analyzer-js.test.ts tests/ui-foundation.test.ts",
+    "test": "tsx --test tests/environment.test.ts tests/fixtures.test.ts tests/contracts.test.ts tests/analyzer-js.test.ts tests/analyzer-php.test.ts tests/ui-foundation.test.ts",
     "db:generate": "npm run generate --workspace @sage/database",
     "db:migrate": "npm run migrate --workspace @sage/database",
     "worker": "tsx apps/worker/src/index.ts",
