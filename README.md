@@ -36,7 +36,7 @@ SAGE direncanakan sebagai aplikasi web untuk menganalisis repository GitHub, men
 | [Test plan](docs/TEST_PLAN.md) | Fixture, test case, integrasi GitHub, dan verifikasi ekspor |
 | [Keputusan dan risiko](docs/DECISIONS.md) | Keputusan yang disepakati, rancangan awal, TBD, dan risiko |
 | [Sumber](docs/SOURCES.md) | Identitas sumber PDF, Figma, referensi teknis, dan urutan acuan |
-| [Kontribusi](CONTRIBUTING.md) | Issues, paket handoff, branch, PR, commit, dan bukti review |
+| [Kontribusi](CONTRIBUTING.md) | Pembagian modul, paket pekerjaan, Issues, PR, commit, dan alur review/merge |
 
 Mulai dari PRD, keputusan, spesifikasi analisis, lalu backlog dan sprint plan. Kontrak API dan model data harus diperbarui bersama jika implementasi mengubah kontrak awal.
 

@@ -1,18 +1,18 @@
 # Product backlog
 
-Status: baseline planning; ID di bawah adalah ID internal, bukan nomor GitHub Issue. Issues, assignment akun anggota, label, dan milestone belum dibuat. Implementasi inti dikoordinasikan Iltizam; kolom paket menunjukkan penanggung jawab handoff/verifikasi sesuai [alur kontribusi](../CONTRIBUTING.md).
+Status: baseline planning; ID di bawah adalah ID internal, bukan nomor GitHub Issue. Issues, assignment akun anggota, label, dan milestone belum dibuat. Kolom paket menunjukkan rencana penanggung jawab deliverable sesuai [alur kontribusi](../CONTRIBUTING.md). Iltizam menangani review teknis dan merge PR.
 
 ## Prioritas dan estimasi
 
 `P0` diperlukan agar alur kritis atau kontrak aman dapat berjalan. `P1` tetap wajib untuk MVP lengkap, dengan urutan mengikuti dependensi. `P2` adalah finishing sesudah feature-complete. Semua enam fitur utama tetap masuk penerimaan lokal.
 
-Ukuran S/M/L/XL/XXL adalah estimasi relatif awal per paket, belum dikalibrasi terhadap kapasitas aktual satu pelaksana implementasi inti. Tidak dijumlahkan atau dibandingkan langsung dengan total 20 effort dari PDF, karena granularitas backlog berubah. Reestimasi dilakukan sesudah spike dan pada review Sprint 1; tidak ada actual effort yang diklaim pada baseline ini.
+Ukuran S/M/L/XL/XXL adalah estimasi relatif awal per paket, belum dikalibrasi terhadap kapasitas aktual tim dan dependensi pekerjaan. Tidak dijumlahkan atau dibandingkan langsung dengan total 20 effort dari PDF, karena granularitas backlog berubah. Reestimasi dilakukan sesudah spike dan pada review Sprint 1; tidak ada actual effort yang diklaim pada baseline ini.
 
 `1-2` berarti dasar dibangun Sprint 1, acceptance lengkap ditargetkan Sprint 2. Pekerjaan analisis tidak dihitung selesai hanya karena parser menghasilkan AST; kontrak, evidence, kegagalan, dan artefak harus lolos acceptance yang relevan.
 
 ## Paket pekerjaan
 
-| ID | Deliverable | Sprint | Prioritas / ukuran | Paket/verifikasi | Dependensi | Status |
+| ID | Deliverable | Sprint | Prioritas / ukuran | Penanggung jawab paket | Dependensi | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | PLAN-01 | Baseline planning dan workflow issue | 1 | P0 / M | Iltizam | - | Done (baseline dokumentasi) |
 | ENV-01 | Spike stack, versi, Docker, limits awal, renderer diagram | 1 | P0 / L | Iltizam | PLAN-01 | Planned |

@@ -18,7 +18,7 @@ Baseline: 18 Oktober 2026, Asia/Jakarta. `Disepakati` adalah keputusan project; 
 | D-10 | LLM opsional setelah MVP freeze | Disepakati | Tidak ada ketergantungan model/API LLM pada MVP |
 | D-11 | Satu siklus sprint terdiri atas dua minggu pengerjaan dan satu minggu review | Disepakati | Mulai 12 Oktober 2026; tanggal lengkap di sprint plan |
 | D-12 | Seluruh fitur MVP selesai pada Sprint 2; Sprint 3 finishing | Disepakati | Generator dokumen, graph, history, dan ekspor masuk Sprint 2 |
-| D-13 | Implementasi inti dikoordinasikan Iltizam; anggota lain dapat menerima paket untuk verifikasi dan integrasi | Disepakati | Assignment bukan klaim semua anggota menulis kode |
+| D-13 | Tanggung jawab dibagi berdasarkan modul dan deliverable; Iltizam melakukan review teknis dan merge PR | Disepakati | Scope, penanggung jawab, dan hasil aktual dicatat pada issue/PR |
 | D-14 | Pembagian kerja memakai Issues, milestone sprint, commit/PR, dan bukti verifikasi | Disepakati | Issue nyata belum dibuat pada baseline ini |
 | D-15 | Pesan commit Conventional Commit, satu baris/satu kalimat | Disepakati | Rincian pekerjaan dan bukti ada di issue/PR |
 
@@ -92,7 +92,7 @@ Nomor berikut mengikuti Appendix C. `Sebagian` berarti keputusan inti tersedia t
 | Risiko | Dampak | Mitigasi dan pemilik |
 | --- | --- | --- |
 | Target luas analyzer melebihi waktu | Fitur tampak lengkap tetapi resolver salah | Capability matrix + fixture per konstruksi; unresolved jujur; Iltizam |
-| Hanya satu pelaksana implementasi inti | Antrean pekerjaan dan integrasi menumpuk | Paket kecil, dependensi jelas, anggota lain menguji lebih awal; seluruh tim |
+| Antrean review dan integrasi antarmodul | Paket yang siap tertahan sebelum terintegrasi | PR kecil, dependensi jelas, dan bukti verifikasi tersedia sebelum review; seluruh tim |
 | Dua bahasa dan perubahan mayor library | Kontrak adapter tidak kompatibel | Pin versi, spike dua bahasa di Sprint 1, contracts tunggal; Iltizam |
 | GitHub App/izin belum dikonfigurasi | Private repo dan login belum dapat dibuktikan | Tutup GH-01 lebih awal; jangan ganti dengan demo palsu saat release; Iltizam |
 | Fixture belum tersedia | Tidak ada oracle untuk ketepatan graph | QA-01 membuat source kecil dan expected output yang direview sebelum klaim analyzer; Zarra |
@@ -100,7 +100,7 @@ Nomor berikut mengikuti Appendix C. `Sebagian` berarti keputusan inti tersedia t
 | Repo besar/berbahaya | Resource habis atau source mengeksekusi sesuatu | Batas ekstraksi, worker terpisah, tanpa eksekusi target, timeout; Iltizam |
 | File private masuk Git/log/public URL | Kebocoran data | Ignore storage/secret, redaction, otorisasi, pemeriksaan diff; seluruh tim |
 | Dokumentasi planning dianggap bukti runtime | Pelaporan progres keliru | Status planned vs tested dan bukti per issue; Rizqy/Zarra |
-| Pembagian commit tidak mencerminkan pekerjaan | Bukti kontribusi tidak jelas | Catat implementasi, pemeriksaan, integrasi, dan hasil aktual secara terpisah; seluruh tim |
+| Keterlacakan deliverable belum lengkap | Hasil dan keputusan penerimaan sulit diperiksa | Hubungkan issue, PR, commit, dan hasil pengujian aktual; seluruh tim |
 
 ## Perubahan keputusan
 

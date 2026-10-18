@@ -57,7 +57,7 @@ Paket FIN-01 dan FIN-02 menangani issue nyata yang ditemukan, hasil pengujian ul
 
 Setiap review mencatat user story/requirement, analysis ID/full SHA, langkah uji, expected vs actual, bukti, dan keputusan pass/fail. Kegagalan menjadi issue terhubung, dengan owner serta prioritas yang jelas. Tanggal review tidak menggantikan bukti hasil run.
 
-Pembagian peran mengikuti [CONTRIBUTING.md](../CONTRIBUTING.md). Implementasi inti terpusat pada Iltizam; anggota lain dapat memeriksa paket tanpa diwajibkan menulis kode, dengan hasil pemeriksaan yang nyata.
+Pembagian modul dan deliverable mengikuti [CONTRIBUTING.md](../CONTRIBUTING.md). Setiap issue memiliki penanggung jawab paket dan bukti verifikasi. Iltizam bertanggung jawab melakukan review teknis serta merge PR ke `main`; hasil pekerjaan aktual dicatat pada issue/PR terkait.
 
 ## Burndown dan pelaporan
 

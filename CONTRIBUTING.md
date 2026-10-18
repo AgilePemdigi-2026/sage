@@ -4,16 +4,16 @@ Status: aturan kerja untuk implementasi mendatang; baseline pertama berisi dokum
 
 ## Tanggung jawab
 
-Implementasi inti dikoordinasikan oleh Iltizam Muhammad Hasan. Paket file dapat disiapkan terpusat, kemudian diserahkan kepada anggota yang bertanggung jawab melakukan verifikasi dan integrasi. Peran pada issue dan laporan mengikuti pekerjaan yang benar-benar dilakukan.
+Pekerjaan direncanakan berdasarkan modul, deliverable, dan dependensi antar-issue. Setiap paket memiliki penanggung jawab serta kriteria penerimaan yang jelas. Iltizam Muhammad Hasan bertanggung jawab melakukan review teknis dan merge PR ke `main`. Peran pada issue dan laporan mengikuti pekerjaan yang benar-benar dilakukan.
 
-| Anggota | Tanggung jawab paket dan verifikasi |
+| Anggota | Rencana tanggung jawab modul dan deliverable |
 | --- | --- |
-| Iltizam Muhammad Hasan | Arsitektur, implementasi inti, GitHub, worker, analyzer, integrasi, dan review teknis |
-| Rizqy Fadhil Athallah | Handoff alur repository, progress, dan history; pemeriksaan user story serta integrasi paket terkait |
+| Iltizam Muhammad Hasan | Arsitektur, kontrak analyzer/worker, integrasi antarmodul, review teknis, dan merge PR |
+| Rizqy Fadhil Athallah | Alur repository, progress, dan history; pemetaan user story serta verifikasi paket terkait |
 | Valentina Hermawan | Kesesuaian desain, mobile/desktop, teks UI, graph/inspector, serta bukti uji antarmuka |
 | Zarra Firdaus Ananda Salia | Fixture dan expected output, model data, dokumen/ekspor, pengujian, serta dokumentasi hasil |
 
-Penanggung jawab handoff tidak harus menulis seluruh kode pada paketnya. Catat pelaksana implementasi, pemeriksa, hasil verifikasi, dan pengirim commit secara terpisah jika orangnya berbeda. Akun GitHub tiga anggota lain masih perlu dipetakan sebelum assignment di GitHub.
+Pembagian di atas merupakan rencana tanggung jawab. Setiap issue/PR mencatat scope, pelaksana, pemeriksa, dan hasil aktualnya. Akun GitHub tiga anggota lain masih perlu dipetakan sebelum assignment di GitHub.
 
 ## Issues dan milestone
 
@@ -27,17 +27,17 @@ Penanggung jawab handoff tidak harus menulis seluruh kode pada paketnya. Catat p
 
 Dokumentasi ini tidak berarti Issues, label, milestone, atau Projects sudah dibuat di GitHub.
 
-## Paket handoff
+## Paket pekerjaan
 
 Setiap paket berisi ID backlog/issue, base commit, daftar file, tujuan perubahan, dependensi paket, instruksi menjalankan, checklist verifikasi, dan saran satu pesan commit. Lampirkan diff yang dapat diperiksa; hindari menyalin seluruh checkout yang dapat menimpa perubahan anggota lain.
 
-Penerima memperbarui branch dari base yang sesuai, memeriksa diff, menjalankan checklist, dan menyertakan hasil aktual pada PR. Bila belum berhasil diuji, catat kegagalannya dan biarkan issue terbuka.
+Penanggung jawab paket memperbarui branch dari base yang sesuai, memeriksa diff, menjalankan checklist, dan menyertakan hasil aktual pada PR. Bila belum berhasil diuji, catat kegagalannya dan biarkan issue terbuka.
 
 ## Branch dan PR
 
 Gunakan branch seperti `feat/12-github-callback`, `fix/34-source-preview`, atau `docs/56-test-plan`; nomor hanya contoh dan harus diganti dengan nomor issue nyata. Satu branch berfokus pada satu paket atau beberapa issue yang memiliki dependensi kuat.
 
-Alur kerja: issue siap -> paket perubahan -> verifikasi penerima -> commit -> PR -> review Iltizam -> merge ke `main`. Commit awal baseline planning dibuat langsung pada repository yang masih kosong.
+Alur kerja: issue siap -> pengerjaan paket -> verifikasi -> commit -> PR -> review teknis oleh Iltizam -> merge oleh Iltizam ke `main`. Commit awal baseline planning dibuat langsung pada repository yang masih kosong.
 
 PR menjelaskan perubahan, ID requirement, issue, dan bukti pengujian. Gunakan `Closes #N` hanya ketika acceptance criteria issue sudah terpenuhi dan PR ditujukan ke default branch. Untuk pekerjaan parsial, gunakan `Refs #N`. Penutupan issue harus mencerminkan hasil review, termasuk saat menggunakan otomatisasi GitHub.
 
