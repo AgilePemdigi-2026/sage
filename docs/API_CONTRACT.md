@@ -41,10 +41,13 @@ Login membaca ID, login, dan nama profil melalui GitHub App tanpa scope OAuth Ap
 | GET | `/api/github/installations/{id}/repositories` | Tersedia: `page=1..100`; repository dengan akses akun dan Contents read dari instalasi |
 | POST | `/api/repositories/resolve` | Tersedia: JSON `{ "repository": "owner/name atau URL GitHub" }`; public pihak lain atau private berizin, Origin wajib |
 | GET | `/repositories` | Rancangan: search gabungan/pagination target |
-| GET | `/repositories/{repositoryId}/branches` | Daftar branch, default branch, cursor, dan error retryable |
+| GET | `/api/repositories/branches` | Tersedia: `repository=owner/name&page=1..100`; branch aktual `{ name, commitSha }` dan `nextPage` |
+| POST | `/api/repositories/target` | Tersedia: JSON `{ repository, branch, commit? }`; metadata repository, branch, `commitSha` penuh dan `branchHeadSha`; tidak membuat job |
 | POST | `/analyses` | Membuat target immutable dan analysis job terantre |
 
 Endpoint GH-02 mengembalikan halaman `{ data: { items, nextPage } }`; `nextPage` adalah nomor halaman atau null. Hanya page 1–100 diterima, query asing ditolak. Daftar terotorisasi dan input publik adalah dua jalur UI yang terlihat jelas. Resolve slug/URL tidak menambah izin private dan tidak menerima host arbitrary. Branch dibaca dari repository, bukan daftar hardcoded dari mockup.
+
+REP-01 memeriksa ulang izin dan branch setiap request. Commit opsional menerima prefix heksadesimal 7–40 karakter atau SHA 64 karakter; prefix harus tidak ambigu dan commit harus ancestor dari HEAD branch yang ditangkap pada request. Branch kosong/repository kosong, commit di luar branch, atau respons provider rusak ditolak. Kesalahan input memakai `400 INVALID_INPUT`; branch hilang dapat menghasilkan `404 NOT_FOUND`. Hasil validasi belum tersimpan sebagai analysis; submission REP-02 wajib memvalidasi ulang. Pencarian UI berlaku pada repository yang sudah dimuat; halaman berikutnya tetap dapat dimuat.
 
 Rancangan request analisis:
 
