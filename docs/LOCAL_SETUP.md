@@ -85,3 +85,7 @@ Runtime mengikuti [instalasi Next.js](https://nextjs.org/docs/app/getting-starte
 Lihat [panduan bootstrap App](GITHUB_APP_SETUP.md) dan [bukti GH-01](GH-01_CHECKS.md). `AUTH_BASE_URL` adalah origin tepercaya untuk callback, redirect, dan pemeriksaan Origin; nilainya tidak diambil dari header Host. Bootstrap pengembangan memakai localhost port 3000. Client ID/secret hanya diteruskan ke server web saat runtime, tidak ke build atau variabel `NEXT_PUBLIC`.
 
 Setelah konfigurasi `.env` tersimpan, recreate web dengan `docker compose up -d --force-recreate --no-deps web`. Session lokal dan credential dibatasi paling lama delapan jam atau masa berlaku token yang lebih pendek; login ulang diperlukan setelahnya. Refresh token otomatis belum diimplementasikan. Logout mencabut session SAGE, tidak mencabut otorisasi atau instalasi App di GitHub.
+
+## Akses repository
+
+Setelah login, buka `/workspace/repositories` untuk memuat instalasi atau memeriksa public milik siapa saja. Link pengaturan App memakai `GITHUB_APP_SLUG`; setelah mengubahnya, recreate web. Private memerlukan instalasi yang dipilih pemilik akun dan izin user serta Contents read. Status verifikasi dan batasnya ada di [GH-02](GH-02_CHECKS.md). Pemeriksaan akses belum menjalankan job analisis.
