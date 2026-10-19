@@ -58,11 +58,11 @@ CMD ["node", "apps/web/server.js"]
 FROM worker-base AS worker
 ENV NODE_ENV=production PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 COPY --from=worker-dependencies /app /app
+RUN npx --no-install playwright install --with-deps --only-shell chromium && chmod -R a+rX /ms-playwright && rm -rf /var/lib/apt/lists/* /root/.npm
 COPY --from=build /app/apps/worker /app/apps/worker
 COPY --from=build /app/packages /app/packages
 COPY --from=build /app/scripts /app/scripts
 COPY --from=build /app/tests/fixtures /app/tests/fixtures
-RUN npx --no-install playwright install --with-deps --only-shell chromium && chmod -R a+rX /ms-playwright && rm -rf /var/lib/apt/lists/* /root/.npm
 RUN groupadd --gid 1000 sage && useradd --uid 1000 --gid 1000 --create-home sage && mkdir -p /app/storage && chown sage:sage /app/storage
 USER sage
 CMD ["node", "--import", "tsx", "apps/worker/src/index.ts"]

@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "PROVISIONAL_NOT_YET_ENFORCED",
+  "status": "SNAPSHOT_ENFORCED_SOURCE_AND_PIPELINE_PENDING",
   "maxArchiveBytes": 26214400,
   "maxExtractedBytes": 104857600,
   "maxSourceFileBytes": 1048576,
@@ -10,5 +10,5 @@
   "analysisTimeoutSeconds": 300,
   "parserTimeoutSeconds": 10,
   "exportTimeoutSeconds": 60,
-  "note": "Initial conservative ceilings; REP-02/ANA-02/ANA-07 must enforce and test these before accepting arbitrary repositories. Seed fixtures do not establish production capacity."
+  "note": "REP-02 enforces archive/extracted byte, file/entry count, expansion ratio and snapshot timeout ceilings; ANA-02 must enforce source file handling and ANA-07 must integrate whole analysis deadlines. Export limit remains pending. These conservative ceilings are not production capacity evidence."
 }
