@@ -1,6 +1,6 @@
 # Fondasi lokal
 
-Scope: ENV-01 ([#2](https://github.com/AgilePemdigi-2026/sage/issues/2)), DATA-01 ([#3](https://github.com/AgilePemdigi-2026/sage/issues/3)), dan seed QA-01 ([#4](https://github.com/AgilePemdigi-2026/sage/issues/4)). Tersedia halaman awal berbahasa Indonesia, PostgreSQL, heartbeat worker, schema/migrasi produk, helper session dan kredensial, query owner-scoped, serta probe syntax dan renderer. Login GitHub HTTP dan analisis repository belum tersedia.
+Scope: ENV-01 ([#2](https://github.com/AgilePemdigi-2026/sage/issues/2)), DATA-01 ([#3](https://github.com/AgilePemdigi-2026/sage/issues/3)), dan seed QA-01 ([#4](https://github.com/AgilePemdigi-2026/sage/issues/4)). Tersedia halaman awal berbahasa Indonesia, PostgreSQL, heartbeat worker, schema/migrasi produk, helper session dan kredensial, query owner-scoped, serta probe syntax dan renderer. Alur login/callback/logout telah lulus pengujian terisolasi serta login/logout GitHub nyata; setiap instalasi lokal tetap memerlukan konfigurasi App sendiri. Analisis repository lengkap belum tersedia.
 
 ## Prasyarat dan menjalankan
 
@@ -70,12 +70,18 @@ Untuk tooling pada host gunakan Node 24 dan npm yang tercantum pada `package.jso
 
 Compose membatasi web 768 MiB, worker 2 GiB, dan database 384 MiB. Web/worker berjalan non-root dengan capabilities dihapus. Volume storage hanya dibaca oleh web dan dapat ditulis worker.
 
-`config/analysis-limits.json` memuat calon batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Batas repository tersebut **belum diterapkan** karena snapshot/pipeline belum ada; REP-02/ANA-02/ANA-07 harus menerapkan dan mengujinya sebelum menerima repository arbitrer. Login/OAuth HTTP, consumer pipeline, lifecycle deletion #23, penyimpanan berkas nyata, dan validasi isi tiga artefak dokumen masih menunggu issue masing-masing. API claim/recovery #9 sudah diuji terpisah. Parser PHP memiliki timeout sendiri.
+`config/analysis-limits.json` memuat calon batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Batas repository tersebut **belum diterapkan** karena snapshot/pipeline belum ada; REP-02/ANA-02/ANA-07 harus menerapkan dan mengujinya sebelum menerima repository arbitrer. Consumer pipeline, lifecycle deletion #23, penyimpanan berkas nyata, dan validasi isi tiga artefak dokumen masih menunggu issue masing-masing. API claim/recovery #9 sudah diuji terpisah. Parser PHP memiliki timeout sendiri.
 
 Mermaid memakai strict mode pada sample tepercaya. Escape label/source, pembatasan ukuran diagram, pengujian injeksi, serta validasi output untuk konten repository tetap wajib pada DOC-01/EXP-02. Chromium tidak boleh dipakai membuka URL bebas dari input pengguna.
 
-Semua 24 acceptance test produk pada test plan tetap NOT_RUN sampai alur terkait tersedia. Bukti fondasi dicatat terpisah dalam [pemeriksaan environment](ENVIRONMENT_CHECKS.md); QA-01 tetap terbuka karena oracle semantik lengkap dan review tim belum selesai.
+Status acceptance produk mengikuti [test plan](TEST_PLAN.md) dan bukti per issue. Login/logout nyata GH-01 sudah lulus; alur penuh repository sampai ekspor belum tersedia. Bukti fondasi dicatat terpisah dalam [pemeriksaan environment](ENVIRONMENT_CHECKS.md); QA-01 tetap terbuka karena oracle semantik lengkap dan review tim belum selesai.
 
 ## Referensi implementasi
 
 Runtime mengikuti [instalasi Next.js](https://nextjs.org/docs/app/getting-started/installation), [Prisma 7](https://www.prisma.io/docs/orm/v7), [Playwright Docker](https://playwright.dev/docs/docker), dan [nikic/PHP-Parser](https://github.com/nikic/PHP-Parser). Versi aktual tersedia pada lockfile dan digest image; dokumentasi upstream bukan bukti bahwa fitur SAGE sudah lulus pengujian.
+
+## Login GitHub App
+
+Lihat [panduan bootstrap App](GITHUB_APP_SETUP.md) dan [bukti GH-01](GH-01_CHECKS.md). `AUTH_BASE_URL` adalah origin tepercaya untuk callback, redirect, dan pemeriksaan Origin; nilainya tidak diambil dari header Host. Bootstrap pengembangan memakai localhost port 3000. Client ID/secret hanya diteruskan ke server web saat runtime, tidak ke build atau variabel `NEXT_PUBLIC`.
+
+Setelah konfigurasi `.env` tersimpan, recreate web dengan `docker compose up -d --force-recreate --no-deps web`. Session lokal dan credential dibatasi paling lama delapan jam atau masa berlaku token yang lebih pendek; login ulang diperlukan setelahnya. Refresh token otomatis belum diimplementasikan. Logout mencabut session SAGE, tidak mencabut otorisasi atau instalasi App di GitHub.

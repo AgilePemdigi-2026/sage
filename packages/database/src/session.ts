@@ -1,6 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { PrismaClient } from "../generated/client.ts";
 
+type SessionDatabase = Pick<PrismaClient, "session">;
+
 const DEFAULT_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SESSION_TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
 
@@ -24,7 +26,7 @@ export function hashSessionToken(token: string): string {
 }
 
 export async function createSession(
-  db: PrismaClient,
+  db: SessionDatabase,
   userId: string,
   options: { now?: Date; ttlMs?: number } = {},
 ): Promise<{ token: string; session: ResolvedSession }> {
@@ -46,7 +48,7 @@ export async function createSession(
 }
 
 /** Resolves only active, unexpired sessions; callers must use the returned userId as the owner scope. */
-export async function resolveSession(db: PrismaClient, token: string, now = new Date()): Promise<ResolvedSession | null> {
+export async function resolveSession(db: SessionDatabase, token: string, now = new Date()): Promise<ResolvedSession | null> {
   requireValidDate(now, "Waktu session");
   if (typeof token !== "string") return null;
   if (!SESSION_TOKEN_PATTERN.test(token)) return null;
@@ -58,7 +60,7 @@ export async function resolveSession(db: PrismaClient, token: string, now = new 
   return { sessionId: session.id, userId: session.userId, expiresAt: session.expiresAt };
 }
 
-export async function revokeSession(db: PrismaClient, token: string, now = new Date()): Promise<boolean> {
+export async function revokeSession(db: SessionDatabase, token: string, now = new Date()): Promise<boolean> {
   requireValidDate(now, "Waktu session");
   if (typeof token !== "string") return false;
   if (!SESSION_TOKEN_PATTERN.test(token)) return false;

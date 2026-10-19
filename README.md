@@ -8,8 +8,8 @@ SAGE dikembangkan untuk membantu memahami arsitektur repository GitHub melalui *
 
 📖 [Panduan lokal](docs/LOCAL_SETUP.md) · 🎯 [Product backlog](docs/PRODUCT_BACKLOG.md) · 🗓️ [Sprint plan](docs/SPRINT_PLAN.md) · 🤝 [Kontribusi](CONTRIBUTING.md)
 
-> 🚧 **Dalam pengembangan — Sprint 1, per 18 Oktober 2026.**
-> Fondasi web/worker dan Docker, model data/session/kredensial, isolasi pengguna, oracle minimum PHP/JS/TS, serta kontrak CCM/evidence sudah masuk `main`. Login GitHub HTTP, analisis repository, graph, history, serta ekspor produk masih dikerjakan pada issue masing-masing. Halaman yang tersedia saat ini adalah halaman awal dan health check; pengujian backend belum berarti seluruh MVP tersedia di UI.
+> 🚧 **Dalam pengembangan — Sprint 1, per 19 Oktober 2026.**
+> Fondasi Docker, model data/session/kredensial, isolasi pengguna, adapter deklarasi PHP/JS/TS, kontrak CCM/evidence, antrean durable, runner tahap, serta pratinjau UI/graph sudah tersedia. Login/logout GitHub App sudah terverifikasi dengan provider nyata; pengujian terisolasi juga mencakup error, replay, dan pencabutan sesi. Analisis repository lengkap, graph produk, history, dan ekspor masih mengikuti issue masing-masing. Ini belum seluruh MVP.
 
 ## 🎯 Kemampuan yang ditargetkan
 
@@ -49,14 +49,25 @@ docker compose ps
 
 **Build menyiapkan image; `up` menjalankan aplikasinya.** Tunggu command `up` selesai. Service `web`, `worker`, dan `db` seharusnya berstatus **healthy**. Service `migrate` boleh berstatus **Exited (0)** karena tugas migrasinya sudah selesai.
 
-### 3. Buka aplikasi di browser
+### 3. Konfigurasikan login GitHub
+
+Login nyata memerlukan GitHub App. Bootstrap menyiapkan form registrasi dan menyimpan kredensial langsung ke `.env` privat setelah konfirmasi pemilik akun:
+
+```sh
+node scripts/setup-github-app.mjs --name NAMA-APP-YANG-UNIK
+docker compose up -d --force-recreate --no-deps web
+```
+
+Ikuti [panduan GitHub App](docs/GITHUB_APP_SETUP.md). Callback pengembangan menggunakan `http://localhost:3000/auth/github/callback`; gunakan port web 3000 untuk konfigurasi ini. Pembuatan/otorisasi App dan instalasi repository merupakan langkah berbeda. Tanpa konfigurasi App, halaman login menampilkan kondisi belum tersedia. Jangan mengirim client secret atau private key lewat chat maupun commit.
+
+### 4. Buka aplikasi di browser
 
 | Tujuan | Alamat |
 | --- | --- |
 | 🌿 Halaman aplikasi | **[http://localhost:3000](http://localhost:3000)** |
 | 💚 Pemeriksaan layanan | [http://localhost:3000/api/health](http://localhost:3000/api/health) |
 
-Halaman aplikasi yang tersedia sekarang adalah fondasi landing page; login dan alur analisis repository menyusul sesuai backlog. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
+Halaman awal, login GitHub App, dan workspace dengan pemeriksaan sesi sudah tersedia; alur analisis repository menyusul sesuai backlog. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
 
 ### 4. Stop, jalankan kembali, atau perbarui
 
@@ -174,7 +185,7 @@ Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Con
 
 ## 📌 Langkah berikutnya
 
-1. Hubungkan login GitHub App, callback, dan session HTTP pada **GH-01 #5**.
-2. Kembangkan adapter deklarasi **JS/TS #33** dan **PHP #34** di atas kontrak serta oracle yang sudah tersedia.
-3. Lanjutkan queue/pipeline dan UI sesuai dependensi pada backlog.
+1. Hubungkan instalasi dan izin repository pada **GH-02 #6**, lalu pemilihan target **REP-01 #7**.
+2. Lanjutkan snapshot, resolver lintas file, dan canonical CKG di atas adapter deklarasi yang sudah tersedia.
+3. Hubungkan runner tahap ke pipeline nyata dan UI sesuai dependensi pada backlog.
 4. Terima setiap issue setelah scope, bukti pengujian, review, dan merge terpenuhi.

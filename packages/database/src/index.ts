@@ -38,6 +38,7 @@ export {
   storeGitHubCredential,
 } from "./credentials.ts";
 export { createSession, hashSessionToken, resolveSession, revokeSession } from "./session.ts";
+export { completeGitHubLogin, consumeGitHubOAuthAttempt, createGitHubOAuthAttempt } from "./oauth.ts";
 export {
   AnalysisQueueInvariantError,
   claimAnalysisJob,

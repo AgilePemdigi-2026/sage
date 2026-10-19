@@ -1,6 +1,6 @@
 # Kontrak API
 
-Status: endpoint produk `v1` masih rancangan dan belum tersedia. Fondasi ENV-01 menyediakan `GET /api/health`: HTTP 200 ketika koneksi database tersedia, atau HTTP 503 dengan status `unavailable` tanpa detail error internal. Health check tidak memerlukan session dan tidak menyediakan data pengguna. Root rencana produk adalah `/api`; ID opaque tidak menggantikan pemeriksaan session/pemilik.
+Status: endpoint produk `v1` masih rancangan. Fondasi ENV-01 menyediakan `GET /api/health`; alur login dan session GitHub App GH-01 juga sudah tersedia pada path yang dicantumkan di bawah. Endpoint selain yang dinyatakan tersedia tetap rancangan. Health check mengembalikan HTTP 200 ketika koneksi database tersedia, atau HTTP 503 dengan status `unavailable` tanpa detail error internal. Health check tidak memerlukan session dan tidak menyediakan data pengguna. Root rencana produk adalah `/api`; ID opaque tidak menggantikan pemeriksaan session/pemilik.
 
 ## Aturan umum
 
@@ -18,14 +18,19 @@ Status: endpoint produk `v1` masih rancangan dan belum tersedia. Fondasi ENV-01 
 
 | Method | Endpoint | Perilaku |
 | --- | --- | --- |
-| GET | `/auth/github` | Membuat state login lalu redirect ke GitHub |
-| GET | `/auth/github/callback` | Memvalidasi state/code, menukar kredensial server-side, membuat session, lalu redirect ke UI |
-| GET | `/auth/github/install` | Memulai pemilihan/instalasi GitHub App bila diperlukan untuk private repository |
-| GET | `/auth/github/setup` | Memvalidasi konteks instalasi dan menghubungkannya ke user yang berhak |
-| GET | `/session` | Identitas pengguna, status koneksi, dan instalasi yang dapat dipilih; tanpa token |
-| POST | `/auth/logout` | Mencabut session lokal dan menghapus cookie |
+| GET | `/login` | Halaman login HTML dengan pesan error aman dan tombol POST GitHub; tersedia |
+| POST | `/auth/github` | Memeriksa `Origin` (cross-origin mendapat HTTP 403), membuat state/PKCE dan cookie browser, lalu redirect ke GitHub; tersedia |
+| GET | `/auth/github` | Redirect ke `/login`; read-only dan tidak membuat state |
+| GET | `/auth/github/callback` | Memeriksa state sekali pakai dan cookie browser, menukar kode server-side, membuat session, lalu redirect ke `/workspace`; tersedia |
+| GET | `/workspace` | Hanya menampilkan landing workspace untuk session aktif dan koneksi GitHub aktif yang belum kedaluwarsa; tersedia |
+| POST | `/auth/logout` | Memeriksa `Origin` (cross-origin mendapat HTTP 403), mencabut session lokal, menghapus cookie, lalu redirect ke `/login`; tersedia |
+| GET | `/auth/github/install` | Rancangan: memulai pemilihan/instalasi GitHub App untuk akses repository |
+| GET | `/auth/github/setup` | Rancangan: memvalidasi konteks instalasi dan menghubungkannya ke user yang berhak |
+| GET | `/session` | Rancangan: identitas pengguna, status koneksi, dan instalasi yang dapat dipilih; tanpa token |
 
-Exact redirect URI dan konfigurasi GitHub App ditutup pada GH-01. Login pengguna dan instalasi App adalah proses yang berbeda. Callback yang gagal/ditolak kembali ke landing dengan kode pesan aman dan aksi coba lagi; state tidak dapat digunakan ulang.
+Redirect URI harus sama dengan `{AUTH_BASE_URL}/auth/github/callback`; `AUTH_BASE_URL` harus berupa origin tanpa path, query, fragment, atau kredensial. HTTP hanya diizinkan untuk loopback lokal. Redirect selalu menuju GitHub atau path SAGE tetap, tanpa `returnTo`. Login memakai PKCE S256. Cookie `sage_oauth_browser` berumur 10 menit, HttpOnly, SameSite=Lax, dan terikat ke attempt yang dienkripsi server-side. State dikonsumsi sebelum token exchange, termasuk ketika pengguna menolak akses. Callback selalu menghapus cookie attempt. Cookie `sage_session` HttpOnly, SameSite=Lax, Secure pada HTTPS, dan hanya berisi token session opaque; access token GitHub tidak dikirim ke browser.
+
+Login meminta `read:user` untuk membaca ID, login, dan nama profil. `expires_in` GitHub dibatasi maksimal delapan jam untuk masa berlaku kredensial dan session lokal; bila provider tidak mengirim expiry, SAGE memakai delapan jam dan meminta login ulang. Implementasi ini tidak menyimpan atau memakai refresh token. Logout hanya mencabut session lokal SAGE dan tidak mencabut token di GitHub. Callback yang gagal/ditolak kembali ke halaman login dengan kode pesan aman dan aksi coba lagi; raw error GitHub, token, dan detail internal tidak ditampilkan.
 
 ## Repository dan target
 
