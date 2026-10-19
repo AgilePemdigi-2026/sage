@@ -74,7 +74,7 @@ Compose membatasi web 768 MiB, worker 2 GiB, dan database 384 MiB. Web/worker be
 
 Mermaid memakai strict mode pada sample tepercaya. Escape label/source, pembatasan ukuran diagram, pengujian injeksi, serta validasi output untuk konten repository tetap wajib pada DOC-01/EXP-02. Chromium tidak boleh dipakai membuka URL bebas dari input pengguna.
 
-Semua 24 acceptance test produk pada test plan tetap NOT_RUN sampai alur terkait tersedia. Bukti fondasi dicatat terpisah dalam [pemeriksaan environment](ENVIRONMENT_CHECKS.md); QA-01 tetap terbuka karena oracle semantik lengkap dan review tim belum selesai.
+Status acceptance produk mengikuti [test plan](TEST_PLAN.md) dan bukti per issue. Login/logout nyata GH-01 sudah lulus; alur penuh repository sampai ekspor belum tersedia. Bukti fondasi dicatat terpisah dalam [pemeriksaan environment](ENVIRONMENT_CHECKS.md); QA-01 tetap terbuka karena oracle semantik lengkap dan review tim belum selesai.
 
 ## Referensi implementasi
 

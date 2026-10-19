@@ -67,7 +67,7 @@ Ikuti [panduan GitHub App](docs/GITHUB_APP_SETUP.md). Callback pengembangan meng
 | 🌿 Halaman aplikasi | **[http://localhost:3000](http://localhost:3000)** |
 | 💚 Pemeriksaan layanan | [http://localhost:3000/api/health](http://localhost:3000/api/health) |
 
-Halaman aplikasi yang tersedia sekarang adalah fondasi landing page; login dan alur analisis repository menyusul sesuai backlog. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
+Halaman awal, login GitHub App, dan workspace dengan pemeriksaan sesi sudah tersedia; alur analisis repository menyusul sesuai backlog. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
 
 ### 4. Stop, jalankan kembali, atau perbarui
 
@@ -185,7 +185,7 @@ Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Con
 
 ## 📌 Langkah berikutnya
 
-1. Hubungkan login GitHub App, callback, dan session HTTP pada **GH-01 #5**.
-2. Kembangkan adapter deklarasi **JS/TS #33** dan **PHP #34** di atas kontrak serta oracle yang sudah tersedia.
-3. Lanjutkan queue/pipeline dan UI sesuai dependensi pada backlog.
+1. Hubungkan instalasi dan izin repository pada **GH-02 #6**, lalu pemilihan target **REP-01 #7**.
+2. Lanjutkan snapshot, resolver lintas file, dan canonical CKG di atas adapter deklarasi yang sudah tersedia.
+3. Hubungkan runner tahap ke pipeline nyata dan UI sesuai dependensi pada backlog.
 4. Terima setiap issue setelah scope, bukti pengujian, review, dan merge terpenuhi.

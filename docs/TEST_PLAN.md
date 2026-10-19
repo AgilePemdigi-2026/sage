@@ -1,6 +1,6 @@
 # Test plan
 
-Status: seluruh 24 acceptance test produk berikut tetap `NOT_RUN`. Probe fondasi ENV-01 dan integritas seed QA-01 dicatat terpisah di [pemeriksaan environment](ENVIRONMENT_CHECKS.md); probe tidak menutup acceptance produk. Bukti aktual dilampirkan pada issue/PR serta artefak yang aman.
+Status 19 Oktober 2026: subset login/logout provider nyata, pencabutan sesi, dan penolakan workspace setelah logout sudah `PASS` pada [GH-01](GH-01_CHECKS.md). Denial/failure/replay lulus melalui tes terkontrol; klik denial pada consent GitHub nyata belum dijalankan. Acceptance yang mencakup izin repository serta alur produk penuh tetap menunggu implementasi terkait. Probe fondasi ENV-01 dan integritas seed QA-01 dicatat terpisah di [pemeriksaan environment](ENVIRONMENT_CHECKS.md); probe tidak menutup acceptance produk. Bukti aktual dilampirkan pada issue/PR serta artefak yang aman.
 
 ## Strategi
 
