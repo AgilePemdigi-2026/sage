@@ -1,0 +1,124 @@
+{
+  "history-error": {
+    "imgIcon2": {
+      "src": "/design/figma/history-error-imgIcon2.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
+  },
+  "graph": {
+    "imgCategoryShapeModule": {
+      "src": "/design/figma/graph-imgCategoryShapeModule.svg",
+      "width": "26",
+      "height": "26",
+      "viewBox": "0 0 26 26"
+    },
+    "imgCategoryShapeClass": {
+      "src": "/design/figma/graph-imgCategoryShapeClass.svg",
+      "width": "26",
+      "height": "26",
+      "viewBox": "0 0 26 26"
+    },
+    "imgCategoryShapeInterface": {
+      "src": "/design/figma/graph-imgCategoryShapeInterface.svg",
+      "width": "26.2361",
+      "height": "26",
+      "viewBox": "0 0 26.2361 26"
+    },
+    "imgCategoryShapeFunction": {
+      "src": "/design/figma/graph-imgCategoryShapeFunction.svg",
+      "width": "26.8284",
+      "height": "26.8284",
+      "viewBox": "0 0 26.8284 26.8284"
+    },
+    "imgCategoryShapeMethod": {
+      "src": "/design/figma/graph-imgCategoryShapeMethod.svg",
+      "width": "26",
+      "height": "26",
+      "viewBox": "0 0 26 26"
+    },
+    "imgCategoryShapeProperty": {
+      "src": "/design/figma/graph-imgCategoryShapeProperty.svg",
+      "width": "27.2361",
+      "height": "27.2361",
+      "viewBox": "0 0 27.2361 27.2361"
+    },
+    "imgCategoryShapeUnresolvedReference": {
+      "src": "/design/figma/graph-imgCategoryShapeUnresolvedReference.svg",
+      "width": "26",
+      "height": "26",
+      "viewBox": "0 0 26 26"
+    }
+  },
+  "progress-failed": {
+    "imgIcon3": {
+      "src": "/design/figma/progress-failed-imgIcon3.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
+  },
+  "document-export": {
+    "imgIcon": {
+      "src": "/design/figma/document-export-imgIcon.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    },
+    "imgIcon1": {
+      "src": "/design/figma/document-export-imgIcon1.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
+  },
+  "progress": {
+    "imgIcon1": {
+      "src": "/design/figma/progress-imgIcon1.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    },
+    "imgIcon2": {
+      "src": "/design/figma/progress-imgIcon2.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    },
+    "imgIcon3": {
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16",
+      "src": "/design/figma/progress-imgIcon3.svg"
+    }
+  },
+  "history-empty": {
+    "imgIcon": {
+      "src": "/design/figma/history-empty-imgIcon.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    },
+    "imgIcon1": {
+      "src": "/design/figma/history-empty-imgIcon1.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
+  },
+  "progress-complete": {
+    "imgIcon": {
+      "src": "/design/figma/progress-complete-imgIcon.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    },
+    "imgIcon2": {
+      "src": "/design/figma/progress-complete-imgIcon2.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
+  }
+}

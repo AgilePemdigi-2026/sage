@@ -41,7 +41,8 @@
     "test:target:ui": "tsx scripts/test-target-ui.ts",
     "test:snapshot:integration": "tsx --test --test-concurrency=1 tests/submission-queue.integration.ts tests/snapshot-handler.integration.ts",
     "test:snapshot:live": "tsx scripts/test-snapshot-live.ts",
-    "test:source:integration": "tsx --test --test-concurrency=1 tests/source-stages.integration.ts"
+    "test:source:integration": "tsx --test --test-concurrency=1 tests/source-stages.integration.ts",
+    "test:figma:ui": "tsx scripts/test-figma-ui.ts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

@@ -50,6 +50,7 @@ FROM node-base AS web
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone /app
 COPY --from=build --chown=node:node /app/apps/web/.next/static /app/apps/web/.next/static
+COPY --from=build --chown=node:node /app/apps/web/public /app/apps/web/public
 RUN mkdir -p /app/storage && chown node:node /app/storage
 USER node
 EXPOSE 3000

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import design from "../design-system/ui.module.css";
 
 type Installation = { id: string; accountLogin: string };
 type Repository = { id: string; fullName: string; private: boolean; defaultBranch: string | null };
@@ -88,13 +89,13 @@ export function RepositoryAccessPanel({ installUrl }: { installUrl: string | nul
     finally { setBusy(false); }
   }
   function repoCard(item: Repository) {
-    return <li key={item.id} className="rounded-lg border border-ink/20 p-4 break-words">
+    return <li key={item.id} className={`${design.repositoryCard} break-words`}>
       <strong>{item.fullName}</strong><span className="ml-2 text-xs">{item.private ? "Private · berizin" : "Public"}</span>
       <p className="mt-2 text-sm">Branch default: {item.defaultBranch || "Belum ada commit"}</p>
       <button disabled={busy} onClick={() => void choose(item)} className="mt-3 rounded border border-ink/40 px-4 py-2">Pilih {item.fullName}</button>
     </li>;
   }
-  return <div className="mt-8 space-y-8" aria-busy={busy}>
+  return <div className={design.accessPanel} aria-busy={busy}>
     {error ? <p role="alert" className="rounded-lg border border-red-700 p-4 text-red-900">{error}</p> : null}
     {busy ? <p role="status">Memeriksa GitHub…</p> : null}
     <section className="rounded-xl border border-ink/20 bg-white p-5">
@@ -132,7 +133,7 @@ export function RepositoryAccessPanel({ installUrl }: { installUrl: string | nul
         <button disabled={busy || !branch} className="rounded bg-ink px-4 py-2 text-white disabled:opacity-50">Periksa target</button>
       </form>
       {target ? <div role="status" className="mt-5 rounded border border-green-700 p-4"><strong>Target tervalidasi</strong><p className="mt-2 break-all font-mono text-sm">{target.repository.fullName} · {target.branch}<br />{target.commitSha}</p><p className="mt-2 text-sm">Belum ada job analisis yang dibuat.</p></div> : null}
-    </section> : null}
+    </section> : <section aria-label="Target analisis"><h2>Target analisis</h2><p>Pilih repository untuk memuat branch dan memeriksa commit yang akan digunakan.</p></section>}
     <p className="text-sm text-ink/70">Pemeriksaan akses belum menjalankan job analisis.</p>
   </div>;
 }
