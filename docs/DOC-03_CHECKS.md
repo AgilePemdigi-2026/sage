@@ -21,3 +21,9 @@ Panduan Docker menjelaskan `docker compose stop`, `docker compose start`, serta 
 README diproses melalui GitHub Markdown API (`gfm`) untuk memeriksa HTML yang disanitasi. Hasil ditinjau di Chromium pada 390 dan 1440 px dengan stylesheet lokal; diagram dirender memakai Mermaid yang dipin dalam project. Ini preview HTML tersanitasi dengan CSS pemeriksaan lokal, bukan klaim pemeriksaan UI GitHub langsung.
 
 Pemeriksaan mencakup judul terpusat, sepuluh logo termuat, diagram sembilan node valid, tidak ada overflow dokumen atau error JavaScript, tidak ada emoji dekoratif, path aset/tautan lokal valid, dan `git diff --check`. Screenshot, SVG hasil render dan laporan berada di `artifacts/doc-03` yang diabaikan Git. Tidak ada perubahan runtime, sehingga tes backend tidak diulang.
+
+## Revisi pembuka dan interaksi
+
+Banner SVG lama dipulihkan; judul SAGE terpisah di atasnya dihapus agar tidak berulang. Flowchart menggunakan `flowchart LR` untuk alur kiri ke kanan. Tautan Mermaid Live membawa source diagram yang sama melalui state terkompresi pada fragment URL; interaksi zoom/geser tersedia di viewer eksternal, sementara README tetap memuat diagram Mermaid biasa. Tidak memerlukan layanan SAGE lokal.
+
+Pemeriksaan ulang 20 Oktober: HTML GitHub tersanitasi dirender dengan CSS lokal pada 390/1440 px; banner dan sepuluh logo termuat, tidak ada heading ganda, overflow dokumen atau error JavaScript. Diagram sembilan node valid dan state tautan dapat didekode kembali menjadi source yang identik. Viewer Mermaid Live dibuka di Chromium dan interaksi wheel zoom serta drag pan diperiksa melalui perubahan transform diagram.

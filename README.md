@@ -1,5 +1,3 @@
-<h1 align="center">SAGE</h1>
-
 <p align="center">
   <img src="docs/assets/readme-banner.svg" alt="SAGE — Pahami struktur kode, telusuri buktinya" width="100%" />
 </p>
@@ -56,10 +54,12 @@ Seluruh kemampuan di atas masuk target MVP lokal. Status implementasi serta acce
 
 ## Alur penggunaan
 
+[Buka workflow interaktif — zoom dan geser diagram](https://mermaid.live/view#pako:eJxVkk1v2zAMhv8KoXPSATvmUCDNZ4cUCJptl3oH2pJjwjIl6KNFl-S_j7aTYL0YkMj3eV-RPqnKaaNmqrbuo2owJNi9FgwQc3kM6BuocgiG01uhfpoQjSaEiJiAmAr1p28FmEt1547EoA0fkWFDaZtLqcN0-ghPp0LtyVID2EYTIRjvIiUXPgt1GQlPfeN5n0tL7RkWwnvBmNtWWL9ed4AJM_gBoTGQfOqE4e5_VQd6x2TOsBT5M8eEFiPB3HvpZ6C_kq_ECr_4XwmLIejq7Ra0DMhVM-gq13WUwPlIjtHeJctRMh5Ww2Et-t9oSfe-EvBo0oCos7U3zmE7vyIM6y-T9haZjR7CJyN3Ajn4QJzg-911I-Uf8jDuR-PJG0tsIJquJLkU0wb9be7bYWk2xywjGz36NNq1uTN8R26H5mdpXrXRuwAvGFrtPhi-wX65HjRlbhEaiv8N7Rp_DdMHKNTCcRRqgFIMO1l0orpQ8CDkTcFqoqTWIWk1O6nUmK7_57SpMdukLhOFObnDJ1dqlkI2E5W9llUuCSV2N15e_gF6peKN). Tampilan ini membuka Mermaid Live; diagram di bawah tetap tersedia langsung di README.
+
 Bagian “Tersedia saat ini” sudah tersedia pada UI. Bagian Sprint 2 menunjukkan alur yang ditargetkan setelah consumer pipeline dan integrasi hasil selesai; halaman `/preview/*` memakai data contoh terpisah.
 
 ```mermaid
-flowchart TB
+flowchart LR
   subgraph current["Tersedia saat ini"]
     A["Login dengan GitHub"] --> B{"Pilih akses repository"}
     B -->|Publik| C["Masukkan URL atau pilih dari daftar"]
