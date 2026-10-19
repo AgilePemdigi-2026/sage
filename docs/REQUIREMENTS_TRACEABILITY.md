@@ -1,6 +1,6 @@
 # Requirements traceability
 
-Status: baseline planning, 18 Oktober 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Seluruh perilaku aplikasi masih Planned/NOT_RUN; keberadaan mapping tidak membuktikan implementasi.
+Status diperbarui 20 Oktober 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Paket Sprint 1 memiliki bukti implementasi terpisah; keberadaan mapping tidak membuktikan acceptance MVP penuh. Status “paket teruji” mengacu bukti issue dan check record, termasuk batas pengujian controlled/live; status Planned tetap menunggu penerimaan produk.
 
 Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Rincian perilaku dibaca bersama sumber dan PRD, bukan digantikan hanya oleh judul. ID backlog adalah ID internal; nomor issue GitHub tersedia pada tabel product backlog. Test ID merujuk [test plan](TEST_PLAN.md).
 
@@ -8,32 +8,32 @@ Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Ri
 
 | ID | Judul sumber | PDF hlm. | Screen/state | Backlog | Test case | Sprint target | Status |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| SAGE-FR-GH-01 | GitHub Connection Action | 27 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Planned |
-| SAGE-FR-GH-02 | GitHub Authorization Redirect | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Planned |
-| SAGE-FR-GH-03 | Authorization Callback Handling | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Planned |
-| SAGE-FR-GH-04 | Successful GitHub Connection | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Planned |
-| SAGE-FR-GH-05 | Authorized Repository Retrieval | 28 | Pilih Repository | GH-02 | T-GH-03, T-DATA-01 | 1 | Planned |
-| SAGE-FR-GH-06 | Repository Access Restriction | 28 | Pilih Repository | GH-02 | T-GH-03, T-DATA-01 | 1 | Planned |
-| SAGE-FR-GH-07 | Repository Selection Navigation | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Planned |
-| SAGE-FR-GH-08 | Permission Denial Handling | 28 | Landing | GH-01 | T-GH-02 | 1 | Planned |
-| SAGE-FR-GH-09 | Authentication Failure Handling | 28 | Landing | GH-01 | T-GH-02 | 1 | Planned |
-| SAGE-FR-GH-10 | Retry Connection | 28 | Landing | GH-01 | T-GH-02 | 1 | Planned |
-| SAGE-FR-REP-01 | Authorized Repository List | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Planned |
-| SAGE-FR-REP-02 | Repository Search | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Planned |
-| SAGE-FR-REP-03 | Repository Selection | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Planned |
-| SAGE-FR-REP-04 | Analysis Target Display | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Planned |
-| SAGE-FR-REP-05 | Branch Retrieval | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Planned |
-| SAGE-FR-REP-06 | Branch Selection | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Planned |
-| SAGE-FR-REP-07 | Optional Commit Selection | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Planned |
-| SAGE-FR-REP-08 | Latest Commit Fallback | 30 | Pilih Repository / Progres | REP-02 | T-REP-02 | 1 | Planned |
-| SAGE-FR-REP-09 | Analysis Target Validation | 30 | Pilih Repository | REP-01 | T-REP-02 | 1 | Planned |
-| SAGE-FR-REP-10 | Repository Snapshot Retrieval | 30 | Pilih Repository / Progres | REP-02 | T-REP-02, T-SEC-01 | 1 | Planned |
-| SAGE-FR-REP-11 | Analysis Initialization | 30 | Progres | ANA-01 | T-ANA-01 | 1 | Planned |
+| SAGE-FR-GH-01 | GitHub Connection Action | 27 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-GH-02 | GitHub Authorization Redirect | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-GH-03 | Authorization Callback Handling | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-GH-04 | Successful GitHub Connection | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-GH-05 | Authorized Repository Retrieval | 28 | Pilih Repository | GH-02 | T-GH-03, T-DATA-01 | 1 | Paket GH-02 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-GH-06 | Repository Access Restriction | 28 | Pilih Repository | GH-02 | T-GH-03, T-DATA-01 | 1 | Paket GH-02 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-GH-07 | Repository Selection Navigation | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-GH-08 | Permission Denial Handling | 28 | Landing | GH-01 | T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-GH-09 | Authentication Failure Handling | 28 | Landing | GH-01 | T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-GH-10 | Retry Connection | 28 | Landing | GH-01 | T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-01 | Authorized Repository List | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-02 | Repository Search | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-03 | Repository Selection | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-04 | Analysis Target Display | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-05 | Branch Retrieval | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-06 | Branch Selection | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-07 | Optional Commit Selection | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-08 | Latest Commit Fallback | 30 | Pilih Repository / Progres | REP-02 | T-REP-02 | 1 | Paket REP-02 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-09 | Analysis Target Validation | 30 | Pilih Repository | REP-01 | T-REP-02 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-10 | Repository Snapshot Retrieval | 30 | Pilih Repository / Progres | REP-02 | T-REP-02, T-SEC-01 | 1 | Paket REP-02 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-REP-11 | Analysis Initialization | 30 | Progres | ANA-01 | T-ANA-01 | 1 | Paket ANA-01 teruji; integrasi penuh mengikuti test plan |
 | SAGE-FR-REP-12 | Analysis Progress Navigation | 30 | Progres | ANA-07 | T-ANA-02 | 1-2 | Planned |
-| SAGE-FR-REP-13 | Repository Search Empty Result | 31 | Pilih Repository | REP-01 | T-REP-01 | 1 | Planned |
+| SAGE-FR-REP-13 | Repository Search Empty Result | 31 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
 | SAGE-FR-ANA-01 | Analysis Progress Display | 32 | Progres | ANA-07 | T-ANA-02 | 1-2 | Planned |
-| SAGE-FR-ANA-02 | Repository Snapshot Processing | 32 | Progres | REP-02 | T-REP-02 | 1 | Planned |
-| SAGE-FR-ANA-03 | Language and Project Structure Detection | 32 | Progres / Keterbatasan | ANA-02 | T-ANA-05 | 1 | Planned |
+| SAGE-FR-ANA-02 | Repository Snapshot Processing | 32 | Progres | REP-02 | T-REP-02 | 1 | Paket REP-02 teruji; integrasi penuh mengikuti test plan |
+| SAGE-FR-ANA-03 | Language and Project Structure Detection | 32 | Progres / Keterbatasan | ANA-02 | T-ANA-05 | 1 | Paket ANA-02 teruji; integrasi penuh mengikuti test plan |
 | SAGE-FR-ANA-04 | Supported Source Code Analysis | 32 | Progres / Hasil | ANA-03, ANA-04 | T-ANA-03 | 1-2 | Planned |
 | SAGE-FR-ANA-05 | Common Code Model Generation | 32 | Progres / Hasil | ANA-05 | T-ANA-04 | 1-2 | Planned |
 | SAGE-FR-ANA-06 | Code Knowledge Graph Generation | 33 | Graph | ANA-06 | T-ANA-04, T-GRAPH-01 | 2 | Planned |
@@ -42,7 +42,7 @@ Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Ri
 | SAGE-FR-ANA-09 | UML Class Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | Planned |
 | SAGE-FR-ANA-10 | Architecture Definition Document Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | Planned |
 | SAGE-FR-ANA-11 | Analysis Progress Update | 33 | Progres | ANA-07 | T-ANA-02 | 1-2 | Planned |
-| SAGE-FR-ANA-12 | Unsupported Language Notification | 33 | Progres / Keterbatasan | ANA-02 | T-ANA-05 | 1 | Planned |
+| SAGE-FR-ANA-12 | Unsupported Language Notification | 33 | Progres / Keterbatasan | ANA-02 | T-ANA-05 | 1 | Paket ANA-02 teruji; integrasi penuh mengikuti test plan |
 | SAGE-FR-ANA-13 | Partial Analysis Continuation | 33 | Progres / Keterbatasan | ANA-02, ANA-03, ANA-04 | T-ANA-05 | 1-2 | Planned |
 | SAGE-FR-ANA-14 | Analysis Completion Status | 33 | Progres | ANA-07 | T-ANA-02, T-ANA-05 | 2 | Planned |
 | SAGE-FR-ANA-15 | Analysis Result Access | 33 | Progres / Graph | ANA-07, GRAPH-01 | T-GRAPH-01 | 2 | Planned |
@@ -144,3 +144,5 @@ UI-01 membuktikan komponen dasar, `*-S1` membuktikan hasil awal Sprint 1, dan DO
 ## Pemeliharaan mapping
 
 Setelah issue nyata dibuat, tambahkan URL/nomor issue pada ID backlog terkait. Setelah pengujian, tautkan run yang memuat commit aplikasi, fixture/full SHA, versi config, serta hasil aktual. Requirement hanya menjadi Verified setelah bukti dan review sesuai [Definition of Done](DEFINITION_OF_DONE.md); persiapan, mock, atau screenshot saja tidak menutup seluruh requirement.
+
+UI-02 (#59) dan UI-03 (#60) menambah frontend Figma pada Sprint 1. Preview progres/history/graph/dokumen menggunakan fixture ReportService tervalidasi, bukan hasil pipeline pengguna. Karena itu perubahan tampilan tidak menutup requirement analisis, persistensi history, generator artefak, atau ekspor produk. Bukti UI dicatat di [UI-02_CHECKS.md](UI-02_CHECKS.md).

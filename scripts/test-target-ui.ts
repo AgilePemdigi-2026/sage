@@ -1,15 +1,26 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { database, createSession } from "@sage/database";
 import { chromium } from "playwright";
-const db = database(); let sessionId: string | undefined;
+const db = database(); let sessionId: string | undefined; let fixtureUserId: string | undefined;
 const browser = await chromium.launch({ headless: true });
 const base = process.env.SAGE_HTTP_BASE_URL ?? "http://web:3000";
 const sha = "a".repeat(40);
 const repo = { id: "1", fullName: "example/sample", private: false, defaultBranch: "main" };
 const checks: string[] = [];
 try {
-  const user = await db.user.findFirst({ where: { login: process.env.SAGE_TEST_LOGIN ?? "" }, select: { id: true } }); assert.ok(user);
+  // Controlled API replay can use a disposable identity without changing real OAuth credentials.
+  if (process.env.SAGE_TEST_FIXTURE_USER === "1") {
+    const suffix = randomUUID();
+    const fixture = await db.user.create({ data: { githubUserId: `ui-${suffix}`, login: `ui-${suffix}` } });
+    fixtureUserId = fixture.id;
+    await db.gitHubConnection.create({ data: {
+      userId: fixture.id, githubUserId: `ui-${suffix}`, githubLogin: "example",
+      encryptedToken: "controlled-ui-fixture-not-a-token", tokenNonce: "fixture", tokenAuthTag: "fixture", encryptionKeyId: "fixture",
+    } });
+  }
+  const user = fixtureUserId ? { id: fixtureUserId } : await db.user.findFirst({ where: { login: process.env.SAGE_TEST_LOGIN ?? "" }, select: { id: true } }); assert.ok(user);
   const session = await createSession(db, user.id, { ttlMs: 180_000 }); sessionId = session.session.sessionId;
   await mkdir("artifacts/rep-01", { recursive: true });
   for (const width of [360, 390, 768, 1024, 1440]) {
@@ -50,4 +61,4 @@ try {
   }
   const report = { checkedAt: new Date().toISOString(), scope: "Production UI with controlled API responses; real provider tested separately through HTTP", checks };
   await writeFile("artifacts/rep-01/ui-report.json", JSON.stringify(report, null, 2) + "\n"); console.log(JSON.stringify(report));
-} finally { await browser.close(); if (sessionId) await db.session.deleteMany({ where: { id: sessionId } }); await db.$disconnect(); }
+} finally { await browser.close(); if (sessionId) await db.session.deleteMany({ where: { id: sessionId } }); if (fixtureUserId) await db.user.delete({ where: { id: fixtureUserId } }); await db.$disconnect(); }

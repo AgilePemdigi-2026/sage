@@ -1,12 +1,12 @@
 # Design guidelines
 
-Status: acuan visual berdasarkan Figma yang diperiksa pada 18 Oktober 2026, ditambah rancangan responsif untuk keputusan UI Indonesia dan mobile first.
+Status per 20 Oktober 2026: acuan visual diambil dari enam screen Figma yang diperiksa melalui MCP. Frontend UI-02 #59 dan UI-03 #60 sudah diperiksa pada lima viewport; hasil dan batas fidelity/fixture dicatat di [UI-02/UI-03 checks](UI-02_CHECKS.md).
 
 ## Sumber dan status
 
-Gunakan [Data Mockup SAGE](https://www.figma.com/design/OrNk1caXIrsdC0tG4axfSA/Data-Mockup-SAGE), dengan halaman Foundations, Components, SAGE Patterns, dan Screens. Foundations design system v0.1 menjadi baseline visual; nilai implementasi perlu dibandingkan dengan Figma ketika komponen mulai dibangun.
+Gunakan [Data Mockup SAGE](https://www.figma.com/design/OrNk1caXIrsdC0tG4axfSA/Data-Mockup-SAGE), dengan halaman Foundations, Components, SAGE Patterns, dan Screens. Enam screen yang menjadi baseline MCP adalah node `47:4`, `57:102`, `65:875`, `79:1222`, `117:2116`, dan `119:7425`. Foundations design system v0.1 tetap menjadi acuan token. Aset hasil ekstraksi Figma disimpan pada `apps/web/public/design/figma/`.
 
-Tema terang, Inter/JetBrains Mono, palet brand, dan layout desktop menjadi acuan. Palet kategori AST masih provisional dan aset logo masih pending. Jangan memperlakukan screenshot PDF atau inventaris layer sebagai bukti bahwa seluruh component binding/prototype telah diuji.
+Tema terang, Inter/JetBrains Mono, palet brand, dan layout desktop menjadi acuan. Palet kategori AST masih provisional. Wordmark yang tersedia adalah draft, bukan logo final; gunakan aset yang ada dan jangan membuat logo pengganti. Jangan memperlakukan screenshot PDF atau inventaris layer sebagai bukti bahwa seluruh component binding/prototype telah diuji.
 
 ## Warna dan bentuk
 
@@ -29,7 +29,7 @@ Nilai warna AST belum dikunci. Node harus memiliki bentuk/label yang membedakan 
 | Token | Acuan |
 | --- | --- |
 | Display | Inter 40/48 |
-| H1 | Inter 28/38 |
+| H1 | Inter 28/36 |
 | H2 | Inter 20/28 |
 | H3 | Inter 16/24 |
 | Body | Inter 14/22 |
@@ -87,7 +87,7 @@ Label API tetap memakai enum pada kontrak. Pesan error menjelaskan kondisi yang 
 | Dokumen | Tiga section, navigasi kembali, source evidence, loading/unavailable/error, export kedua format |
 | Export | Queued/generating, ready/download, failed/retry; format lain nonaktif pada toolbar selama permintaan aktif |
 
-Semua state menjaga analysis ID, repository, branch, dan commit. Memindah halaman tidak mengganti record analisis secara diam-diam.
+Semua state produk menjaga analysis ID, repository, branch, dan commit. Rute `/preview/*` menggunakan fixture bersama yang tervalidasi dan tidak mewakili record atau hasil repository pengguna. Memindah halaman produk tidak mengganti record analisis secara diam-diam.
 
 ## Graph dan evidence
 
@@ -101,4 +101,4 @@ Query kosong/reset tidak menghapus hasil. Overview dapat menyederhanakan label s
 
 Semua control memiliki label, fokus terlihat, dan dapat digunakan keyboard. Informasi status tidak bergantung pada warna. Setelah modal/drawer ditutup, fokus kembali ke pemicu. Tombol disabled menjelaskan keadaan yang membuatnya belum tersedia.
 
-QA-03 harus melampirkan screenshot pada viewport target, catatan keyboard/focus, serta hasil pemeriksaan kontras. Baseline planning belum menyatakan konformitas aksesibilitas atau kesetiaan pixel yang telah diuji.
+QA-03 harus melampirkan screenshot pada viewport target, catatan keyboard/focus, serta hasil pemeriksaan kontras. UI-02/UI-03 memuat bukti pemeriksaan layar fixture, keyboard/focus, screenshot, serta pasangan kontras utama. Acceptance aksesibilitas produk lengkap tetap QA-03; tidak ada klaim sertifikasi atau kesamaan pixel seluruh frame.

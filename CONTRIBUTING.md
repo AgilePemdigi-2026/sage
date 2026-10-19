@@ -1,6 +1,6 @@
 # Alur kontribusi
 
-Status: workflow aktif; milestone dan Issues telah dibuat. Fondasi ENV-01 sudah di-merge melalui PR #29; pengembangan oracle QA-01 masih dilanjutkan.
+Status: workflow aktif. Per 20 Oktober 2026, 41 GitHub Issues dan tiga milestone tersedia; issue implementasi dan bukti terbaru menjadi acuan status pekerjaan.
 
 ## Tanggung jawab
 
@@ -25,7 +25,7 @@ Pembagian di atas merupakan rencana tanggung jawab. Setiap issue/PR mencatat sco
 - Status kerja: `Backlog`, `Ready`, `In progress`, `In review`, `Done`; pekerjaan dengan dependensi belum terpenuhi diberi `blocked`.
 - Template task dan bug tersedia di [.github/ISSUE_TEMPLATE](.github/ISSUE_TEMPLATE).
 
-39 Issues, label, dan tiga milestone telah dibuat; mapping ada di product backlog. Delapan sub-issue memiliki parent native GitHub. Ukuran parent setelah pemisahan adalah scope sisa; bukti anak dapat dirujuk tanpa menghitung bobot yang sama dua kali. Issue `*-S1` memakai milestone Sprint 1, sedangkan parent lintas sprint tetap Sprint 2 sampai acceptance lengkap.
+41 Issues dan tiga milestone telah dibuat; mapping ada di product backlog. Delapan sub-issue memiliki parent native GitHub. Issue UI-02 #59 dan UI-03 #60 menambah paket UI Sprint 1 yang independen; penyelesaiannya tidak berarti acceptance parent produk Sprint 2 terpenuhi. Ukuran parent setelah pemisahan adalah scope sisa; bukti anak dapat dirujuk tanpa menghitung bobot yang sama dua kali. Issue `*-S1` memakai milestone Sprint 1, sedangkan parent lintas sprint tetap Sprint 2 sampai acceptance lengkap.
 
 Dasar review pembagian adalah bobot pekerjaan dan bukti kontribusi tiap sprint, bukan jumlah issue/commit yang sama. Catat perubahan substantif, pelaksana/pemeriksa aktual, dan hasil pengujian; reestimasi bila kapasitas atau dependensi berubah. Label `P0`/`P1`/`P2`, `ready`, `in-progress`, dan `blocked` menandai prioritas serta kesiapan. GitHub Projects belum dibuat dan bukan syarat workflow ini.
 
@@ -67,4 +67,4 @@ Gunakan identitas Git milik pengirim yang sudah diperiksa. Secret, token, privat
 
 ## Review dokumentasi
 
-Periksa tautan relatif, kelengkapan requirement, kesamaan enum/API, kalender, dan status bukti. Perubahan scope atau keputusan harus memperbarui [decision log](docs/DECISIONS.md), traceability, backlog, dan test plan yang terdampak.
+Periksa tautan relatif, kelengkapan requirement, kesamaan enum/API, kalender, dan status bukti. Saat dokumentasi berubah bersama implementasi, PR harus memperbarui dokumen yang terdampak, menunjuk issue/check yang menjadi dasar klaim, dan membedakan layanan nyata, fixture, serta pekerjaan rencana. Hasil pengujian hanya diperbarui dengan bukti dari run yang benar-benar dilakukan; laporan historis tetap mencatat scope dan hasil saat itu. Perubahan scope atau keputusan harus memperbarui [decision log](docs/DECISIONS.md), traceability, backlog, dan test plan yang terdampak.

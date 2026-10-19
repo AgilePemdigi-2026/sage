@@ -1,6 +1,6 @@
 # Alokasi pekerjaan per sprint
 
-Revisi 18 Oktober 2026 telah diterapkan pada GitHub Issues. Dasar pembagian adalah bobot deliverable dan bukti kontribusi setiap sprint; jumlah issue boleh berbeda. Perubahan ini mempertahankan kalender, target feature-complete 15 November, serta acceptance MVP.
+Revisi 20 Oktober 2026 telah diterapkan pada GitHub Issues. Dasar pembagian adalah bobot deliverable dan bukti kontribusi setiap sprint; jumlah issue boleh berbeda. Perubahan ini mempertahankan kalender, target feature-complete 15 November, serta acceptance MVP.
 
 ## Pemetaan anggota
 
@@ -9,7 +9,7 @@ Revisi 18 Oktober 2026 telah diterapkan pada GitHub Issues. Dasar pembagian adal
 | Iltizam Muhammad Hasan | `iltizamhasan3` | Aktif; review teknis dan merge PR |
 | Rizqy Fadhil Athallah | `rizqy-fadhil` | Aktif |
 | Valentina Hermawan | `liliks13` | Aktif |
-| Zarra Firdaus Ananda Salia | `zarrrafirdaus` | Aktif; 10 paket sudah di-assign |
+| Zarra Firdaus Ananda Salia | `zarrrafirdaus` | Aktif; 11 paket sudah di-assign |
 
 ## Deliverable tiap anggota
 
@@ -17,8 +17,8 @@ Revisi 18 Oktober 2026 telah diterapkan pada GitHub Issues. Dasar pembagian adal
 | --- | --- | --- | --- |
 | Iltizam | Planning dan environment; login/snapshot; kontrak CCM/evidence dan deklarasi JS/TS dasar | Hardening kontrak, resolver JS/TS, canonical CKG, release freeze | Regression analyzer/worker/evidence dan performa |
 | Rizqy | Akses repository, target/API, queue global, runner/progress dasar | Pipeline sembilan tahap nyata, history, pengujian integrasi penuh | Regression GitHub/repository/queue/pipeline/history |
-| Valentina | Shell dan komponen UI, canvas fixture bervalidasi, baseline keyboard/lima viewport | Graph nyata, filter/inspector/source, proyeksi UML/struktur, PDF, verifikasi UI lengkap | Regression graph/UI/aksesibilitas dan visual seluruh halaman PDF |
-| Zarra | Model data/session/credential, oracle minimum, deteksi source, adapter PHP dasar | Oracle/benchmark tambahan, resolver PHP, catalog/ADD, Markdown, deletion/cleanup | Verifikasi dokumen, panduan pengguna, dan demo |
+| Valentina | Shell dan komponen UI, canvas fixture bervalidasi, baseline keyboard/lima viewport; frontend Figma landing/repository/progres/history/graph | Graph nyata, filter/inspector/source, proyeksi UML/struktur, PDF, verifikasi UI lengkap | Regression graph/UI/aksesibilitas dan visual seluruh halaman PDF |
+| Zarra | Model data/session/credential, oracle minimum, deteksi source, adapter PHP dasar; frontend dokumen Figma dan sinkronisasi docs | Oracle/benchmark tambahan, resolver PHP, catalog/ADD, Markdown, deletion/cleanup | Verifikasi dokumen, panduan pengguna, dan demo |
 
 Review/merge adalah tanggung jawab tambahan Iltizam yang harus masuk peninjauan kapasitas. Sprint 1 berjalan sejak 12 Oktober; alokasi dibuat pada 18 Oktober, sehingga kapasitas sisa harus dinilai dari waktu yang masih tersedia. PLAN-01/ENV-01 dan seed QA-01 mempertahankan bukti serta author aktualnya.
 
@@ -30,10 +30,10 @@ Tabel ini menunjukkan jumlah dan keterlacakan scope. Parent lintas sprint dihitu
 | --- | --- | --- | --- |
 | Iltizam | 6: [PLAN-01 #1](https://github.com/AgilePemdigi-2026/sage/issues/1), [ENV-01 #2](https://github.com/AgilePemdigi-2026/sage/issues/2), [GH-01 #5](https://github.com/AgilePemdigi-2026/sage/issues/5), [REP-02 #8](https://github.com/AgilePemdigi-2026/sage/issues/8), [ANA-05-S1 #32](https://github.com/AgilePemdigi-2026/sage/issues/32), [ANA-03-S1 #33](https://github.com/AgilePemdigi-2026/sage/issues/33) | 4: [ANA-05 #11](https://github.com/AgilePemdigi-2026/sage/issues/11), [ANA-03 #12](https://github.com/AgilePemdigi-2026/sage/issues/12), [ANA-06 #14](https://github.com/AgilePemdigi-2026/sage/issues/14), [REL-01 #26](https://github.com/AgilePemdigi-2026/sage/issues/26) | 1: [FIN-01 #27](https://github.com/AgilePemdigi-2026/sage/issues/27) |
 | Rizqy | 4: [GH-02 #6](https://github.com/AgilePemdigi-2026/sage/issues/6), [REP-01 #7](https://github.com/AgilePemdigi-2026/sage/issues/7), [ANA-01 #9](https://github.com/AgilePemdigi-2026/sage/issues/9), [ANA-07-S1 #35](https://github.com/AgilePemdigi-2026/sage/issues/35) | 3: [ANA-07 #16](https://github.com/AgilePemdigi-2026/sage/issues/16), [HIST-01 #22](https://github.com/AgilePemdigi-2026/sage/issues/22), [QA-02 #24](https://github.com/AgilePemdigi-2026/sage/issues/24) | 1: [FIN-03 #39](https://github.com/AgilePemdigi-2026/sage/issues/39) |
-| Valentina | 3: [UI-01 #30](https://github.com/AgilePemdigi-2026/sage/issues/30), [GRAPH-01-S1 #36](https://github.com/AgilePemdigi-2026/sage/issues/36), [QA-03-S1 #37](https://github.com/AgilePemdigi-2026/sage/issues/37) | 6: [DOC-02 #38](https://github.com/AgilePemdigi-2026/sage/issues/38), [GRAPH-01 #17](https://github.com/AgilePemdigi-2026/sage/issues/17), [GRAPH-02 #18](https://github.com/AgilePemdigi-2026/sage/issues/18), [GRAPH-03 #19](https://github.com/AgilePemdigi-2026/sage/issues/19), [EXP-02 #21](https://github.com/AgilePemdigi-2026/sage/issues/21), [QA-03 #25](https://github.com/AgilePemdigi-2026/sage/issues/25) | 1: [FIN-04 #40](https://github.com/AgilePemdigi-2026/sage/issues/40) |
-| Zarra | 4: [DATA-01 #3](https://github.com/AgilePemdigi-2026/sage/issues/3), [QA-01-S1 #31](https://github.com/AgilePemdigi-2026/sage/issues/31), [ANA-02 #10](https://github.com/AgilePemdigi-2026/sage/issues/10), [ANA-04-S1 #34](https://github.com/AgilePemdigi-2026/sage/issues/34) | 5: [QA-01 #4](https://github.com/AgilePemdigi-2026/sage/issues/4), [ANA-04 #13](https://github.com/AgilePemdigi-2026/sage/issues/13), [DOC-01 #15](https://github.com/AgilePemdigi-2026/sage/issues/15), [EXP-01 #20](https://github.com/AgilePemdigi-2026/sage/issues/20), [DATA-02 #23](https://github.com/AgilePemdigi-2026/sage/issues/23) | 1: [FIN-02 #28](https://github.com/AgilePemdigi-2026/sage/issues/28) |
+| Valentina | 4: [UI-01 #30](https://github.com/AgilePemdigi-2026/sage/issues/30), [GRAPH-01-S1 #36](https://github.com/AgilePemdigi-2026/sage/issues/36), [QA-03-S1 #37](https://github.com/AgilePemdigi-2026/sage/issues/37), [UI-02 #59](https://github.com/AgilePemdigi-2026/sage/issues/59) | 6: [DOC-02 #38](https://github.com/AgilePemdigi-2026/sage/issues/38), [GRAPH-01 #17](https://github.com/AgilePemdigi-2026/sage/issues/17), [GRAPH-02 #18](https://github.com/AgilePemdigi-2026/sage/issues/18), [GRAPH-03 #19](https://github.com/AgilePemdigi-2026/sage/issues/19), [EXP-02 #21](https://github.com/AgilePemdigi-2026/sage/issues/21), [QA-03 #25](https://github.com/AgilePemdigi-2026/sage/issues/25) | 1: [FIN-04 #40](https://github.com/AgilePemdigi-2026/sage/issues/40) |
+| Zarra | 5: [DATA-01 #3](https://github.com/AgilePemdigi-2026/sage/issues/3), [QA-01-S1 #31](https://github.com/AgilePemdigi-2026/sage/issues/31), [ANA-02 #10](https://github.com/AgilePemdigi-2026/sage/issues/10), [ANA-04-S1 #34](https://github.com/AgilePemdigi-2026/sage/issues/34), [UI-03 #60](https://github.com/AgilePemdigi-2026/sage/issues/60) | 5: [QA-01 #4](https://github.com/AgilePemdigi-2026/sage/issues/4), [ANA-04 #13](https://github.com/AgilePemdigi-2026/sage/issues/13), [DOC-01 #15](https://github.com/AgilePemdigi-2026/sage/issues/15), [EXP-01 #20](https://github.com/AgilePemdigi-2026/sage/issues/20), [DATA-02 #23](https://github.com/AgilePemdigi-2026/sage/issues/23) | 1: [FIN-02 #28](https://github.com/AgilePemdigi-2026/sage/issues/28) |
 
-Total: 17 issue milestone Sprint 1, 18 Sprint 2, dan 4 Sprint 3. Ada 39 issue; delapan anak memiliki relasi parent native GitHub. Rincian ukuran/dependensi/acceptance ada di [backlog](PRODUCT_BACKLOG.md).
+Total: 19 issue milestone Sprint 1, 18 Sprint 2, dan 4 Sprint 3. Ada 41 issue; delapan anak memiliki relasi parent native GitHub. Rincian ukuran/dependensi/acceptance ada di [backlog](PRODUCT_BACKLOG.md).
 
 ## Pemisahan scope dan bukti
 
@@ -57,3 +57,5 @@ Setiap issue menyimpan perubahan substantif, commit/PR, test report atau review 
 Pada review sprint, bandingkan kompleksitas, dependensi/hambatan, perubahan yang diterima, hasil pengujian, serta waktu review tiap anggota. T-shirt size merupakan estimasi awal; tidak ada velocity atau actual effort yang sudah diukur. Jumlah issue yang berbeda di atas tidak dengan sendirinya membuktikan pembagian sudah sama berat.
 
 Jika ada ketimpangan atau antrean review, pindahkan scope tersisa dengan persetujuan tim dan perbarui issue/backlog sebelum dikerjakan. Pertahankan bukti kontribusi aktual. Paket regression Sprint 3 menghasilkan laporan nyata bahkan jika tidak ditemukan bug; temuan baru dibuat ketika benar-benar ditemukan. Tidak ada fitur wajib yang sengaja ditunda ke Sprint 3.
+
+Penambahan 20 Oktober: UI-02 dan UI-03 merupakan deliverable frontend substantif berdasarkan Figma. Riwayat author tetap dipertahankan. Progress/history/graph/dokumen pada preview memakai fixture tervalidasi; integrasi dan acceptance parent Sprint 2 tetap wajib. Volume lockfile, baris tambahan, dan jumlah merge tidak dipakai sebagai pengganti bukti bobot pekerjaan.

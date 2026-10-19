@@ -5,6 +5,15 @@
   --color-accent: #2ac6ae;
   --font-sans: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
+  --color-canvas: #f6f9fb;
+  --color-surface: #ffffff;
+  --color-border: #dce5ec;
+  --color-muted: #52637b;
+  --radius-panel: 8px;
+  --type-body-size: 14px;
+  --type-body-line-height: 22px;
+  --type-h1-size: 28px;
+  --type-h1-line-height: 36px;
 }
 
 body { margin: 0; background: #f5f7fa; color: #061e42; font-family: "Inter", sans-serif; }

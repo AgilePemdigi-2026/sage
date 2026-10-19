@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { parseGitHubAuthConfig, safeAuthErrorMessage } from "../../lib/auth/config.ts";
+import { DesignFrame, Panel } from "../../components/design-system/ui.tsx";
 
 export const metadata: Metadata = {
   title: "Masuk — SAGE",
@@ -19,11 +19,11 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const ready = parseGitHubAuthConfig(process.env) !== null;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-3xl flex-col justify-center px-5 py-16 sm:px-8">
-      <Link href="/" className="w-fit text-2xl font-bold tracking-tight" aria-label="SAGE beranda">SAGE<span className="text-accent">.</span></Link>
-      <section className="mt-12 rounded-2xl border border-ink/10 bg-white p-7 shadow-sm sm:p-10">
+    <DesignFrame>
+      <div className="mx-auto flex min-h-[calc(100dvh-140px)] w-full max-w-3xl flex-col justify-center py-10">
+      <Panel className="p-7 sm:p-10">
         <p className="font-mono text-xs tracking-wide text-ink/55">AKSES WORKSPACE</p>
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight">Masuk dengan GitHub</h1>
+        <h1 className="mt-3 text-[28px] leading-9 font-semibold tracking-tight">Masuk dengan GitHub</h1>
         <p className="mt-4 max-w-xl text-sm leading-6 text-ink/65">
           SAGE memakai GitHub App untuk menghubungkan akunmu. Token disimpan dan digunakan hanya di server.
           Sesi lokal berakhir paling lambat dalam delapan jam; setelah itu, masuk lagi untuk mengotorisasi ulang.
@@ -43,7 +43,8 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
         <p className="mt-8 border-t border-ink/10 pt-5 text-xs leading-5 text-ink/55">
           Login hanya meminta akses profil GitHub. SAGE belum menjalankan analisis repository dari halaman ini.
         </p>
-      </section>
-    </main>
+      </Panel>
+      </div>
+    </DesignFrame>
   );
 }

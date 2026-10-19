@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { readWorkspaceContext } from "../../../lib/auth/server-session.ts";
 import { RepositoryAccessPanel } from "../../../components/repositories/access-panel.tsx";
+import { DesignFrame } from "../../../components/design-system/ui.tsx";
 
 export const metadata = { title: "Repository — SAGE", robots: { index: false, follow: false } };
 
@@ -12,10 +13,11 @@ export default async function RepositoriesPage() {
   const slug = process.env.GITHUB_APP_SLUG;
   const installUrl = slug && /^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$/.test(slug)
     ? `https://github.com/apps/${slug}/installations/new` : null;
-  return <main className="mx-auto min-h-screen max-w-5xl px-5 py-8 sm:px-8">
-    <Link href="/workspace" className="text-sm underline">Kembali ke workspace</Link>
-    <h1 className="mt-6 text-3xl font-semibold">Pilih repository</h1>
-    <p className="mt-3 text-sm text-ink/70">Terhubung sebagai @{context.connectionLogin}. Izin selalu diperiksa kembali melalui GitHub.</p>
+  return <DesignFrame active="repositories">
+    <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+      <div><p className="mb-2 font-mono text-xs tracking-wide text-[#0b7a6c]">TARGET ANALISIS</p><h1 className="text-[28px] leading-9 font-semibold tracking-tight">Pilih repository</h1><p className="mt-2 text-sm leading-6 text-[#52637b]">Terhubung sebagai @{context.connectionLogin}. Izin selalu diperiksa kembali melalui GitHub.</p></div>
+      <Link href="/workspace" className="inline-flex min-h-10 items-center rounded-md border border-[#b8c6d3] bg-white px-4 py-2 text-sm font-medium text-[#061e42]">Kembali ke workspace</Link>
+    </div>
     <RepositoryAccessPanel installUrl={installUrl} />
-  </main>;
+  </DesignFrame>;
 }

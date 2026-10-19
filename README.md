@@ -8,8 +8,10 @@ SAGE dikembangkan untuk membantu memahami arsitektur repository GitHub melalui *
 
 📖 [Panduan lokal](docs/LOCAL_SETUP.md) · 🎯 [Product backlog](docs/PRODUCT_BACKLOG.md) · 🗓️ [Sprint plan](docs/SPRINT_PLAN.md) · 🤝 [Kontribusi](CONTRIBUTING.md)
 
-> 🚧 **Dalam pengembangan — Sprint 1, per 19 Oktober 2026.**
-> Fondasi Docker, model data/session/kredensial, isolasi pengguna, adapter deklarasi PHP/JS/TS, kontrak CCM/evidence, antrean durable, runner tahap, serta pratinjau UI/graph sudah tersedia. Login/logout GitHub App sudah terverifikasi dengan provider nyata; pengujian terisolasi juga mencakup error, replay, dan pencabutan sesi. Halaman akses repository sudah tersambung ke GitHub untuk public dan daftar instalasi; public dan private berizin sudah terverifikasi dengan provider nyata. Analisis repository lengkap, graph produk, history, dan ekspor masih mengikuti issue masing-masing. Ini belum seluruh MVP.
+> 🚧 **Dalam pengembangan — per 20 Oktober 2026.**
+> Login GitHub App, daftar repository public/instalasi, pemilihan branch dan full SHA, `POST /api/analyses` yang mengantre secara idempotent, serta snapshot immutable dan source handlers tersambung ke provider nyata. Worker dapat menjalankan komponen queue dan runner tahap, tetapi consumer analisis penuh masih nonaktif (`workerQueueEnabled=false`); submission belum menghasilkan analisis sembilan tahap.
+>
+> Landing, login, workspace, dan halaman repository memakai backend autentikasi/repository nyata. Halaman `/preview/progress`, `/preview/history`, `/preview/graph`, dan `/preview/document` adalah pratinjau fixture dari satu contoh source-backed tervalidasi berisi 10 node dan 9 edge, termasuk `ReportService`; halaman tersebut bukan hasil analisis repository pengguna. `/ui-preview` dan `/graph-preview` tetap tersedia sebagai fixture kompatibilitas. Hanya pratinjau Markdown yang dapat diunduh dan ditandai sebagai fixture; ekspor PDF produk belum tersedia. History produk, graph berbasis analysis, dokumen produk, ekspor, dan penghapusan masih mengikuti issue terbuka. Bukti dan batas verifikasi UI dicatat di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md).
 
 ## 🎯 Kemampuan yang ditargetkan
 
@@ -66,10 +68,14 @@ Ikuti [panduan GitHub App](docs/GITHUB_APP_SETUP.md). Callback pengembangan meng
 | --- | --- |
 | 🌿 Halaman aplikasi | **[http://localhost:3000](http://localhost:3000)** |
 | 💚 Pemeriksaan layanan | [http://localhost:3000/api/health](http://localhost:3000/api/health) |
+| Pratinjau progres (fixture) | [http://localhost:3000/preview/progress](http://localhost:3000/preview/progress) |
+| Pratinjau history (fixture) | [http://localhost:3000/preview/history](http://localhost:3000/preview/history) |
+| Pratinjau graph (fixture) | [http://localhost:3000/preview/graph](http://localhost:3000/preview/graph) |
+| Pratinjau dokumen (fixture) | [http://localhost:3000/preview/document](http://localhost:3000/preview/document) |
 
-Halaman awal, login GitHub App, dan workspace dengan pemeriksaan sesi sudah tersedia; alur analisis repository menyusul sesuai backlog. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
+Landing, login, workspace, dan akses repository nyata sudah tersedia. Rute `/preview/*` memakai fixture yang sama untuk menunjukkan state UI, bukan record tersimpan. Submission masuk queue durable, tetapi consumer analisis penuh belum aktif. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
 
-### 4. Stop, jalankan kembali, atau perbarui
+### 5. Stop, jalankan kembali, atau perbarui
 
 ```sh
 # Menghentikan aplikasi; data pada volume tetap tersimpan.
@@ -149,7 +155,7 @@ Logo disimpan lokal; sumber dan lisensinya tersedia di [aset teknologi](docs/ass
 | 🗄️ [Model data](docs/DATA_MODEL.md) | Entitas penyimpanan, lifecycle, dan penghapusan |
 | 🔌 [Kontrak API](docs/API_CONTRACT.md) | Endpoint, payload, otorisasi, status, dan error |
 | 🎨 [Design guidelines](docs/DESIGN_GUIDELINES.md) | Acuan Figma, token, bahasa UI, state, dan responsivitas |
-| 📋 [Product backlog](docs/PRODUCT_BACKLOG.md) | 39 issue, dependensi, acceptance criteria, dan penanggung jawab |
+| 📋 [Product backlog](docs/PRODUCT_BACKLOG.md) | 41 issue, dependensi, acceptance criteria, dan penanggung jawab |
 | 🗓️ [Sprint plan](docs/SPRINT_PLAN.md) | Kalender pengerjaan/review dan target tiap sprint |
 | ⚖️ [Alokasi sprint](docs/SPRINT_ALLOCATION.md) | Deliverable tiap anggota dan bukti kontribusi |
 | ✅ [Definition of Done](docs/DEFINITION_OF_DONE.md) | Syarat deliverable dan MVP dinyatakan selesai |
@@ -185,7 +191,7 @@ Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Con
 
 ## 📌 Langkah berikutnya
 
-1. Akses instalasi/private dan public pihak lain tersedia melalui **GH-02 #6**; pemilihan branch/commit tersedia melalui **REP-01 #7**, tanpa membuat job analisis.
-2. Submission dan handler snapshot immutable tersedia melalui **REP-02 #8**; consumer pipeline otomatis tetap menunggu **ANA-07 #16**. Deteksi bahasa, exclusion dan analisis deklarasi gabungan tersedia melalui **ANA-02 #10** ([bukti dan batas](docs/ANA-02_CHECKS.md)); resolver lintas file dan canonical CKG masih perlu dilanjutkan.
-3. Hubungkan runner tahap ke pipeline nyata dan UI sesuai dependensi pada backlog.
-4. Terima setiap issue setelah scope, bukti pengujian, review, dan merge terpenuhi.
+1. Lengkapi consumer sembilan tahap dan publikasi hasil atomik pada **ANA-07 #16**. Queue/API submission, runner tahap terbatas, target SHA, dan snapshot sudah punya bukti per issue; consumer masih dimatikan.
+2. Selesaikan canonical CKG dan dokumen melalui **ANA-06 #14** serta **DOC-01 #15**, lalu lanjutkan graph produk **#17–19**, Markdown/PDF **#20–21**, history **#22**, dan penghapusan **#23**.
+3. Frontend Figma **UI-02 #59** dan **UI-03 #60** telah diuji pada lima viewport; rute pratinjau memakai fixture. Bukti visual, interaksi dan batas pengujian ada di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md). Integrasi hasil produk tetap Sprint 2.
+4. Ikuti bukti dan batas per issue: [GH-02](docs/GH-02_CHECKS.md), [REP-01](docs/REP-01_CHECKS.md), [REP-02](docs/REP-02_CHECKS.md), [ANA-02](docs/ANA-02_CHECKS.md), serta [test plan](docs/TEST_PLAN.md). Tutup acceptance produk setelah alur lengkap diperiksa.
