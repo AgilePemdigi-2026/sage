@@ -53,6 +53,18 @@ export interface RunAnalysisStagesOptions {
   readonly leaseDurationMs?: number;
 }
 
+const SAFE_EXECUTION_FAILURES = ["NO_SUPPORTED_SOURCE", "PARSE_FAILED", "SNAPSHOT_INVALID"] as const;
+export type AnalysisExecutionFailureCode = (typeof SAFE_EXECUTION_FAILURES)[number];
+/** Trusted adapters may expose only these fixed failure codes through persisted progress. */
+export class AnalysisStageExecutionError extends Error {
+  readonly code: AnalysisExecutionFailureCode;
+  constructor(code: AnalysisExecutionFailureCode) {
+    if (!SAFE_EXECUTION_FAILURES.includes(code)) throw new Error("Kode kegagalan tahap tidak valid.");
+    super(code === "NO_SUPPORTED_SOURCE" ? "Tidak ada source yang didukung setelah pengecualian." : code === "PARSE_FAILED" ? "Source yang didukung gagal diparse." : "Snapshot source tidak valid.");
+    this.name = "AnalysisStageExecutionError"; this.code = code;
+  }
+}
+
 type AbortCause = "CANCELLED" | "LEASE_LOST" | "LEASE_UNVERIFIED";
 
 class StageHandlerAbortedError extends Error {
@@ -284,9 +296,9 @@ export async function runAnalysisStages(
       try {
         output = await invokeHandler(handler, handlerContext(persistedInput, outputs), controller.signal);
         if (output !== undefined) output = cloneArtifact(output);
-      } catch {
+      } catch (error) {
         if (abortCause === "LEASE_LOST" || abortCause === "LEASE_UNVERIFIED") break;
-        const failureCode = abortCause === "CANCELLED" ? CANCELLED_HANDLER_FAILURE : DEFAULT_HANDLER_FAILURE;
+        const failureCode = abortCause === "CANCELLED" ? CANCELLED_HANDLER_FAILURE : error instanceof AnalysisStageExecutionError && SAFE_EXECUTION_FAILURES.includes(error.code) ? error.code : DEFAULT_HANDLER_FAILURE;
         const failed = await failAnalysisJob(db, claim, failureCode);
         if (!failed) abort("LEASE_LOST");
         else jobFailureHandled = true;

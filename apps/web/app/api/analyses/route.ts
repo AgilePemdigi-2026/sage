@@ -13,6 +13,6 @@ export const POST = createSubmissionHandler({
     const db = database(); const value = target.repository;
     const metadata = { ownerLogin: value.owner, name: value.name, fullName: value.fullName, visibility: value.private ? "PRIVATE" as const : "PUBLIC" as const, defaultBranch: value.defaultBranch, archived: value.archived };
     const repository = await db.repository.upsert({ where: { githubRepositoryId: value.id }, create: { githubRepositoryId: value.id, ...metadata }, update: metadata, select: { id: true } });
-    return enqueueAnalysis(db, { ownerUserId, repositoryId: repository.id, branchName: target.branch, commitSha: target.commitSha, configuration: { version: 1, limitsVersion: 1 }, analyzerVersion: "declarations-v1", schemaVersion: "1", idempotency });
+    return enqueueAnalysis(db, { ownerUserId, repositoryId: repository.id, branchName: target.branch, commitSha: target.commitSha, configuration: { version: 1, limitsVersion: 1, sourcePolicyVersion: "sage-source-policy-v1", maxSourceFileBytes: 1048576 }, analyzerVersion: "declarations-v1", schemaVersion: "1", idempotency });
   },
 });

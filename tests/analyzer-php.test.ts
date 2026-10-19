@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { chmod, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { delimiter, join } from "node:path";
 import test from "node:test";
 import { analyzeDeclarations, parsePhp } from "@sage/analyzer-php";
 import { validateCcm, type CcmSnapshot } from "@sage/contracts";
@@ -231,4 +233,72 @@ test("PHP analyzer keeps parsePhp compatibility and never executes fixture sourc
   const result = await analyzeDeclarations({ snapshot, sources: mapSource("src/canary.php", source) });
   assert.ok(result.ccm?.nodes.some((node) => node.kind === "Class" && node.qualifiedName === "App\\Service"));
   assert.equal(result.errorCode, null, "the fixture's top-level throw expression is parsed as data, never executed");
+});
+
+test("PHP analyzer abort terminates the active parser and does not start the next file", async () => {
+  const temporaryDirectory = await mkdtemp(join(tmpdir(), "sage-php-abort-"));
+  const shimPath = join(temporaryDirectory, "php");
+  const startedPath = join(temporaryDirectory, "started");
+  const terminatedPath = join(temporaryDirectory, "terminated");
+  const previousPath = process.env.PATH;
+  const previousStartedPath = process.env.SAGE_PHP_SHIM_STARTED;
+  const previousTerminatedPath = process.env.SAGE_PHP_SHIM_TERMINATED;
+  const shim = `#!/usr/bin/env node
+const fs = require("node:fs");
+const keepAlive = setInterval(() => {}, 1000);
+process.on("SIGTERM", () => {
+  fs.appendFileSync(process.env.SAGE_PHP_SHIM_TERMINATED, "terminated\\n");
+  clearInterval(keepAlive);
+  process.exit(0);
+});
+fs.appendFileSync(process.env.SAGE_PHP_SHIM_STARTED, "started\\n");
+process.stdin.resume();
+`;
+
+  try {
+    await writeFile(shimPath, shim);
+    await chmod(shimPath, 0o755);
+    process.env.PATH = `${temporaryDirectory}${delimiter}${previousPath ?? ""}`;
+    process.env.SAGE_PHP_SHIM_STARTED = startedPath;
+    process.env.SAGE_PHP_SHIM_TERMINATED = terminatedPath;
+
+    const controller = new AbortController();
+    const analysis = analyzeDeclarations({
+      snapshot,
+      sources: {
+        "src/a.php": utf8.encode("<?php class First {}"),
+        "src/b.php": utf8.encode("<?php class Second {}"),
+      },
+      signal: controller.signal,
+    });
+    const waitForFile = async (filePath: string): Promise<string> => {
+      const deadline = Date.now() + 5000;
+      while (Date.now() < deadline) {
+        try {
+          return await readFile(filePath, "utf8");
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+      }
+      throw new Error(`Timed out waiting for ${filePath}`);
+    };
+
+    await waitForFile(startedPath);
+    controller.abort();
+    await assert.rejects(analysis, (error: unknown) => {
+      assert.ok(error instanceof Error);
+      assert.equal(error.name, "AbortError");
+      return true;
+    });
+    assert.equal((await waitForFile(terminatedPath)).trim(), "terminated", "the active parser child received termination");
+    assert.equal((await readFile(startedPath, "utf8")).trim(), "started", "the second PHP file never launched a parser");
+  } finally {
+    if (previousPath === undefined) delete process.env.PATH;
+    else process.env.PATH = previousPath;
+    if (previousStartedPath === undefined) delete process.env.SAGE_PHP_SHIM_STARTED;
+    else process.env.SAGE_PHP_SHIM_STARTED = previousStartedPath;
+    if (previousTerminatedPath === undefined) delete process.env.SAGE_PHP_SHIM_TERMINATED;
+    else process.env.SAGE_PHP_SHIM_TERMINATED = previousTerminatedPath;
+    await rm(temporaryDirectory, { recursive: true, force: true });
+  }
 });

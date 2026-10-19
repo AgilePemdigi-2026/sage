@@ -98,7 +98,13 @@ Contoh 37 node, 88 edge, dan OrderService pada PDF adalah referensi desain. Nila
 
 Bahasa di luar scope, syntax yang belum didukung, dependency tidak tersedia, file binary, submodule, serta file yang dikecualikan dicatat dengan path, alasan, dan tahap. Satu file gagal diparse dapat dikecualikan dengan limitation bila masih ada source didukung yang berhasil dan seluruh artefak dapat dibentuk secara jujur.
 
-Tidak ada file didukung yang berhasil, snapshot invalid, pelanggaran resource limit, kontrak CCM invalid, atau kegagalan generator artefak mengakhiri job sebagai `FAILED`. Semua tahap sukses dengan daftar limitation nonkosong menghasilkan `COMPLETED_WITH_LIMITATIONS`; hasil tanpa limitation menghasilkan `COMPLETED`.
+Tidak ada file didukung yang berhasil, snapshot invalid, pelanggaran resource limit pada arsip atau seluruh job, kontrak CCM invalid, atau kegagalan generator artefak mengakhiri job sebagai `FAILED`. Semua tahap sukses dengan daftar limitation nonkosong menghasilkan `COMPLETED_WITH_LIMITATIONS`; hasil tanpa limitation menghasilkan `COMPLETED`.
+
+### Deteksi source dan exclusion ANA-02
+
+Implementasi worker memakai policy `sage-source-policy-v1`, input dari snapshot full SHA tersimpan dan maksimum 1 MiB per source. File individual yang melampaui batas dikecualikan dengan alasan `SOURCE_FILE_TOO_LARGE`; batas seluruh archive/snapshot tetap fatal. Ekstensi JS/TS/PHP, directory dependency/build, source map, nama minified, binary/UTF-8 invalid, dan submodule dilaporkan secara deterministik. Script, konfigurasi, dependency, serta URL submodule target tidak dieksekusi atau diunduh.
+
+Tidak ada source eligible menghasilkan `NO_SUPPORTED_SOURCE`; semua source eligible gagal parse menghasilkan `PARSE_FAILED`. Source valid tetap dianalisis ketika ada sibling gagal, dengan hasil parsial dan limitation. Handler LANGUAGE_DETECTION dan STATIC_ANALYSIS dapat dipanggil runner; consumer otomatis, persistensi hasil produk dan tahap lanjutan tetap memerlukan ANA-07. Kontrak dan bukti rinci: [ANA-02_CHECKS.md](ANA-02_CHECKS.md).
 
 ## Pembentukan dokumen
 

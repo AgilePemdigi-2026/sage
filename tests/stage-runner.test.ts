@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ANALYSIS_STAGE_DEFINITIONS, ANALYSIS_STAGE_STATUSES } from "../packages/contracts/src/stages.ts";
-import { runAnalysisStages, type AnalysisStageHandlers } from "../apps/worker/src/stage-runner.ts";
+import { AnalysisStageExecutionError, runAnalysisStages, type AnalysisStageHandlers } from "../apps/worker/src/stage-runner.ts";
 import type { PrismaClient } from "../packages/database/generated/client.ts";
 
 const validClaim = {
@@ -36,4 +36,9 @@ test("runner rejects incomplete or unsafe handler registries before database acc
   const withExtraKey = { ...handlers, UNKNOWN: async () => undefined } as unknown as AnalysisStageHandlers;
   await assert.rejects(runAnalysisStages(noDatabase, validClaim, withExtraKey), /tepat sembilan/);
   await assert.rejects(runAnalysisStages(noDatabase, validClaim, handlers, { leaseDurationMs: 999 }), /Durasi lease/);
+});
+
+test("trusted stage failures expose only fixed safe codes", () => {
+  assert.equal(new AnalysisStageExecutionError("NO_SUPPORTED_SOURCE").code, "NO_SUPPORTED_SOURCE");
+  assert.throws(() => new AnalysisStageExecutionError("private-source-content" as never), /tidak valid/);
 });
