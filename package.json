@@ -30,7 +30,8 @@
     "test:ui": "tsx scripts/test-ui-foundation.ts",
     "test:graph": "tsx scripts/test-graph-foundation.ts",
     "test:queue:integration": "tsx --test tests/queue.integration.ts",
-    "test:stages:integration": "tsx --test --test-concurrency=1 tests/stage-runner.integration.ts tests/stage-runner-lifecycle.integration.ts"
+    "test:stages:integration": "tsx --test --test-concurrency=1 tests/stage-runner.integration.ts tests/stage-runner-lifecycle.integration.ts",
+    "test:ui:baseline": "tsx scripts/test-ui-baseline.ts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
