@@ -186,6 +186,6 @@ Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Con
 ## 📌 Langkah berikutnya
 
 1. Akses instalasi/private dan public pihak lain tersedia melalui **GH-02 #6**; pemilihan branch/commit tersedia melalui **REP-01 #7**, tanpa membuat job analisis.
-2. Submission dan handler snapshot immutable tersedia melalui **REP-02 #8**; consumer pipeline otomatis tetap menunggu **ANA-07 #16**. Lanjutkan deteksi source, resolver lintas file, dan canonical CKG.
+2. Submission dan handler snapshot immutable tersedia melalui **REP-02 #8**; consumer pipeline otomatis tetap menunggu **ANA-07 #16**. Deteksi bahasa, exclusion dan analisis deklarasi gabungan tersedia melalui **ANA-02 #10** ([bukti dan batas](docs/ANA-02_CHECKS.md)); resolver lintas file dan canonical CKG masih perlu dilanjutkan.
 3. Hubungkan runner tahap ke pipeline nyata dan UI sesuai dependensi pada backlog.
 4. Terima setiap issue setelah scope, bukti pengujian, review, dan merge terpenuhi.

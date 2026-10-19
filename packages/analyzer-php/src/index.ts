@@ -62,6 +62,7 @@ interface PhpParseResult {
 export interface DeclarationAnalysisInput {
   snapshot: CcmSnapshot;
   sources: Readonly<Record<string, Uint8Array>>;
+  signal?: AbortSignal;
 }
 
 export interface DeclarationDiagnostic {
@@ -148,10 +149,14 @@ function addLimitation(limitations: CcmLimitation[], path: string | null, stage:
   }
 }
 
-function parseWithPhp(bytes: Uint8Array): Promise<PhpParseResult> {
+function parseWithPhp(bytes: Uint8Array, signal?: AbortSignal): Promise<PhpParseResult> {
   return new Promise((resolve, reject) => {
-    const child = execFile("php", [PHP_SCRIPT], { timeout: 10000, maxBuffer: 4 * 1024 * 1024 }, (error, stdout) => {
+    const child = execFile("php", [PHP_SCRIPT], { timeout: 10000, maxBuffer: 4 * 1024 * 1024, signal }, (error, stdout) => {
       if (error) {
+        if (signal?.aborted) {
+          reject(signal.reason ?? error);
+          return;
+        }
         reject(new Error("PHP_PARSER_UNAVAILABLE"));
         return;
       }
@@ -247,6 +252,7 @@ export async function analyzeDeclarations(input: DeclarationAnalysisInput): Prom
   });
 
   try {
+    input?.signal?.throwIfAborted();
     if (!input || !validSnapshot(input.snapshot) || !isRecord(input.sources)) return failed("ANALYZER_INPUT_INVALID");
     const snapshot = input.snapshot;
     const sourceEntries = Reflect.ownKeys(input.sources).map((key) => {
@@ -268,6 +274,7 @@ export async function analyzeDeclarations(input: DeclarationAnalysisInput): Prom
     let failedCount = 0;
 
     for (const [path, bytes] of sourceEntries) {
+      input.signal?.throwIfAborted();
       if (!safePath(path)) return failed("CCM_FILE_PATH_INVALID");
       const fileHash = sha256(bytes);
       if (!path.toLowerCase().endsWith(".php")) {
@@ -288,8 +295,9 @@ export async function analyzeDeclarations(input: DeclarationAnalysisInput): Prom
 
       let parsed: PhpParseResult;
       try {
-        parsed = await parseWithPhp(bytes);
+        parsed = await parseWithPhp(bytes, input.signal);
       } catch (error) {
+        if (input.signal?.aborted) input.signal.throwIfAborted();
         const code = error instanceof Error && error.message === "PHP_PARSER_INVALID_RESPONSE"
           ? "PHP_PARSER_INVALID_RESPONSE"
           : "PHP_PARSER_UNAVAILABLE";
@@ -455,6 +463,7 @@ export async function analyzeDeclarations(input: DeclarationAnalysisInput): Prom
       errorCode: null,
     };
   } catch (error) {
+    if (input?.signal?.aborted) input.signal.throwIfAborted();
     return failed(error instanceof Error && error.message === "ANALYZER_INPUT_INVALID" ? "ANALYZER_INPUT_INVALID" : "ANALYZER_FAILURE");
   }
 }
