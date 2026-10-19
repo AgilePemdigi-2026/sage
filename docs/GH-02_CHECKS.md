@@ -1,6 +1,6 @@
 # GH-02 — Akses repository
 
-Implementasi daftar instalasi, repository instalasi, dan resolve public/private tersedia. **Acceptance private provider nyata belum dijalankan**: App saat pemeriksaan mengembalikan nol instalasi dan fixture private belum ditentukan. PR memakai `Refs #6`; issue tetap terbuka sampai private berizin/tanpa izin benar-benar diperiksa. Base `970bb7267c291b6a295107ecd4d68008f54e2daf`. Penanggung jawab paket/identitas commit `rizqy-fadhil`; implementasi, pengujian, dan review terpisah dilakukan secara otomatis.
+Implementasi daftar instalasi, repository instalasi, dan resolve public/private tersedia. **Public dan private provider nyata PASS**. Pemilik memilih fixture private dan menyetujui instalasi App dengan Contents/Metadata read hanya pada satu repository. Daftar provider kini memuat satu instalasi; private berhasil dengan session berizin dan ditolak tanpa session/credential valid. Denial untuk user valid yang tidak punya irisan izin diuji melalui boundary terkontrol. Base `970bb7267c291b6a295107ecd4d68008f54e2daf`. Penanggung jawab paket/identitas commit `rizqy-fadhil`; implementasi, pengujian, dan review terpisah dilakukan secara otomatis.
 
 ## Perilaku dan batas
 
@@ -16,12 +16,13 @@ Implementasi daftar instalasi, repository instalasi, dan resolve public/private 
 
 | Pemeriksaan | Hasil |
 | --- | --- |
-| Provider nyata: daftar instalasi | PASS, HTTP 200, nol instalasi |
+| Provider nyata: daftar instalasi | PASS, HTTP 200, satu instalasi setelah pemasangan yang disetujui pemilik |
 | Provider nyata: public pihak lain `octocat/Hello-World` | PASS |
-| Provider nyata: private berizin/tanpa izin | NOT_RUN, menunggu fixture dan instalasi pilihan pemilik |
+| Provider nyata: private berizin dan request tanpa session/credential valid | PASS; probe provider dan HTTP image final |
+| User valid tanpa izin Contents/pull, suspended, revoked/rate/outage | PASS melalui boundary terkontrol; bukan login provider sebagai akun kedua |
 | Unit boundary public/private/permission/rate limit/outage/SSRF | PASS |
 | Handler Origin/session/input/payload/error aman | PASS |
-| Build dan HTTP image final | PASS; Docker production build dengan 109 tes (101 utama + 8 DB), enam pemeriksaan HTTP |
+| Build dan HTTP image final | PASS; Docker production build dengan 109 tes (101 utama + 8 DB), tujuh pemeriksaan HTTP |
 
 Laporan lokal diabaikan Git: `artifacts/gh-02/live-report.json` dan `http-report.json`. Live probe server memakai credential existing yang terenkripsi; session HTTP dibuat sementara melalui helper server lalu dihapus. Ini dibedakan dari browser login nyata yang dibuktikan pada GH-01. Private/rate-limit/outage yang memakai stub tidak diklaim sebagai hasil provider nyata.
 

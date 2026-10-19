@@ -23,9 +23,18 @@ try {
   assert.equal(resolved.status, 200); const repo = await resolved.json(); assert.equal(repo.data.private, false); checks.push("HTTP resolves real third-party public repository");
   const invalid = await call("/api/repositories/resolve", { method: "POST", headers: { Cookie: cookie, Origin: origin, "Content-Type": "application/json" }, body: JSON.stringify({ repository: "https://127.0.0.1/private" }) });
   assert.equal(invalid.status, 400); checks.push("HTTP rejects non-GitHub target");
+  if (process.env.SAGE_TEST_PRIVATE_REPOSITORY) {
+    const payload = JSON.stringify({ repository: process.env.SAGE_TEST_PRIVATE_REPOSITORY });
+    const headers = { Origin: origin, "Content-Type": "application/json" };
+    assert.equal((await call("/api/repositories/resolve", { method: "POST", headers, body: payload })).status, 401);
+    const privateResponse = await call("/api/repositories/resolve", { method: "POST", headers: { ...headers, Cookie: cookie }, body: payload });
+    assert.equal(privateResponse.status, 200); const privateRepo = await privateResponse.json();
+    assert.equal(privateRepo.data.private, true); assert.ok(privateRepo.data.installationId);
+    checks.push("real private fixture resolves with authorized session and is rejected without session");
+  }
   assert.equal((await call("/workspace/repositories", { headers: { Cookie: cookie } })).status, 200); checks.push("session-gated repository page renders");
   await mkdir("artifacts/gh-02", { recursive: true });
-  const report = { checkedAt: new Date().toISOString(), checks, limitations: ["Session seeded by server helper for an already-authorized account; real browser login is covered separately in GH-01.", "Private fixture not exercised by this HTTP script."] };
+  const report = { checkedAt: new Date().toISOString(), checks, limitations: ["Session seeded by server helper for an already-authorized account; real browser login is covered separately in GH-01.", process.env.SAGE_TEST_PRIVATE_REPOSITORY ? "Private provider success and no-session denial exercised; other-user permission denial remains a controlled boundary test." : "Private fixture not exercised by this HTTP script."] };
   await writeFile("artifacts/gh-02/http-report.json", `${JSON.stringify(report, null, 2)}\n`); console.log(JSON.stringify(report));
 } catch { console.error("Repository HTTP check failed; no credentials or provider payload printed."); process.exitCode = 1; }
 finally { if (sessionId) await db.session.deleteMany({ where: { id: sessionId } }); await db.$disconnect(); }

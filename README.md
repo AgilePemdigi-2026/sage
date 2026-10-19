@@ -9,7 +9,7 @@ SAGE dikembangkan untuk membantu memahami arsitektur repository GitHub melalui *
 📖 [Panduan lokal](docs/LOCAL_SETUP.md) · 🎯 [Product backlog](docs/PRODUCT_BACKLOG.md) · 🗓️ [Sprint plan](docs/SPRINT_PLAN.md) · 🤝 [Kontribusi](CONTRIBUTING.md)
 
 > 🚧 **Dalam pengembangan — Sprint 1, per 19 Oktober 2026.**
-> Fondasi Docker, model data/session/kredensial, isolasi pengguna, adapter deklarasi PHP/JS/TS, kontrak CCM/evidence, antrean durable, runner tahap, serta pratinjau UI/graph sudah tersedia. Login/logout GitHub App sudah terverifikasi dengan provider nyata; pengujian terisolasi juga mencakup error, replay, dan pencabutan sesi. Halaman akses repository sudah tersambung ke GitHub untuk public dan daftar instalasi; verifikasi private nyata masih menunggu fixture. Analisis repository lengkap, graph produk, history, dan ekspor masih mengikuti issue masing-masing. Ini belum seluruh MVP.
+> Fondasi Docker, model data/session/kredensial, isolasi pengguna, adapter deklarasi PHP/JS/TS, kontrak CCM/evidence, antrean durable, runner tahap, serta pratinjau UI/graph sudah tersedia. Login/logout GitHub App sudah terverifikasi dengan provider nyata; pengujian terisolasi juga mencakup error, replay, dan pencabutan sesi. Halaman akses repository sudah tersambung ke GitHub untuk public dan daftar instalasi; public dan private berizin sudah terverifikasi dengan provider nyata. Analisis repository lengkap, graph produk, history, dan ekspor masih mengikuti issue masing-masing. Ini belum seluruh MVP.
 
 ## 🎯 Kemampuan yang ditargetkan
 
