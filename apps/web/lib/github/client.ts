@@ -7,6 +7,7 @@ const MAX_REQUESTS_PER_CLIENT = 30;
 const MAX_CLIENT_DURATION_MS = 60_000;
 const MAX_RESPONSE_BYTES = 2 * 1024 * 1024;
 const REQUEST_TIMEOUT_MS = 10_000;
+const MAX_BRANCH_NAME_BYTES = 255;
 
 export type GitHubRepositoryErrorCode =
   | "AUTH_REQUIRED"
@@ -38,11 +39,11 @@ export class GitHubRepositoryError extends Error {
   readonly code: GitHubRepositoryErrorCode;
   readonly status: number;
 
-  constructor(code: GitHubRepositoryErrorCode) {
+  constructor(code: GitHubRepositoryErrorCode, status = HTTP_STATUS[code]) {
     super(ERROR_MESSAGES[code]);
     this.name = "GitHubRepositoryError";
     this.code = code;
-    this.status = HTTP_STATUS[code];
+    this.status = status;
   }
 }
 
@@ -68,6 +69,11 @@ export type GitHubRepository = {
   readonly installationId: string | null;
 };
 
+export type GitHubBranch = {
+  readonly name: string;
+  readonly commitSha: string;
+};
+
 export type GitHubPage<T> = {
   readonly items: T[];
   readonly nextPage: number | null;
@@ -88,8 +94,8 @@ type ListedRepository = {
   readonly userCanRead: boolean;
 };
 
-function fail(code: GitHubRepositoryErrorCode): never {
-  throw new GitHubRepositoryError(code);
+function fail(code: GitHubRepositoryErrorCode, status?: number): never {
+  throw new GitHubRepositoryError(code, status);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -110,6 +116,30 @@ function parseOwner(value: unknown): string | null {
 function parseRepositoryName(value: unknown): string | null {
   if (typeof value !== "string" || value.length > 100 || value === "." || value === ".." || !/^[A-Za-z0-9._-]+$/.test(value)) return null;
   return value;
+}
+
+function isValidBranchName(value: unknown): value is string {
+  if (typeof value !== "string" || value.length === 0 || new TextEncoder().encode(value).byteLength > MAX_BRANCH_NAME_BYTES) return false;
+  try {
+    encodeURIComponent(value);
+  } catch {
+    return false;
+  }
+  if (value === "@" || value.startsWith("refs/") || /^[a-f0-9]{40}$/i.test(value)) return false;
+  if (value.startsWith("/") || value.endsWith("/") || value.includes("//") || value.includes("..") || value.includes("@{")) return false;
+  if (/[\u0000-\u0020\u007f~^:?*\[\\]/u.test(value) || value.endsWith(".")) return false;
+  return value.split("/").every((part) => part.length > 0 && !part.startsWith(".") && !part.endsWith(".lock"));
+}
+
+function parseFullGitSha(value: unknown): string | null {
+  return typeof value === "string" && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i.test(value)
+    ? value.toLowerCase()
+    : null;
+}
+
+function parseCommitPrefix(value: unknown): string {
+  if (typeof value !== "string" || !/^(?:[a-f0-9]{7,40}|[a-f0-9]{64})$/i.test(value)) return fail("INVALID_INPUT");
+  return value.toLowerCase();
 }
 
 function parseRepositoryInput(value: unknown): { owner: string; name: string } {
@@ -196,7 +226,7 @@ function parseNextPage(totalCount: unknown, itemCount: number, page: number): nu
   return page + 1;
 }
 
-async function readJson(response: Response): Promise<Record<string, unknown>> {
+async function readJsonValue(response: Response): Promise<unknown> {
   const contentType = response.headers.get("content-type") ?? "";
   if (!/^application\/(?:[a-z0-9.+-]*\+)?json(?:\s*;|$)/i.test(contentType)) return fail("UNAVAILABLE");
   const contentLength = response.headers.get("content-length");
@@ -229,11 +259,16 @@ async function readJson(response: Response): Promise<Record<string, unknown>> {
       offset += chunk.byteLength;
     }
     const parsed: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
-    if (!isRecord(parsed)) return fail("UNAVAILABLE");
     return parsed;
   } catch {
     return fail("UNAVAILABLE");
   }
+}
+
+async function readJson(response: Response): Promise<Record<string, unknown>> {
+  const parsed = await readJsonValue(response);
+  if (!isRecord(parsed)) return fail("UNAVAILABLE");
+  return parsed;
 }
 
 function apiPath(owner: string, name: string): string {
@@ -249,6 +284,48 @@ function validInstallationId(value: unknown): string {
   const id = parseId(value);
   if (!id) return fail("INVALID_INPUT");
   return id;
+}
+
+function pageFromLinkHeader(linkHeader: string | null, expectedPaths: readonly string[], currentPage: number): number | null | undefined {
+  if (linkHeader === null) return undefined;
+  if (currentPage >= MAX_PAGE) return null;
+
+  let nextPage: number | null = null;
+  for (const part of linkHeader.split(/,\s*(?=<)/)) {
+    const match = /^\s*<([^>]+)>\s*;\s*rel\s*=\s*(?:"([^"]+)"|([^;,\s]+))/i.exec(part);
+    if (!match) {
+      if (/\brel\s*=\s*(?:"[^"]*\bnext\b[^"]*"|[^;,\s]*\bnext\b)/i.test(part)) return fail("UNAVAILABLE");
+      continue;
+    }
+    const relations = (match[2] ?? match[3] ?? "").split(/\s+/);
+    if (!relations.includes("next")) continue;
+    if (nextPage !== null) return fail("UNAVAILABLE");
+
+    let url: URL;
+    try {
+      url = new URL(match[1]);
+    } catch {
+      return fail("UNAVAILABLE");
+    }
+    if (url.origin !== API_ORIGIN || !expectedPaths.includes(url.pathname) || url.username || url.password || url.hash) return fail("UNAVAILABLE");
+    if ([...url.searchParams.keys()].some((key) => key !== "page" && key !== "per_page")) return fail("UNAVAILABLE");
+    const pages = url.searchParams.getAll("page");
+    const pageSizes = url.searchParams.getAll("per_page");
+    if (pages.length !== 1 || pageSizes.length !== 1 || pageSizes[0] !== String(PAGE_SIZE) || !/^[1-9]\d*$/.test(pages[0] ?? "")) {
+      return fail("UNAVAILABLE");
+    }
+    const parsedPage = Number(pages[0]);
+    if (!Number.isSafeInteger(parsedPage) || parsedPage <= currentPage || parsedPage > MAX_PAGE) return fail("UNAVAILABLE");
+    nextPage = parsedPage;
+  }
+  return nextPage;
+}
+
+function nextPageForArray(response: Response, expectedPaths: readonly string[], itemCount: number, page: number): number | null {
+  const linkPage = pageFromLinkHeader(response.headers.get("link"), expectedPaths, page);
+  if (linkPage !== undefined) return linkPage;
+  if (page < MAX_PAGE && itemCount === PAGE_SIZE) return page + 1;
+  return null;
 }
 
 function isRateLimited(response: Response): boolean {
@@ -335,6 +412,73 @@ export class GitHubRepositoryClient {
     if (sawScopedFailure) return fail("UNAVAILABLE");
     if (sawRepository) return fail("PERMISSION_DENIED");
     return fail("NOT_FOUND");
+  }
+
+  async listBranches(repositoryInput: string, input: { readonly page?: number } = {}): Promise<GitHubPage<GitHubBranch>> {
+    const page = validPage(input.page ?? 1);
+    const repository = await this.resolveRepository(repositoryInput);
+    const path = `${apiPath(repository.owner, repository.name)}/branches`;
+    const response = await this.request(`${path}?per_page=${PAGE_SIZE}&page=${page}`, repository.private);
+    if (response.status === 409) return fail("INVALID_INPUT", 409);
+    if (response.status !== 200) return throwForResponse(response);
+
+    const body = await readJsonValue(response);
+    if (!Array.isArray(body) || body.length > PAGE_SIZE) return fail("UNAVAILABLE");
+    const items = body.map((value): GitHubBranch => {
+      if (!isRecord(value) || !isValidBranchName(value.name) || !isRecord(value.commit)) return fail("UNAVAILABLE");
+      const commitSha = parseFullGitSha(value.commit.sha);
+      if (!commitSha) return fail("UNAVAILABLE");
+      return { name: value.name, commitSha };
+    });
+    const canonicalPath = `/repositories/${repository.id}/branches`;
+    return { items, nextPage: nextPageForArray(response, [path, canonicalPath], items.length, page) };
+  }
+
+  async resolveTarget(input: { readonly repository: string; readonly branch: string; readonly commit?: string | null }): Promise<{
+    readonly repository: GitHubRepository;
+    readonly branch: string;
+    readonly commitSha: string;
+    readonly branchHeadSha: string;
+  }> {
+    if (!isRecord(input) || typeof input.repository !== "string" || !isValidBranchName(input.branch)) return fail("INVALID_INPUT");
+    const commitPrefix = input.commit === undefined || input.commit === null ? null : parseCommitPrefix(input.commit);
+    const repository = await this.resolveRepository(input.repository);
+    const repositoryPath = apiPath(repository.owner, repository.name);
+    const branchResponse = await this.request(`${repositoryPath}/branches/${encodeURIComponent(input.branch)}`, repository.private);
+    if (branchResponse.status === 409) return fail("INVALID_INPUT", 409);
+    if (branchResponse.status !== 200) return throwForResponse(branchResponse);
+
+    const branchBody = await readJson(branchResponse);
+    const branchHeadSha = isValidBranchName(branchBody.name) && branchBody.name === input.branch && isRecord(branchBody.commit)
+      ? parseFullGitSha(branchBody.commit.sha)
+      : null;
+    if (!branchHeadSha) return fail("UNAVAILABLE");
+    if (commitPrefix === null) return { repository, branch: input.branch, commitSha: branchHeadSha, branchHeadSha };
+
+    const commitResponse = await this.request(`${repositoryPath}/commits/${encodeURIComponent(commitPrefix)}`, repository.private);
+    if (commitResponse.status === 409) return fail("INVALID_INPUT", 409);
+    if (commitResponse.status === 404 || commitResponse.status === 422) return fail("INVALID_INPUT");
+    if (commitResponse.status !== 200) return throwForResponse(commitResponse);
+    const commitBody = await readJson(commitResponse);
+    const commitSha = parseFullGitSha(commitBody.sha);
+    if (!commitSha) return fail("UNAVAILABLE");
+    if (!commitSha.startsWith(commitPrefix) || commitSha.length !== branchHeadSha.length) return fail("UNAVAILABLE");
+
+    const comparisonRef = encodeURIComponent(`${commitSha}...${branchHeadSha}`);
+    const compareResponse = await this.request(`${repositoryPath}/compare/${comparisonRef}?per_page=1`, repository.private);
+    if (compareResponse.status === 409) return fail("INVALID_INPUT", 409);
+    if (compareResponse.status === 404 || compareResponse.status === 422) return fail("INVALID_INPUT");
+    if (compareResponse.status !== 200) return throwForResponse(compareResponse);
+    const compareBody = await readJson(compareResponse);
+    const mergeBaseSha = isRecord(compareBody.merge_base_commit) ? parseFullGitSha(compareBody.merge_base_commit.sha) : null;
+    const comparisonStatus = compareBody.status;
+    if (comparisonStatus !== "ahead" && comparisonStatus !== "identical" && comparisonStatus !== "behind" && comparisonStatus !== "diverged") {
+      return fail("UNAVAILABLE");
+    }
+    if (!mergeBaseSha) return fail("UNAVAILABLE");
+    if ((comparisonStatus !== "ahead" && comparisonStatus !== "identical") || mergeBaseSha !== commitSha) return fail("INVALID_INPUT");
+
+    return { repository, branch: input.branch, commitSha, branchHeadSha };
   }
 
   private async readAllInstallationsForResolution(): Promise<GitHubInstallation[]> {

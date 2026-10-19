@@ -185,7 +185,7 @@ Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Con
 
 ## 📌 Langkah berikutnya
 
-1. Hubungkan instalasi dan izin repository pada **GH-02 #6**, lalu pemilihan target **REP-01 #7**.
+1. Akses instalasi/private dan public pihak lain tersedia melalui **GH-02 #6**; pemilihan branch/commit tersedia melalui **REP-01 #7**, tanpa membuat job analisis.
 2. Lanjutkan snapshot, resolver lintas file, dan canonical CKG di atas adapter deklarasi yang sudah tersedia.
 3. Hubungkan runner tahap ke pipeline nyata dan UI sesuai dependensi pada backlog.
 4. Terima setiap issue setelah scope, bukti pengujian, review, dan merge terpenuhi.
