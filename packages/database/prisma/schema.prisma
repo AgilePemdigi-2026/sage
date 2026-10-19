@@ -117,7 +117,7 @@ model GitHubOAuthAttempt {
   expiresAt          DateTime
   consumedAt         DateTime?
   encryptedVerifier String
-  verifierNonce     String
+  verifierNonce      String
   verifierAuthTag    String
   encryptionKeyId    String
   createdAt          DateTime  @default(now())
@@ -187,6 +187,8 @@ model Analysis {
   retryParentId        String?
   branchName           String
   commitSha            String
+  idempotencyKeyHash   String?               @db.VarChar(64)
+  requestHash          String?               @db.VarChar(64)
   configuration        Json
   configurationHash    String
   analyzerVersion      String
@@ -213,6 +215,7 @@ model Analysis {
   storageObjects       StorageObject[]
 
   @@unique([id, ownerUserId])
+  @@unique([ownerUserId, idempotencyKeyHash])
   @@index([ownerUserId, createdAt])
   @@index([repositoryId, commitSha])
   @@index([retryParentId, ownerUserId])

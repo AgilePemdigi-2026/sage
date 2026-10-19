@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   claimAnalysisJob,
   enqueueAnalysis,
+  findEnqueuedAnalysisRequest,
   failAnalysisJob,
   getOwnerAnalysisProgress,
   renewAnalysisLease,
@@ -36,6 +37,9 @@ test("queue enqueue rejects incomplete immutable snapshots before opening a tran
   await assert.rejects(enqueueAnalysis(db, { ...validEnqueue, commitSha: "a".repeat(39) }), /full SHA/);
   await assert.rejects(enqueueAnalysis(db, { ...validEnqueue, commitSha: "z".repeat(40) }), /full SHA/);
   await assert.rejects(enqueueAnalysis(db, { ...validEnqueue, configuration: ["not", "an", "object"] }), /object JSON/);
+  await assert.rejects(enqueueAnalysis(db, { ...validEnqueue, idempotency: { keyHash: "bad", requestHash: "a".repeat(64) } }), /Hash kunci idempotensi/);
+  await assert.rejects(enqueueAnalysis(db, { ...validEnqueue, idempotency: { keyHash: "a".repeat(64), requestHash: "bad" } }), /Hash permintaan idempotensi/);
+  await assert.rejects(findEnqueuedAnalysisRequest(db, "user-1", "a".repeat(64), "bad"), /Hash permintaan idempotensi/);
   assert.equal(transactions, 0);
 });
 

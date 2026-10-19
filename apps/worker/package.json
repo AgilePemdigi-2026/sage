@@ -4,10 +4,11 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "tsx": "4.23.15",
-    "@sage/database": "0.1.0",
     "@sage/analyzer-js": "0.1.0",
     "@sage/analyzer-php": "0.1.0",
-    "@sage/documents": "0.1.0"
+    "@sage/database": "0.1.0",
+    "@sage/documents": "0.1.0",
+    "tar-stream": "3.2.2",
+    "tsx": "4.23.15"
   }
 }

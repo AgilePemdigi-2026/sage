@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import type { AnalysisStatus } from "../generated/enums.ts";
 import type { Prisma, PrismaClient } from "../generated/client.ts";
 
 const ANALYSIS_SLOT = "analysis";
@@ -16,12 +17,19 @@ export interface EnqueueAnalysisInput {
   analyzerVersion: string;
   schemaVersion: string;
   retryParentId?: string | null;
+  idempotency?: {
+    keyHash: string;
+    requestHash: string;
+  };
 }
 
 export interface EnqueuedAnalysis {
   analysisId: string;
   jobId: string;
   configurationHash: string;
+  commitSha?: string;
+  status?: AnalysisStatus;
+  replayed?: true;
 }
 
 /** Internal worker claim handle. Never expose this object through an HTTP response. */
@@ -46,6 +54,13 @@ export class AnalysisQueueInvariantError extends Error {
   constructor() {
     super("Invariant antrean analisis tidak valid; claim baru ditolak agar status tidak rusak.");
     this.name = "AnalysisQueueInvariantError";
+  }
+}
+
+export class AnalysisIdempotencyConflictError extends Error {
+  constructor() {
+    super("Kunci idempotensi ini sudah digunakan untuk permintaan analisis yang berbeda.");
+    this.name = "AnalysisIdempotencyConflictError";
   }
 }
 
@@ -136,6 +151,57 @@ export function snapshotAnalysisJobClaim(input: AnalysisJobClaim): AnalysisJobCl
 
 function sha256(value: string): string {
   return createHash("sha256").update(value, "utf8").digest("hex");
+}
+
+function validateIdempotencyHash(value: unknown, field: string): string {
+  if (typeof value !== "string" || !/^[0-9a-f]{64}$/i.test(value)) {
+    throw new Error(`${field} harus berupa SHA-256 hex sepanjang 64 karakter.`);
+  }
+  return value.toLowerCase();
+}
+
+async function findIdempotencyRecord(
+  db: Pick<PrismaClient, "analysis">,
+  ownerUserId: string,
+  keyHash: string,
+  requestHash: string,
+): Promise<EnqueuedAnalysis | null> {
+  const record = await db.analysis.findFirst({
+    where: { ownerUserId, idempotencyKeyHash: keyHash },
+    select: {
+      id: true,
+      commitSha: true,
+      status: true,
+      requestHash: true,
+      configurationHash: true,
+      jobs: { where: { type: "ANALYSIS" }, take: 1, select: { id: true } },
+    },
+  });
+  if (!record) return null;
+  if (record.requestHash !== requestHash) throw new AnalysisIdempotencyConflictError();
+  const job = record.jobs[0];
+  if (!job) throw new AnalysisQueueInvariantError();
+  return {
+    analysisId: record.id,
+    jobId: job.id,
+    configurationHash: record.configurationHash,
+    commitSha: record.commitSha,
+    status: record.status,
+    replayed: true,
+  };
+}
+
+/** Find a prior enqueue for this owner/key, rejecting reuse with a different request hash. */
+export async function findEnqueuedAnalysisRequest(
+  db: PrismaClient,
+  ownerUserId: string,
+  keyHashInput: string,
+  requestHashInput: string,
+): Promise<EnqueuedAnalysis | null> {
+  requireNonEmpty(ownerUserId, "Pemilik analisis");
+  const keyHash = validateIdempotencyHash(keyHashInput, "Hash kunci idempotensi");
+  const requestHash = validateIdempotencyHash(requestHashInput, "Hash permintaan idempotensi");
+  return findIdempotencyRecord(db, ownerUserId, keyHash, requestHash);
 }
 
 function canonicalizeConfiguration(input: unknown): { value: Prisma.InputJsonObject; hash: string } {
@@ -355,8 +421,8 @@ async function recoverExpiredAnalysis(tx: Prisma.TransactionClient, slot: SlotSt
 }
 
 /**
- * Persist an immutable analysis snapshot and its ANALYSIS job as one operation.
- * Callers must authenticate the owner and create/verify the repository snapshot before enqueueing.
+ * Persist the resolved full-SHA analysis target and its ANALYSIS job atomically.
+ * The worker downloads the source archive later using this immutable commit SHA.
  */
 export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisInput): Promise<EnqueuedAnalysis> {
   if (!input || typeof input !== "object") throw new Error("Snapshot analisis tidak valid.");
@@ -368,6 +434,7 @@ export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisIn
   const analyzerVersion = input.analyzerVersion;
   const schemaVersion = input.schemaVersion;
   const retryParentId = input.retryParentId;
+  const idempotencyInput: unknown = input.idempotency;
   requireNonEmpty(ownerUserId, "Pemilik analisis");
   requireNonEmpty(repositoryId, "Repository");
   requireNonEmpty(branchName, "Branch");
@@ -376,11 +443,38 @@ export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisIn
   requireNonEmpty(schemaVersion, "Versi schema");
   if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(originalCommitSha)) throw new Error("Commit SHA harus full SHA Git sepanjang 40 atau 64 karakter hex.");
   if (retryParentId !== undefined && retryParentId !== null) requireNonEmpty(retryParentId, "ID analisis sebelumnya");
+  let idempotency: { keyHash: string; requestHash: string } | undefined;
+  if (idempotencyInput !== undefined) {
+    if (typeof idempotencyInput !== "object" || idempotencyInput === null || Array.isArray(idempotencyInput)) {
+      throw new Error("Idempotensi analisis tidak valid.");
+    }
+    const prototype = Object.getPrototypeOf(idempotencyInput);
+    const descriptors = Object.getOwnPropertyDescriptors(idempotencyInput);
+    const keys = Reflect.ownKeys(idempotencyInput);
+    if ((prototype !== Object.prototype && prototype !== null)
+      || keys.length !== 2
+      || !keys.includes("keyHash")
+      || !keys.includes("requestHash")
+      || !descriptors.keyHash?.enumerable
+      || !("value" in descriptors.keyHash)
+      || !descriptors.requestHash?.enumerable
+      || !("value" in descriptors.requestHash)) {
+      throw new Error("Idempotensi analisis harus berisi hash kunci dan permintaan biasa.");
+    }
+    idempotency = {
+      keyHash: validateIdempotencyHash(descriptors.keyHash.value, "Hash kunci idempotensi"),
+      requestHash: validateIdempotencyHash(descriptors.requestHash.value, "Hash permintaan idempotensi"),
+    };
+  }
   const configuration = canonicalizeConfiguration(rawConfiguration);
   const commitSha = originalCommitSha.toLowerCase();
 
   return db.$transaction(async (tx) => {
     const slot = await ensureAndLockSlot(tx);
+    if (idempotency) {
+      const prior = await findIdempotencyRecord(tx, ownerUserId, idempotency.keyHash, idempotency.requestHash);
+      if (prior) return prior;
+    }
     // The singleton lock serializes enqueue and claim; its counter defines FIFO order
     // without relying on timestamp precision or caller clocks.
     if (slot.lastEnqueueSequence < 0n) throw new AnalysisQueueInvariantError();
@@ -399,12 +493,13 @@ export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisIn
         retryParentId: retryParentId ?? null,
         branchName,
         commitSha,
+        ...(idempotency ? { idempotencyKeyHash: idempotency.keyHash, requestHash: idempotency.requestHash } : {}),
         configuration: configuration.value,
         configurationHash: configuration.hash,
         analyzerVersion,
         schemaVersion,
       },
-      select: { id: true },
+      select: { id: true, commitSha: true, status: true },
     });
     const job = await tx.job.create({
       data: {
@@ -417,7 +512,13 @@ export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisIn
     });
     await tx.$executeRaw`UPDATE "Analysis" SET "queuedAt" = clock_timestamp() WHERE "id" = ${analysis.id} AND "ownerUserId" = ${ownerUserId}`;
     await tx.$executeRaw`UPDATE "Job" SET "enqueuedAt" = clock_timestamp() WHERE "id" = ${job.id} AND "ownerUserId" = ${ownerUserId}`;
-    return { analysisId: analysis.id, jobId: job.id, configurationHash: configuration.hash };
+    return {
+      analysisId: analysis.id,
+      jobId: job.id,
+      configurationHash: configuration.hash,
+      commitSha: analysis.commitSha,
+      status: analysis.status,
+    };
   });
 }
 

@@ -43,7 +43,7 @@ Login membaca ID, login, dan nama profil melalui GitHub App tanpa scope OAuth Ap
 | GET | `/repositories` | Rancangan: search gabungan/pagination target |
 | GET | `/api/repositories/branches` | Tersedia: `repository=owner/name&page=1..100`; branch aktual `{ name, commitSha }` dan `nextPage` |
 | POST | `/api/repositories/target` | Tersedia: JSON `{ repository, branch, commit? }`; metadata repository, branch, `commitSha` penuh dan `branchHeadSha`; tidak membuat job |
-| POST | `/analyses` | Membuat target immutable dan analysis job terantre |
+| POST | `/api/analyses` | Tersedia: JSON `{ repository, branch, commit? }`, header `Idempotency-Key`; target diverifikasi ulang lalu analysis/job atomik, `202` baru atau `200` replay |
 
 Endpoint GH-02 mengembalikan halaman `{ data: { items, nextPage } }`; `nextPage` adalah nomor halaman atau null. Hanya page 1–100 diterima, query asing ditolak. Daftar terotorisasi dan input publik adalah dua jalur UI yang terlihat jelas. Resolve slug/URL tidak menambah izin private dan tidak menerima host arbitrary. Branch dibaca dari repository, bukan daftar hardcoded dari mockup.
 
@@ -53,15 +53,17 @@ Rancangan request analisis:
 
 ```json
 {
-  "repositoryId": "repo-example",
+  "repository": "owner/name",
   "branch": "main",
   "commit": null
 }
 ```
 
-Nilai ID di atas hanya ilustrasi. `commit` dapat kosong atau berupa SHA/prefix yang valid dan tidak ambigu. Validasi harus memastikan commit berada dalam history branch terpilih sesuai kebijakan target awal; jika berbeda, kembalikan error target dan minta pengguna memperbaikinya.
+Slug di atas hanya ilustrasi; ID repository lokal diperoleh server dari metadata GitHub yang terverifikasi. `commit` dapat kosong atau berupa SHA/prefix yang valid dan tidak ambigu. Validasi harus memastikan commit berada dalam history branch terpilih sesuai kebijakan target awal; jika berbeda, kembalikan error target dan minta pengguna memperbaikinya.
 
 Sebelum response `202`, server resolve target ke full SHA dan menyimpan analysis ID, pemilik, branch, versi config, serta urutan antrean. Worker memeriksa izin kembali dan mengambil snapshot SHA yang sama. Kegagalan validasi tidak membuat record analisis yang seolah sudah berjalan.
+
+Implementasi REP-02 menerima key 16–128 karakter ASCII huruf/angka/underscore/minus; hash key dan hash payload kanonis disimpan per pemilik. Replay mengembalikan ID, full SHA, configuration hash, dan status persisten, tanpa resolve HEAD ulang. Key bertahan selama analysis belum dihapus. Perubahan payload, termasuk mengganti bentuk slug/URL, memakai key baru. Worker consumer penuh masih ANA-07 #16; submission saat ini menyimpan antrean dan tidak mengklaim pipeline selesai.
 
 Header `Idempotency-Key` digunakan untuk mencegah double-submit. Scope key adalah user dan operasi; key yang sama dengan payload berbeda menghasilkan `409 IDEMPOTENCY_CONFLICT`. Analisis kedua yang valid mengantre, bukan berjalan bersamaan atau mengganti target sebelumnya.
 
