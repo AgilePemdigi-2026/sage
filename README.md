@@ -1,5 +1,9 @@
 <h1 align="center">SAGE</h1>
 
+<p align="center">
+  <img src="docs/assets/readme-banner.svg" alt="SAGE — Pahami struktur kode, telusuri buktinya" width="100%" />
+</p>
+
 <p align="center"><strong>Source-code Architecture Graph Extraction</strong><br />Evidence-Grounded Software Architecture Documentation</p>
 
 <p align="center">Pahami arsitektur repository PHP dan JavaScript/TypeScript melalui graph dan dokumentasi yang dapat ditelusuri ke source code.</p>
