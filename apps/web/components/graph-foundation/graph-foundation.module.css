@@ -20,7 +20,7 @@
 .canvasArea { min-width: 0; }
 .canvasToolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; padding: 12px 0; }
 .canvasActions { display: flex; flex-wrap: wrap; gap: 8px; }
-.graphControl { min-height: 40px; padding: 8px 11px; border: 1px solid #c5ceda; border-radius: 6px; background: #fff; color: #061e42; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.graphControl { min-height: 40px; padding: 8px 11px; border: 1px solid #7c8ba1; border-radius: 6px; background: #fff; color: #061e42; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
 .graphControl:hover { background: #f1f5f8; }
 .graphControl:focus-visible, .nodeOption:focus-visible { outline: 3px solid #096c67; outline-offset: 2px; }
 .zoomOutput { min-width: 46px; color: var(--graph-muted); font-family: "JetBrains Mono", monospace; font-size: 11px; text-align: right; }
@@ -35,7 +35,7 @@
 .nodeList { display: grid; gap: 6px; max-height: 440px; overflow: auto; margin-top: 14px; padding: 2px; }
 .nodeOption { display: flex; gap: 11px; align-items: center; width: 100%; min-width: 0; min-height: 56px; padding: 9px 10px; border: 1px solid transparent; border-radius: 6px; background: #f7f9fb; color: var(--graph-ink); text-align: left; font: inherit; cursor: pointer; }
 .nodeOption:hover { background: #f0f6f5; }
-.nodeOption[aria-pressed="true"] { border-color: #82cabb; background: #eaf7f3; }
+.nodeOption[aria-pressed="true"] { border-color: #096c67; background: #eaf7f3; }
 .nodeOptionCopy { display: grid; gap: 2px; min-width: 0; }
 .nodeOptionCopy strong { font-size: 12px; font-weight: 600; overflow-wrap: anywhere; }
 .nodeOptionCopy span { color: var(--graph-muted); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
