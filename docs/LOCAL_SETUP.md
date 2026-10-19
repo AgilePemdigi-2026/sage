@@ -1,6 +1,6 @@
 # Fondasi lokal
 
-Scope: ENV-01 ([#2](https://github.com/AgilePemdigi-2026/sage/issues/2)), DATA-01 ([#3](https://github.com/AgilePemdigi-2026/sage/issues/3)), dan seed QA-01 ([#4](https://github.com/AgilePemdigi-2026/sage/issues/4)). Tersedia halaman awal berbahasa Indonesia, PostgreSQL, heartbeat worker, schema/migrasi produk, helper session dan kredensial, query owner-scoped, serta probe syntax dan renderer. Alur HTTP login/callback/logout sudah disiapkan, tetapi login GitHub nyata masih memerlukan konfigurasi App dan verifikasi eksternal. Analisis repository lengkap belum tersedia.
+Scope: ENV-01 ([#2](https://github.com/AgilePemdigi-2026/sage/issues/2)), DATA-01 ([#3](https://github.com/AgilePemdigi-2026/sage/issues/3)), dan seed QA-01 ([#4](https://github.com/AgilePemdigi-2026/sage/issues/4)). Tersedia halaman awal berbahasa Indonesia, PostgreSQL, heartbeat worker, schema/migrasi produk, helper session dan kredensial, query owner-scoped, serta probe syntax dan renderer. Alur login/callback/logout telah lulus pengujian terisolasi serta login/logout GitHub nyata; setiap instalasi lokal tetap memerlukan konfigurasi App sendiri. Analisis repository lengkap belum tersedia.
 
 ## Prasyarat dan menjalankan
 
@@ -70,7 +70,7 @@ Untuk tooling pada host gunakan Node 24 dan npm yang tercantum pada `package.jso
 
 Compose membatasi web 768 MiB, worker 2 GiB, dan database 384 MiB. Web/worker berjalan non-root dengan capabilities dihapus. Volume storage hanya dibaca oleh web dan dapat ditulis worker.
 
-`config/analysis-limits.json` memuat calon batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Batas repository tersebut **belum diterapkan** karena snapshot/pipeline belum ada; REP-02/ANA-02/ANA-07 harus menerapkan dan mengujinya sebelum menerima repository arbitrer. Verifikasi GitHub nyata #5, consumer pipeline, lifecycle deletion #23, penyimpanan berkas nyata, dan validasi isi tiga artefak dokumen masih menunggu issue masing-masing. API claim/recovery #9 sudah diuji terpisah. Parser PHP memiliki timeout sendiri.
+`config/analysis-limits.json` memuat calon batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Batas repository tersebut **belum diterapkan** karena snapshot/pipeline belum ada; REP-02/ANA-02/ANA-07 harus menerapkan dan mengujinya sebelum menerima repository arbitrer. Consumer pipeline, lifecycle deletion #23, penyimpanan berkas nyata, dan validasi isi tiga artefak dokumen masih menunggu issue masing-masing. API claim/recovery #9 sudah diuji terpisah. Parser PHP memiliki timeout sendiri.
 
 Mermaid memakai strict mode pada sample tepercaya. Escape label/source, pembatasan ukuran diagram, pengujian injeksi, serta validasi output untuk konten repository tetap wajib pada DOC-01/EXP-02. Chromium tidak boleh dipakai membuka URL bebas dari input pengguna.
 

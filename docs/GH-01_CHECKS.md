@@ -1,6 +1,6 @@
 # GH-01 — Login GitHub App
 
-Status 19 Oktober 2026: implementasi dan pemeriksaan lokal lulus; **login/otorisasi GitHub nyata NOT_RUN** karena App belum dibuat. Issue #5 tetap terbuka sampai acceptance eksternal selesai. Base implementasi `9792e95e349103be2f04d1875cd476fdef522f29`. Penanggung jawab paket/identitas commit: `iltizamhasan3`. Implementasi, pengujian, dan review kode terpisah dilakukan secara otomatis; bukan klaim review manual anggota.
+Status 19 Oktober 2026: implementasi, pemeriksaan lokal, serta login/logout GitHub nyata **PASS**. App `SAGE-I2-iltizamhasan3` telah dibuat oleh pemilik akun; login browser berhasil sebagai `iltizamhasan3`, logout mencabut sesi, dan workspace menolak sesi yang sudah dicabut. Base implementasi `9792e95e349103be2f04d1875cd476fdef522f29`. Penanggung jawab paket/identitas commit: `iltizamhasan3`. Implementasi, pengujian, dan review kode terpisah dilakukan secara otomatis; bukan klaim review manual anggota.
 
 ## Perilaku
 
@@ -27,16 +27,16 @@ Logout memakai POST dengan Origin tepercaya dan mencabut sesi lokal. Ia tidak me
 | Bootstrap App | Form/izin minimum, state, error, `.env` ignore/tracked/symlink, mode 0600 dan merge aman | PASS; 11 tes dalam direktori Git sementara |
 | Bootstrap HTTP lokal | Callback, malformed Unicode, penghentian server, dan penyimpanan konfigurasi bekerja | PASS; tujuh pemeriksaan dengan pertukaran manifest **palsu** dan `.env` sementara |
 | Runtime final worker | PHP parser, fixture, database/heartbeat dan renderer SVG/PDF tetap bekerja | PASS; 16 pemeriksaan smoke pada image baru; ini kompatibilitas environment, bukan ekspor produk |
-| Login/logout GitHub nyata | Browser membuat otorisasi dan session melalui GitHub App sebenarnya | **NOT_RUN; App belum dibuat** |
+| Login/logout GitHub nyata | Callback provider membuat session; logout mencabutnya; workspace kembali meminta login | PASS; browser GitHub sebagai `iltizamhasan3`, credential terenkripsi tersimpan, satu session aktif setelah login menjadi nol setelah logout, `/workspace` mengarah ke `/login?error=session` |
 
 ## Lingkungan dan bukti
 
-Node.js 24.22.0, PHP 8.4.26, PostgreSQL 17, Next.js 16.4.2, Prisma 7.10.1, Linux arm64. Integrasi memakai network/container database uji tanpa port database host; tidak memakai database aplikasi. Key enkripsi pengujian sintetis, bukan konfigurasi privat pengguna.
+Node.js 24.22.0, PHP 8.4.26, PostgreSQL 17, Next.js 16.4.2, Prisma 7.10.1, Linux arm64. Integrasi memakai network/container database uji tanpa port database host; tidak memakai database aplikasi. Key enkripsi pengujian sintetis, bukan konfigurasi privat pengguna. Pemeriksaan login/logout provider nyata dilakukan terpisah pada aplikasi lokal dengan konfigurasi App privat; hanya metadata aman dicatat.
 
-Bukti lokal yang diabaikan Git: `artifacts/gh-01/http-report.json`, `bootstrap-http-report.json`, dan `environment/report.json` beserta SVG/PDF smoke. Log pemeriksaan ada pada `/tmp/sage-tools/5-*.log`. SHA-256 migrasi OAuth: `0d6429bc1526a86632707d5492e60b8c94e9c5cb336e20db0edd8ff5a6406db9`.
+Bukti lokal yang diabaikan Git: `artifacts/gh-01/http-report.json`, `bootstrap-http-report.json`, `real-oauth-report.json`, dan `environment/report.json` beserta SVG/PDF smoke. Laporan provider nyata hanya memuat akun, URL App publik, dan status pemeriksaan; tidak menyimpan token, cookie, code, atau state. Log pemeriksaan ada pada `/tmp/sage-tools/5-*.log`. SHA-256 migrasi OAuth: `0d6429bc1526a86632707d5492e60b8c94e9c5cb336e20db0edd8ff5a6406db9`.
 
 Review memperbaiki logout saat revokasi gagal, penolakan cookie duplikat, redirect fetch provider, validasi state Unicode, dan pemeriksaan ignore `.env` memakai Git sebenarnya. Build Docker sebelumnya tidak menyediakan PHP di stage pengujian; stage sekarang memakai PHP 8.4 + Node 24 serta vendor parser terkunci sebelum menjalankan seluruh suite, sementara runtime web tetap image Node terpisah.
 
 ## Prasyarat eksternal
 
-Ikuti [setup GitHub App](GITHUB_APP_SETUP.md). Pembuatan App dan pemberian akses baru memerlukan konfirmasi pemilik akun. Secret/private key diterima callback dan disimpan langsung dalam `.env` privat; jangan dikirim melalui chat. Saat menyiapkan App publik, `Contents: read` dan `Metadata: read` menjadi izin minimum; pemasangan ke repository dipilih terpisah. Sampai alur GitHub nyata lulus, gunakan `Refs #5`, bukan `Closes #5` pada PR.
+Ikuti [setup GitHub App](GITHUB_APP_SETUP.md). Pembuatan App dan pemberian akses baru memerlukan konfirmasi pemilik akun. Secret/private key diterima callback dan disimpan langsung dalam `.env` privat; jangan dikirim melalui chat. Saat menyiapkan App publik, `Contents: read` dan `Metadata: read` menjadi izin minimum; pemasangan ke repository dipilih terpisah. Alur nyata sudah lulus sehingga PR dapat menutup #5 setelah review. Browser memakai grant yang tersedia; klik penolakan pada layar consent GitHub tidak diuji langsung. Denial/failure/replay tetap dibuktikan melalui pengujian unit, HTTP terkontrol, dan PostgreSQL. Instalasi repository merupakan scope #6.
