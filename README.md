@@ -1,32 +1,79 @@
-# 🌿 SAGE
+<h1 align="center">SAGE</h1>
 
-![SAGE — Pahami struktur kode, telusuri buktinya](docs/assets/readme-banner.svg)
+<p align="center"><strong>Source-code Architecture Graph Extraction</strong><br />Evidence-Grounded Software Architecture Documentation</p>
 
-**Source-code Architecture Graph Extraction for Evidence-Grounded Software Architecture Documentation.**
+<p align="center">Pahami arsitektur repository PHP dan JavaScript/TypeScript melalui graph dan dokumentasi yang dapat ditelusuri ke source code.</p>
 
-SAGE dikembangkan untuk membantu memahami arsitektur repository GitHub melalui **Code Knowledge Graph** dan dokumentasi yang dapat ditelusuri ke source code. Target analisis mencakup **PHP dan JavaScript/TypeScript**, dengan keluaran Markdown serta PDF.
+<p align="center">
+  <a href="https://nextjs.org/"><img src="docs/assets/tech/nextjs.svg" alt="Next.js" title="Next.js" width="36" height="36" /></a>
+  <a href="https://react.dev/"><img src="docs/assets/tech/react.svg" alt="React" title="React" width="36" height="36" /></a>
+  <a href="https://www.typescriptlang.org/"><img src="docs/assets/tech/typescript.svg" alt="TypeScript" title="TypeScript" width="36" height="36" /></a>
+  <a href="https://tailwindcss.com/"><img src="docs/assets/tech/tailwindcss.svg" alt="Tailwind CSS" title="Tailwind CSS" width="36" height="36" /></a>
+  <a href="https://nodejs.org/"><img src="docs/assets/tech/nodejs.svg" alt="Node.js" title="Node.js" width="36" height="36" /></a>
+  <a href="https://www.php.net/"><img src="docs/assets/tech/php.svg" alt="PHP" title="PHP" width="36" height="36" /></a>
+  <a href="https://www.postgresql.org/"><img src="docs/assets/tech/postgresql.svg" alt="PostgreSQL" title="PostgreSQL" width="36" height="36" /></a>
+  <a href="https://www.prisma.io/"><img src="docs/assets/tech/prisma.svg" alt="Prisma" title="Prisma" width="36" height="36" /></a>
+  <a href="https://www.docker.com/"><img src="docs/assets/tech/docker.svg" alt="Docker" title="Docker" width="36" height="36" /></a>
+  <a href="https://playwright.dev/"><img src="docs/assets/tech/playwright.svg" alt="Playwright" title="Playwright" width="36" height="36" /></a>
+</p>
 
-📖 [Panduan lokal](docs/LOCAL_SETUP.md) · 🎯 [Product backlog](docs/PRODUCT_BACKLOG.md) · 🗓️ [Sprint plan](docs/SPRINT_PLAN.md) · 🤝 [Kontribusi](CONTRIBUTING.md)
+<p align="center">Next.js · React · TypeScript · Tailwind CSS · Node.js<br />PHP · PostgreSQL · Prisma · Docker · Playwright</p>
 
-> 🚧 **Dalam pengembangan — per 20 Oktober 2026.**
-> Login GitHub App, daftar repository public/instalasi, pemilihan branch dan full SHA, `POST /api/analyses` yang mengantre secara idempotent, serta snapshot immutable dan source handlers tersambung ke provider nyata. Worker dapat menjalankan komponen queue dan runner tahap, tetapi consumer analisis penuh masih nonaktif (`workerQueueEnabled=false`); submission belum menghasilkan analisis sembilan tahap.
->
-> Landing, login, workspace, dan halaman repository memakai backend autentikasi/repository nyata. Halaman `/preview/progress`, `/preview/history`, `/preview/graph`, dan `/preview/document` adalah pratinjau fixture dari satu contoh source-backed tervalidasi berisi 10 node dan 9 edge, termasuk `ReportService`; halaman tersebut bukan hasil analisis repository pengguna. `/ui-preview` dan `/graph-preview` tetap tersedia sebagai fixture kompatibilitas. Hanya pratinjau Markdown yang dapat diunduh dan ditandai sebagai fixture; ekspor PDF produk belum tersedia. History produk, graph berbasis analysis, dokumen produk, ekspor, dan penghapusan masih mengikuti issue terbuka. Bukti dan batas verifikasi UI dicatat di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md).
+<p align="center">
+  <a href="docs/LOCAL_SETUP.md">Panduan lokal</a> ·
+  <a href="docs/PRODUCT_BACKLOG.md">Backlog</a> ·
+  <a href="docs/SPRINT_PLAN.md">Sprint plan</a> ·
+  <a href="CONTRIBUTING.md">Kontribusi</a>
+</p>
 
-## 🎯 Kemampuan yang ditargetkan
+**Dalam pengembangan — per 20 Oktober 2026.** Login dan akses repository sudah tersedia; pipeline analisis penuh serta ekspor produk masih dalam pengembangan.
 
-| | Kemampuan | Hasil yang ingin dicapai |
-| --- | --- | --- |
-| 🔐 | Akses GitHub | Login, repository publik milik pihak lain, dan repository private yang telah diotorisasi |
-| 🔎 | Analisis source code | Adapter PHP dan JS/TS dengan model kode serta kontrak evidence yang sama |
-| 🕸️ | Code Knowledge Graph | Telusuri module, class, interface, function, dan hubungan antarkode |
-| 📍 | Bukti yang dapat diperiksa | Temuan terhubung ke file, baris, dan snapshot commit yang dianalisis |
-| 📝 | Dokumentasi arsitektur | Interface Catalog, Software Engineering Diagram, UML Class Diagram, serta Architecture Definition Document |
-| 📦 | Ekspor dan riwayat | Simpan Markdown/PDF, buka kembali analisis, dan hapus data milik pengguna |
+<details>
+<summary>Rincian implementasi dan batas pratinjau</summary>
+
+Login GitHub App, daftar repository public/instalasi, pemilihan branch dan full SHA, `POST /api/analyses` yang mengantre secara idempotent, serta snapshot immutable dan source handlers tersambung ke provider nyata. Worker dapat menjalankan komponen queue dan runner tahap, tetapi consumer analisis penuh masih nonaktif (`workerQueueEnabled=false`); submission belum menghasilkan analisis sembilan tahap.
+
+Landing, login, workspace, dan halaman repository memakai backend autentikasi/repository nyata. Halaman `/preview/progress`, `/preview/history`, `/preview/graph`, dan `/preview/document` adalah pratinjau fixture dari satu contoh source-backed tervalidasi berisi 10 node dan 9 edge, termasuk `ReportService`; halaman tersebut bukan hasil analisis repository pengguna. `/ui-preview` dan `/graph-preview` tetap tersedia sebagai fixture kompatibilitas. Hanya pratinjau Markdown yang dapat diunduh dan ditandai sebagai fixture; ekspor PDF produk belum tersedia. History produk, graph berbasis analysis, dokumen produk, ekspor, dan penghapusan masih mengikuti issue terbuka. Bukti dan batas verifikasi UI dicatat di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md).
+
+</details>
+
+## Kemampuan yang ditargetkan
+
+| Kemampuan | Hasil yang ingin dicapai |
+| --- | --- |
+| Akses GitHub | Login, repository publik milik pihak lain, dan repository private yang telah diotorisasi |
+| Analisis source code | Adapter PHP dan JS/TS dengan model kode serta kontrak evidence yang sama |
+| Code Knowledge Graph | Telusuri module, class, interface, function, dan hubungan antarkode |
+| Bukti yang dapat diperiksa | Temuan terhubung ke file, baris, dan snapshot commit yang dianalisis |
+| Dokumentasi arsitektur | Interface Catalog, Software Engineering Diagram, UML Class Diagram, serta Architecture Definition Document |
+| Ekspor dan riwayat | Simpan Markdown/PDF, buka kembali analisis, dan hapus data milik pengguna |
 
 Seluruh kemampuan di atas masuk target MVP lokal. Status implementasi serta acceptance criteria mengikuti [backlog](docs/PRODUCT_BACKLOG.md) dan [test plan](docs/TEST_PLAN.md).
 
-## 🚀 Menjalankan aplikasi di lokal
+## Alur penggunaan
+
+Bagian “Tersedia saat ini” sudah tersedia pada UI. Bagian Sprint 2 menunjukkan alur yang ditargetkan setelah consumer pipeline dan integrasi hasil selesai; halaman `/preview/*` memakai data contoh terpisah.
+
+```mermaid
+flowchart TB
+  subgraph current["Tersedia saat ini"]
+    A["Login dengan GitHub"] --> B{"Pilih akses repository"}
+    B -->|Publik| C["Masukkan URL atau pilih dari daftar"]
+    B -->|Private| D["Instalasi App dan izin baca repository"]
+    C --> E["Pilih branch dan commit opsional"]
+    D --> E
+    E --> F["Validasi target dan full commit SHA"]
+  end
+  subgraph planned["Integrasi Sprint 2"]
+    G["Jalankan pipeline sembilan tahap"] --> H["Telusuri graph dan dokumen"]
+    H --> I["Ekspor Markdown / PDF dan buka history"]
+  end
+  F -. "Consumer belum aktif" .-> G
+```
+
+API submission dan queue durable sudah tersedia, tetapi pemilih target belum memanggil submission dan worker belum mengonsumsi antrean menjadi hasil lengkap. Rincian teknis: [arsitektur](docs/ARCHITECTURE.md) dan [ANA-07 #16](https://github.com/AgilePemdigi-2026/sage/issues/16).
+
+## Menjalankan aplikasi di lokal
 
 Gunakan **Docker Engine/Desktop dengan Compose** yang sudah aktif dan **Node.js 24** untuk script setup. PHP, PostgreSQL, runtime aplikasi, serta Chromium dijalankan di container; tidak perlu memasangnya satu per satu pada host.
 
@@ -66,8 +113,8 @@ Ikuti [panduan GitHub App](docs/GITHUB_APP_SETUP.md). Callback pengembangan meng
 
 | Tujuan | Alamat |
 | --- | --- |
-| 🌿 Halaman aplikasi | **[http://localhost:3000](http://localhost:3000)** |
-| 💚 Pemeriksaan layanan | [http://localhost:3000/api/health](http://localhost:3000/api/health) |
+| Halaman aplikasi | **[http://localhost:3000](http://localhost:3000)** |
+| Pemeriksaan layanan | [http://localhost:3000/api/health](http://localhost:3000/api/health) |
 | Pratinjau progres (fixture) | [http://localhost:3000/preview/progress](http://localhost:3000/preview/progress) |
 | Pratinjau history (fixture) | [http://localhost:3000/preview/history](http://localhost:3000/preview/history) |
 | Pratinjau graph (fixture) | [http://localhost:3000/preview/graph](http://localhost:3000/preview/graph) |
@@ -81,9 +128,11 @@ Landing, login, workspace, dan akses repository nyata sudah tersedia. Rute `/pre
 # Menghentikan aplikasi; data pada volume tetap tersimpan.
 docker compose stop
 
-# Menjalankan kembali aplikasi yang sudah dibuild.
-docker compose up -d --wait --wait-timeout 180
+# Menjalankan kembali container yang dihentikan dengan stop.
+docker compose start
 ```
+
+Saat service `web` berhenti, `http://localhost:3000` tidak dapat diakses. Tidak perlu mematikan Docker Desktop atau Colima untuk menghentikan SAGE; `docker compose stop` hanya menghentikan layanan project ini dan mempertahankan data volume. Jika container belum dibuat atau sudah dihapus dengan `docker compose down`, gunakan command `up` pada langkah 2.
 
 Setelah menarik perubahan kode terbaru:
 
@@ -103,37 +152,24 @@ docker compose logs --tail=100 web worker migrate
 
 Jika port 3000 dipakai aplikasi lain, ubah `WEB_PORT=3001` di `.env`, jalankan kembali command `up`, lalu buka `http://localhost:3001`. Pada macOS dengan Colima, mulai VM dan pilih Docker context terlebih dahulu sesuai [panduan lokal](docs/LOCAL_SETUP.md#prasyarat-dan-menjalankan).
 
-📘 Migrasi, smoke test, persistensi, dan troubleshooting lebih lengkap tersedia di [panduan setup lokal](docs/LOCAL_SETUP.md). Bukti implementasi: [DATA-01](docs/DATA-01_CHECKS.md), [kontrak CCM](docs/ANA-05-S1_CHECKS.md), serta [oracle minimum](docs/QA-01-S1_CHECKS.md).
+Migrasi, smoke test, persistensi, dan troubleshooting lebih lengkap tersedia di [panduan setup lokal](docs/LOCAL_SETUP.md). Bukti implementasi: [DATA-01](docs/DATA-01_CHECKS.md), [kontrak CCM](docs/ANA-05-S1_CHECKS.md), serta [oracle minimum](docs/QA-01-S1_CHECKS.md).
 
-## 🧰 Stack teknologi
-
-<p>
-  <a href="https://nextjs.org/"><img src="docs/assets/tech/nextjs.svg" alt="Next.js" title="Next.js" width="40" height="40" /></a>
-  <a href="https://react.dev/"><img src="docs/assets/tech/react.svg" alt="React" title="React" width="40" height="40" /></a>
-  <a href="https://www.typescriptlang.org/"><img src="docs/assets/tech/typescript.svg" alt="TypeScript" title="TypeScript" width="40" height="40" /></a>
-  <a href="https://tailwindcss.com/"><img src="docs/assets/tech/tailwindcss.svg" alt="Tailwind CSS" title="Tailwind CSS" width="40" height="40" /></a>
-  <a href="https://nodejs.org/"><img src="docs/assets/tech/nodejs.svg" alt="Node.js" title="Node.js" width="40" height="40" /></a>
-  <a href="https://www.php.net/"><img src="docs/assets/tech/php.svg" alt="PHP" title="PHP" width="40" height="40" /></a>
-  <a href="https://www.postgresql.org/"><img src="docs/assets/tech/postgresql.svg" alt="PostgreSQL" title="PostgreSQL" width="40" height="40" /></a>
-  <a href="https://www.prisma.io/"><img src="docs/assets/tech/prisma.svg" alt="Prisma" title="Prisma" width="40" height="40" /></a>
-  <a href="https://www.docker.com/"><img src="docs/assets/tech/docker.svg" alt="Docker" title="Docker" width="40" height="40" /></a>
-  <a href="https://playwright.dev/"><img src="docs/assets/tech/playwright.svg" alt="Playwright" title="Playwright" width="40" height="40" /></a>
-</p>
+## Stack teknologi
 
 | Area | Teknologi |
 | --- | --- |
-| 🖥️ Web dan API | Next.js App Router · React · TypeScript · Tailwind CSS |
-| ⚙️ Pemrosesan | Worker Node.js terpisah dari proses web |
-| 🗄️ Database | PostgreSQL · Prisma ORM |
-| 🟨 Analyzer JavaScript/TypeScript | TypeScript Compiler API |
-| 🐘 Analyzer PHP | nikic/PHP-Parser melalui runtime PHP pada worker |
-| 🕸️ Graph interaktif | Cytoscape.js — direncanakan untuk integrasi graph |
-| 📄 Dokumen dan PDF | Mermaid untuk rendering diagram · Playwright/Chromium untuk PDF |
-| 🐳 Lingkungan lokal | Docker Compose · Persistent volumes |
+| Web dan API | Next.js App Router · React · TypeScript · Tailwind CSS |
+| Pemrosesan | Worker Node.js terpisah dari proses web |
+| Database | PostgreSQL · Prisma ORM |
+| Analyzer JavaScript/TypeScript | TypeScript Compiler API |
+| Analyzer PHP | nikic/PHP-Parser melalui runtime PHP pada worker |
+| Graph interaktif | Cytoscape.js — canvas fixture tersedia; integrasi hasil produk menyusul |
+| Dokumen dan PDF | Mermaid untuk rendering diagram · Playwright/Chromium untuk PDF |
+| Lingkungan lokal | Docker Compose · Persistent volumes |
 
 Logo disimpan lokal; sumber dan lisensinya tersedia di [aset teknologi](docs/assets/tech/README.md). Dependency dipin pada lockfile dan base image memakai digest. Renderer SVG/PDF sudah melewati probe fondasi; generator artefak produk serta ekspor terotorisasi tetap perlu diimplementasikan dan diuji.
 
-## 🧭 Prinsip pengembangan
+## Prinsip pengembangan
 
 - **Berbasis bukti:** fakta teknis berasal dari static analysis; resolusi relasi hanya `Exact` atau `Unresolved`.
 - **Target konsisten:** repository, branch, dan full SHA dipertahankan sepanjang analisis; kode target dibaca sebagai data.
@@ -144,41 +180,41 @@ Logo disimpan lokal; sumber dan lisensinya tersedia di [aset teknologi](docs/ass
 - **Lokal lebih dahulu:** MVP diterima melalui Docker; deployment dan anggaran produksi menunggu keputusan dosen.
 - **MVP sebelum eksperimen:** seluruh fitur wajib ditargetkan selesai Sprint 2; LLM opsional setelah MVP freeze.
 
-## 📚 Dokumentasi proyek
+## Dokumentasi proyek
 
 | Dokumen | Kegunaan |
 | --- | --- |
-| 🎯 [PRD](docs/PRD.md) | Tujuan, cakupan, pengguna, dan batas MVP |
-| 🧾 [Requirement traceability](docs/REQUIREMENTS_TRACEABILITY.md) | Pemetaan 72 requirement SRS ke backlog dan pengujian |
-| 🏗️ [Arsitektur](docs/ARCHITECTURE.md) | Komponen aplikasi, stack, pipeline, dan lingkungan lokal |
-| 🔬 [Spesifikasi analisis](docs/ANALYSIS_SPEC.md) | CCM, node, edge, evidence, cakupan analyzer, dan artefak |
-| 🗄️ [Model data](docs/DATA_MODEL.md) | Entitas penyimpanan, lifecycle, dan penghapusan |
-| 🔌 [Kontrak API](docs/API_CONTRACT.md) | Endpoint, payload, otorisasi, status, dan error |
-| 🎨 [Design guidelines](docs/DESIGN_GUIDELINES.md) | Acuan Figma, token, bahasa UI, state, dan responsivitas |
-| 📋 [Product backlog](docs/PRODUCT_BACKLOG.md) | 41 issue, dependensi, acceptance criteria, dan penanggung jawab |
-| 🗓️ [Sprint plan](docs/SPRINT_PLAN.md) | Kalender pengerjaan/review dan target tiap sprint |
-| ⚖️ [Alokasi sprint](docs/SPRINT_ALLOCATION.md) | Deliverable tiap anggota dan bukti kontribusi |
-| ✅ [Definition of Done](docs/DEFINITION_OF_DONE.md) | Syarat deliverable dan MVP dinyatakan selesai |
-| 🧪 [Test plan](docs/TEST_PLAN.md) | Fixture, integrasi GitHub, dan verifikasi ekspor |
-| 🧭 [Keputusan dan risiko](docs/DECISIONS.md) | Keputusan, rancangan awal, TBD, dan risiko |
-| 📎 [Sumber](docs/SOURCES.md) | PDF, Figma, referensi teknis, dan urutan acuan |
-| 🤝 [Kontribusi](CONTRIBUTING.md) | Pembagian modul, issue, branch, PR, commit, dan alur merge |
+| [PRD](docs/PRD.md) | Tujuan, cakupan, pengguna, dan batas MVP |
+| [Requirement traceability](docs/REQUIREMENTS_TRACEABILITY.md) | Pemetaan 72 requirement SRS ke backlog dan pengujian |
+| [Arsitektur](docs/ARCHITECTURE.md) | Komponen aplikasi, stack, pipeline, dan lingkungan lokal |
+| [Spesifikasi analisis](docs/ANALYSIS_SPEC.md) | CCM, node, edge, evidence, cakupan analyzer, dan artefak |
+| [Model data](docs/DATA_MODEL.md) | Entitas penyimpanan, lifecycle, dan penghapusan |
+| [Kontrak API](docs/API_CONTRACT.md) | Endpoint, payload, otorisasi, status, dan error |
+| [Design guidelines](docs/DESIGN_GUIDELINES.md) | Acuan Figma, token, bahasa UI, state, dan responsivitas |
+| [Product backlog](docs/PRODUCT_BACKLOG.md) | 42 issue, dependensi, acceptance criteria, dan penanggung jawab |
+| [Sprint plan](docs/SPRINT_PLAN.md) | Kalender pengerjaan/review dan target tiap sprint |
+| [Alokasi sprint](docs/SPRINT_ALLOCATION.md) | Deliverable tiap anggota dan bukti kontribusi |
+| [Definition of Done](docs/DEFINITION_OF_DONE.md) | Syarat deliverable dan MVP dinyatakan selesai |
+| [Test plan](docs/TEST_PLAN.md) | Fixture, integrasi GitHub, dan verifikasi ekspor |
+| [Keputusan dan risiko](docs/DECISIONS.md) | Keputusan, rancangan awal, TBD, dan risiko |
+| [Sumber](docs/SOURCES.md) | PDF, Figma, referensi teknis, dan urutan acuan |
+| [Kontribusi](CONTRIBUTING.md) | Pembagian modul, issue, branch, PR, commit, dan alur merge |
 
 Mulai dari PRD, keputusan, dan spesifikasi analisis, kemudian backlog serta sprint plan. Kontrak API dan model data diperbarui bersama ketika implementasi mengubah kontrak.
 
-## 🗓️ Roadmap sprint
+## Roadmap sprint
 
 Semua tanggal mengikuti **Asia/Jakarta**. Setiap siklus terdiri atas dua minggu pengerjaan dan satu minggu review user story.
 
 | Sprint | Fokus | Pengerjaan | Review |
 | --- | --- | --- | --- |
-| 🌱 Sprint 1 | Fondasi, akses repository, kontrak, dan jalur dasar dua bahasa | 12–25 Oktober 2026 | 26 Oktober–1 November 2026 |
-| 🛠️ Sprint 2 | Integrasi seluruh alur MVP dan feature freeze | 2–15 November 2026 | 16–22 November 2026 |
-| ✨ Sprint 3 | Regression, penyempurnaan, dokumentasi, dan demo | 23 November–6 Desember 2026 | 7–13 Desember 2026 |
+| Sprint 1 | Fondasi, akses repository, kontrak, dan jalur dasar dua bahasa | 12–25 Oktober 2026 | 26 Oktober–1 November 2026 |
+| Sprint 2 | Integrasi seluruh alur MVP dan feature freeze | 2–15 November 2026 | 16–22 November 2026 |
+| Sprint 3 | Regression, penyempurnaan, dokumentasi, dan demo | 23 November–6 Desember 2026 | 7–13 Desember 2026 |
 
 **Target feature-complete: 15 November 2026.** Kalender merupakan rencana; status selesai tetap memerlukan bukti dan review sesuai Definition of Done.
 
-## 🤝 Tim dan kontribusi
+## Tim dan kontribusi
 
 | Anggota | GitHub | Fokus modul |
 | --- | --- | --- |
@@ -189,7 +225,7 @@ Semua tanggal mengikuti **Asia/Jakarta**. Setiap siklus terdiri atas dua minggu 
 
 Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Conventional Commit satu baris/satu kalimat**. Penanggung jawab serta hasil aktual mengikuti [alur kontribusi](CONTRIBUTING.md) dan [alokasi sprint](docs/SPRINT_ALLOCATION.md).
 
-## 📌 Langkah berikutnya
+## Langkah berikutnya
 
 1. Lengkapi consumer sembilan tahap dan publikasi hasil atomik pada **ANA-07 #16**. Queue/API submission, runner tahap terbatas, target SHA, dan snapshot sudah punya bukti per issue; consumer masih dimatikan.
 2. Selesaikan canonical CKG dan dokumen melalui **ANA-06 #14** serta **DOC-01 #15**, lalu lanjutkan graph produk **#17–19**, Markdown/PDF **#20–21**, history **#22**, dan penghapusan **#23**.
