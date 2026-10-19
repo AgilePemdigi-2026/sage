@@ -1,8 +1,8 @@
 # Product backlog
 
-Status per 18 Oktober 2026: **39 GitHub Issues**, tiga milestone sprint, dan delapan relasi parent/sub-issue sudah dibuat. Revisi pembagian memakai bobot pekerjaan serta bukti kontribusi tiap sprint; jumlah issue tidak harus sama. Penanggung jawab paket mengikuti [alur kontribusi](../CONTRIBUTING.md); Iltizam melakukan review teknis dan merge PR.
+Status per 20 Oktober 2026: **41 GitHub Issues**, tiga milestone sprint, dan delapan relasi parent/sub-issue sudah dibuat. Revisi pembagian memakai bobot pekerjaan serta bukti kontribusi tiap sprint; jumlah issue tidak harus sama. Penanggung jawab paket mengikuti [alur kontribusi](../CONTRIBUTING.md); Iltizam melakukan review teknis dan merge PR.
 
-Seluruh akun sudah dipetakan dan assignment aktif: Iltizam (`iltizamhasan3`), Rizqy (`rizqy-fadhil`), Valentina (`liliks13`), serta Zarra (`zarrrafirdaus`). Sepuluh paket Zarra sudah di-assign ke akunnya. Ringkasan lintas anggota ada di [alokasi sprint](SPRINT_ALLOCATION.md).
+Seluruh akun sudah dipetakan dan assignment aktif: Iltizam (`iltizamhasan3`), Rizqy (`rizqy-fadhil`), Valentina (`liliks13`), serta Zarra (`zarrrafirdaus`). Sebelas paket Zarra sudah di-assign ke akunnya. Ringkasan lintas anggota ada di [alokasi sprint](SPRINT_ALLOCATION.md).
 
 ## Prioritas, estimasi, dan fase
 
@@ -20,21 +20,23 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | PLAN-01 | Baseline planning dan workflow issue | 1 | P0 / M | Iltizam | - | - | Done (baseline dokumentasi) | [#1](https://github.com/AgilePemdigi-2026/sage/issues/1) |
 | ENV-01 | Spike stack, versi, Docker, limits awal, renderer diagram | 1 | P0 / L | Iltizam | PLAN-01 | - | Done (merged PR #29) | [#2](https://github.com/AgilePemdigi-2026/sage/issues/2) |
-| DATA-01 | Schema, migrasi, session/credential storage, isolasi user | 1 | P0 / L | Zarra | ENV-01 | - | Planned | [#3](https://github.com/AgilePemdigi-2026/sage/issues/3) |
-| QA-01-S1 | Oracle minimum PHP/JS/TS dan review evidence Sprint 1 | 1 | P0 / M | Zarra | PLAN-01 | QA-01 | Planned | [#31](https://github.com/AgilePemdigi-2026/sage/issues/31) |
-| UI-01 | Fondasi shell UI dan komponen state login/target/progress | 1 | P0 / L | Valentina | ENV-01 | - | Planned | [#30](https://github.com/AgilePemdigi-2026/sage/issues/30) |
-| GH-01 | Login GitHub App, callback, session, dan error | 1 | P0 / L | Iltizam | ENV-01, DATA-01 | - | Planned | [#5](https://github.com/AgilePemdigi-2026/sage/issues/5) |
-| GH-02 | Daftar instalasi/private berizin dan resolve public pihak lain | 1 | P0 / L | Rizqy | GH-01 | - | Planned | [#6](https://github.com/AgilePemdigi-2026/sage/issues/6) |
-| REP-01 | UI/API target, search, branch, commit, validasi | 1 | P0 / L | Rizqy | GH-02 | - | Planned | [#7](https://github.com/AgilePemdigi-2026/sage/issues/7) |
-| REP-02 | Full SHA immutable dan snapshot aman | 1 | P0 / L | Iltizam | REP-01, DATA-01 | - | Planned | [#8](https://github.com/AgilePemdigi-2026/sage/issues/8) |
-| ANA-01 | Queue durable dan global analysis slot | 1 | P0 / L | Rizqy | DATA-01 | - | Planned | [#9](https://github.com/AgilePemdigi-2026/sage/issues/9) |
-| ANA-02 | Deteksi bahasa, exclusion, dan batas file | 1 | P0 / M | Zarra | REP-02 | - | Planned | [#10](https://github.com/AgilePemdigi-2026/sage/issues/10) |
-| ANA-05-S1 | Kontrak CCM/evidence v1 minimum dan validator dasar | 1 | P0 / M | Iltizam | ENV-01, QA-01-S1 | ANA-05 | Planned | [#32](https://github.com/AgilePemdigi-2026/sage/issues/32) |
-| ANA-03-S1 | Deklarasi dan evidence dasar adapter JavaScript/TypeScript | 1 | P0 / L | Iltizam | ENV-01, QA-01-S1, ANA-05-S1 | ANA-03 | Planned | [#33](https://github.com/AgilePemdigi-2026/sage/issues/33) |
-| ANA-04-S1 | Namespace, deklarasi, dan evidence dasar adapter PHP | 1 | P0 / L | Zarra | ENV-01, QA-01-S1, ANA-05-S1 | ANA-04 | Planned | [#34](https://github.com/AgilePemdigi-2026/sage/issues/34) |
-| ANA-07-S1 | Runner stage berurutan, persistensi status, dan kontrak progress | 1 | P0 / L | Rizqy | DATA-01, ANA-01, ANA-05-S1 | ANA-07 | Planned | [#35](https://github.com/AgilePemdigi-2026/sage/issues/35) |
-| GRAPH-01-S1 | Canvas graph dasar dari fixture bervalidasi | 1 | P1 / L | Valentina | UI-01, ANA-05-S1, QA-01-S1 | GRAPH-01 | Planned | [#36](https://github.com/AgilePemdigi-2026/sage/issues/36) |
-| QA-03-S1 | Verifikasi UI dasar, state, keyboard, dan lima viewport | 1 | P1 / M | Valentina | UI-01, GRAPH-01-S1 | QA-03 | Planned | [#37](https://github.com/AgilePemdigi-2026/sage/issues/37) |
+| DATA-01 | Schema, migrasi, session/credential storage, isolasi user | 1 | P0 / L | Zarra | ENV-01 | - | Done (paket teruji; lihat issue) | [#3](https://github.com/AgilePemdigi-2026/sage/issues/3) |
+| QA-01-S1 | Oracle minimum PHP/JS/TS dan review evidence Sprint 1 | 1 | P0 / M | Zarra | PLAN-01 | QA-01 | Done (paket teruji; lihat issue) | [#31](https://github.com/AgilePemdigi-2026/sage/issues/31) |
+| UI-01 | Fondasi shell UI dan komponen state login/target/progress | 1 | P0 / L | Valentina | ENV-01 | - | Done (paket teruji; lihat issue) | [#30](https://github.com/AgilePemdigi-2026/sage/issues/30) |
+| GH-01 | Login GitHub App, callback, session, dan error | 1 | P0 / L | Iltizam | ENV-01, DATA-01 | - | Done (paket teruji; lihat issue) | [#5](https://github.com/AgilePemdigi-2026/sage/issues/5) |
+| GH-02 | Daftar instalasi/private berizin dan resolve public pihak lain | 1 | P0 / L | Rizqy | GH-01 | - | Done (paket teruji; lihat issue) | [#6](https://github.com/AgilePemdigi-2026/sage/issues/6) |
+| REP-01 | UI/API target, search, branch, commit, validasi | 1 | P0 / L | Rizqy | GH-02 | - | Done (paket teruji; lihat issue) | [#7](https://github.com/AgilePemdigi-2026/sage/issues/7) |
+| REP-02 | Full SHA immutable dan snapshot aman | 1 | P0 / L | Iltizam | REP-01, DATA-01 | - | Done (paket teruji; lihat issue) | [#8](https://github.com/AgilePemdigi-2026/sage/issues/8) |
+| ANA-01 | Queue durable dan global analysis slot | 1 | P0 / L | Rizqy | DATA-01 | - | Done (paket teruji; lihat issue) | [#9](https://github.com/AgilePemdigi-2026/sage/issues/9) |
+| ANA-02 | Deteksi bahasa, exclusion, dan batas file | 1 | P0 / M | Zarra | REP-02 | - | Done (paket teruji; lihat issue) | [#10](https://github.com/AgilePemdigi-2026/sage/issues/10) |
+| ANA-05-S1 | Kontrak CCM/evidence v1 minimum dan validator dasar | 1 | P0 / M | Iltizam | ENV-01, QA-01-S1 | ANA-05 | Done (paket teruji; lihat issue) | [#32](https://github.com/AgilePemdigi-2026/sage/issues/32) |
+| ANA-03-S1 | Deklarasi dan evidence dasar adapter JavaScript/TypeScript | 1 | P0 / L | Iltizam | ENV-01, QA-01-S1, ANA-05-S1 | ANA-03 | Done (paket teruji; lihat issue) | [#33](https://github.com/AgilePemdigi-2026/sage/issues/33) |
+| ANA-04-S1 | Namespace, deklarasi, dan evidence dasar adapter PHP | 1 | P0 / L | Zarra | ENV-01, QA-01-S1, ANA-05-S1 | ANA-04 | Done (paket teruji; lihat issue) | [#34](https://github.com/AgilePemdigi-2026/sage/issues/34) |
+| ANA-07-S1 | Runner stage berurutan, persistensi status, dan kontrak progress | 1 | P0 / L | Rizqy | DATA-01, ANA-01, ANA-05-S1 | ANA-07 | Done (paket teruji; lihat issue) | [#35](https://github.com/AgilePemdigi-2026/sage/issues/35) |
+| GRAPH-01-S1 | Canvas graph dasar dari fixture bervalidasi | 1 | P1 / L | Valentina | UI-01, ANA-05-S1, QA-01-S1 | GRAPH-01 | Done (paket teruji; lihat issue) | [#36](https://github.com/AgilePemdigi-2026/sage/issues/36) |
+| QA-03-S1 | Verifikasi UI dasar, state, keyboard, dan lima viewport | 1 | P1 / M | Valentina | UI-01, GRAPH-01-S1 | QA-03 | Done (paket teruji; lihat issue) | [#37](https://github.com/AgilePemdigi-2026/sage/issues/37) |
+| UI-02 | Frontend Figma landing, repository, progres, history dan graph | 1 | P1 / L | Valentina | UI-01, GRAPH-01-S1, REP-01 | - | Done (frontend fixture; UI-02_CHECKS) | [#59](https://github.com/AgilePemdigi-2026/sage/issues/59) |
+| UI-03 | Frontend dokumen Figma dan sinkronisasi dokumentasi | 1 | P1 / M | Zarra | UI-02, ANA-05-S1 | - | Done (frontend fixture; UI-02_CHECKS) | [#60](https://github.com/AgilePemdigi-2026/sage/issues/60) |
 | QA-01 | Fixture/oracle PHP, JS, TS dan benchmark awal | 1-2 | P0 / L | Zarra | PLAN-01, QA-01-S1 | - | In progress | [#4](https://github.com/AgilePemdigi-2026/sage/issues/4) |
 | ANA-05 | Contracts CCM/evidence dan validator | 1-2 | P0 / M | Iltizam | ENV-01, QA-01, ANA-05-S1, ANA-03-S1, ANA-04-S1 | - | Planned | [#11](https://github.com/AgilePemdigi-2026/sage/issues/11) |
 | ANA-03 | Adapter JavaScript/TypeScript dan resolver | 1-2 | P0 / XL | Iltizam | ANA-05, QA-01, ANA-03-S1 | - | Planned | [#12](https://github.com/AgilePemdigi-2026/sage/issues/12) |
@@ -85,6 +87,8 @@ Kriteria berikut tetap wajib bersama scope fase/sisa di atas. Setiap hasil menca
 | DATA-01 | Migrasi bersih, sesi/credential aman, record user terisolasi, hasil bertahan setelah restart | T-DATA-01 |
 | QA-01-S1 | Fixture minimum tiap bahasa mempunyai source SHA-256, expected declaration/reference dan limitation; Unicode/CRLF serta dynamic/unresolved termasuk; pemeriksa aktual dan hasil review dicatat; verifier hash/snippet/bounds lulus; output parser bukan satu-satunya sumber expected output | T-ANA-03/T-ANA-04 (oracle minimum; semantic adapter acceptance tetap menunggu implementasi) |
 | UI-01 | Komponen berbahasa Indonesia memuat state loading/empty/error/retry yang dapat diperiksa dari data fixture berlabel; keyboard/focus dan validasi form tersedia; layar 360/390/768/1024/1440 px diperiksa; tidak ada tombol login atau hasil analisis dummy yang diklaim sebagai integrasi GitHub nyata | T-UI-01 (komponen dasar, bukan acceptance UI produk penuh) |
+| UI-02 | Layout Figma, akses repository tetap nyata, preview berlabel, query/filter/inspector/source dan lima viewport teruji tanpa mengklaim integrasi pipeline | T-UI-02 (frontend fixture) |
+| UI-03 | Catalog/struktur/UML berbasis fixture tervalidasi, konteks/evidence konsisten, ekspor yang belum tersedia dijelaskan, README dan dokumen status diselaraskan | T-UI-02 (dokumen fixture) |
 | GH-01 | Login/logout nyata, state replay ditolak, denial/failure dapat dipulihkan, secret tidak terekspos | T-GH-01, T-GH-02 |
 | GH-02 | Public pihak lain dan private berizin berhasil, private tanpa izin ditolak, rate limit/unavailable punya pesan aman | T-GH-03 |
 | REP-01 | List/search/empty/error, branch aktual, commit opsional, input invalid ditolak sebelum job | T-REP-01, T-REP-02 |
@@ -126,4 +130,4 @@ Judul memakai `[ID] Ringkasan deliverable`. Seluruh nomor di tabel adalah issue 
 
 Tinjau bobot, dependensi, waktu review, serta bukti perubahan/tes/review yang substantif per anggota pada setiap sprint. Jumlah issue/commit merupakan penunjuk keterlacakan, bukan ukuran effort yang setara. Rencana ini belum membuktikan actual effort atau menjamin kapasitas; penyesuaian dicatat pada issue dan decision log.
 
-Definisi selesai mengikuti [Definition of Done](DEFINITION_OF_DONE.md). Saat ini PLAN-01 Done, ENV-01 Done setelah PR #29 di-merge, dan QA-01 In progress untuk seed; acceptance produk tetap mengikuti [test plan](TEST_PLAN.md).
+Definisi selesai mengikuti [Definition of Done](DEFINITION_OF_DONE.md). Seluruh 17 paket awal Sprint 1 sudah ditutup sesuai bukti pada issue. UI-02/UI-03 menambahkan pekerjaan frontend pada 20 Oktober; keduanya terverifikasi sebagai fase frontend fixture, terpisah dari acceptance fitur penuh Sprint 2. QA-01 tetap In progress untuk oracle tambahan; acceptance produk mengikuti [test plan](TEST_PLAN.md).

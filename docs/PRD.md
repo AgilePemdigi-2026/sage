@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-Status: baseline produk yang disepakati pada 18 Oktober 2026; implementasi belum dimulai.
+Status: baseline produk disepakati pada 18 Oktober 2026; implementasi berjalan per 20 Oktober 2026. Login GitHub, akses repository, validasi branch/full SHA, submission idempotent ke durable queue, serta handler snapshot/source tersedia. Consumer pipeline sembilan tahap masih nonaktif, sehingga alur target di dokumen ini tetap merupakan cakupan MVP yang belum selesai. Bukti per slice tersedia pada [GH-02](GH-02_CHECKS.md), [REP-01](REP-01_CHECKS.md), [REP-02](REP-02_CHECKS.md), dan [ANA-02](ANA-02_CHECKS.md).
 
 ## Masalah dan tujuan
 

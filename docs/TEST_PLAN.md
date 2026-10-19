@@ -1,6 +1,6 @@
 # Test plan
 
-Status 19 Oktober 2026: subset login/logout provider nyata, pencabutan sesi, dan penolakan workspace setelah logout sudah `PASS` pada [GH-01](GH-01_CHECKS.md). Denial/failure/replay lulus melalui tes terkontrol; klik denial pada consent GitHub nyata belum dijalankan. Acceptance yang mencakup izin repository serta alur produk penuh tetap menunggu implementasi terkait. Probe fondasi ENV-01 dan integritas seed QA-01 dicatat terpisah di [pemeriksaan environment](ENVIRONMENT_CHECKS.md); probe tidak menutup acceptance produk. Bukti aktual dilampirkan pada issue/PR serta artefak yang aman.
+Status 20 Oktober 2026: GH-01/02 memuat bukti login dan akses GitHub nyata; REP-01/02 memuat validasi repository/branch/full SHA, submission idempotent, dan snapshot immutable; ANA-01/02 mencatat queue/source policy; runner stage terbatas diuji pada ANA-07-S1. Consumer sembilan tahap masih nonaktif (`workerQueueEnabled=false`), dan acceptance end-to-end tetap terbuka. Frontend Figma UI-02 #59 serta UI-03 #60 telah diuji pada lima viewport menggunakan fixture; hasil dan batas keyboard/visual ada di [UI-02/UI-03 checks](UI-02_CHECKS.md). Bukti per slice ada pada dokumen [GH-01](GH-01_CHECKS.md), [GH-02](GH-02_CHECKS.md), [REP-01](REP-01_CHECKS.md), [REP-02](REP-02_CHECKS.md), [ANA-01](ANA-01_CHECKS.md), dan [ANA-02](ANA-02_CHECKS.md). Probe fondasi ENV-01 dan integritas seed QA-01 dicatat terpisah di [pemeriksaan environment](ENVIRONMENT_CHECKS.md); probe tidak menutup acceptance produk.
 
 ## Strategi
 
@@ -10,7 +10,7 @@ Playwright digunakan untuk browser E2E dan export PDF. Fondasi memakai Node.js t
 
 ## Fixture dan oracle
 
-Repository uji lengkap dari tim belum tersedia. QA-01 harus menyiapkan minimal fixture lokal kecil JavaScript, TypeScript, dan PHP, disusul repository GitHub public pihak lain/fixture public serta private yang diotorisasi pengguna.
+Oracle awal untuk PHP, JavaScript, dan TypeScript sudah memiliki bukti tersendiri, tetapi QA-01 masih terbuka untuk kelengkapan oracle semantik dan review tim. Fixture source-backed pada pratinjau UI bukan pengganti oracle analisis repository.
 
 Untuk tiap fixture simpan source, full SHA atau manifest hash lokal, config, expected declaration/edge/evidence/limitations, dan nama pemeriksa. Oracle disusun dari source yang dibaca/direview; jangan menjadikan output analyzer yang diuji sebagai satu-satunya expected output.
 
@@ -24,11 +24,11 @@ Untuk tiap fixture simpan source, full SHA atau manifest hash lokal, config, exp
 | `failure-cases` | Syntax invalid, tidak ada source didukung, limit terlampaui, duplicate submission, worker terhenti |
 | `unsafe-inputs` | URL non-GitHub, traversal, symlink, archive berlebihan, konfigurasi/plugin executable |
 
-Fixture JSX/TSX, type alias, enum, PHP trait, dan semantik framework ditambahkan saat capability spike. Angka 37 node/88 edge pada mockup bukan oracle sampai source lengkapnya tersedia dan direview.
+Fixture JSX/TSX, type alias, enum, PHP trait, dan semantik framework ditambahkan saat capability spike. Contoh Figma lama berisi 37 node/88 edge bukan oracle. Pratinjau Sprint 1 memakai satu fixture CCM source-backed yang divalidasi dengan 10 node/9 edge; fixture itu hanya untuk demonstrasi UI dan tidak membuktikan hasil analyzer dari repository.
 
 ## Penerimaan fase dan regression
 
-Paket QA-01-S1, ANA-05-S1, ANA-03-S1, ANA-04-S1, ANA-07-S1, GRAPH-01-S1, QA-03-S1, dan UI-01 memiliki scope awal yang diuji terpisah. Rekam kasus uji yang dipakai serta batasnya: stub stage tidak membuktikan sembilan tahap analisis nyata; canvas fixture tidak membuktikan CKG dari repository. Parent tetap memerlukan kasus penerimaan lengkap. DOC-02 menguji proyeksi diagram dari CKG dan keamanan rendering, lalu DOC-01/EXP-01/EXP-02 memverifikasi konsistensi dokumen serta file nyata.
+Paket QA-01-S1, ANA-05-S1, ANA-03-S1, ANA-04-S1, ANA-07-S1, GRAPH-01-S1, QA-03-S1, dan UI-01 memiliki scope awal yang diuji terpisah. Rekam kasus uji yang dipakai serta batasnya: runner stage terbatas tidak membuktikan consumer sembilan tahap aktif; canvas/halaman fixture tidak membuktikan CKG dari repository. QA-03-S1 memeriksa shell awal dan tidak menggantikan verifikasi layar Figma baru pada #59/#60. Parent tetap memerlukan kasus penerimaan lengkap. DOC-02 menguji proyeksi diagram dari CKG dan keamanan rendering, lalu DOC-01/EXP-01/EXP-02 memverifikasi konsistensi dokumen serta file nyata.
 
 Sesudah freeze, FIN-01 (Iltizam) mengulang analyzer/worker/CCM/CKG/evidence dan benchmark; FIN-03 (Rizqy) mengulang GitHub/repository/queue/pipeline/history/integrasi; FIN-04 (Valentina) mengulang graph/UI/keyboard/lima viewport dan render visual seluruh halaman PDF. FIN-02 (Zarra) memverifikasi dokumen, panduan, serta replay demo setelah hasil regression tersedia. Catat hasil bersih jika tidak ada temuan; issue bug hanya untuk kegagalan yang benar-benar ditemukan.
 
@@ -36,7 +36,7 @@ Rincian scope dan bukti mengikuti [alokasi sprint](SPRINT_ALLOCATION.md). Penggu
 
 ## Kasus penerimaan
 
-Setiap ID di bawah adalah kontrak pengujian yang akan diimplementasikan; seluruhnya berstatus `NOT_RUN`.
+ID di bawah adalah kontrak acceptance alur produk lengkap. Check per issue dapat membuktikan sebagian perilaku tanpa menutup baris ini; tandai acceptance lengkap setelah semua kondisi pada skenario terpenuhi dan buktinya dicatat.
 
 | ID | Langkah/skenario | Expected result |
 | --- | --- | --- |
@@ -88,3 +88,7 @@ Tidak ada angka performa hasil eksekusi atau hardware minimum yang telah ditetap
 Setiap hasil run mencatat tanggal, commit aplikasi, full SHA/hash fixture, schema/config/parser versions, lingkungan, test IDs, command/langkah nyata, expected vs actual, status pass/fail, serta lokasi artefak yang aman. Bedakan run baru, hasil tersimpan, mock, dan review dokumen.
 
 Hasil pengujian yang mengandung source private tidak diunggah ke repository publik. Issue dapat menyimpan ringkasan yang disamarkan dan identitas run, dengan bukti sensitif disimpan pada lokasi yang disetujui pemilik.
+
+## Frontend Figma Sprint 1
+
+T-UI-02 memeriksa enam layar pada 360/390/768/1024/1440 px, aset SVG lokal, pencarian dan state history, query AND kategori serta fokus graph, evidence/source dan pengembalian fokus, tab dokumen dengan keyboard, byte unduhan Markdown contoh, PDF disabled, state retry/unavailable, dan penolakan konteks analysis yang tidak cocok. Replay: `npm run test:figma:ui`. Target repository nyata diperiksa terpisah melalui `npm run test:target:ui` dengan sesi valid milik identitas fixture sementara (`SAGE_TEST_FIXTURE_USER=1`) dan respons provider terkontrol. Hasil dan batasnya: [UI-02/UI-03 checks](UI-02_CHECKS.md).

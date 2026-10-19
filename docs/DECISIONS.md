@@ -25,6 +25,8 @@ Baseline: 18 Oktober 2026, Asia/Jakarta. `Disepakati` adalah keputusan project; 
 | D-17 | Zarra bergabung sebagai `zarrrafirdaus`; seluruh paketnya memakai assignee tersebut | Diterapkan 18 Oktober 2026 | Sepuluh issue di-assign; kepemilikan dan bobot pekerjaan tidak berubah |
 | D-18 | PR tetap wajib, dengan minimum approval 0 agar penulis dapat merge PR sendiri setelah pemeriksaan | Diterapkan 18 Oktober 2026 | Review/bukti tetap dicatat; resolusi percakapan, pembatasan push/merge, enforcement admin, serta larangan force push/delete tetap berlaku |
 
+| D-19 | Tambahkan UI-02 (Valentina) dan UI-03 (Zarra) pada Sprint 1 berdasarkan Figma MCP | Disepakati 20 Oktober 2026 | Total 41 issue; frontend hasil memakai fixture CCM tervalidasi dengan label eksplisit, integrasi parent Sprint 2 tetap terbuka; README dan status docs diperbarui bersama perubahan |
+
 ## Rancangan teknis awal
 
 | ID | Pilihan awal | Issue pembuktian |

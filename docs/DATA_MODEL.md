@@ -1,6 +1,6 @@
 # Model data dan lifecycle
 
-Status: DATA-01 menyediakan schema PostgreSQL, helper session/kredensial, query owner-scoped, serta integration dan persistence checks. ANA-01 menambahkan API enqueue/claim/lease/recovery yang diuji dengan PostgreSQL dan proses terpisah. Login/OAuth HTTP, consumer pipeline analisis, dan cleanup lifecycle masih menunggu integrasi masing-masing.
+Status per 20 Oktober 2026: DATA-01 menyediakan schema PostgreSQL, helper session/kredensial, query owner-scoped, dan pemeriksaan integrasi/persistensi. GH-01/02 menyediakan autentikasi dan akses repository nyata; REP-01/02 menyediakan validasi target, submission idempotent, snapshot immutable, serta source handlers. ANA-01 menyediakan queue durable dan runner stage terbatas sudah memiliki slice teruji. Consumer analisis produk masih nonaktif (`workerQueueEnabled=false`); history, graph/dokumen produk, ekspor, dan cleanup lifecycle masih mengikuti issue terbuka.
 
 ## Entitas
 
@@ -57,19 +57,19 @@ Session dibuat dari 32 byte acak dan token base64url mentah hanya dikembalikan s
 
 Kredensial GitHub dienkripsi dengan AES-256-GCM, nonce acak 12 byte, dan tag 16 byte. `CREDENTIAL_ENCRYPTION_KEY` harus berupa base64 kanonis yang mewakili tepat 32 byte. AAD mengikat format, `userId`, konteks record, dan key ID sehingga ciphertext tidak dapat dipindah ke user/koneksi lain tanpa gagal autentikasi. Key ID berasal dari SHA-256 key; bila konfigurasi key tidak ada/salah atau ciphertext dimodifikasi, operasi ditolak dengan error aman.
 
-Key diambil dari environment proses web/worker dan tidak diberikan ke container database. Rotasi multi-key belum diimplementasikan: selama rotasi, operator harus mempertahankan key lama dan melakukan proses decrypt/re-encrypt terkontrol sebelum mengganti key aktif. Jika key lama hilang, kredensial lama tidak dapat dipulihkan. Belum ada route login/OAuth yang memakai helper ini; pembacaan token tetap harus berasal dari koneksi milik session tepercaya dan tetap memeriksa expiry/revocation.
+Key diambil dari environment proses web/worker dan tidak diberikan ke container database. Rotasi multi-key belum diimplementasikan: selama rotasi, operator harus mempertahankan key lama dan melakukan proses decrypt/re-encrypt terkontrol sebelum mengganti key aktif. Jika key lama hilang, kredensial lama tidak dapat dipulihkan. Route GitHub nyata memakai helper kredensial melalui session server; token dibaca dari koneksi pemilik yang tervalidasi dan tetap tunduk pada expiry/revocation.
 
 Koneksi pertama memakai `storeGitHubCredential`; refresh atau reconnect memakai `replaceGitHubCredential` dengan ID koneksi yang sama. Replacement dibatasi pemilik, mengaktifkan kembali koneksi, menghapus revocation, dan mengganti expiry secara eksplisit. Callback OAuth tetap harus memilih operasi yang sesuai.
 
-Helper `find*ForUser` selalu memasukkan user yang dipercaya server ke predicate SQL. Relasi analysis-child memakai foreign key komposit `(analysisId, ownerUserId)`; relasi storage source/export mengikat analysis dan owner sekaligus. Repository global boleh dibagi, sedangkan baris hasil dan kredensial tetap owner-scoped. Route HTTP belum ada dan wajib meneruskan `userId` hasil resolver session, bukan nilai dari request.
+Helper `find*ForUser` selalu memasukkan user yang dipercaya server ke predicate SQL. Relasi analysis-child memakai foreign key komposit `(analysisId, ownerUserId)`; relasi storage source/export mengikat analysis dan owner sekaligus. Repository global boleh dibagi, sedangkan baris hasil dan kredensial tetap owner-scoped. `POST /api/analyses` mengambil pemilik dari session server dan tidak mempercayai `userId` request. Endpoint hasil untuk history, graph, dokumen, export, dan delete tetap mengikuti issue produknya.
 
-Pada alur target/worker mendatang, izin GitHub tetap harus diperiksa saat repository diajukan dan saat snapshot diambil. Helper pembacaan server saat ini tidak mengembalikan token jika status bukan `ACTIVE`, token kedaluwarsa, atau koneksi dicabut; pemeriksaan status GitHub App dan error yang dapat ditindaklanjuti menunggu integrasi GH-01.
+Izin GitHub diperiksa saat repository diajukan dan saat snapshot immutable diambil; bukti per slice ada pada [GH-02](GH-02_CHECKS.md) dan [REP-02](REP-02_CHECKS.md). Helper pembacaan server tidak mengembalikan token jika status bukan `ACTIVE`, token kedaluwarsa, atau koneksi dicabut. Consumer analisis penuh masih dimatikan, sehingga jalur worker end-to-end tetap menunggu ANA-07 #16.
 
 ## Storage dan isolasi
 
-Key storage dibuat oleh aplikasi berdasarkan owner/analysis/object ID; path mentah tidak diterima dari browser. Database menyimpan metadata, sedangkan source archive dan export berada di persistent volume. Root storage tidak dipublikasikan sebagai static directory. DATA-01 hanya menyediakan metadata/relasi `StorageObject`; proses penulisan, pembacaan file, dan cleanup storage masih menunggu pipeline serta #23.
+Key storage dibuat oleh aplikasi berdasarkan owner/analysis/object ID; path mentah tidak diterima dari browser. Database menyimpan metadata, sedangkan snapshot source disimpan pada persistent volume dan dilayani melalui source handlers berotorisasi. Root storage tidak dipublikasikan sebagai static directory. Lifecycle cleanup terkoordinasi masih menunggu #23; ekspor produk belum tersedia.
 
-Source preview membaca file dari snapshot melalui file ID dan pemeriksaan pemilik. File yang tidak diproses dapat dicatat sebagai metadata limitation tanpa menyimpan potongan source yang tidak diperlukan. Data private tidak digunakan sebagai fixture yang di-commit.
+Source handlers membaca file dari snapshot melalui identitas file dan pemeriksaan pemilik. Ini menyediakan data untuk pemanggil tepercaya; graph inspector/source-preview sebagai fitur produk masih menunggu GRAPH-03 #19. File yang tidak diproses dapat dicatat sebagai metadata limitation tanpa menyimpan potongan source yang tidak diperlukan. Data private tidak digunakan sebagai fixture yang di-commit.
 
 ## Retensi dan penghapusan
 
@@ -94,8 +94,7 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 
 ## Cakupan yang masih menunggu issue lain
 
-- #5 menambahkan login dan integrasi GitHub HTTP yang memakai resolver session serta helper kredensial ini.
-- API antrean #9 sudah tersedia; consumer sembilan tahap dan publikasi hasil sukses tetap #35/#16. Retry produk memerlukan pemeriksaan izin baru dan analysis ID baru pada integrasi pipeline.
+- Queue durable, API submission idempotent, dan runner stage terbatas sudah memiliki bukti. Consumer sembilan tahap dan publikasi bundle atomik tetap di ANA-07 #16; `workerQueueEnabled=false` saat ini mencegah job submission diproses sebagai analisis penuh. Retry produk memerlukan pemeriksaan izin baru dan analysis ID baru pada integrasi pipeline.
+- #15 memvalidasi tiga artefak dokumen; kolom JSON saat ini menyimpan struktur dan belum menjamin validitas kontennya. Graph produk #17–19, ekspor #20–21, dan history #22 tetap terbuka.
 - #23 menentukan alur penghapusan analysis dan objek storage secara idempotent.
-- DOC-01 memvalidasi tiga artefak dokumen; kolom JSON saat ini menyimpan struktur dan belum menjamin validitas kontennya.
 - Pipeline analisis harus menegakkan kelengkapan graph/document dan hash sebelum menyatakan analysis selesai.
