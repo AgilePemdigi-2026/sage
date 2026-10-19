@@ -17,7 +17,7 @@
     "build": "npm run generate --workspace @sage/database && npm run build --workspace @sage/web",
     "typecheck": "tsc --noEmit && npm run typecheck --workspace @sage/web",
     "lint": "eslint .",
-    "test": "tsx --test tests/environment.test.ts tests/fixtures.test.ts tests/contracts.test.ts tests/analyzer-js.test.ts tests/analyzer-php.test.ts tests/queue.test.ts tests/graph-foundation.test.ts tests/ui-foundation.test.ts tests/stage-runner.test.ts tests/github-app-bootstrap.test.ts tests/oauth-database.test.ts tests/github-auth.test.ts",
+    "test": "tsx --test tests/environment.test.ts tests/fixtures.test.ts tests/contracts.test.ts tests/analyzer-js.test.ts tests/analyzer-php.test.ts tests/queue.test.ts tests/graph-foundation.test.ts tests/ui-foundation.test.ts tests/stage-runner.test.ts tests/github-app-bootstrap.test.ts tests/oauth-database.test.ts tests/github-auth.test.ts tests/github-repositories.test.ts tests/repository-handlers.test.ts",
     "db:generate": "npm run generate --workspace @sage/database",
     "db:migrate": "npm run migrate --workspace @sage/database",
     "worker": "tsx apps/worker/src/index.ts",
@@ -34,7 +34,9 @@
     "test:ui:baseline": "tsx scripts/test-ui-baseline.ts",
     "setup:github": "node scripts/setup-github-app.mjs",
     "test:oauth:integration": "tsx --test --test-concurrency=1 tests/oauth-database.integration.ts",
-    "test:auth:http": "tsx scripts/test-github-auth-http.ts"
+    "test:auth:http": "tsx scripts/test-github-auth-http.ts",
+    "test:repositories:live": "tsx scripts/test-repository-provider-live.ts",
+    "test:repositories:http": "tsx scripts/test-repository-http.ts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

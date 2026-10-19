@@ -22,7 +22,8 @@ Status: endpoint produk `v1` masih rancangan. Fondasi ENV-01 menyediakan `GET /a
 | POST | `/auth/github` | Memeriksa `Origin` (cross-origin mendapat HTTP 403), membuat state/PKCE dan cookie browser, lalu redirect ke GitHub; tersedia |
 | GET | `/auth/github` | Redirect ke `/login`; read-only dan tidak membuat state |
 | GET | `/auth/github/callback` | Memeriksa state sekali pakai dan cookie browser, menukar kode server-side, membuat session, lalu redirect ke `/workspace`; tersedia |
-| GET | `/workspace` | Hanya menampilkan landing workspace untuk session aktif dan koneksi GitHub aktif yang belum kedaluwarsa; tersedia |
+| GET | `/workspace` | Workspace untuk session aktif dan koneksi GitHub aktif yang belum kedaluwarsa; tersedia |
+| GET | `/workspace/repositories` | Halaman akses instalasi dan resolve repository; tersedia |
 | POST | `/auth/logout` | Memeriksa `Origin` (cross-origin mendapat HTTP 403), mencabut session lokal, menghapus cookie, lalu redirect ke `/login`; tersedia |
 | GET | `/auth/github/install` | Rancangan: memulai pemilihan/instalasi GitHub App untuk akses repository |
 | GET | `/auth/github/setup` | Rancangan: memvalidasi konteks instalasi dan menghubungkannya ke user yang berhak |
@@ -30,18 +31,20 @@ Status: endpoint produk `v1` masih rancangan. Fondasi ENV-01 menyediakan `GET /a
 
 Redirect URI harus sama dengan `{AUTH_BASE_URL}/auth/github/callback`; `AUTH_BASE_URL` harus berupa origin tanpa path, query, fragment, atau kredensial. HTTP hanya diizinkan untuk loopback lokal. Redirect selalu menuju GitHub atau path SAGE tetap, tanpa `returnTo`. Login memakai PKCE S256. Cookie `sage_oauth_browser` berumur 10 menit, HttpOnly, SameSite=Lax, dan terikat ke attempt yang dienkripsi server-side. State dikonsumsi sebelum token exchange, termasuk ketika pengguna menolak akses. Callback selalu menghapus cookie attempt. Cookie `sage_session` HttpOnly, SameSite=Lax, Secure pada HTTPS, dan hanya berisi token session opaque; access token GitHub tidak dikirim ke browser.
 
-Login meminta `read:user` untuk membaca ID, login, dan nama profil. `expires_in` GitHub dibatasi maksimal delapan jam untuk masa berlaku kredensial dan session lokal; bila provider tidak mengirim expiry, SAGE memakai delapan jam dan meminta login ulang. Implementasi ini tidak menyimpan atau memakai refresh token. Logout hanya mencabut session lokal SAGE dan tidak mencabut token di GitHub. Callback yang gagal/ditolak kembali ke halaman login dengan kode pesan aman dan aksi coba lagi; raw error GitHub, token, dan detail internal tidak ditampilkan.
+Login membaca ID, login, dan nama profil melalui GitHub App tanpa scope OAuth App tambahan. `expires_in` GitHub dibatasi maksimal delapan jam untuk masa berlaku kredensial dan session lokal; bila provider tidak mengirim expiry, SAGE memakai delapan jam dan meminta login ulang. Implementasi ini tidak menyimpan atau memakai refresh token. Logout hanya mencabut session lokal SAGE dan tidak mencabut token di GitHub. Callback yang gagal/ditolak kembali ke halaman login dengan kode pesan aman dan aksi coba lagi; raw error GitHub, token, dan detail internal tidak ditampilkan.
 
 ## Repository dan target
 
 | Method | Endpoint | Input dan hasil |
 | --- | --- | --- |
-| GET | `/repositories` | `query`, `cursor`; daftar repository yang diizinkan melalui instalasi App |
-| POST | `/repositories/resolve` | `{ "repository": "owner/name atau URL GitHub" }`; memvalidasi repository publik pihak lain atau private berizin |
+| GET | `/api/github/installations` | Tersedia: `page=1..100`; instalasi aktif yang dapat diakses user, metadata aman tanpa token |
+| GET | `/api/github/installations/{id}/repositories` | Tersedia: `page=1..100`; repository dengan akses akun dan Contents read dari instalasi |
+| POST | `/api/repositories/resolve` | Tersedia: JSON `{ "repository": "owner/name atau URL GitHub" }`; public pihak lain atau private berizin, Origin wajib |
+| GET | `/repositories` | Rancangan: search gabungan/pagination target |
 | GET | `/repositories/{repositoryId}/branches` | Daftar branch, default branch, cursor, dan error retryable |
 | POST | `/analyses` | Membuat target immutable dan analysis job terantre |
 
-Daftar terotorisasi dan input publik adalah dua jalur UI yang terlihat jelas. Resolve slug/URL tidak menambah izin private dan tidak menerima host arbitrary. Branch dibaca dari repository, bukan daftar hardcoded dari mockup.
+Endpoint GH-02 mengembalikan halaman `{ data: { items, nextPage } }`; `nextPage` adalah nomor halaman atau null. Hanya page 1–100 diterima, query asing ditolak. Daftar terotorisasi dan input publik adalah dua jalur UI yang terlihat jelas. Resolve slug/URL tidak menambah izin private dan tidak menerima host arbitrary. Branch dibaca dari repository, bukan daftar hardcoded dari mockup.
 
 Rancangan request analisis:
 
