@@ -8,7 +8,15 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates openssl && rm -rf /var/lib/apt/lists/*
 RUN npm install --global npm@11.17.0 && rm -rf /root/.npm
 
-FROM node-base AS build
+FROM ${PHP_IMAGE} AS worker-base
+WORKDIR /app
+COPY --from=node-base /usr/local/bin/node /usr/local/bin/node
+COPY --from=node-base /usr/local/lib/node_modules /usr/local/lib/node_modules
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
+COPY --from=composer /usr/bin/composer /usr/local/bin/composer
+RUN apt-get update && apt-get install -y --no-install-recommends git unzip ca-certificates openssl && rm -rf /var/lib/apt/lists/*
+
+FROM worker-base AS build
 ENV NEXT_TELEMETRY_DISABLED=1
 COPY package.json package-lock.json .npmrc ./
 COPY apps/web/package.json apps/web/package.json
@@ -25,6 +33,7 @@ COPY packages ./packages
 COPY scripts ./scripts
 COPY tests ./tests
 COPY config ./config
+RUN composer install --working-dir=packages/analyzer-php --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist && composer clear-cache
 RUN npm run db:generate && npm run check && npm run build
 
 FROM node-base AS worker-dependencies
@@ -46,20 +55,13 @@ USER node
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
 
-FROM ${PHP_IMAGE} AS worker
-WORKDIR /app
+FROM worker-base AS worker
 ENV NODE_ENV=production PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-COPY --from=build /usr/local/bin/node /usr/local/bin/node
-COPY --from=build /usr/local/lib/node_modules /usr/local/lib/node_modules
-RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
-COPY --from=composer /usr/bin/composer /usr/local/bin/composer
 COPY --from=worker-dependencies /app /app
 COPY --from=build /app/apps/worker /app/apps/worker
 COPY --from=build /app/packages /app/packages
 COPY --from=build /app/scripts /app/scripts
 COPY --from=build /app/tests/fixtures /app/tests/fixtures
-RUN apt-get update && apt-get install -y --no-install-recommends git unzip ca-certificates && rm -rf /var/lib/apt/lists/*
-RUN composer install --working-dir=packages/analyzer-php --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist && composer clear-cache
 RUN npx --no-install playwright install --with-deps --only-shell chromium && chmod -R a+rX /ms-playwright && rm -rf /var/lib/apt/lists/* /root/.npm
 RUN groupadd --gid 1000 sage && useradd --uid 1000 --gid 1000 --create-home sage && mkdir -p /app/storage && chown sage:sage /app/storage
 USER sage

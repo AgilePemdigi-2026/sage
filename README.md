@@ -8,8 +8,8 @@ SAGE dikembangkan untuk membantu memahami arsitektur repository GitHub melalui *
 
 📖 [Panduan lokal](docs/LOCAL_SETUP.md) · 🎯 [Product backlog](docs/PRODUCT_BACKLOG.md) · 🗓️ [Sprint plan](docs/SPRINT_PLAN.md) · 🤝 [Kontribusi](CONTRIBUTING.md)
 
-> 🚧 **Dalam pengembangan — Sprint 1, per 18 Oktober 2026.**
-> Fondasi web/worker dan Docker, model data/session/kredensial, isolasi pengguna, oracle minimum PHP/JS/TS, serta kontrak CCM/evidence sudah masuk `main`. Login GitHub HTTP, analisis repository, graph, history, serta ekspor produk masih dikerjakan pada issue masing-masing. Halaman yang tersedia saat ini adalah halaman awal dan health check; pengujian backend belum berarti seluruh MVP tersedia di UI.
+> 🚧 **Dalam pengembangan — Sprint 1, per 19 Oktober 2026.**
+> Fondasi Docker, model data/session/kredensial, isolasi pengguna, adapter deklarasi PHP/JS/TS, kontrak CCM/evidence, antrean durable, runner tahap, serta pratinjau UI/graph sudah tersedia. Alur HTTP login/logout telah diuji secara lokal dengan database terisolasi dan provider terkontrol; verifikasi GitHub nyata menunggu konfigurasi App. Analisis repository lengkap, graph produk, history, dan ekspor masih mengikuti issue masing-masing. Ini belum seluruh MVP.
 
 ## 🎯 Kemampuan yang ditargetkan
 
@@ -49,7 +49,18 @@ docker compose ps
 
 **Build menyiapkan image; `up` menjalankan aplikasinya.** Tunggu command `up` selesai. Service `web`, `worker`, dan `db` seharusnya berstatus **healthy**. Service `migrate` boleh berstatus **Exited (0)** karena tugas migrasinya sudah selesai.
 
-### 3. Buka aplikasi di browser
+### 3. Konfigurasikan login GitHub
+
+Login nyata memerlukan GitHub App. Bootstrap menyiapkan form registrasi dan menyimpan kredensial langsung ke `.env` privat setelah konfirmasi pemilik akun:
+
+```sh
+node scripts/setup-github-app.mjs --name NAMA-APP-YANG-UNIK
+docker compose up -d --force-recreate --no-deps web
+```
+
+Ikuti [panduan GitHub App](docs/GITHUB_APP_SETUP.md). Callback pengembangan menggunakan `http://localhost:3000/auth/github/callback`; gunakan port web 3000 untuk konfigurasi ini. Pembuatan/otorisasi App dan instalasi repository merupakan langkah berbeda. Tanpa konfigurasi App, halaman login menampilkan kondisi belum tersedia. Jangan mengirim client secret atau private key lewat chat maupun commit.
+
+### 4. Buka aplikasi di browser
 
 | Tujuan | Alamat |
 | --- | --- |

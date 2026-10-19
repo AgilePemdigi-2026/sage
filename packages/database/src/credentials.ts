@@ -4,6 +4,7 @@ import type { GitHubConnectionStatus, PrismaClient } from "../generated/client.t
 const KEY_ENV = "CREDENTIAL_ENCRYPTION_KEY";
 const KEY_ID_LENGTH = 16;
 const CREDENTIAL_CONTEXT_PREFIX = "github-connection:";
+type CredentialDatabase = Pick<PrismaClient, "gitHubConnection">;
 
 export type EncryptedCredential = {
   ciphertext: string;
@@ -95,7 +96,7 @@ export function decryptCredential(envelope: EncryptedCredential, userId: string,
 }
 
 export async function storeGitHubCredential(
-  db: PrismaClient,
+  db: CredentialDatabase,
   userId: string,
   input: { githubUserId: string; githubLogin: string; accessToken: string; tokenExpiresAt?: Date | null },
 ): Promise<{ id: string; userId: string; githubUserId: string; githubLogin: string; status: GitHubConnectionStatus }> {
@@ -123,7 +124,7 @@ export async function storeGitHubCredential(
 
 /** Re-encrypts an existing connection during OAuth refresh/reconnect without changing its owner-bound ID. */
 export async function replaceGitHubCredential(
-  db: PrismaClient,
+  db: CredentialDatabase,
   userId: string,
   connectionId: string,
   input: { githubUserId: string; githubLogin: string; accessToken: string; tokenExpiresAt?: Date | null },
@@ -153,7 +154,7 @@ export async function replaceGitHubCredential(
 }
 
 export async function readGitHubCredential(
-  db: PrismaClient,
+  db: CredentialDatabase,
   userId: string,
   connectionId: string,
   now = new Date(),
@@ -190,7 +191,7 @@ export async function readGitHubCredential(
 }
 
 export async function revokeGitHubCredentialForUser(
-  db: PrismaClient,
+  db: CredentialDatabase,
   userId: string,
   connectionId: string,
   now = new Date(),

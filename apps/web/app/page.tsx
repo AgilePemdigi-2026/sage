@@ -15,10 +15,7 @@ export default function Home() {
         <p className="mb-5 font-mono text-xs tracking-wide text-ink/65">DARI SOURCE CODE KE PEMAHAMAN ARSITEKTUR</p>
         <h1 className="max-w-3xl text-4xl leading-tight font-semibold tracking-tight sm:text-6xl">Pahami arsitektur.<br /><span className="text-ink/55">Telusuri buktinya.</span></h1>
         <p className="mt-6 max-w-xl text-base leading-7 text-ink/70 sm:text-lg">SAGE membantu membaca struktur repository PHP dan JavaScript/TypeScript melalui graph serta dokumentasi yang berlandaskan source code.</p>
-        <div className="mt-8 max-w-xl rounded-xl border border-ink/10 bg-white p-5">
-          <p className="text-sm font-semibold">Akses analisis segera tersedia</p>
-          <p className="mt-2 text-sm leading-6 text-ink/65">Login GitHub dan analisis repository sedang disiapkan. Halaman ini merupakan fondasi awal aplikasi.</p>
-        </div>
+        <a className="mt-8 inline-flex min-h-12 w-fit items-center rounded-lg bg-ink px-5 py-3 text-sm font-semibold text-white transition hover:bg-ink/90" href="/login">Mulai dengan GitHub</a>
         <ol className="mt-14 grid gap-8 border-t border-ink/10 pt-8 md:grid-cols-3">
           {outputs.map(([number, title, description]) => (
             <li key={number}>

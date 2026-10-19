@@ -110,6 +110,21 @@ model Session {
   @@index([userId, expiresAt])
 }
 
+model GitHubOAuthAttempt {
+  id                 String    @id @default(uuid())
+  stateHash          String    @unique
+  browserTokenHash   String
+  expiresAt          DateTime
+  consumedAt         DateTime?
+  encryptedVerifier String
+  verifierNonce     String
+  verifierAuthTag    String
+  encryptionKeyId    String
+  createdAt          DateTime  @default(now())
+
+  @@index([expiresAt])
+}
+
 model GitHubConnection {
   id              String                 @id @default(cuid())
   userId          String
