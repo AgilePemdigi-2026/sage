@@ -320,6 +320,14 @@ export {
   listAnalysesForUser,
   parseHistoryCursor,
 } from "./history.ts";
+export type {
+  AnalysisDetailRecord,
+  AnalysisStageRecord,
+  HistoryListItem,
+  HistoryListOptions,
+  HistoryListResult,
+  HistoryStatusFilter,
+} from "./history.ts";
 ```
 
 - [ ] **Step 4: Jalankan test, pastikan lulus**
@@ -526,6 +534,9 @@ export function presentAnalysisDetail(detail: AnalysisDetailRecord) {
     results: detail.results,
   };
 }
+
+/** Bentuk payload yang dikirim ke klien detail; dipakai tipe DetailView pada components/history/detail-client.tsx. */
+export type AnalysisDetailView = ReturnType<typeof presentAnalysisDetail>;
 ```
 
 `apps/web/lib/analyses/handlers.ts`:
@@ -535,6 +546,9 @@ import { randomUUID } from "node:crypto";
 import { HistoryQueryError } from "@sage/database";
 import type { AnalysisDetailRecord, HistoryListResult } from "@sage/database";
 import { presentAnalysisDetail, presentHistoryList } from "./presenters.ts";
+
+/** Re-export presenter agar test & route bisa memakai satu titik impor dari handlers. */
+export { presentAnalysisDetail, presentHistoryList } from "./presenters.ts";
 
 export const ANALYSIS_STATUSES = ["QUEUED", "RUNNING", "COMPLETED", "COMPLETED_WITH_LIMITATIONS", "FAILED"] as const;
 export type AnalysisSession = { userId: string; githubUserId: string };
@@ -1125,21 +1139,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { AssetIcon, Badge, DesignFrame, Panel } from "../design-system/ui.tsx";
 import { formatDateTime, statusLabel, statusTone } from "./format.ts";
+import type { AnalysisDetailView } from "../../lib/analyses/presenters.ts";
 import styles from "../sprint-ui/preview-client.module.css";
 
-export type StageView = {
-  sequence: number; key: string; label: string; status: string;
-  errorCode: string | null; startedAt: string | null; finishedAt: string | null;
-};
-export type DetailView = {
-  stateVersion: number; updatedAt: string;
-  context: { repositoryFullName: string; branchName: string; commitSha: string };
-  status: string; errorCode: string | null; retryOfAnalysisId: string | null;
-  timestamps: { queuedAt: string; startedAt: string | null; completedAt: string | null };
-  stages: StageView[];
-  limitations: { stageKey: string; code: string; safeExplanation: string }[];
-  results: { graphUrl: string; documentUrl: string } | null;
-};
+/** Bentuk payload server (presenters.ts) — di-derive, tidak ditulis manual. */
+export type DetailView = AnalysisDetailView;
+export type StageView = DetailView["stages"][number];
 
 const NON_TERMINAL = ["QUEUED", "RUNNING"] as const;
 function isTerminal(status: string) {
