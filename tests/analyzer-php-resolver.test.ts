@@ -73,6 +73,9 @@ test("PHP resolver resolves grouped aliases, inheritance, interfaces, function c
   assert.equal(imports.length, 3);
   assert.ok(imports.every((edge) => edge.resolution === "Exact"));
   assert.ok(imports.every((edge) => result.ccm?.nodes.find((node) => node.id === edge.sourceId)?.qualifiedName === "src/app.php#namespace:Resolver\\App"));
+  const baseImport = imports.find((edge) => result.ccm?.nodes.find((node) => node.id === edge.targetId)?.qualifiedName === "Resolver\\Contracts\\Base");
+  assert.ok(baseImport);
+  assert.equal(decoder.decode(sources["src/app.php"]!.subarray(baseImport.evidence[0]!.startByte, baseImport.evidence[0]!.endByte)), "Base");
   assert.ok(result.ccm.edges.some((edge) => edge.kind === "CALLS" && edge.resolution === "Exact" &&
     result.ccm?.nodes.find((node) => node.id === edge.sourceId)?.qualifiedName === "src/app.php#namespace:Resolver\\App" &&
     result.ccm?.nodes.find((node) => node.id === edge.targetId)?.qualifiedName === "Resolver\\Contracts\\describe"));
@@ -286,7 +289,7 @@ test("PHP resolver canonical output is replay-stable and uses exact UTF-8 byte e
   const entries = [[path, bytes], ["src/empty.php", encoder.encode("<?php\n")]] as const;
   const first = await analyzeReferences({ snapshot, sources: Object.fromEntries(entries) });
   const second = await analyzeReferences({ snapshot, sources: Object.fromEntries([...entries].reverse()) });
-  assert.equal(first.status, "partial", "Composer path hints were not supplied");
+  assert.equal(first.status, "complete", "local declaration evidence does not require optional Composer hints");
   assert.equal(first.canonicalJson, second.canonicalJson);
   assert.equal(first.contentSha256, second.contentSha256);
   assert.ok(first.ccm);

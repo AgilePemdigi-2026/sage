@@ -413,11 +413,6 @@ function allowedClassKinds(referenceKind: EdgeKind): readonly NodeKind[] {
     ? ["Class", "Interface"] : referenceKind === "INSTANTIATES" ? ["Class"] : ["Class", "Interface"];
 }
 
-function propertyNameFromQualifiedName(qualifiedName: string): string | null {
-  const separator = qualifiedName.lastIndexOf(".");
-  return separator < 0 ? null : qualifiedName.slice(separator + 1);
-}
-
 interface Resolution {
   node: CcmNode | null;
   reason: UnresolvedReason | null;
@@ -1008,9 +1003,6 @@ async function analyze(input: ReferenceAnalysisInput, includeReferences: boolean
     if (includeReferences) {
       const resolverLimitations = [...limitations];
       const configuration = parseComposerConfiguration(configurationSources, resolverLimitations);
-      if (!Object.keys(configurationSources).some((path) => path.slice(path.lastIndexOf("/") + 1).toLowerCase() === "composer.json")) {
-        addLimitation(resolverLimitations, null, "resolve", "Composer configuration bytes were not supplied; PSR-4 path hints are unavailable and only parsed declarations can resolve exactly.");
-      }
       const resolved = resolvePhpReferences(finalCcm, parsedFiles, sourceBytes, configuration, resolverLimitations);
       const resolvedCanonical = canonicalizeCcm(resolved, sourceBytes);
       if (!resolvedCanonical.ok) return failed(`CCM_INVALID:${resolvedCanonical.errorCode}`);
