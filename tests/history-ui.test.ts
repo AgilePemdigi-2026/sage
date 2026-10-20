@@ -338,6 +338,7 @@ test("poll detail: respons instance lama dibuang setelah stop dan recreate effec
   const instanceB = makeInstance();
   instanceB.poller.start();
   instanceB.fire();                       // seq 3
+  assert.equal(sequence, 3, "nomor urut tetap monoton melintasi recreate");
   instanceB.resolveAt(0, { data: detailView({ stateVersion: 1000, firstStage: "COMPLETED" }) });
   await drain();
   assert.equal(state.detail?.stateVersion, 1000);
