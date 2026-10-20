@@ -1,23 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AssetIcon, Badge, DesignFrame, Panel } from "../design-system/ui.tsx";
 import { formatDateTime, statusLabel, statusTone } from "./format.ts";
+import { applyHistoryPatch, createHistoryData } from "./history-data.ts";
+import type { HistoryItem, HistoryPatchTarget } from "./history-data.ts";
 import styles from "../sprint-ui/preview-client.module.css";
-
-type HistoryItem = {
-  id: string;
-  repository: { fullName: string };
-  branch: string;
-  commitSha: string;
-  status: string;
-  errorCode: string | null;
-  queuedAt: string;
-  startedAt: string | null;
-  completedAt: string | null;
-  retryOfAnalysisId: string | null;
-};
 
 const STATUS_OPTIONS = ["QUEUED", "RUNNING", "COMPLETED", "COMPLETED_WITH_LIMITATIONS", "FAILED"] as const;
 
@@ -29,57 +18,41 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
   const [error, setError] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
-  const queryRef = useRef(query);
-  const statusRef = useRef(status);
-  useEffect(() => { queryRef.current = query; statusRef.current = status; }, [query, status]);
+
+  /** Target state dan mesin data dibuat sekali: setState dari useState stabil, dan pola
+   * ini menghindari akses ref saat render (react-hooks/refs). */
+  const [target] = useState<HistoryPatchTarget>(() => ({
+    updateItems: updater => { setItems(previous => updater(previous)); },
+    setItems: value => { setItems(value); },
+    setNextCursor: value => { setNextCursor(value); },
+    setError: value => { setError(value); },
+    setLoaded: value => { setLoaded(value); },
+  }));
+  const data = useMemo(() => createHistoryData({
+    fetch: (input, init) => fetch(input, init),
+    apply: patch => applyHistoryPatch(target, patch),
+  }), [target]);
 
   useEffect(() => {
     const controller = new AbortController();
-    void (async () => {
-      const params = new URLSearchParams();
-      const search = query.trim();
-      if (search) params.set("query", search);
-      if (status) params.set("status", status);
-      try {
-        const response = await fetch(`/api/analyses${params.size ? `?${params.toString()}` : ""}`, {
-          headers: { "X-SAGE-Account": accountKey }, cache: "no-store", signal: controller.signal,
-        });
-        if (!response.ok) { setError(true); return; }
-        const body = await response.json() as { data: { analyses: HistoryItem[]; nextCursor: string | null } };
-        setError(false);
-        setItems(body.data.analyses);
-        setNextCursor(body.data.nextCursor);
-      } catch (caught) {
-        if ((caught as Error).name !== "AbortError") setError(true);
-      } finally {
-        setLoaded(true);
-      }
-    })();
+    data.reload(accountKey, query, status, controller.signal);
     return () => controller.abort();
-  }, [query, status, accountKey, reloadKey]);
+  }, [query, status, accountKey, reloadKey, data]);
 
-  async function loadMore() {
+  const load = nextCursor ? () => {
     const cursor = nextCursor;
-    if (!cursor) return;
-    setNextCursor(null);
-    try {
-      const params = new URLSearchParams();
-      if (queryRef.current.trim()) params.set("query", queryRef.current.trim());
-      if (statusRef.current) params.set("status", statusRef.current);
-      params.set("cursor", cursor);
-      const response = await fetch(`/api/analyses?${params.toString()}`, {
-        headers: { "X-SAGE-Account": accountKey }, cache: "no-store",
-      });
-      if (!response.ok) { setError(true); return; }
-      const body = await response.json() as { data: { analyses: HistoryItem[]; nextCursor: string | null } };
-      setItems(previous => [...(previous ?? []), ...body.data.analyses]);
-      setNextCursor(body.data.nextCursor);
-    } catch {
-      setError(true);
-    }
-  }
+    data.loadMore(accountKey, query, status, cursor);
+  } : null;
 
   const trimmed = query.trim();
+  const renderRow = (item: HistoryItem) => (
+    <div className={styles.historyRow} key={item.id}>
+      <div><strong>{item.repository.fullName}</strong><span className={styles.shaShort}>{item.commitSha.slice(0, 7)}</span><small>Diantrekan {formatDateTime(item.queuedAt)}{item.completedAt ? ` · Selesai ${formatDateTime(item.completedAt)}` : ""}</small></div>
+      <code>{item.branch || "—"}</code>
+      <Badge tone={statusTone(item.status) ?? "neutral"}>{statusLabel(item.status) ?? item.status}</Badge>
+      <Link href={`/analyses/${item.id}`}>Buka</Link>
+    </div>
+  );
   return <DesignFrame active="history">
     <div className={styles.breadcrumb}>Workspace <span>/</span> Riwayat</div>
     <div className={styles.pageHeading}>
@@ -94,11 +67,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
       <label className={styles.searchField}>Status
         <select value={status} onChange={event => setStatus(event.target.value)}>
           <option value="">Semua</option>
-          <option value={STATUS_OPTIONS[0]}>{statusLabel(STATUS_OPTIONS[0]) ?? STATUS_OPTIONS[0]}</option>
-          <option value={STATUS_OPTIONS[1]}>{statusLabel(STATUS_OPTIONS[1]) ?? STATUS_OPTIONS[1]}</option>
-          <option value={STATUS_OPTIONS[2]}>{statusLabel(STATUS_OPTIONS[2]) ?? STATUS_OPTIONS[2]}</option>
-          <option value={STATUS_OPTIONS[3]}>{statusLabel(STATUS_OPTIONS[3]) ?? STATUS_OPTIONS[3]}</option>
-          <option value={STATUS_OPTIONS[4]}>{statusLabel(STATUS_OPTIONS[4]) ?? STATUS_OPTIONS[4]}</option>
+          {STATUS_OPTIONS.map(option => <option key={option} value={option}>{statusLabel(option) ?? option}</option>)}
         </select>
       </label>
       {(trimmed || status) ? (
@@ -107,7 +76,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
     </Panel>
     <Panel title="Daftar" className={styles.historyPanel}>
       {!loaded ? <div className={styles.loadingRows} role="status" aria-label="Memuat riwayat">{[0, 1].map(index => <div key={index}><span /><span /><span /></div>)}</div> : null}
-      {error && !items ? <div className={styles.historyMessage} role="alert">
+      {error ? <div className={styles.historyMessage} role="alert">
         <AssetIcon group="history-error" name="imgIcon2" />
         <div><strong>Riwayat gagal dimuat</strong><p>Periksa koneksi lalu muat ulang halaman.</p></div>
         <button type="button" className={styles.textAction} onClick={() => setReloadKey(key => key + 1)}>Coba lagi</button>
@@ -122,17 +91,10 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
         <div><strong>Tidak ada hasil untuk {trimmed ? `“${trimmed}”` : "filter ini"}</strong><p>Pencarian memeriksa repository, branch, dan SHA.</p></div>
         <button type="button" className={styles.textAction} onClick={() => { setQuery(""); setStatus(""); }}>Hapus filter</button>
       </div> : null}
-      {loaded && !error && items && items.length > 0 ? <>
+      {loaded && items && items.length > 0 ? <>
         <div className={styles.historyColumns} aria-hidden="true"><span>Repository dan commit</span><span>Branch</span><span>Status</span><span>Aksi</span></div>
-        {items.map(item => (
-          <div className={styles.historyRow} key={item.id}>
-            <div><strong>{item.repository.fullName}</strong><span className={styles.shaShort}>{item.commitSha.slice(0, 7)}</span><small>Diantrekan {formatDateTime(item.queuedAt)}{item.completedAt ? ` · Selesai ${formatDateTime(item.completedAt)}` : ""}</small></div>
-            <code>{item.branch || "—"}</code>
-            <Badge tone={statusTone(item.status) ?? "neutral"}>{statusLabel(item.status) ?? item.status}</Badge>
-            <Link href={`/analyses/${item.id}`}>Buka</Link>
-          </div>
-        ))}
-        {nextCursor ? <button type="button" className={styles.textAction} onClick={() => void loadMore()}>Muat lebih banyak</button> : null}
+        {items.map(renderRow)}
+        {load ? <button type="button" className={styles.textAction} onClick={() => load()}>Muat lebih banyak</button> : null}
       </> : null}
     </Panel>
     <p className={styles.historyFootnote}>Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaruan otomatis.</p>

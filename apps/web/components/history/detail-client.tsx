@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AssetIcon, Badge, DesignFrame, Panel } from "../design-system/ui.tsx";
 import { formatDateTime, statusLabel, statusTone } from "./format.ts";
+import { createDetailPoller } from "./detail-data.ts";
 import type { AnalysisDetailView } from "../../lib/analyses/presenters.ts";
 import styles from "../sprint-ui/preview-client.module.css";
 
@@ -21,21 +22,24 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
 }) {
   const [detail, setDetail] = useState<DetailView | null>(initial);
   const [fetchError, setFetchError] = useState(false);
+  const sequenceRef = useRef(0);
 
   useEffect(() => {
     if (reason === "not-found" || !detail || isTerminal(detail.status)) return;
-    const timer = window.setInterval(() => {
-      void (async () => {
-        try {
-          const response = await fetch(`/api/analyses/${analysisId}`, { headers: { "X-SAGE-Account": accountKey }, cache: "no-store" });
-          if (!response.ok) { setFetchError(true); return; }
-          const body = await response.json() as { data: DetailView };
-          setFetchError(false);
-          setDetail(previous => previous && body.data.stateVersion < previous.stateVersion ? previous : body.data);
-        } catch { setFetchError(true); }
-      })();
-    }, 3000);
-    return () => window.clearInterval(timer);
+    const poller = createDetailPoller({
+      analysisId, accountKey, intervalMs: 3000,
+      fetch: (input, init) => fetch(input, init),
+      scheduleInterval: (callback, ms) => window.setInterval(callback, ms),
+      cancelInterval: handle => { window.clearInterval(handle); },
+      // URUTAN PERMINTAAN: nomor monoton lintas interval; dua poll yang tumpang tindih
+      // (respons > 3 detik) tidak boleh saling menimpa snapshot tahap.
+      touchSequence: () => { sequenceRef.current += 1; return sequenceRef.current; },
+      isLatestSequence: sequence => sequenceRef.current === sequence,
+      setFetchError: value => { setFetchError(value); },
+      setDetail: updater => { setDetail(updater); },
+    });
+    poller.start();
+    return () => { poller.stop(); };
   }, [detail, reason, analysisId, accountKey]);
 
   if (reason === "not-found") return <DesignFrame>
