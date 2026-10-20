@@ -115,7 +115,8 @@ test("mixed JS/TS and PHP sources produce one validated, canonical CCM", async (
   assert.ok(result.ccm);
   assert.ok(result.canonicalJson);
   assert.ok(result.contentSha256);
-  assert.equal(result.ccm.edges.length, 0);
+  assert.ok(result.ccm.edges.some(edge => edge.kind === "CONTAINS"));
+  assert.ok(result.ccm.edges.every(edge => edge.kind === "CONTAINS"), "declaration-only source must not invent call or import relationships");
   assert.ok(result.ccm.nodes.some((node) => node.language === "javascript" && node.name === "App"));
   assert.ok(result.ccm.nodes.some((node) => node.language === "typescript" && node.name === "User"));
   assert.ok(result.ccm.nodes.some((node) => node.language === "php" && node.name === "Service"));
@@ -278,4 +279,75 @@ test("serialized mixed-language CCM retains declaration evidence and rejects tam
   const location = badBounds.nodes.find(node => node.filePath === file.relativePath)!.location!;
   location.endByte = file.bytes.byteLength + 1;
   assert.deepEqual(validateCcm(badBounds, sources), { ok: false, errorCode: "CCM_EVIDENCE_BOUNDS_INVALID" });
+});
+
+test("worker retains static references from both adapters and marks unknown receivers as partial", async () => {
+  const files = [
+    snapshotFile("src/lib.ts", "export function format(value: string) { return value; }\n"),
+    snapshotFile("src/app.ts", "import { format as render } from './lib';\nexport function run(value: string) { return render(value); }\n"),
+    snapshotFile("src/service.php", "<?php\nnamespace Service;\nfunction helper(): string { return 'ok'; }\nfunction run(): string { return helper(); }\n"),
+    snapshotFile("src/dynamic.js", "export function invoke(target) { return target.run(); }\n"),
+  ];
+  const result = await analyzeSnapshotSources({ snapshot, files });
+  assert.equal(result.status, "partial");
+  assert.equal(result.errorCode, null);
+  assert.ok(result.ccm);
+  const model = result.ccm;
+  const nodes = new Map(model.nodes.map(node => [node.id, node]));
+  assert.ok(model.edges.some(edge => edge.kind === "CALLS" && edge.resolution === "Exact" &&
+    nodes.get(edge.sourceId)?.filePath === "src/app.ts" && nodes.get(edge.targetId)?.name === "format"));
+  assert.ok(model.edges.some(edge => edge.kind === "CALLS" && edge.resolution === "Exact" &&
+    nodes.get(edge.sourceId)?.language === "php" && nodes.get(edge.targetId)?.qualifiedName === "Service\\helper"));
+  assert.ok(model.edges.some(edge => edge.kind === "CALLS" && edge.resolution === "Unresolved" &&
+    nodes.get(edge.sourceId)?.filePath === "src/dynamic.js" && edge.unresolvedReason === "UNKNOWN_RECEIVER"));
+  assert.equal(model.provenance.resolver.name, "sage-static-adapters");
+  const sources = Object.fromEntries(files.map(file => [file.relativePath, file.bytes]));
+  assert.equal(validateCcm(model, sources).ok, true);
+  const replay = await analyzeSnapshotSources({ snapshot, files: [...files].reverse() });
+  assert.equal(replay.canonicalJson, result.canonicalJson);
+  assert.equal(replay.contentSha256, result.contentSha256);
+});
+
+test("worker passes snapshot configuration bytes to the resolver and fingerprints mapping changes", async () => {
+  const sources = [
+    snapshotFile("src/first.ts", "export function format() { return 'first'; }\n"),
+    snapshotFile("src/second.ts", "export function format() { return 'second'; }\n"),
+    snapshotFile("src/main.ts", "import { format } from '@chosen';\nexport function run() { return format(); }\n"),
+  ];
+  const analyze = (target: string) => analyzeSnapshotSources({ snapshot, files: [...sources,
+    snapshotFile("tsconfig.json", JSON.stringify({ compilerOptions: { baseUrl: ".", paths: { "@chosen": [target] } } })),
+  ] });
+  const first = await analyze("src/first.ts");
+  const second = await analyze("src/second.ts");
+  assert.ok(first.ccm && second.ccm);
+  const targetPath = (model: NonNullable<typeof first.ccm>) => {
+    const call = model.edges.find(edge => edge.kind === "CALLS" && edge.resolution === "Exact" &&
+      model.nodes.find(node => node.id === edge.sourceId)?.name === "run");
+    assert.ok(call, "configured import must resolve to a supplied declaration");
+    return model.nodes.find(node => node.id === call.targetId)?.filePath;
+  };
+  assert.equal(targetPath(first.ccm), "src/first.ts");
+  assert.equal(targetPath(second.ccm), "src/second.ts");
+  assert.notEqual(first.ccm.provenance.configHash, second.ccm.provenance.configHash);
+  assert.notEqual(first.contentSha256, second.contentSha256);
+});
+
+
+test("worker captures source and snapshot identity before asynchronous PHP parsing", async () => {
+  const mutableSnapshot = { ...snapshot };
+  const files = [
+    snapshotFile("src/run.php", "<?php\nfunction helper(): string { return 'ok'; }\nfunction run(): string { return helper(); }\n"),
+    snapshotFile("src/main.ts", "export function run() { return true; }\n"),
+  ];
+  const frozenFiles = files.map(file => ({ ...file, bytes: new Uint8Array(file.bytes) }));
+  const pending = analyzeSnapshotSources({ snapshot: mutableSnapshot, files });
+  mutableSnapshot.commitSha = "f".repeat(40);
+  mutableSnapshot.repository = "changed/identity";
+  files[0]!.bytes.fill(0);
+  const result = await pending;
+  const replay = await analyzeSnapshotSources({ snapshot, files: frozenFiles });
+  assert.ok(result.ccm);
+  assert.equal(result.ccm.snapshot.commitSha, snapshot.commitSha);
+  assert.equal(result.ccm.snapshot.repository, snapshot.repository);
+  assert.equal(result.canonicalJson, replay.canonicalJson);
 });

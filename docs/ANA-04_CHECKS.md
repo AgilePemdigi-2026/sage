@@ -39,3 +39,5 @@ npm run check
 ```
 
 Run terarah pada image `sage-worker:local`, Node 24.22.0/PHP 8.4.26, tanpa jaringan dan batas 1 CPU/2 GiB lulus **18/18 tes PHP**, syntax check PHP dan typecheck root. Pemeriksaan repository pada branch PHP lulus lint, typecheck root/web, **190/190 tes utama** dan **8/8 tes data**. Run integrasi berikutnya lulus **16/16 tes gabungan** (21 fakta oracle independen untuk JS/TS/PHP, replay canonical dan worker); source/config target tidak dieksekusi. Pengujian adapter tidak membuktikan queue consumer atau alur produk lengkap telah aktif.
+
+Integrasi akhir dengan JS/TS dan worker lulus **202/202 tes utama**, **8/8 tes data**, lint dan typecheck root/web. Lihat [laporan integrasi](RESOLVER_CHECKS.md) untuk bukti semantik 21 fakta oracle, pengukuran dan batas penerimaan.
