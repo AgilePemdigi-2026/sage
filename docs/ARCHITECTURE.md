@@ -1,6 +1,6 @@
 # Arsitektur sistem
 
-Status per 20 Oktober 2026: login GitHub, akses repository, validasi target, submission idempotent ke durable queue, snapshot immutable, serta source handlers tersedia dan memiliki bukti per issue. Runner tahap dan penyimpanan status juga tersedia. Consumer analisis produk tetap nonaktif (`workerQueueEnabled=false`), sehingga submission belum menjalankan pipeline sembilan tahap sampai selesai. History/graph/dokumen produk, ekspor, dan penghapusan masih mengikuti issue terbuka. Detail setup dan batas bukti ada di [setup lokal](LOCAL_SETUP.md).
+Status per 20 Oktober 2026: login GitHub, akses repository, validasi target, submission idempotent ke durable queue, snapshot immutable, serta source handlers tersedia dan memiliki bukti per issue. Runner tahap dan penyimpanan status juga tersedia. Consumer analisis produk tetap nonaktif (`workerQueueEnabled=false`), sehingga submission belum menjalankan pipeline sembilan tahap sampai selesai. History produk membaca record analisis nyata melalui list/detail GET (HIST-01); graph/dokumen produk, ekspor, dan penghapusan masih mengikuti issue terbuka. Detail setup dan batas bukti ada di [setup lokal](LOCAL_SETUP.md).
 
 ## Komponen
 

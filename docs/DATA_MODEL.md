@@ -61,7 +61,7 @@ Key diambil dari environment proses web/worker dan tidak diberikan ke container 
 
 Koneksi pertama memakai `storeGitHubCredential`; refresh atau reconnect memakai `replaceGitHubCredential` dengan ID koneksi yang sama. Replacement dibatasi pemilik, mengaktifkan kembali koneksi, menghapus revocation, dan mengganti expiry secara eksplisit. Callback OAuth tetap harus memilih operasi yang sesuai.
 
-Helper `find*ForUser` selalu memasukkan user yang dipercaya server ke predicate SQL. Relasi analysis-child memakai foreign key komposit `(analysisId, ownerUserId)`; relasi storage source/export mengikat analysis dan owner sekaligus. Repository global boleh dibagi, sedangkan baris hasil dan kredensial tetap owner-scoped. `POST /api/analyses` mengambil pemilik dari session server dan tidak mempercayai `userId` request. Endpoint hasil untuk history, graph, dokumen, export, dan delete tetap mengikuti issue produknya.
+Helper `find*ForUser` selalu memasukkan user yang dipercaya server ke predicate SQL. Relasi analysis-child memakai foreign key komposit `(analysisId, ownerUserId)`; relasi storage source/export mengikat analysis dan owner sekaligus. Repository global boleh dibagi, sedangkan baris hasil dan kredensial tetap owner-scoped. `POST /api/analyses` mengambil pemilik dari session server dan tidak mempercayai `userId` request. History membaca melalui `listAnalysesForUser` dan `getAnalysisDetailForUser` yang mengikuti konvensi `find*ForUser` (predicate `ownerUserId`); endpoint graph, dokumen, export, dan delete tetap mengikuti issue produknya.
 
 Izin GitHub diperiksa saat repository diajukan dan saat snapshot immutable diambil; bukti per slice ada pada [GH-02](GH-02_CHECKS.md) dan [REP-02](REP-02_CHECKS.md). Helper pembacaan server tidak mengembalikan token jika status bukan `ACTIVE`, token kedaluwarsa, atau koneksi dicabut. Consumer analisis penuh masih dimatikan, sehingga jalur worker end-to-end tetap menunggu ANA-07 #16.
 
@@ -95,6 +95,6 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 ## Cakupan yang masih menunggu issue lain
 
 - Queue durable, API submission idempotent, dan runner stage terbatas sudah memiliki bukti. Consumer sembilan tahap dan publikasi bundle atomik tetap di ANA-07 #16; `workerQueueEnabled=false` saat ini mencegah job submission diproses sebagai analisis penuh. Retry produk memerlukan pemeriksaan izin baru dan analysis ID baru pada integrasi pipeline.
-- #15 memvalidasi tiga artefak dokumen; kolom JSON saat ini menyimpan struktur dan belum menjamin validitas kontennya. Graph produk #17–19, ekspor #20–21, dan history #22 tetap terbuka.
+- #15 memvalidasi tiga artefak dokumen; kolom JSON saat ini menyimpan struktur dan belum menjamin validitas kontennya. History #22 menyediakan pembacaan list/detail GET (HIST-01); graph produk #17–19 dan ekspor #20–21 tetap terbuka.
 - #23 menentukan alur penghapusan analysis dan objek storage secara idempotent.
 - Pipeline analisis harus menegakkan kelengkapan graph/document dan hash sebelum menyatakan analysis selesai.
