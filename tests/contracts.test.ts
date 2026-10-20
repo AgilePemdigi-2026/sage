@@ -158,6 +158,17 @@ function assertRejected(result: ReturnType<typeof validateCcm>, errorCode: strin
   if (!result.ok) assert.equal(result.errorCode, errorCode);
 }
 
+function refreshNodeId(node: CcmNode): void {
+  node.id = createNodeId({
+    snapshotSha, language: node.language, filePath: node.filePath, kind: node.kind,
+    qualifiedName: node.qualifiedName, startByte: node.location?.startByte ?? null, endByte: node.location?.endByte ?? null,
+  });
+}
+
+function refreshEdgeId(edge: CcmEdge): void {
+  edge.id = createEdgeId({ snapshotSha, ...edge });
+}
+
 test("registries expose the schema v1 kinds, relations, languages, origins and reasons", () => {
   assert.deepEqual(NODE_KINDS, ["Module", "Class", "Interface", "Function", "Method", "Property", "UnresolvedReference"]);
   assert.deepEqual(EDGE_KINDS, ["CONTAINS", "IMPORTS", "EXPORTS", "EXTENDS", "IMPLEMENTS", "TYPE_REFERENCES", "CALLS", "INSTANTIATES", "READS", "WRITES", "THROWS", "INCLUDES"]);
@@ -225,6 +236,143 @@ test("validator rejects bad resolution, unresolved reason, evidence and source h
   const wrongHash = structuredClone(model);
   wrongHash.files[0]!.sha256 = "0".repeat(64);
   assertRejected(validateCcm(wrongHash, sourceBytes), "CCM_FILE_HASH_MISMATCH");
+});
+
+test("strict arrays reject holes and hidden or custom properties at every contract level", async () => {
+  const { model, sourceBytes } = await validFixture();
+  for (const key of ["files", "nodes", "edges", "limitations"] as const) {
+    const malformed = structuredClone(model);
+    Object.defineProperty(malformed[key], "ignored", { value: true, enumerable: false });
+    assertRejected(validateCcm(malformed, sourceBytes), "CCM_INPUT_INVALID");
+  }
+
+  const holey = structuredClone(model);
+  delete holey.edges[0];
+  assertRejected(validateCcm(holey, sourceBytes), "CCM_INPUT_INVALID");
+
+  const hiddenIndex = structuredClone(model);
+  Object.defineProperty(hiddenIndex.files, "0", { value: hiddenIndex.files[0], enumerable: false, configurable: true });
+  assertRejected(validateCcm(hiddenIndex, sourceBytes), "CCM_INPUT_INVALID");
+
+  const accessorIndex = structuredClone(model);
+  let indexGetterCalls = 0;
+  Object.defineProperty(accessorIndex.nodes, "0", {
+    configurable: true,
+    enumerable: true,
+    get() { indexGetterCalls += 1; throw new Error("array getter must not run"); },
+  });
+  assertRejected(validateCcm(accessorIndex, sourceBytes), "CCM_INPUT_INVALID");
+  assert.equal(indexGetterCalls, 0);
+
+  const evidence = structuredClone(model);
+  Object.defineProperty(evidence.edges[0]!.evidence, Symbol("ignored"), { value: true });
+  assertRejected(validateCcm(evidence, sourceBytes), "CCM_EDGE_EVIDENCE_INVALID");
+  assertRejected(canonicalizeCcm(evidence, sourceBytes), "CCM_EDGE_EVIDENCE_INVALID");
+
+  const customPrototype = structuredClone(model);
+  let iteratorCalls = 0;
+  Object.setPrototypeOf(customPrototype.nodes, {
+    [Symbol.iterator]() { iteratorCalls += 1; throw new Error("custom iterator must not run"); },
+  });
+  assertRejected(validateCcm(customPrototype, sourceBytes), "CCM_INPUT_INVALID");
+  assert.equal(iteratorCalls, 0);
+});
+
+test("source byte map accessors are rejected without invoking their getter", async () => {
+  const { model, sourceBytes } = await validFixture();
+  const path = model.files[0]!.path;
+  let getterCalls = 0;
+  Object.defineProperty(sourceBytes, path, {
+    configurable: true,
+    enumerable: true,
+    get() { getterCalls += 1; throw new Error("source getter must not run"); },
+  });
+
+  assertRejected(validateCcm(model, sourceBytes), "CCM_SOURCE_SET_MISMATCH");
+  assertRejected(canonicalizeCcm(model, sourceBytes), "CCM_SOURCE_SET_MISMATCH");
+  assert.equal(getterCalls, 0);
+});
+
+test("processed source rejects invalid UTF-8 even outside all evidence spans", async () => {
+  const { model, sourceBytes } = await validFixture();
+  const path = "src/unreferenced.ts";
+  const bytes = new Uint8Array([0x76, 0x61, 0x6c, 0xff]);
+  model.files.push({ path, language: "typescript", sha256: sha256(bytes), sizeBytes: bytes.byteLength, status: "processed" });
+  sourceBytes[path] = bytes;
+
+  assertRejected(validateCcm(model, sourceBytes), "CCM_UTF8_INVALID");
+});
+
+test("parent bounds contain child declarations and preserve cycle error precedence", async () => {
+  const { model, sourceBytes } = await validFixture();
+  const outside = structuredClone(model);
+  const parent = outside.nodes.find((node) => node.kind === "Module")!;
+  const child = outside.nodes.find((node) => node.name === "café")!;
+  const moduleSource = sourceBytes[parent.filePath!]!;
+  const end = child.location!.startByte;
+  const position = positionAt(moduleSource, end);
+  parent.location!.endByte = end;
+  parent.location!.endLine = position.line;
+  parent.location!.endColumn = position.column;
+  refreshNodeId(parent);
+  child.parentId = parent.id;
+  const containment = outside.edges.find((edge) => edge.kind === "CONTAINS")!;
+  containment.sourceId = parent.id;
+  refreshEdgeId(containment);
+  assertRejected(validateCcm(outside, sourceBytes), "CCM_NODE_PARENT_BOUNDS_INVALID");
+
+  const cycle = structuredClone(model);
+  cycle.nodes[0]!.parentId = cycle.nodes[1]!.id;
+  assertRejected(validateCcm(cycle, sourceBytes), "CCM_NODE_PARENT_CYCLE");
+});
+
+test("parent cycle validation handles a deep acyclic declaration chain", async () => {
+  const { model, sourceBytes } = await validFixture();
+  const parent = model.nodes.find((node) => node.name === "café")!;
+  const location = structuredClone(parent.location!);
+  const count = 12_000;
+  let parentId = model.nodes.find((node) => node.name === "café")!.id;
+  for (let index = 0; index < count; index += 1) {
+    const name = `Nested${index}`;
+    const node: CcmNode = {
+      id: "", kind: "Function", name, qualifiedName: name, language: parent.language,
+      filePath: parent.filePath, location: structuredClone(location), parentId,
+      origin: "source", signature: null, attributes: {},
+    };
+    refreshNodeId(node);
+    model.nodes.push(node);
+    parentId = node.id;
+  }
+  model.nodes.reverse();
+
+  const result = validateCcm(model, sourceBytes);
+  assert.equal(result.ok, true);
+
+  const cycle = structuredClone(model);
+  cycle.nodes.find((node) => node.name === "Nested0")!.parentId = parentId;
+  assertRejected(validateCcm(cycle, sourceBytes), "CCM_NODE_PARENT_CYCLE");
+});
+
+test("CONTAINS edges agree with the source parent relation and target declaration evidence", async () => {
+  const { model, sourceBytes } = await validFixture();
+  const badParent = structuredClone(model);
+  badParent.nodes.find((node) => node.name === "café")!.parentId = null;
+  assertRejected(validateCcm(badParent, sourceBytes), "CCM_EDGE_CONTAINMENT_INVALID");
+
+  const badResolution = structuredClone(model);
+  const edge = badResolution.edges.find((item) => item.kind === "CONTAINS")!;
+  edge.resolution = "Unresolved";
+  edge.unresolvedReason = "UNKNOWN_RECEIVER";
+  edge.evidence.push(structuredClone(badResolution.edges.find((item) => item.kind === "CALLS")!.evidence[0]!));
+  refreshEdgeId(edge);
+  assertRejected(validateCcm(badResolution, sourceBytes), "CCM_EDGE_CONTAINMENT_INVALID");
+
+  const wrongEvidence = structuredClone(model);
+  const wrongEdge = wrongEvidence.edges.find((item) => item.kind === "CONTAINS")!;
+  const declaration = wrongEdge.evidence[0]!;
+  wrongEdge.evidence[0] = { ...declaration, startByte: declaration.startByte + 1, startColumn: declaration.startColumn + 1 };
+  refreshEdgeId(wrongEdge);
+  assertRejected(validateCcm(wrongEvidence, sourceBytes), "CCM_EDGE_CONTAINMENT_INVALID");
 });
 
 test("canonical serialization and content hash are stable under array and object reordering", async () => {
