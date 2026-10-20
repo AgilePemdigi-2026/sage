@@ -92,3 +92,9 @@ Hasil pengujian yang mengandung source private tidak diunggah ke repository publ
 ## Frontend Figma Sprint 1
 
 T-UI-02 memeriksa enam layar pada 360/390/768/1024/1440 px, aset SVG lokal, pencarian dan state history, query AND kategori serta fokus graph, evidence/source dan pengembalian fokus, tab dokumen dengan keyboard, byte unduhan Markdown contoh, PDF disabled, state retry/unavailable, dan penolakan konteks analysis yang tidak cocok. Replay: `npm run test:figma:ui`. Target repository nyata diperiksa terpisah melalui `npm run test:target:ui` dengan sesi valid milik identitas fixture sementara (`SAGE_TEST_FIXTURE_USER=1`) dan respons provider terkontrol. Hasil dan batasnya: [UI-02/UI-03 checks](UI-02_CHECKS.md).
+
+## Regression Playwright lintas fitur (QA-04-S1)
+
+`npm run test:browser` menjalankan tujuh suite secara berurutan: landing/health, auth/workspace, repository target, preview Figma, komponen UI awal, graph awal dan baseline keyboard/kontras DOM. Runner memberi setiap run folder terpisah, tanggal, hash script/lockfile, base commit, hasil suite dan lokasi screenshot. `npm run test:provider:playwright` memeriksa API Next serta GitHub nyata secara terpisah memakai otorisasi existing dan sesi sementara. Origin browser auth tetap tepercaya walaupun transport pengujian melewati jaringan Compose.
+
+Rincian hasil terbaru, matriks fitur, batas OAuth/fixture/pipeline dan perintah Docker: [QA-04-S1 checks](QA-04-S1_CHECKS.md). Paket QA-04-S1 tidak menutup QA-03/QA-02 atau T-REL-01 penuh.

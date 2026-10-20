@@ -81,6 +81,7 @@ services:
       <<: *database-environment
       PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
       STORAGE_ROOT: /app/storage
+      AUTH_BASE_URL: ${AUTH_BASE_URL:-http://localhost:3000}
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?Jalankan npm run setup:local terlebih dahulu}
     volumes:
       - storage:/app/storage
