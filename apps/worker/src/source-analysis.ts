@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import {
-  analyzeDeclarations as analyzeJavaScriptDeclarations,
+  analyzeReferences as analyzeJavaScriptReferences,
   type DeclarationDiagnostic as JavaScriptDiagnostic,
 } from "@sage/analyzer-js";
 import {
-  analyzeDeclarations as analyzePhpDeclarations,
+  analyzeReferences as analyzePhpReferences,
   type DeclarationDiagnostic as PhpDiagnostic,
 } from "@sage/analyzer-php";
 import {
@@ -12,6 +12,7 @@ import {
   type CcmFile,
   type CcmLimitation,
   type CcmNode,
+  type CcmProvenance,
   type CcmSnapshot,
   type CcmV1,
   type Language,
@@ -19,6 +20,7 @@ import {
 import type { SnapshotFile } from "./snapshot/archive.ts";
 
 export const SOURCE_POLICY_VERSION = "sage-source-policy-v1";
+export const SOURCE_ANALYSIS_VERSION = "0.2.0";
 export const DEFAULT_MAX_SOURCE_FILE_BYTES = 1024 * 1024;
 const MAX_SNAPSHOT_FILES = 2_000;
 const MAX_SNAPSHOT_PATH_BYTES = 4_096;
@@ -353,15 +355,12 @@ function adapterFailureFiles(
   });
 }
 
-function hashConfig(maxSourceFileBytes: number, adapterHashes: readonly string[]): string {
+function hashConfig(maxSourceFileBytes: number, adapters: readonly CcmProvenance[]): string {
   const config = {
     sourcePolicyVersion: SOURCE_POLICY_VERSION,
+    sourceAnalysisVersion: SOURCE_ANALYSIS_VERSION,
     maxSourceFileBytes,
-    adapters: [
-      { name: "sage-analyzer-js-declarations", version: "0.1.0" },
-      { name: "sage-analyzer-php-declarations", version: "0.1.0" },
-    ],
-    adapterConfigHashes: [...adapterHashes].sort(compareStrings),
+    adapters: [...adapters].sort((left, right) => compareStrings(JSON.stringify(left), JSON.stringify(right))),
   };
   return sha256(new TextEncoder().encode(JSON.stringify(config)));
 }
@@ -412,8 +411,8 @@ function buildCombinedCcm(
     schemaVersion: 1,
     snapshot,
     provenance: {
-      analyzer: { name: "sage-source-analysis", version: SOURCE_POLICY_VERSION },
-      resolver: { name: "sage-declaration-adapters", version: "0.1.0" },
+      analyzer: { name: "sage-source-analysis", version: SOURCE_ANALYSIS_VERSION },
+      resolver: { name: "sage-static-adapters", version: SOURCE_ANALYSIS_VERSION },
       configHash,
     },
     files,
@@ -447,8 +446,13 @@ export async function analyzeSnapshotSources(input: {
     return failedResult(report, "SNAPSHOT_INVALID");
   }
   if (report.errorCode) return failedResult(report, report.errorCode);
+  const snapshot: CcmSnapshot = { repository: input.snapshot.repository, branch: input.snapshot.branch, commitSha: input.snapshot.commitSha };
 
   const allSources = Object.fromEntries(captured.files.map((file) => [file.relativePath, file.bytes] as const));
+  const configurationSources = Object.fromEntries(captured.files.filter(file =>
+    file.byteLength <= maxSourceFileBytes &&
+    ["tsconfig.json", "jsconfig.json", "package.json", "composer.json"].includes(file.relativePath.split("/").at(-1) ?? ""))
+    .map(file => [file.relativePath, file.bytes] as const));
   const eligibleSources = sourceFileMap(captured.files, report);
   const jsSources = Object.fromEntries(Object.entries(eligibleSources).filter(([path]) => {
     const language = sourceLanguage(path);
@@ -460,14 +464,14 @@ export async function analyzeSnapshotSources(input: {
   let phpCcm: CcmV1 | null = null;
   let jsFailurePaths: string[] = [];
   let phpFailurePaths: string[] = [];
-  const adapterHashes: string[] = [];
+  const adapterProvenance: CcmProvenance[] = [];
 
   if (Object.keys(jsSources).length > 0) {
     input.signal?.throwIfAborted();
-    const result = analyzeJavaScriptDeclarations({ snapshot: input.snapshot, sources: jsSources });
+    const result = analyzeJavaScriptReferences({ snapshot, sources: jsSources, configurationSources });
     if (result.ccm) {
       jsCcm = result.ccm;
-      adapterHashes.push(result.ccm.provenance.configHash);
+      adapterProvenance.push(result.ccm.provenance);
     } else {
       jsFailurePaths = Object.keys(jsSources);
     }
@@ -479,10 +483,10 @@ export async function analyzeSnapshotSources(input: {
 
   if (Object.keys(phpSources).length > 0) {
     input.signal?.throwIfAborted();
-    const result = await analyzePhpDeclarations({ snapshot: input.snapshot, sources: phpSources, signal: input.signal });
+    const result = await analyzePhpReferences({ snapshot, sources: phpSources, signal: input.signal, configurationSources });
     if (result.ccm) {
       phpCcm = result.ccm;
-      adapterHashes.push(result.ccm.provenance.configHash);
+      adapterProvenance.push(result.ccm.provenance);
     } else {
       phpFailurePaths = Object.keys(phpSources);
     }
@@ -491,10 +495,10 @@ export async function analyzeSnapshotSources(input: {
   input.signal?.throwIfAborted();
 
   const failedAdapterPaths = [...jsFailurePaths, ...phpFailurePaths];
-  const configHash = hashConfig(maxSourceFileBytes, adapterHashes);
+  const configHash = hashConfig(maxSourceFileBytes, adapterProvenance);
   let ccm: CcmV1;
   try {
-    ccm = buildCombinedCcm(input.snapshot, report, jsCcm, phpCcm, failedAdapterPaths, configHash);
+    ccm = buildCombinedCcm(snapshot, report, jsCcm, phpCcm, failedAdapterPaths, configHash);
   } catch {
     report.status = "failed";
     report.errorCode = "SNAPSHOT_INVALID";
@@ -511,8 +515,8 @@ export async function analyzeSnapshotSources(input: {
   const validFiles = report.counts.processed;
   const status: SourceAnalysisResult["status"] = validFiles === 0
     ? "failed"
-    : report.counts.failed > 0 || report.counts.excluded > 0 ||
-      ccm.limitations.some((item) => item.stage !== "resolve")
+    : report.counts.failed > 0 || report.counts.excluded > 0 || ccm.limitations.length > 0 ||
+      ccm.edges.some(edge => edge.resolution === "Unresolved")
       ? "partial"
       : "complete";
   const errorCode = validFiles === 0 ? "PARSE_FAILED" : null;
