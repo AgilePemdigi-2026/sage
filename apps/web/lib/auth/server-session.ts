@@ -3,6 +3,7 @@ import { database, resolveSession } from "@sage/database";
 import { getUniqueCookie, isValidOpaqueToken, SESSION_COOKIE } from "./handlers.ts";
 
 export type WorkspaceContext = {
+  readonly accountKey: string;
   readonly login: string;
   readonly displayName: string | null;
   readonly connectionLogin: string;
@@ -22,13 +23,14 @@ export async function readWorkspaceContext(): Promise<WorkspaceContext | null> {
 
   const user = await db.user.findUnique({
     where: { id: session.userId },
-    select: { login: true, displayName: true },
+    select: { githubUserId: true, login: true, displayName: true },
   });
   if (!user) return null;
 
   const connection = await db.gitHubConnection.findFirst({
     where: {
       userId: session.userId,
+      githubUserId: user.githubUserId,
       status: "ACTIVE",
       revokedAt: null,
       OR: [{ tokenExpiresAt: null }, { tokenExpiresAt: { gt: now } }],
@@ -39,6 +41,7 @@ export async function readWorkspaceContext(): Promise<WorkspaceContext | null> {
   if (!connection) return null;
 
   return {
+    accountKey: user.githubUserId,
     login: user.login,
     displayName: user.displayName,
     connectionLogin: connection.githubLogin,

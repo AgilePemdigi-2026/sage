@@ -38,6 +38,8 @@ Hosting produksi tetap TBD. Pemisahan worker dipertahankan ketika aplikasi dipin
 
 GitHub App menangani login pengguna dan akses instalasi. Bedakan user authorization, instalasi App, serta token instalasi. Login tidak otomatis memberi App akses ke seluruh repository private.
 
+Repository public milik akun diambil dari identitas sesi melalui endpoint GitHub public dengan pagination, terpisah dari pilihan instalasi App. Permintaan UI terikat ID GitHub akun; header yang tidak cocok dengan cookie sesi ditolak sebelum provider. Tab lama menghapus daftar/target dan memuat ulang ketika akun berubah.
+
 Repository publik pihak lain dapat dicari menggunakan URL/slug yang tervalidasi setelah login. Daftar instalasi hanya menampilkan repository dalam izin App, sedangkan metadata dan snapshot repository publik diambil melalui jalur GitHub yang sesuai. Target private ditolak jika pengguna atau instalasi tidak memiliki izin yang diperlukan.
 
 Resolve branch/commit ke full SHA pada saat submission valid diterima, sebelum masuk antrean. Snapshot dan semua percobaan berikutnya menggunakan SHA tersebut. Saat worker mulai, izin diperiksa kembali tanpa mengubah SHA. Perubahan HEAD selama mengantre tidak boleh mengubah target.

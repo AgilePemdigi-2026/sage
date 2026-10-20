@@ -1,5 +1,7 @@
 # Regression Playwright lintas fitur
 
+Catatan lanjutan: [GH-03-S1](GH-03-S1_CHECKS.md) menambahkan suite isolasi akun sehingga runner saat ini berisi delapan suite. Hasil tujuh suite di bawah tetap bukti run QA-04 awal.
+
 Tanggal: 20 Oktober 2026 (Asia/Jakarta). Paket QA-04-S1, issue [#66](https://github.com/AgilePemdigi-2026/sage/issues/66), penanggung jawab Valentina (`liliks13`). Implementasi dan pengujian dilakukan secara otomatis; review/merge mengikuti akun Iltizam.
 
 ## Cakupan

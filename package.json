@@ -45,7 +45,8 @@
     "test:figma:ui": "tsx scripts/test-figma-ui.ts",
     "test:auth:ui": "tsx scripts/test-auth-ui.ts",
     "test:browser": "tsx scripts/test-browser-regression.ts",
-    "test:provider:playwright": "tsx scripts/test-provider-playwright.ts"
+    "test:provider:playwright": "tsx scripts/test-provider-playwright.ts",
+    "test:accounts:ui": "tsx scripts/test-account-ui.ts"
   },
   "devDependencies": {
     "@types/node": "22.20.5",

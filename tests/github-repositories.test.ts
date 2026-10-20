@@ -76,6 +76,55 @@ test("public repository resolution uses an unauthenticated fixed GitHub API requ
   assert.equal(headers.get("X-GitHub-Api-Version"), "2026-03-10");
 });
 
+test("public repository listing is scoped to its owner, paginated, sanitized, and unauthenticated", async () => {
+  const calls: Array<{ url: string; authorization: string | null }> = [];
+  const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = String(input);
+    const headers = new Headers(init?.headers);
+    calls.push({ url, authorization: headers.get("Authorization") });
+    if (url === `${api}/users/iltizamhasan3/repos?per_page=30&page=1`) {
+      return json([
+        { ...repository({ private: false, owner: { login: "iltizamhasan3" }, name: "public-one", full_name: "iltizamhasan3/public-one" }), secret: "discard" },
+        repository({ private: true, owner: { login: "iltizamhasan3" }, name: "private-one", full_name: "iltizamhasan3/private-one" }),
+        repository({ private: false, owner: { login: "someone-else" }, name: "foreign", full_name: "someone-else/foreign" }),
+      ], 200, { Link: `<${api}/users/iltizamhasan3/repos?per_page=30&page=2>; rel="next"` });
+    }
+    if (url === `${api}/users/iltizamhasan3/repos?per_page=30&page=2`) {
+      return json([repository({ private: false, owner: { login: "ILTIZAMHASAN3" }, name: "public-two", full_name: "ILTIZAMHASAN3/public-two" })]);
+    }
+    throw new Error(`Unexpected URL ${url}`);
+  }) as typeof fetch;
+  const client = new GitHubRepositoryClient({ accessToken: token, fetcher });
+  const first = await client.listPublicRepositories("iltizamhasan3", { page: 1 });
+  const second = await client.listPublicRepositories("iltizamhasan3", { page: first.nextPage! });
+  assert.equal(first.items.length, 1);
+  assert.equal(first.items[0]?.fullName, "iltizamhasan3/public-one");
+  assert.deepEqual(Object.keys(first.items[0]!).sort(), ["archived", "defaultBranch", "fullName", "id", "installationId", "name", "owner", "private"].sort());
+  assert.equal(first.nextPage, 2);
+  assert.equal(second.items[0]?.fullName, "ILTIZAMHASAN3/public-two");
+  assert.equal(second.nextPage, null);
+  assert.deepEqual(calls.map((call) => call.url), [
+    `${api}/users/iltizamhasan3/repos?per_page=30&page=1`,
+    `${api}/users/iltizamhasan3/repos?per_page=30&page=2`,
+  ]);
+  assert.deepEqual(calls.map((call) => call.authorization), [null, null]);
+});
+
+test("public repository listing rejects invalid owner and unsafe pagination links", async () => {
+  const client = new GitHubRepositoryClient({ accessToken: token, fetcher: (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    if (url.includes("foreign.example")) return json(Array.from({ length: 30 }, () => repository({ private: false })), 200, {
+      Link: "<https://foreign.example/users/octocat/repos?per_page=30&page=2>; rel=\"next\"",
+    });
+    return json([]);
+  }) as typeof fetch });
+  await assert.rejects(client.listPublicRepositories("../octocat"), (error: unknown) => error instanceof GitHubRepositoryError && error.code === "INVALID_INPUT");
+  const malformed = new GitHubRepositoryClient({ accessToken: token, fetcher: (async () => json(Array.from({ length: 30 }, () => repository({ private: false })), 200, {
+    Link: "<https://foreign.example/users/octocat/repos?per_page=30&page=2>; rel=\"next\"",
+  })) as typeof fetch });
+  await assert.rejects(malformed.listPublicRepositories("octocat"), (error: unknown) => error instanceof GitHubRepositoryError && error.code === "UNAVAILABLE");
+});
+
 test("installation pages are bounded and return sanitized installation metadata", async () => {
   let requestUrl = "";
   let requestHeaders = new Headers();

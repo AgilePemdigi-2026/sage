@@ -3,7 +3,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { createServer, request as httpRequest } from "node:http";
 import { resolve } from "node:path";
-import { createSession, database, disconnectDatabase } from "@sage/database";
+import { createSession, database, disconnectDatabase, storeGitHubCredential } from "@sage/database";
 import { chromium, request, type BrowserContext, type Page } from "playwright";
 
 const browserOrigin = new URL(process.env.SAGE_HTTP_BASE_URL ?? "http://localhost:3000");
@@ -215,16 +215,10 @@ try {
     },
   });
   fixtureUserId = fixtureUser.id;
-  await db.gitHubConnection.create({
-    data: {
-      userId: fixtureUser.id,
+  await storeGitHubCredential(db, fixtureUser.id, {
       githubUserId: fixtureUser.githubUserId,
       githubLogin: fixtureConnectionLogin,
-      encryptedToken: "synthetic-fixture-no-provider-token",
-      tokenNonce: "synthetic-fixture",
-      tokenAuthTag: "synthetic-fixture",
-      encryptionKeyId: "synthetic-fixture",
-    },
+      accessToken: "synthetic-fixture-no-provider-token",
   });
 
   const activeSession = await createSession(db, fixtureUser.id, { ttlMs: 60 * 60 * 1000 });
