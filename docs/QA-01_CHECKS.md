@@ -27,3 +27,7 @@ Benchmark tidak menetapkan penerimaan semantik. Oracle masih berstatus draft sam
 Jika API resolver belum tersedia, benchmark mencetak `NOT_RUN` dan keluar dengan kode nonzero. Benchmark tidak menggunakan adapter deklarasi saja ataupun mock. Hasil waktunya tetap belum menjadi bukti penerimaan semantik.
 
 Enam source fixture ini hanya cocok untuk microbenchmark terarah, bukan sampel performa repository nyata. RSS yang dilaporkan hanya milik proses Node pemanggil; RSS proses anak PHP dan puncak memori worker tidak diukur. Jumlah node/edge dan hash konten bersifat deskriptif, bukan bukti kebenaran semantik. Peninjauan tim terhadap oracle masih menunggu.
+
+## Integrasi berikutnya
+
+Suite `tests/resolver-integration.test.ts` telah mencocokkan seluruh 21 fakta oracle pada JS/TS/PHP, termasuk target/reason, span dan replay canonical. Microbenchmark aktual juga tersedia pada [laporan integrasi](RESOLVER_CHECKS.md). Hasil tersebut terpisah dari verifier integritas; review formal tim dan performa repository representatif tetap menunggu, sehingga QA-01 masih terbuka.

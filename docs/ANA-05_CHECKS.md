@@ -50,3 +50,7 @@ Review kode terpisah tidak menemukan temuan material setelah perbaikan fixture. 
 Issue #11 tetap terbuka. Paket ini membuktikan hardening struktur dan kompatibilitas output deklarasi dua adapter, bukan kelengkapan semantik resolver atau acceptance oracle QA-01. Manifest fixture tetap `DRAFT_AWAITING_TEAM_REVIEW`; verifier integritas melaporkan `semanticAcceptance: NOT_RUN`.
 
 `TypeAlias`, `Enum`, dan `Trait` tetap dicatat sebagai keterbatasan sampai spike taxonomy diterima. Resolver lengkap #12/#13, canonical CKG/persistensi #14, pipeline produk #16, benchmark/resource limits seluruh job, dan replay end-to-end memerlukan bukti tersendiri. Kontrak ini bukan sandbox untuk JavaScript Proxy atau object executable yang tidak dipercaya. Build produksi, integrasi PostgreSQL nyata, dan browser E2E tidak dijalankan ulang untuk paket ini.
+
+## Pembaruan integrasi 21 Oktober 2026
+
+Dua resolver statis kini menghasilkan CCM yang cocok dengan 21 fakta oracle independen, termasuk target/reason, evidence dan replay canonical. Full check integrasi lulus 202 tes utama dan 8 tes data; lihat [RESOLVER_CHECKS](RESOLVER_CHECKS.md). Bukti hardening di atas tetap berlaku. Issue ANA-05 dan QA-01 mengikuti acceptance parent-nya sendiri; review formal manifest serta benchmark repository representatif belum dinyatakan selesai.
