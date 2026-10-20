@@ -82,6 +82,8 @@ Canonical serialization mengurutkan file, node, edge, dan limitation dengan atur
 
 Implementasi minimum v1 berada di `packages/contracts`: registry PHP/JavaScript/TypeScript, kategori node/edge, origin, resolution/reason, tipe CCM, ID deterministik, JSON/hash canonical, dan validator runtime. Validator menerima byte source secara terpisah dari payload serializable; hash/ukuran file serta setiap evidence diverifikasi terhadap byte tersebut. Offset evidence memakai byte UTF-8 berbasis nol dengan batas akhir eksklusif; baris dan kolom berbasis satu, kolom dihitung dalam Unicode code point, mengikuti konvensi CRLF dan BOM pada fixture QA-01.
 
+Hardening ANA-05 menolak array sparse/properti tambahan dan peta source berbasis getter, memeriksa UTF-8 seluruh file processed, serta memvalidasi bounds parent dan konsistensi edge containment yang diberikan. Registry kategori v1 tetap sama; tidak ada kategori atau relasi semantik baru yang diasumsikan. Hasil deklarasi gabungan PHP/JS/TS diuji setelah round-trip JSON bersama byte snapshot aslinya; rincian dan batas acceptance ada pada [ANA-05_CHECKS](ANA-05_CHECKS.md).
+
 Status valid hanya menyatakan struktur payload dan konsistensinya dengan byte source yang diberikan. Status ini belum membuktikan kelengkapan temuan adapter, ketepatan semantik resolver, batas resource, persistensi/API, ataupun replay pipeline. Penerimaan ANA-05 lengkap tetap memerlukan oracle PHP/JS/TS yang direview dan integrasi analyzer.
 
 ## Canonical graph dan proyeksi UI

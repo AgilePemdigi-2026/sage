@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { access } from "node:fs/promises";
 import test from "node:test";
-import { canonicalizeCcm, validateCcm, type CcmSnapshot } from "@sage/contracts";
+import { canonicalizeCcm, validateCcm, type CcmNode, type CcmSnapshot } from "@sage/contracts";
 import { analyzeSnapshotSources, scanSnapshotSources, SOURCE_POLICY_VERSION } from "../apps/worker/src/source-analysis.ts";
 import type { SnapshotFile } from "../apps/worker/src/snapshot/archive.ts";
 
@@ -231,4 +231,51 @@ test("default source limit accepts exactly 1 MiB and excludes the next byte", ()
   assert.equal(byPath(report, "src/over.js")?.reason, "SOURCE_FILE_TOO_LARGE");
   assert.equal(report.counts.eligible, 1);
   assert.equal(report.counts.excluded, 1);
+});
+
+test("serialized mixed-language CCM retains declaration evidence and rejects tampering at the consumer boundary", async () => {
+  const declarations = [
+    { path: "src/Cafe.js", name: "Café", language: "javascript", kind: "Class", text: "export class Café { run() { return '😀'; } }" },
+    { path: "src/Visit.ts", name: "Visitável", language: "typescript", kind: "Interface", text: "export interface Visitável { visitar(): void; }" },
+    { path: "src/Service.php", name: "Service", language: "php", kind: "Class", text: "class Service { public function run(): string { return 'é'; } }" },
+  ];
+  const files = [
+    ...declarations.map(item => snapshotFile(item.path, `\uFEFF${item.language === "php" ? "<?php\r\n" : ""}${item.text}\r\n`)),
+    snapshotFile("src/broken.ts", "export class Broken {"),
+    snapshotFile("assets/binary.dat", new Uint8Array([0xff, 0x00, 0x80])),
+  ];
+  const result = await analyzeSnapshotSources({ snapshot, files });
+  assert.equal(result.status, "partial");
+  assert.equal(result.errorCode, null);
+  assert.deepEqual([result.report.counts.processed, result.report.counts.failed, result.report.counts.excluded], [3, 1, 1]);
+  assert.ok(result.ccm);
+  const sources = Object.fromEntries(files.map(file => [file.relativePath, file.bytes]));
+  const restored: unknown = JSON.parse(JSON.stringify(result.ccm));
+  const validated = validateCcm(restored, sources);
+  assert.equal(validated.ok, true, "a persisted JSON payload must validate against the original immutable bytes");
+  if (!validated.ok) return;
+  for (const expected of declarations) {
+    const node: CcmNode | undefined = validated.value.nodes.find(item => item.filePath === expected.path && item.name === expected.name && item.kind === expected.kind);
+    assert.ok(node?.location, `missing declaration ${expected.name}`);
+    assert.equal(node.language, expected.language);
+    const actual = new TextDecoder("utf-8", { fatal: true }).decode(sources[expected.path]!.subarray(node.location.startByte, node.location.endByte));
+    assert.equal(actual, expected.text, "evidence must recover the independently specified declaration exactly");
+  }
+  const replay = canonicalizeCcm(restored, sources);
+  assert.equal(replay.ok, true);
+  if (replay.ok) {
+    assert.equal(replay.json, result.canonicalJson);
+    assert.equal(replay.sha256, result.contentSha256);
+  }
+  const file = files[0]!;
+  const changedBytes = new Uint8Array(file.bytes);
+  changedBytes[changedBytes.length - 1] = 32;
+  assert.deepEqual(validateCcm(restored, { ...sources, [file.relativePath]: changedBytes }), { ok: false, errorCode: "CCM_FILE_HASH_MISMATCH" });
+  const badId = structuredClone(validated.value);
+  badId.nodes[0]!.id = `node_${"0".repeat(64)}`;
+  assert.deepEqual(validateCcm(badId, sources), { ok: false, errorCode: "CCM_NODE_ID_INVALID" });
+  const badBounds = structuredClone(validated.value);
+  const location = badBounds.nodes.find(node => node.filePath === file.relativePath)!.location!;
+  location.endByte = file.bytes.byteLength + 1;
+  assert.deepEqual(validateCcm(badBounds, sources), { ok: false, errorCode: "CCM_EVIDENCE_BOUNDS_INVALID" });
 });

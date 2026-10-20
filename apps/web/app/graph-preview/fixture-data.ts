@@ -167,22 +167,38 @@ function edge(options: {
   };
 }
 
+function containment(source: CcmNode, target: CcmNode): CcmEdge {
+  if (!target.location) throw new Error("Fixture containment requires a source declaration.");
+  const value = {
+    sourceId: source.id,
+    targetId: target.id,
+    kind: "CONTAINS" as const,
+    resolution: "Exact" as const,
+    evidence: [{ ...target.location }],
+    unresolvedReason: null,
+  };
+  return { id: createEdgeId({ snapshotSha, ...value }), ...value };
+}
+
 const reportModule = sourceNode({ kind: "Module", name: "report.ts", qualifiedName: "src/report.ts", path: "src/report.ts", marker: "", wholeFile: true });
-const reportClass = sourceNode({ kind: "Class", name: "ReportService", qualifiedName: "ReportService", path: "src/report.ts", marker: "ReportService", parentId: reportModule.id });
-const reportMethod = sourceNode({ kind: "Method", name: "build", qualifiedName: "ReportService.build", path: "src/report.ts", marker: "build(input: string): string", parentId: reportClass.id });
+const reportClass = sourceNode({ kind: "Class", name: "ReportService", qualifiedName: "ReportService", path: "src/report.ts", marker: [
+  "export class ReportService implements ReportInput {", '  readonly label = "report";',
+  "  build(input: string): string {", "    return formatLabel(input);", "  }", "}",
+].join("\n"), parentId: reportModule.id });
+const reportMethod = sourceNode({ kind: "Method", name: "build", qualifiedName: "ReportService.build", path: "src/report.ts", marker: "build(input: string): string {\n    return formatLabel(input);\n  }", parentId: reportClass.id });
 const reportProperty = sourceNode({ kind: "Property", name: "label", qualifiedName: "ReportService.label", path: "src/report.ts", marker: 'readonly label = "report";', parentId: reportClass.id });
-const startReport = sourceNode({ kind: "Function", name: "startReport", qualifiedName: "startReport", path: "src/report.ts", marker: "startReport(input: string, formatter: { format(value: string): string }): string", parentId: reportModule.id });
+const startReport = sourceNode({ kind: "Function", name: "startReport", qualifiedName: "startReport", path: "src/report.ts", marker: sourceText["src/report.ts"].slice(sourceText["src/report.ts"].indexOf("export function startReport")).trimEnd(), parentId: reportModule.id });
 const typeModule = sourceNode({ kind: "Module", name: "types.ts", qualifiedName: "src/types.ts", path: "src/types.ts", marker: "", wholeFile: true });
-const reportInput = sourceNode({ kind: "Interface", name: "ReportInput", qualifiedName: "ReportInput", path: "src/types.ts", marker: "interface ReportInput", parentId: typeModule.id });
+const reportInput = sourceNode({ kind: "Interface", name: "ReportInput", qualifiedName: "ReportInput", path: "src/types.ts", marker: sourceText["src/types.ts"].trimEnd(), parentId: typeModule.id });
 const labelModule = sourceNode({ kind: "Module", name: "label.ts", qualifiedName: "src/label.ts", path: "src/label.ts", marker: "", wholeFile: true });
-const formatLabel = sourceNode({ kind: "Function", name: "formatLabel", qualifiedName: "formatLabel", path: "src/label.ts", marker: "function formatLabel", parentId: labelModule.id });
+const formatLabel = sourceNode({ kind: "Function", name: "formatLabel", qualifiedName: "formatLabel", path: "src/label.ts", marker: sourceText["src/label.ts"].trimEnd(), parentId: labelModule.id });
 const unresolvedCall = unresolvedNode();
 
 const nodes = [reportModule, reportClass, reportMethod, reportProperty, startReport, typeModule, reportInput, labelModule, formatLabel, unresolvedCall];
 const edges = [
-  edge({ source: reportModule, target: reportClass, kind: "CONTAINS", path: "src/report.ts", marker: "export class ReportService" }),
-  edge({ source: reportClass, target: reportMethod, kind: "CONTAINS", path: "src/report.ts", marker: "build(input: string): string" }),
-  edge({ source: reportClass, target: reportProperty, kind: "CONTAINS", path: "src/report.ts", marker: 'readonly label = "report";' }),
+  containment(reportModule, reportClass),
+  containment(reportClass, reportMethod),
+  containment(reportClass, reportProperty),
   edge({ source: reportModule, target: reportInput, kind: "IMPORTS", path: "src/report.ts", marker: 'import type { ReportInput } from "./types"' }),
   edge({ source: reportClass, target: reportInput, kind: "IMPLEMENTS", path: "src/report.ts", marker: "implements ReportInput" }),
   edge({ source: reportModule, target: formatLabel, kind: "IMPORTS", path: "src/report.ts", marker: 'import { formatLabel } from "./label"' }),
