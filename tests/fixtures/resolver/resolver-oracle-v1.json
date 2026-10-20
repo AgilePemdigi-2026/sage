@@ -205,12 +205,12 @@
       "evidence": {
         "path": "tests/fixtures/resolver/javascript/src/app.js",
         "snippet": "normalize",
-        "startByte": 332,
-        "endByte": 341,
-        "startLine": 16,
-        "endLine": 16,
-        "startColumn": 26,
-        "endColumn": 35
+        "startByte": 355,
+        "endByte": 364,
+        "startLine": 17,
+        "endLine": 17,
+        "startColumn": 10,
+        "endColumn": 19
       }
     },
     {
@@ -420,12 +420,12 @@
       },
       "evidence": {
         "path": "tests/fixtures/resolver/php/src/endpoint.php",
-        "snippet": "Base",
-        "startByte": 55,
+        "snippet": "Resolver\\Contracts\\Base",
+        "startByte": 36,
         "endByte": 59,
         "startLine": 3,
         "endLine": 3,
-        "startColumn": 24,
+        "startColumn": 5,
         "endColumn": 28
       }
     },
@@ -540,12 +540,12 @@
       },
       "evidence": {
         "path": "tests/fixtures/resolver/php/src/endpoint.php",
-        "snippet": "Missing",
-        "startByte": 118,
+        "snippet": "Resolver\\Contracts\\Missing",
+        "startByte": 99,
         "endByte": 125,
         "startLine": 5,
         "endLine": 5,
-        "startColumn": 24,
+        "startColumn": 5,
         "endColumn": 31
       }
     }
