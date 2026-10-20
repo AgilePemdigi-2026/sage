@@ -82,7 +82,7 @@ function historyHarness() {
       applyHistoryPatch(target, patch);
     },
   });
-  return { state, controller, resolveAt, urls };
+  return { state, controller, resolveAt, urls, patches };
 }
 
 test("respons halaman dua filter lama dibuang, daftar & cursor filter baru utuh", async () => {
@@ -143,6 +143,32 @@ test("kegagalan muat lebih banyak menjaga baris, memulihkan cursor, dan bisa diu
   assert.equal(state.nextCursor, null);
   assert.equal(state.error, false, "keberhasilan ulang menghapus notifikasi");
   assert.match(urls.at(-1)!, /cursor=CUR-A$/);
+});
+
+test("tombol pagination nonaktif selama halaman pertama filter baru masih pending", async () => {
+  const { state, controller, resolveAt, patches } = historyHarness();
+  const a1 = historyItem("analyses-first-a00");
+  const b1 = historyItem("analyses-first-b00");
+
+  controller.reload("acc-1", "", "", new AbortController().signal);   // filter A, halaman 1
+  await drain();
+  resolveAt(0, { data: { analyses: [a1], nextCursor: "CUR-A" } });
+  await drain();
+  assert.equal(state.nextCursor, "CUR-A");
+
+  controller.reload("acc-1", "report-service", "", new AbortController().signal); // filter B mulai
+  assert.equal(state.nextCursor, null, "cursor filter lama dinonaktifkan saat reload dimulai");
+
+  // Coba muat lebih banyak dengan cursor lama: tombol tidak ada (cursor null), dan
+  // loadMore sendiri menolak cursor kosong sehingga tidak ada request keempat.
+  controller.loadMore("acc-1", "report-service", "", "");
+  await drain();
+  assert.equal(patches.filter(patch => patch.appendItems).length, 0, "tanpa append dari cursor usang");
+
+  resolveAt(1, { data: { analyses: [b1], nextCursor: "CUR-B" } });
+  await drain();
+  assert.deepEqual(state.items, [b1]);
+  assert.equal(state.nextCursor, "CUR-B", "cursor hanya hidup lagi bersama filter yang berhasil dimuat");
 });
 
 
@@ -245,5 +271,23 @@ test("poll detail: stateVersion lebih lama tetap ditolak meski permintaannya ter
   await drain();
   assert.equal(harness.state.detail?.stateVersion, 3000, "stateVersion mundur ditolak");
   assert.equal(harness.state.detail?.stages[0]?.status, "RUNNING");
+  harness.poller.stop();
+});
+
+test("poll detail: semua respons lebih lambat dari interval tetap memperbarui UI", async () => {
+  const harness = detailHarness(detailView({ stateVersion: 1000, firstStage: "RUNNING" }));
+
+  harness.poller.start();
+  for (let index = 0; index < 6; index += 1) harness.fire();  // enam interval, tiap respons > interval
+  assert.equal(harness.sequence, 6);
+
+  // Lima respons sukses tiba berurutan (konsisten lebih lambat dari interval).
+  for (let reply = 0; reply < 5; reply += 1) {
+    harness.resolveAt(reply, { data: detailView({ stateVersion: 2000 + reply * 100, firstStage: reply === 4 ? "COMPLETED" : "RUNNING" }) });
+    await drain();
+  }
+  assert.equal(harness.state.fetchError, false, "tanpa fetch error palsu saat UI lambat");
+  assert.equal(harness.state.detail?.stateVersion, 2400, "lima snapshot sukses tetap diterapkan");
+  assert.equal(harness.state.detail?.stages[0]?.status, "COMPLETED", "UI tidak macet di RUNNING");
   harness.poller.stop();
 });

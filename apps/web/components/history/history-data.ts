@@ -76,6 +76,9 @@ export function createHistoryData(options: HistoryDataOptions) {
   return {
     reload(accountKey: string, query: string, status: string, signal: AbortSignal): void {
       const current = ++generation;
+      // Nonaktifkan pagination sejak reload dimulai: cursor milik filter lama tidak
+      // boleh dipakai bersama query filter baru, meski halaman pertama belum selesai.
+      options.apply({ nextCursor: null });
       void (async () => {
         try {
           const response = await options.fetch(listUrl(query, status), {

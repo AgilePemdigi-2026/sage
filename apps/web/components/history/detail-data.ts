@@ -24,6 +24,11 @@ export type DetailPollerOptions = {
 
 export function createDetailPoller(options: DetailPollerOptions) {
   let handle: number | null = null;
+  /** Sequence dari respons terakhir yang benar-benar diterapkan. Snapshot hanya ditolak
+   * bila respons yang lebih baru sudah diterapkan — interval terus menerbitkan permintaan
+   * meski respons lebih lambat, sehingga membandingkan dengan permintaan terbaru saja
+   * membuat UI macet saat semua respons melebihi interval. */
+  let lastAppliedSequence = 0;
   async function tick(): Promise<void> {
     const sequence = options.touchSequence();
     try {
@@ -33,12 +38,16 @@ export function createDetailPoller(options: DetailPollerOptions) {
       const data = response.ok
         ? ((await response.json()) as { data: AnalysisDetailView }).data
         : null;
-      // Guard utama: respons hanya berlaku bila permintaannya masih yang terakhir.
-      // Cek stateVersion tetap dipertahankan sebagai jaring tangan kedua.
-      if (!options.isLatestSequence(sequence)) return;
-      if (!response.ok || !data) { options.setFetchError(true); return; }
+      if (!response.ok || !data) {
+        if (options.isLatestSequence(sequence)) options.setFetchError(true);
+        return;
+      }
+      // Guard utama: tolak snapshot bila respons permintaan yang lebih baru sudah
+      // diterapkan. Cek stateVersion tetap dipertahankan sebagai jaring tangan kedua.
+      if (sequence < lastAppliedSequence) return;
       options.setFetchError(false);
       options.setDetail(previous => previous && data.stateVersion < previous.stateVersion ? previous : data);
+      lastAppliedSequence = sequence;
     } catch {
       if (options.isLatestSequence(sequence)) options.setFetchError(true);
     }
