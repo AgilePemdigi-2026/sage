@@ -24,6 +24,11 @@ export type DetailPollerOptions = {
 
 export function createDetailPoller(options: DetailPollerOptions) {
   let handle: number | null = null;
+  /** Instance hidup mulai start() sampai stop(). Effect pemilik melingkar (halaman berubah tiap
+   * snapshot diterapkan) berhenti dan membuat instance baru; respons fetch yang masih di jalan
+   * dari instance tua tidak boleh menyentuh state lagi. lastAppliedSequence milik instance ini
+   * saja sehingga token lifecycle jadi pengaman lintas instance. */
+  let alive = false;
   /** Sequence dari respons terakhir yang benar-benar diterapkan. Snapshot hanya ditolak
    * bila respons yang lebih baru sudah diterapkan — interval terus menerbitkan permintaan
    * meski respons lebih lambat, sehingga membandingkan dengan permintaan terbaru saja
@@ -38,26 +43,31 @@ export function createDetailPoller(options: DetailPollerOptions) {
       const data = response.ok
         ? ((await response.json()) as { data: AnalysisDetailView }).data
         : null;
+      // Guard lifecycle dulu: instance yang sudah di stop tidak mengubah state apa pun,
+      // sekalipun lastAppliedSequence miliknya masih memungkinkan snapshot diterima.
+      if (!alive) return;
       if (!response.ok || !data) {
         if (options.isLatestSequence(sequence)) options.setFetchError(true);
         return;
       }
-      // Guard utama: tolak snapshot bila respons permintaan yang lebih baru sudah
+      // Guard urutan: tolak snapshot bila respons permintaan yang lebih baru sudah
       // diterapkan. Cek stateVersion tetap dipertahankan sebagai jaring tangan kedua.
       if (sequence < lastAppliedSequence) return;
       options.setFetchError(false);
       options.setDetail(previous => previous && data.stateVersion < previous.stateVersion ? previous : data);
       lastAppliedSequence = sequence;
     } catch {
-      if (options.isLatestSequence(sequence)) options.setFetchError(true);
+      if (alive && options.isLatestSequence(sequence)) options.setFetchError(true);
     }
   }
   return {
     start(): void {
       if (handle !== null) return;
+      alive = true;
       handle = options.scheduleInterval(() => { void tick(); }, options.intervalMs);
     },
     stop(): void {
+      alive = false;
       if (handle === null) return;
       options.cancelInterval(handle);
       handle = null;

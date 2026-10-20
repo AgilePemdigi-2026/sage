@@ -291,3 +291,64 @@ test("poll detail: semua respons lebih lambat dari interval tetap memperbarui UI
   assert.equal(harness.state.detail?.stages[0]?.status, "COMPLETED", "UI tidak macet di RUNNING");
   harness.poller.stop();
 });
+
+test("poll detail: respons instance lama dibuang setelah stop dan recreate effect", async () => {
+  const state: DetailState = { detail: detailView({ stateVersion: 1000, firstStage: "RUNNING" }), fetchError: false };
+  let sequence = 0;
+  let ticker: (() => void) | null = null;
+  type RecreatedInstance = {
+    poller: ReturnType<typeof createDetailPoller>;
+    fire: () => void;
+    resolveAt: (index: number, body: unknown) => void;
+  };
+  const makeInstance = (): RecreatedInstance => {
+    const pending: PendingFetch[] = [];
+    const poller = createDetailPoller({
+      analysisId: "hist-detail-0001x", accountKey: "acc-1", intervalMs: 3000,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- profil fetch serupa NamedParameter; hanya input yang dipakai
+      fetch: (_input, _init) => new Promise<Response>(resolve => { pending.push(resolve); }),
+      scheduleInterval: callback => { ticker = callback; return 1; },
+      cancelInterval: () => { ticker = null; },
+      touchSequence: () => { sequence += 1; return sequence; },
+      isLatestSequence: candidate => sequence === candidate,
+      setFetchError: value => { state.fetchError = value; },
+      setDetail: updater => { state.detail = updater(state.detail); },
+    });
+    return {
+      poller,
+      fire: () => { ticker?.(); },
+      resolveAt: (index, body) => {
+        pending[index](new Response(JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }));
+      },
+    };
+  };
+
+  // Instance A: dua tick, keduanya masih di jalan.
+  const instanceA = makeInstance();
+  instanceA.poller.start();
+  instanceA.fire();                       // seq 1
+  instanceA.fire();                       // seq 2
+  assert.equal(sequence, 2);
+  instanceA.resolveAt(0, { data: detailView({ stateVersion: 1000, firstStage: "RUNNING" }) });
+  await drain();
+  assert.equal(state.detail?.stages[0]?.status, "RUNNING");
+
+  // Cleanup effect membuat instance B (deteksi detail baru ter-apply).
+  instanceA.poller.stop();
+  const instanceB = makeInstance();
+  instanceB.poller.start();
+  instanceB.fire();                       // seq 3
+  instanceB.resolveAt(0, { data: detailView({ stateVersion: 1000, firstStage: "COMPLETED" }) });
+  await drain();
+  assert.equal(state.detail?.stateVersion, 1000);
+  assert.equal(state.detail?.stages[0]?.status, "COMPLETED", "instance B membawa tahap berjalan selesai");
+
+  // Respons lama instance A (seq 2) datang terseokseok: stateVersion induk sama
+  // (transisi tahap memutakhirkan AnalysisStage saja), lastAppliedSequence milik A
+  // masih 1 — tanpa invalidasi lifecycle tahap akan kembali PENDING.
+  instanceA.resolveAt(1, { data: detailView({ stateVersion: 1000, firstStage: "PENDING" }) });
+  await drain();
+  assert.equal(state.detail?.stages[0]?.status, "COMPLETED", "respons instance yang sudah di stop dibuang");
+  assert.equal(state.fetchError, false);
+  instanceB.poller.stop();
+});
