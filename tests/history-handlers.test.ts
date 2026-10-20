@@ -72,3 +72,28 @@ test("presentAnalysisDetail shapes payload with context, nine labelled stages, c
   const failed = presentAnalysisDetail({ ...base, status: "FAILED", results: null });
   assert.equal(failed.results, null);
 });
+
+test("kegagalan infrastruktur saat membaca sesi tetap dalam batas error: 503 HISTORY_UNAVAILABLE", async () => {
+  const calls: string[] = [];
+  const deps: HistoryHandlerDependencies = {
+    readSession: async () => { throw new Error("db down saat resolveSession"); },
+    list: async userId => { calls.push(`list:${userId}`); return { items: [], nextCursor: null, pageSize: 20 }; },
+    detail: async () => { calls.push("detail"); return null; },
+  };
+  const handlers = createHistoryHandlers(deps);
+
+  const listResponse = await handlers.list(get(LIST_URL));
+  assert.equal(listResponse.status, 503);
+  const listBody = await listResponse.json() as { error: { code: string; message: string; details?: unknown }; requestId: unknown };
+  assert.equal(listBody.error.code, "HISTORY_UNAVAILABLE");
+  assert.equal(typeof listBody.error.message, "string");
+  assert.equal(typeof listBody.requestId, "string");
+  assert.deepEqual(calls, [], "query riwayat tidak jalan bila sesi gagal dibaca");
+
+  const detailResponse = await handlers.detail(get(`${LIST_URL}/hist-detail-0001x`), "hist-detail-0001x");
+  assert.equal(detailResponse.status, 503);
+  const detailBody = await detailResponse.json() as { error: { code: string } };
+  assert.equal(detailBody.error.code, "HISTORY_UNAVAILABLE");
+  assert.deepEqual(calls, []);
+  assert.match(detailResponse.headers.get("cache-control")!, /no-store/);
+});

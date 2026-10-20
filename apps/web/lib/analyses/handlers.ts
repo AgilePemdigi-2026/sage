@@ -39,11 +39,13 @@ const ANALYSIS_ID_PATTERN = /^[A-Za-z0-9_-]{8,64}$/;
 export function createHistoryHandlers(deps: HistoryHandlerDependencies) {
   return {
     async list(request: Request) {
-      const session = await deps.readSession(request);
-      if (!session) return failure("AUTH_REQUIRED", "Sesi berakhir. Masuk lagi dengan GitHub.", 401);
-      const params = listParams(request);
-      if (!params) return failure("INVALID_INPUT", "Parameter pencarian tidak valid.", 400);
       try {
+        // Pembacaan sesi (query DB session + user) ikut batas error agar
+        // kegagalan infrastruktur menghasilkan 503, bukan handler yang melempar.
+        const session = await deps.readSession(request);
+        if (!session) return failure("AUTH_REQUIRED", "Sesi berakhir. Masuk lagi dengan GitHub.", 401);
+        const params = listParams(request);
+        if (!params) return failure("INVALID_INPUT", "Parameter pencarian tidak valid.", 400);
         return json({ data: presentHistoryList(await deps.list(session.userId, params)) });
       } catch (error) {
         if (error instanceof HistoryQueryError) return failure("INVALID_INPUT", error.message, 400);
@@ -54,9 +56,9 @@ export function createHistoryHandlers(deps: HistoryHandlerDependencies) {
       if (typeof analysisId !== "string" || !ANALYSIS_ID_PATTERN.test(analysisId)) {
         return failure("INVALID_INPUT", "ID analisis tidak valid.", 400);
       }
-      const session = await deps.readSession(request);
-      if (!session) return failure("AUTH_REQUIRED", "Sesi berakhir. Masuk lagi dengan GitHub.", 401);
       try {
+        const session = await deps.readSession(request);
+        if (!session) return failure("AUTH_REQUIRED", "Sesi berakhir. Masuk lagi dengan GitHub.", 401);
         const detail = await deps.detail(session.userId, analysisId);
         if (!detail) return failure("ANALYSIS_NOT_FOUND", "Analisis tidak ditemukan.", 404);
         return json({ data: presentAnalysisDetail(detail) });
