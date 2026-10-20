@@ -115,6 +115,7 @@ export type CcmErrorCode =
   | "CCM_NODE_LOCATION_INVALID"
   | "CCM_NODE_PARENT_DANGLING"
   | "CCM_NODE_PARENT_CYCLE"
+  | "CCM_NODE_PARENT_BOUNDS_INVALID"
   | "CCM_EDGE_INVALID"
   | "CCM_EDGE_REGISTRY_INVALID"
   | "CCM_EDGE_ID_INVALID"
@@ -123,6 +124,7 @@ export type CcmErrorCode =
   | "CCM_EDGE_RESOLUTION_INVALID"
   | "CCM_EDGE_EVIDENCE_INVALID"
   | "CCM_EDGE_UNRESOLVED_REASON_INVALID"
+  | "CCM_EDGE_CONTAINMENT_INVALID"
   | "CCM_UNRESOLVED_PLACEHOLDER_INVALID"
   | "CCM_LIMITATION_INVALID"
   | "CCM_EVIDENCE_INVALID"
@@ -214,11 +216,10 @@ function validateJsonValue(value: unknown, depth = 0): value is JsonValue {
   if (value === null || typeof value === "string" || typeof value === "boolean") return true;
   if (typeof value === "number") return Number.isFinite(value);
   if (Array.isArray(value)) {
-    const keys = Reflect.ownKeys(value);
-    if (keys.length !== value.length + 1 || keys.some((key) => typeof key !== "string")) return false;
+    if (!isDensePlainArray(value)) return false;
     for (let index = 0; index < value.length; index += 1) {
       const descriptor = Object.getOwnPropertyDescriptor(value, String(index));
-      if (!descriptor || !("value" in descriptor) || !descriptor.enumerable || !validateJsonValue(descriptor.value, depth + 1)) return false;
+      if (!descriptor || !validateJsonValue(descriptor.value, depth + 1)) return false;
     }
     return true;
   }
@@ -228,6 +229,22 @@ function validateJsonValue(value: unknown, depth = 0): value is JsonValue {
     const descriptor = Object.getOwnPropertyDescriptor(value, key);
     return !!descriptor && "value" in descriptor && descriptor.enumerable && validateJsonValue(descriptor.value, depth + 1);
   });
+}
+
+/** Accept only dense arrays with ordinary enumerable data elements and no extra own properties. */
+function isDensePlainArray(value: unknown): value is unknown[] {
+  if (!Array.isArray(value) || Object.getPrototypeOf(value) !== Array.prototype) return false;
+  const keys = Reflect.ownKeys(value);
+  if (keys.length !== value.length + 1) return false;
+  for (const key of keys) {
+    if (key === "length") continue;
+    if (typeof key !== "string") return false;
+    const index = Number(key);
+    if (!Number.isSafeInteger(index) || index < 0 || index >= value.length || String(index) !== key) return false;
+    const descriptor = Object.getOwnPropertyDescriptor(value, key);
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable) return false;
+  }
+  return true;
 }
 
 function stableJson(value: unknown): string {
@@ -287,7 +304,7 @@ function compareEvidence(left: EvidenceSpan, right: EvidenceSpan): number {
 function validateEvidence(
   value: unknown,
   files: Map<string, CcmFile>,
-  sources: Readonly<Record<string, Uint8Array>>,
+  sources: ReadonlyMap<string, Uint8Array>,
   allowedRoles: readonly EvidenceRole[] = EVIDENCE_ROLES,
 ): EvidenceSpan {
   expectShape(value, ["filePath", "fileSha256", "startByte", "endByte", "startLine", "endLine", "startColumn", "endColumn", "role"]);
@@ -297,7 +314,7 @@ function validateEvidence(
     fail("CCM_EVIDENCE_INVALID");
   }
   const file = files.get(value.filePath);
-  const source = sources[value.filePath];
+  const source = sources.get(value.filePath);
   if (!file || !source || value.fileSha256 !== file.sha256) fail("CCM_EVIDENCE_INVALID");
   if (value.endByte > source.byteLength) fail("CCM_EVIDENCE_BOUNDS_INVALID");
   try {
@@ -330,7 +347,8 @@ function validateCcmUnsafe(input: unknown, sources: Readonly<Record<string, Uint
     fail("CCM_PROVENANCE_INVALID");
   }
 
-  if (!Array.isArray(input.files) || !Array.isArray(input.nodes) || !Array.isArray(input.edges) || !Array.isArray(input.limitations)) {
+  if (!isDensePlainArray(input.files) || !isDensePlainArray(input.nodes) ||
+    !isDensePlainArray(input.edges) || !isDensePlainArray(input.limitations)) {
     fail("CCM_INPUT_INVALID");
   }
   if (!isRecord(sources)) fail("CCM_SOURCE_SET_MISMATCH");
@@ -347,14 +365,28 @@ function validateCcmUnsafe(input: unknown, sources: Readonly<Record<string, Uint
     files.push(file);
     fileMap.set(file.path, file);
   }
+  const sourceValues = new Map<string, Uint8Array>();
   const sourceKeys = Reflect.ownKeys(sources);
-  if (sourceKeys.some((key) => typeof key !== "string") || sourceKeys.length !== fileMap.size ||
-    sourceKeys.some((key) => !fileMap.has(key as string))) fail("CCM_SOURCE_SET_MISMATCH");
+  if (sourceKeys.some((key) => typeof key !== "string") || sourceKeys.length !== fileMap.size) fail("CCM_SOURCE_SET_MISMATCH");
+  for (const key of sourceKeys as string[]) {
+    const descriptor = Object.getOwnPropertyDescriptor(sources, key);
+    if (!descriptor || !("value" in descriptor) || !descriptor.enumerable || !fileMap.has(key) || !(descriptor.value instanceof Uint8Array)) {
+      fail("CCM_SOURCE_SET_MISMATCH");
+    }
+    sourceValues.set(key, descriptor.value);
+  }
   for (const file of files) {
-    const source = sources[file.path];
-    if (!(source instanceof Uint8Array)) fail("CCM_SOURCE_SET_MISMATCH");
+    const source = sourceValues.get(file.path);
+    if (!source) fail("CCM_SOURCE_SET_MISMATCH");
     if (source.byteLength !== file.sizeBytes) fail("CCM_FILE_SIZE_MISMATCH");
     if (digest(source) !== file.sha256) fail("CCM_FILE_HASH_MISMATCH");
+    if (file.status === "processed") {
+      try {
+        utf8Decoder.decode(source);
+      } catch {
+        fail("CCM_UTF8_INVALID");
+      }
+    }
   }
 
   const nodes: CcmNode[] = [];
@@ -377,7 +409,7 @@ function validateCcmUnsafe(input: unknown, sources: Readonly<Record<string, Uint
       if (!raw.filePath || raw.location === null) fail("CCM_NODE_LOCATION_INVALID");
       const file = fileMap.get(raw.filePath);
       if (!file || file.status !== "processed" || file.language !== raw.language) fail("CCM_NODE_LOCATION_INVALID");
-      location = validateEvidence(raw.location, fileMap, sources, ["declaration"]);
+      location = validateEvidence(raw.location, fileMap, sourceValues, ["declaration"]);
       if (location.filePath !== raw.filePath || location.fileSha256 !== file.sha256) fail("CCM_NODE_LOCATION_INVALID");
     } else if (raw.filePath !== null || raw.location !== null || raw.parentId !== null) {
       fail("CCM_NODE_LOCATION_INVALID");
@@ -403,17 +435,29 @@ function validateCcmUnsafe(input: unknown, sources: Readonly<Record<string, Uint
     const parent = nodeMap.get(node.parentId);
     if (!parent || parent.origin !== "source" || parent.filePath !== node.filePath || parent.id === node.id) fail("CCM_NODE_PARENT_DANGLING");
   }
-  const parentState = new Map<string, 0 | 1 | 2>();
-  const visitParent = (id: string): void => {
-    const state = parentState.get(id) ?? 0;
-    if (state === 1) fail("CCM_NODE_PARENT_CYCLE");
-    if (state === 2) return;
-    parentState.set(id, 1);
-    const parentId = nodeMap.get(id)?.parentId;
-    if (parentId) visitParent(parentId);
-    parentState.set(id, 2);
-  };
-  for (const node of nodes) visitParent(node.id);
+  const parentState = new Map<string, 1 | 2>();
+  for (const node of nodes) {
+    if (parentState.has(node.id)) continue;
+    const path: string[] = [];
+    let currentId: string | null = node.id;
+    while (currentId !== null) {
+      const state = parentState.get(currentId);
+      if (state === 1) fail("CCM_NODE_PARENT_CYCLE");
+      if (state === 2) break;
+      parentState.set(currentId, 1);
+      path.push(currentId);
+      currentId = nodeMap.get(currentId)!.parentId;
+    }
+    for (let index = path.length - 1; index >= 0; index -= 1) parentState.set(path[index]!, 2);
+  }
+  for (const node of nodes) {
+    if (node.parentId === null) continue;
+    const parent = nodeMap.get(node.parentId)!;
+    const parentLocation = parent.location!;
+    const childLocation = node.location!;
+    if (parentLocation.filePath !== childLocation.filePath || parentLocation.startByte > childLocation.startByte ||
+      parentLocation.endByte < childLocation.endByte) fail("CCM_NODE_PARENT_BOUNDS_INVALID");
+  }
 
   const edges: CcmEdge[] = [];
   const edgeIds = new Set<string>();
@@ -426,13 +470,18 @@ function validateCcmUnsafe(input: unknown, sources: Readonly<Record<string, Uint
     if (raw.resolution === "Exact" ? raw.unresolvedReason !== null : !isMember(raw.unresolvedReason, UNRESOLVED_REASONS)) {
       fail("CCM_EDGE_UNRESOLVED_REASON_INVALID");
     }
-    if (!Array.isArray(raw.evidence) || raw.evidence.length === 0) fail("CCM_EDGE_EVIDENCE_INVALID");
-    const evidence = raw.evidence.map((item) => validateEvidence(item, fileMap, sources));
+    if (!isDensePlainArray(raw.evidence) || raw.evidence.length === 0) fail("CCM_EDGE_EVIDENCE_INVALID");
+    const evidence = raw.evidence.map((item) => validateEvidence(item, fileMap, sourceValues));
     if (raw.resolution === "Unresolved" && !evidence.some((item) => item.role === "reference")) fail("CCM_EDGE_EVIDENCE_INVALID");
     if (edgeIds.has(raw.id)) fail("CCM_EDGE_ID_DUPLICATE");
     if (!nodeMap.has(raw.sourceId) || !nodeMap.has(raw.targetId)) fail("CCM_EDGE_ENDPOINT_DANGLING");
     const source = nodeMap.get(raw.sourceId)!;
     const target = nodeMap.get(raw.targetId)!;
+    if (raw.kind === "CONTAINS" && (raw.resolution !== "Exact" || source.origin !== "source" || target.origin !== "source" ||
+      target.parentId !== source.id || !target.location || !evidence.some((item) =>
+        item.role === "declaration" && item.filePath === target.location!.filePath &&
+        item.fileSha256 === target.location!.fileSha256 && item.startByte === target.location!.startByte &&
+        item.endByte === target.location!.endByte))) fail("CCM_EDGE_CONTAINMENT_INVALID");
     if (source.origin === "unresolved" || (raw.resolution === "Exact" && target.origin === "unresolved") ||
       (raw.resolution === "Unresolved" && (target.origin !== "unresolved" || target.kind !== "UnresolvedReference"))) {
       fail("CCM_UNRESOLVED_PLACEHOLDER_INVALID");

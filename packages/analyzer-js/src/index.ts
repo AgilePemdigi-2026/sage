@@ -27,6 +27,8 @@ type SourceKind = { language: Language; scriptKind: ts.ScriptKind };
 export interface DeclarationAnalysisInput {
   snapshot: CcmSnapshot;
   sources: Readonly<Record<string, Uint8Array>>;
+  /** Optional snapshot-relative configuration bytes for the static resolver; declarations ignore these bytes. */
+  configurationSources?: Readonly<Record<string, Uint8Array>>;
 }
 
 export interface DeclarationDiagnostic {
@@ -620,3 +622,5 @@ export function analyzeDeclarations(input: DeclarationAnalysisInput): Declaratio
     return failed(error instanceof Error && error.message === "ANALYZER_INPUT_INVALID" ? "ANALYZER_INPUT_INVALID" : "ANALYZER_FAILURE");
   }
 }
+
+export { analyzeReferences } from "./resolver.ts";

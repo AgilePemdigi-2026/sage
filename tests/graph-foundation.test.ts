@@ -18,6 +18,17 @@ test("graph fixture validates against the exact source bytes it describes", () =
   assert.deepEqual(Object.fromEntries(result.ok ? result.value.files.map((file) => [file.path, file.sha256]) : []), sourceHashes);
   assert.equal(result.ok ? result.value.edges.some((edge) => edge.kind === "CALLS" && edge.resolution === "Exact") : false, true);
   assert.equal(result.ok ? result.value.edges.some((edge) => edge.kind === "CALLS" && edge.resolution === "Unresolved" && result.value.nodes.find((node) => node.id === edge.targetId)?.origin === "unresolved") : false, true);
+  const reportClass = fixture.payload.nodes.find(node => node.name === "ReportService")!;
+  const declaration = reportClass.location!;
+  assert.equal(new TextDecoder().decode(fixture.sourceBytes[declaration.filePath].subarray(declaration.startByte, declaration.endByte)), [
+    "export class ReportService implements ReportInput {", '  readonly label = "report";',
+    "  build(input: string): string {", "    return formatLabel(input);", "  }", "}",
+  ].join("\n"));
+  for (const edge of fixture.payload.edges.filter(edge => edge.kind === "CONTAINS")) {
+    const child = fixture.payload.nodes.find(node => node.id === edge.targetId)!;
+    assert.equal(child.parentId, edge.sourceId);
+    assert.deepEqual(edge.evidence, [child.location]);
+  }
 });
 
 test("graph projection preserves source facts and exposes category and resolution labels", () => {

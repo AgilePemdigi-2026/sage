@@ -1,0 +1,594 @@
+{
+  "schemaVersion": 1,
+  "reviewStatus": "DRAFT_AWAITING_TEAM_REVIEW",
+  "reviewedBy": null,
+  "scope": "Hand-authored static resolver expectations for small cross-file JavaScript, TypeScript, and PHP source fixtures. Expected semantics were written from source, independently of analyzer output; this manifest records a draft oracle, not semantic acceptance.",
+  "files": [
+    {
+      "path": "tests/fixtures/resolver/javascript/src/app.js",
+      "language": "javascript",
+      "sha256": "1743ef45d90966827316e85ae7e2091e4a1857383468a925ab585eb09b7c91f5",
+      "sizeBytes": 448
+    },
+    {
+      "path": "tests/fixtures/resolver/javascript/src/format.js",
+      "language": "javascript",
+      "sha256": "8f644b0e826cf9a56bb944d5a72e611261dcb893bbdde5645f4904f6574cc793",
+      "sizeBytes": 179,
+      "canary": "RESOLVER_JS_FIXTURE_MUST_NOT_EXECUTE"
+    },
+    {
+      "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+      "language": "typescript",
+      "sha256": "cc4cfb9496d8e71e708559277c2ade9472d8824e295f4ffee8ab366844c4e5e2",
+      "sizeBytes": 393,
+      "canary": "RESOLVER_TS_FIXTURE_MUST_NOT_EXECUTE"
+    },
+    {
+      "path": "tests/fixtures/resolver/typescript/src/model.ts",
+      "language": "typescript",
+      "sha256": "db08ec18d9730301698b7aa5f8c5fdc031af336be1cd8cdb3e47dba1bc436274",
+      "sizeBytes": 155
+    },
+    {
+      "path": "tests/fixtures/resolver/php/src/endpoint.php",
+      "language": "php",
+      "sha256": "c53c8760a494bb029912adc65c0d0c20ff71a289e8ab1a1b9047d28fbf8c5e8b",
+      "sizeBytes": 357
+    },
+    {
+      "path": "tests/fixtures/resolver/php/src/contracts.php",
+      "language": "php",
+      "sha256": "152073b9cfa8c4081eb5bc1fd5bf673d57f9e60e52e0f9108d9f23953baf1af2",
+      "sizeBytes": 241,
+      "canary": "RESOLVER_PHP_FIXTURE_MUST_NOT_EXECUTE"
+    }
+  ],
+  "expectedEdges": [
+    {
+      "id": "js-import-module-format",
+      "scenario": "static-import",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/app.js"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/javascript/src/format.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/format.js"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "snippet": "./format.js",
+        "startByte": 40,
+        "endByte": 51,
+        "startLine": 1,
+        "endLine": 1,
+        "startColumn": 39,
+        "endColumn": 50
+      }
+    },
+    {
+      "id": "js-import-symbol-normalize",
+      "scenario": "static-import",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/app.js"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/javascript/src/format.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/format.js.normalize"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "snippet": "normalize",
+        "startByte": 12,
+        "endByte": 21,
+        "startLine": 1,
+        "endLine": 1,
+        "startColumn": 11,
+        "endColumn": 20
+      }
+    },
+    {
+      "id": "js-call-render-normalize",
+      "scenario": "cross-file-call",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/app.js.render"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/javascript/src/format.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/format.js.normalize"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "snippet": "normalize",
+        "startByte": 151,
+        "endByte": 160,
+        "startLine": 5,
+        "endLine": 5,
+        "startColumn": 10,
+        "endColumn": 19
+      }
+    },
+    {
+      "id": "js-call-invoke-exercise",
+      "scenario": "cross-file-call",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/app.js.invoke"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/javascript/src/format.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/format.js.exercise"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "snippet": "exercise",
+        "startByte": 218,
+        "endByte": 226,
+        "startLine": 9,
+        "endLine": 9,
+        "startColumn": 10,
+        "endColumn": 18
+      }
+    },
+    {
+      "id": "js-call-unknown-receiver",
+      "scenario": "unknown-receiver",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/format.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/format.js.exercise"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "run",
+        "reason": "UNKNOWN_RECEIVER"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/format.js",
+        "snippet": "run",
+        "startByte": 112,
+        "endByte": 115,
+        "startLine": 6,
+        "endLine": 6,
+        "startColumn": 17,
+        "endColumn": 20
+      }
+    },
+    {
+      "id": "js-dynamic-import",
+      "scenario": "dynamic-reference",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/app.js.load"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "name",
+        "reason": "DYNAMIC_LOAD"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "snippet": "name",
+        "startByte": 294,
+        "endByte": 298,
+        "startLine": 13,
+        "endLine": 13,
+        "startColumn": 17,
+        "endColumn": 21
+      }
+    },
+    {
+      "id": "js-shadowed-parameter-call",
+      "scenario": "shadowed-reference",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/app.js.shadowed"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "normalize",
+        "reason": "UNKNOWN_RECEIVER"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "snippet": "normalize",
+        "startByte": 355,
+        "endByte": 364,
+        "startLine": 17,
+        "endLine": 17,
+        "startColumn": 10,
+        "endColumn": 19
+      }
+    },
+    {
+      "id": "js-import-unavailable-symbol",
+      "scenario": "unavailable-reference",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/app.js"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "unavailable",
+        "reason": "EXTERNAL_DEPENDENCY"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "snippet": "unavailable",
+        "startByte": 64,
+        "endByte": 75,
+        "startLine": 2,
+        "endLine": 2,
+        "startColumn": 10,
+        "endColumn": 21
+      }
+    },
+    {
+      "id": "js-call-unavailable-symbol",
+      "scenario": "unavailable-reference",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/app.js.useUnavailable"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "unavailable",
+        "reason": "EXTERNAL_DEPENDENCY"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/app.js",
+        "snippet": "unavailable",
+        "startByte": 429,
+        "endByte": 440,
+        "startLine": 21,
+        "endLine": 21,
+        "startColumn": 10,
+        "endColumn": 21
+      }
+    },
+    {
+      "id": "ts-import-symbol-base",
+      "scenario": "static-import",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/endpoint.ts"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/typescript/src/model.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model.ts.Base"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "snippet": "Base",
+        "startByte": 12,
+        "endByte": 16,
+        "startLine": 1,
+        "endLine": 1,
+        "startColumn": 11,
+        "endColumn": 15
+      }
+    },
+    {
+      "id": "ts-extends-base",
+      "scenario": "inheritance",
+      "kind": "EXTENDS",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/endpoint.ts.Endpoint"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/typescript/src/model.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model.ts.Base"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "snippet": "Base",
+        "startByte": 123,
+        "endByte": 127,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 31,
+        "endColumn": 35
+      }
+    },
+    {
+      "id": "ts-implements-payload",
+      "scenario": "implements",
+      "kind": "IMPLEMENTS",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/endpoint.ts.Endpoint"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/typescript/src/model.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model.ts.Payload"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "snippet": "Payload",
+        "startByte": 139,
+        "endByte": 146,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 47,
+        "endColumn": 54
+      }
+    },
+    {
+      "id": "ts-type-reference-payload",
+      "scenario": "type-reference",
+      "kind": "TYPE_REFERENCES",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/endpoint.ts.Endpoint.handle"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/typescript/src/model.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model.ts.Payload"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "snippet": "Payload",
+        "startByte": 186,
+        "endByte": 193,
+        "startLine": 5,
+        "endLine": 5,
+        "startColumn": 17,
+        "endColumn": 24
+      }
+    },
+    {
+      "id": "ts-call-describe",
+      "scenario": "cross-file-call",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/endpoint.ts.Endpoint.handle"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/typescript/src/model.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model.ts.describe"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "snippet": "describe",
+        "startByte": 212,
+        "endByte": 220,
+        "startLine": 5,
+        "endLine": 5,
+        "startColumn": 43,
+        "endColumn": 51
+      }
+    },
+    {
+      "id": "ts-call-unknown-receiver",
+      "scenario": "unknown-receiver",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/endpoint.ts.uncertain"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "run",
+        "reason": "UNKNOWN_RECEIVER"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/endpoint.ts",
+        "snippet": "run",
+        "startByte": 324,
+        "endByte": 327,
+        "startLine": 8,
+        "endLine": 8,
+        "startColumn": 39,
+        "endColumn": 42
+      }
+    },
+    {
+      "id": "php-import-base",
+      "scenario": "static-import",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "qualifiedName": "tests/fixtures/resolver/php/src/endpoint.php#namespace:Resolver\\App"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/php/src/contracts.php",
+        "qualifiedName": "Resolver\\Contracts\\Base"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "snippet": "Resolver\\Contracts\\Base",
+        "startByte": 36,
+        "endByte": 59,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 5,
+        "endColumn": 28
+      }
+    },
+    {
+      "id": "php-extends-base",
+      "scenario": "inheritance",
+      "kind": "EXTENDS",
+      "source": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "qualifiedName": "Resolver\\App\\Endpoint"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/php/src/contracts.php",
+        "qualifiedName": "Resolver\\Contracts\\Base"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "snippet": "Base",
+        "startByte": 194,
+        "endByte": 198,
+        "startLine": 7,
+        "endLine": 7,
+        "startColumn": 24,
+        "endColumn": 28
+      }
+    },
+    {
+      "id": "php-implements-payload",
+      "scenario": "implements",
+      "kind": "IMPLEMENTS",
+      "source": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "qualifiedName": "Resolver\\App\\Endpoint"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/php/src/contracts.php",
+        "qualifiedName": "Resolver\\Contracts\\Payload"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "snippet": "Payload",
+        "startByte": 210,
+        "endByte": 217,
+        "startLine": 7,
+        "endLine": 7,
+        "startColumn": 40,
+        "endColumn": 47
+      }
+    },
+    {
+      "id": "php-call-describe",
+      "scenario": "cross-file-call",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "qualifiedName": "Resolver\\App\\Endpoint::value"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/php/src/contracts.php",
+        "qualifiedName": "Resolver\\Contracts\\describe"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "snippet": "describe",
+        "startByte": 264,
+        "endByte": 272,
+        "startLine": 8,
+        "endLine": 8,
+        "startColumn": 44,
+        "endColumn": 52
+      }
+    },
+    {
+      "id": "php-call-unknown-receiver",
+      "scenario": "unknown-receiver",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "qualifiedName": "Resolver\\App\\uncertain"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "run",
+        "reason": "UNKNOWN_RECEIVER"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "snippet": "run",
+        "startByte": 347,
+        "endByte": 350,
+        "startLine": 10,
+        "endLine": 10,
+        "startColumn": 59,
+        "endColumn": 62
+      }
+    },
+    {
+      "id": "php-import-unavailable-class",
+      "scenario": "unavailable-reference",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "qualifiedName": "tests/fixtures/resolver/php/src/endpoint.php#namespace:Resolver\\App"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "Resolver\\Contracts\\Missing",
+        "reason": "EXTERNAL_DEPENDENCY"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/php/src/endpoint.php",
+        "snippet": "Resolver\\Contracts\\Missing",
+        "startByte": 99,
+        "endByte": 125,
+        "startLine": 5,
+        "endLine": 5,
+        "startColumn": 5,
+        "endColumn": 31
+      }
+    }
+  ],
+  "languageCoverage": [
+    {
+      "language": "javascript",
+      "minimumExactEdges": 4,
+      "minimumUnresolvedEdges": 5,
+      "requiredScenarios": [
+        "static-import",
+        "cross-file-call",
+        "dynamic-reference",
+        "unknown-receiver",
+        "shadowed-reference",
+        "unavailable-reference"
+      ]
+    },
+    {
+      "language": "typescript",
+      "minimumExactEdges": 5,
+      "minimumUnresolvedEdges": 1,
+      "requiredScenarios": [
+        "static-import",
+        "inheritance",
+        "implements",
+        "type-reference",
+        "cross-file-call",
+        "unknown-receiver"
+      ]
+    },
+    {
+      "language": "php",
+      "minimumExactEdges": 4,
+      "minimumUnresolvedEdges": 2,
+      "requiredScenarios": [
+        "static-import",
+        "inheritance",
+        "implements",
+        "cross-file-call",
+        "unknown-receiver",
+        "unavailable-reference"
+      ]
+    }
+  ]
+}
