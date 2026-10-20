@@ -23,7 +23,8 @@ Status: endpoint produk `v1` masih rancangan. Fondasi ENV-01 menyediakan `GET /a
 | GET | `/auth/github` | Redirect ke `/login`; read-only dan tidak membuat state |
 | GET | `/auth/github/callback` | Memeriksa state sekali pakai dan cookie browser, menukar kode server-side, membuat session, lalu redirect ke `/workspace`; tersedia |
 | GET | `/workspace` | Workspace untuk session aktif dan koneksi GitHub aktif yang belum kedaluwarsa; tersedia |
-| GET | `/workspace/repositories` | Halaman akses instalasi dan resolve repository; tersedia |
+| GET | `/workspace/repositories` | Halaman daftar public milik akun, akses instalasi dan resolve repository; tersedia |
+| GET | `/api/auth/session` | Tersedia: `{ data: { accountKey, login } }` dari sesi aktif; tanpa credential, private/no-store |
 | POST | `/auth/logout` | Memeriksa `Origin` (cross-origin mendapat HTTP 403), mencabut session lokal, menghapus cookie, lalu redirect ke `/login`; tersedia |
 | GET | `/auth/github/install` | Rancangan: memulai pemilihan/instalasi GitHub App untuk akses repository |
 | GET | `/auth/github/setup` | Rancangan: memvalidasi konteks instalasi dan menghubungkannya ke user yang berhak |
@@ -37,6 +38,7 @@ Login membaca ID, login, dan nama profil melalui GitHub App tanpa scope OAuth Ap
 
 | Method | Endpoint | Input dan hasil |
 | --- | --- | --- |
+| GET | `/api/repositories/public` | Tersedia: `page=1..100`; public milik akun dari sesi, tanpa parameter owner; tidak dibatasi pilihan instalasi App |
 | GET | `/api/github/installations` | Tersedia: `page=1..100`; instalasi aktif yang dapat diakses user, metadata aman tanpa token |
 | GET | `/api/github/installations/{id}/repositories` | Tersedia: `page=1..100`; repository dengan akses akun dan Contents read dari instalasi |
 | POST | `/api/repositories/resolve` | Tersedia: JSON `{ "repository": "owner/name atau URL GitHub" }`; public pihak lain atau private berizin, Origin wajib |
@@ -45,7 +47,7 @@ Login membaca ID, login, dan nama profil melalui GitHub App tanpa scope OAuth Ap
 | POST | `/api/repositories/target` | Tersedia: JSON `{ repository, branch, commit? }`; metadata repository, branch, `commitSha` penuh dan `branchHeadSha`; tidak membuat job |
 | POST | `/api/analyses` | Tersedia: JSON `{ repository, branch, commit? }`, header `Idempotency-Key`; target diverifikasi ulang lalu analysis/job atomik, `202` baru atau `200` replay |
 
-Endpoint GH-02 mengembalikan halaman `{ data: { items, nextPage } }`; `nextPage` adalah nomor halaman atau null. Hanya page 1–100 diterima, query asing ditolak. Daftar terotorisasi dan input publik adalah dua jalur UI yang terlihat jelas. Resolve slug/URL tidak menambah izin private dan tidak menerima host arbitrary. Branch dibaca dari repository, bukan daftar hardcoded dari mockup.
+Endpoint GH-02 mengembalikan halaman `{ data: { items, nextPage } }`; `nextPage` adalah nomor halaman atau null. Hanya page 1–100 diterima, query asing ditolak. Daftar public milik akun, daftar instalasi terotorisasi, dan input public pihak lain ditampilkan terpisah. Instalasi dapat dimiliki collaborator/organisasi yang aksesnya sah. UI mengirim `X-SAGE-Account` berisi ID GitHub yang dirender server; backend menolak `401 AUTH_REQUIRED` bila tidak sesuai sesi aktif. Header ini mendeteksi tab lama, bukan pengganti autentikasi cookie. Connection harus cocok dengan ID GitHub user; identitas tidak diambil dari parameter klien. Tab memeriksa identitas saat fokus/visible dan berkala, lalu menghapus state dan memuat ulang jika akun berubah. Resolve slug/URL tidak menambah izin private dan tidak menerima host arbitrary. Branch dibaca dari repository, bukan daftar hardcoded dari mockup.
 
 REP-01 memeriksa ulang izin dan branch setiap request. Commit opsional menerima prefix heksadesimal 7–40 karakter atau SHA 64 karakter; prefix harus tidak ambigu dan commit harus ancestor dari HEAD branch yang ditangkap pada request. Branch kosong/repository kosong, commit di luar branch, atau respons provider rusak ditolak. Kesalahan input memakai `400 INVALID_INPUT`; branch hilang dapat menghasilkan `404 NOT_FOUND`. Hasil validasi belum tersimpan sebagai analysis; submission REP-02 wajib memvalidasi ulang. Pencarian UI berlaku pada repository yang sudah dimuat; halaman berikutnya tetap dapat dimuat.
 

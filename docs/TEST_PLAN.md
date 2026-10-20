@@ -95,6 +95,10 @@ T-UI-02 memeriksa enam layar pada 360/390/768/1024/1440 px, aset SVG lokal, penc
 
 ## Regression Playwright lintas fitur (QA-04-S1)
 
-`npm run test:browser` menjalankan tujuh suite secara berurutan: landing/health, auth/workspace, repository target, preview Figma, komponen UI awal, graph awal dan baseline keyboard/kontras DOM. Runner memberi setiap run folder terpisah, tanggal, hash script/lockfile, base commit, hasil suite dan lokasi screenshot. `npm run test:provider:playwright` memeriksa API Next serta GitHub nyata secara terpisah memakai otorisasi existing dan sesi sementara. Origin browser auth tetap tepercaya walaupun transport pengujian melewati jaringan Compose.
+`npm run test:browser` menjalankan delapan suite secara berurutan: landing/health, auth/workspace, repository target, isolasi akun, preview Figma, komponen UI awal, graph awal dan baseline keyboard/kontras DOM. Runner memberi setiap run folder terpisah, tanggal, hash script/lockfile, base commit, hasil suite dan lokasi screenshot. `npm run test:provider:playwright` memeriksa API Next serta GitHub nyata secara terpisah memakai otorisasi existing dan sesi sementara. Origin browser auth tetap tepercaya walaupun transport pengujian melewati jaringan Compose.
 
 Rincian hasil terbaru, matriks fitur, batas OAuth/fixture/pipeline dan perintah Docker: [QA-04-S1 checks](QA-04-S1_CHECKS.md). Paket QA-04-S1 tidak menutup QA-03/QA-02 atau T-REL-01 penuh.
+
+## GH-03-S1 — Daftar public dan pergantian akun
+
+`npm run test:accounts:ui` menggunakan dua identitas disposable untuk memeriksa sesi/identity endpoint nyata, penolakan header akun lama sebelum provider, dan tab terbuka yang cookie-nya berubah. Metadata repository/branch pada browser dikontrol dan diberi label; unit provider memeriksa pemilik/public filtering serta pagination. Target UI memeriksa daftar public tanpa instalasi, muat berikutnya, retry dan pemilihan branch. [Bukti dan batas](GH-03-S1_CHECKS.md).

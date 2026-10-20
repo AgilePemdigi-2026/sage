@@ -1,6 +1,6 @@
 # Product backlog
 
-Status per 20 Oktober 2026: **43 GitHub Issues**, tiga milestone sprint, dan delapan relasi parent/sub-issue sudah dibuat. Revisi pembagian memakai bobot pekerjaan serta bukti kontribusi tiap sprint; jumlah issue tidak harus sama. Penanggung jawab paket mengikuti [alur kontribusi](../CONTRIBUTING.md); Iltizam melakukan review teknis dan merge PR.
+Status per 20 Oktober 2026: **44 GitHub Issues**, tiga milestone sprint, dan delapan relasi parent/sub-issue sudah dibuat. Revisi pembagian memakai bobot pekerjaan serta bukti kontribusi tiap sprint; jumlah issue tidak harus sama. Penanggung jawab paket mengikuti [alur kontribusi](../CONTRIBUTING.md); Iltizam melakukan review teknis dan merge PR.
 
 Seluruh akun sudah dipetakan dan assignment aktif: Iltizam (`iltizamhasan3`), Rizqy (`rizqy-fadhil`), Valentina (`liliks13`), serta Zarra (`zarrrafirdaus`). Sebelas paket Zarra sudah di-assign ke akunnya. Ringkasan lintas anggota ada di [alokasi sprint](SPRINT_ALLOCATION.md).
 
@@ -38,6 +38,7 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | UI-02 | Frontend Figma landing, repository, progres, history dan graph | 1 | P1 / L | Valentina | UI-01, GRAPH-01-S1, REP-01 | - | Done (frontend fixture; UI-02_CHECKS) | [#59](https://github.com/AgilePemdigi-2026/sage/issues/59) |
 | UI-03 | Frontend dokumen Figma dan sinkronisasi dokumentasi | 1 | P1 / M | Zarra | UI-02, ANA-05-S1 | - | Done (frontend fixture; UI-02_CHECKS) | [#60](https://github.com/AgilePemdigi-2026/sage/issues/60) |
 | DOC-03 | Rapikan README, logo stack, use flow dan operasi Docker | 1 | P1 / S | Rizqy | UI-02, UI-03 | - | Done (dokumentasi; DOC-03_CHECKS) | [#62](https://github.com/AgilePemdigi-2026/sage/issues/62) |
+| GH-03-S1 | Daftar public milik akun dan isolasi pergantian sesi | 1 | P1 / M | Valentina | GH-01, GH-02, REP-01 | - | Done | [#68](https://github.com/AgilePemdigi-2026/sage/issues/68) |
 | QA-04-S1 | Regression Playwright seluruh fitur tersedia | 1 | P1 / M | Valentina | UI-02, UI-03, REP-01, GH-01 | - | Done | [#66](https://github.com/AgilePemdigi-2026/sage/issues/66) |
 | QA-01 | Fixture/oracle PHP, JS, TS dan benchmark awal | 1-2 | P0 / L | Zarra | PLAN-01, QA-01-S1 | - | In progress | [#4](https://github.com/AgilePemdigi-2026/sage/issues/4) |
 | ANA-05 | Contracts CCM/evidence dan validator | 1-2 | P0 / M | Iltizam | ENV-01, QA-01, ANA-05-S1, ANA-03-S1, ANA-04-S1 | - | Planned | [#11](https://github.com/AgilePemdigi-2026/sage/issues/11) |
@@ -94,6 +95,7 @@ Kriteria berikut tetap wajib bersama scope fase/sisa di atas. Setiap hasil menca
 | DOC-03 | README tanpa emoji dekoratif, pembuka terpusat dengan logo lokal, use flow membedakan status aktual/target, operasi stop/start jelas, render/diagram/tautan diperiksa | Pemeriksaan dokumentasi DOC-03 |
 | QA-04-S1 | Tujuh suite browser lima viewport, auth/session, public/pagination, provider terpisah, laporan per run; fixture dan fitur belum tersedia dibedakan | Pemeriksaan QA-04-S1 |
 | GH-01 | Login/logout nyata, state replay ditolak, denial/failure dapat dipulihkan, secret tidak terekspos | T-GH-01, T-GH-02 |
+| GH-03-S1 | Public milik akun tampil tanpa instalasi; owner dari sesi; pergantian akun menghapus state; header akun lama ditolak; provider 401 tidak membuat loop reload; dua sesi dan lima viewport teruji | Pemeriksaan GH-03-S1 |
 | GH-02 | Public pihak lain dan private berizin berhasil, private tanpa izin ditolak, rate limit/unavailable punya pesan aman | T-GH-03 |
 | REP-01 | List/search/empty/error, branch aktual, commit opsional, input invalid ditolak sebelum job | T-REP-01, T-REP-02 |
 | REP-02 | SHA tersimpan sebelum antrean, HEAD berubah tidak mengubah snapshot, archive/hash/path/limits valid | T-REP-02, T-SEC-01 |

@@ -18,6 +18,6 @@ export default async function RepositoriesPage() {
       <div><p className="mb-2 font-mono text-xs tracking-wide text-[#0b7a6c]">TARGET ANALISIS</p><h1 className="text-[28px] leading-9 font-semibold tracking-tight">Pilih repository</h1><p className="mt-2 text-sm leading-6 text-[#52637b]">Terhubung sebagai @{context.connectionLogin}. Izin selalu diperiksa kembali melalui GitHub.</p></div>
       <Link href="/workspace" className="inline-flex min-h-10 items-center rounded-md border border-[#b8c6d3] bg-white px-4 py-2 text-sm font-medium text-[#061e42]">Kembali ke workspace</Link>
     </div>
-    <RepositoryAccessPanel installUrl={installUrl} />
+    <RepositoryAccessPanel key={context.accountKey} installUrl={installUrl} accountKey={context.accountKey} accountLogin={context.connectionLogin} />
   </DesignFrame>;
 }

@@ -365,6 +365,21 @@ export class GitHubRepositoryClient {
     return { items, nextPage: parseNextPage(body.total_count, items.length, page) };
   }
 
+  /** Lists only public repositories owned by the supplied GitHub account. */
+  async listPublicRepositories(login: string, input: { readonly page?: number } = {}): Promise<GitHubPage<GitHubRepository>> {
+    const owner = parseOwner(login);
+    if (!owner) return fail("INVALID_INPUT");
+    const page = validPage(input.page ?? 1);
+    const path = `/users/${encodeURIComponent(owner)}/repos?per_page=${PAGE_SIZE}&page=${page}`;
+    const response = await this.request(path, false);
+    if (response.status !== 200) return throwForResponse(response);
+    const body = await readJsonValue(response);
+    if (!Array.isArray(body) || body.length > PAGE_SIZE) return fail("UNAVAILABLE");
+    const items = body.map((value) => parseRepository(value, null))
+      .filter((repository) => !repository.private && repository.owner.toLocaleLowerCase("en-US") === owner.toLocaleLowerCase("en-US"));
+    return { items, nextPage: nextPageForArray(response, [`/users/${encodeURIComponent(owner)}/repos`], body.length, page) };
+  }
+
   async listInstallationRepositories(
     installationId: string,
     input: { readonly page?: number } = {},

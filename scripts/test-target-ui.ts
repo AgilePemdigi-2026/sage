@@ -18,12 +18,14 @@ try {
     const fixture = await db.user.create({ data: { githubUserId: `ui-${suffix}`, login: `ui-${suffix}` } });
     fixtureUserId = fixture.id;
     await db.gitHubConnection.create({ data: {
-      userId: fixture.id, githubUserId: `ui-${suffix}`, githubLogin: "example",
+      userId: fixture.id, githubUserId: `ui-${suffix}`, githubLogin: `ui-${suffix}`,
       encryptedToken: "controlled-ui-fixture-not-a-token", tokenNonce: "fixture", tokenAuthTag: "fixture", encryptionKeyId: "fixture",
     } });
   }
-  const user = fixtureUserId ? { id: fixtureUserId } : await db.user.findFirst({ where: { login: process.env.SAGE_TEST_LOGIN ?? "" }, select: { id: true } }); assert.ok(user);
+  const user = fixtureUserId ? await db.user.findUnique({ where: { id: fixtureUserId }, select: { id: true, githubUserId: true, login: true } }) : await db.user.findFirst({ where: { login: process.env.SAGE_TEST_LOGIN ?? "" }, select: { id: true, githubUserId: true, login: true } }); assert.ok(user);
   const session = await createSession(db, user.id, { ttlMs: 180_000 }); sessionId = session.session.sessionId;
+  const ownedPublicRepo = { id: "101", fullName: `${user.login}/public-one`, private: false, defaultBranch: "main" };
+  const secondOwnedPublicRepo = { id: "102", fullName: `${user.login}/public-two`, private: false, defaultBranch: "main" };
   await mkdir(output, { recursive: true });
   for (const width of [360, 390, 768, 1024, 1440]) {
     const context = await browser.newContext({ viewport: { width, height: 1000 } });
@@ -33,12 +35,19 @@ try {
     let installationMode = "ready";
     let resolveFails = false;
     let targetFails = false;
+    let providerUnauthorized = false;
     let analysisRequests = 0;
     const submittedTargets: Array<{ repository: string; branch: string; commit: string | null }> = [];
     page.on("request", request => { if (new URL(request.url()).pathname === "/api/analyses") analysisRequests++; });
     await page.route("**/api/**", async route => {
+      assert.equal(route.request().headers()["x-sage-account"], user.githubUserId, "Every repository request is bound to the rendered GitHub account");
       const url = new URL(route.request().url()); let data: unknown;
-      if (url.pathname === "/api/github/installations") {
+      if (url.pathname === "/api/auth/session") data = { accountKey: user.githubUserId, login: user.login };
+      else if (url.pathname === "/api/repositories/public") {
+        if (providerUnauthorized) return route.fulfill({ status: 401, json: { error: { message: "GitHub credential expired." } } });
+        data = { items: url.searchParams.get("page") === "2" ? [secondOwnedPublicRepo] : [ownedPublicRepo], nextPage: url.searchParams.get("page") === "2" ? null : 2 };
+      }
+      else if (url.pathname === "/api/github/installations") {
         if (installationMode === "error") return route.fulfill({ status: 503, json: { error: { message: "Instalasi belum tersedia." } } });
         data = { items: installationMode === "empty" ? [] : url.searchParams.get("page") === "2" ? [{ id: "2", accountLogin: "other" }] : [{ id: "1", accountLogin: "example" }], nextPage: installationMode === "empty" || url.searchParams.get("page") === "2" ? null : 2 };
       }
@@ -53,18 +62,27 @@ try {
       } else if (url.pathname.endsWith("/target")) {
         const payload = JSON.parse(route.request().postData()!); submittedTargets.push(payload);
         if (targetFails) return route.fulfill({ status: 400, json: { error: { message: "Commit tidak berada pada branch ini." } } });
-        data = { repository: payload.repository === publicRepo.fullName ? publicRepo : repo, branch: payload.branch, commitSha: sha, branchHeadSha: sha };
+        const targetRepository = [repo, publicRepo, ownedPublicRepo, secondOwnedPublicRepo].find(item => item.fullName === payload.repository) ?? repo;
+        data = { repository: targetRepository, branch: payload.branch, commitSha: sha, branchHeadSha: sha };
       }
       else return route.abort();
       await route.fulfill({ json: { data } });
     });
     await page.goto(`${base}/workspace/repositories`);
+    await page.getByRole("heading", { name: `Repository public milik @${user.login}`, exact: true }).waitFor();
+    await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).waitFor();
+    await page.getByRole("button", { name: "Repository public berikutnya", exact: true }).click();
+    await page.getByRole("button", { name: `Pilih ${secondOwnedPublicRepo.fullName}`, exact: true }).waitFor();
+    await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).click();
+    await page.getByRole("button", { name: "Periksa target", exact: true }).click();
+    await page.getByText("Target tervalidasi", { exact: true }).waitFor();
+    assert.deepEqual(submittedTargets.at(-1), { repository: ownedPublicRepo.fullName, branch: "main", commit: null });
     await page.getByRole("button", { name: "Instalasi berikutnya", exact: true }).click();
     await page.getByRole("button", { name: "other", exact: true }).waitFor();
     await page.getByRole("button", { name: "example", exact: true }).click();
     await page.getByRole("button", { name: "Repository berikutnya", exact: true }).click();
     await page.getByRole("button", { name: "Pilih example/private", exact: true }).waitFor();
-    const search = page.getByLabel("Cari pada repository yang sudah dimuat");
+    const search = page.getByLabel("Cari pada repository App yang sudah dimuat");
     await search.fill("missing"); await page.getByText("Tidak ada hasil pencarian pada halaman yang dimuat.").waitFor();
     await search.fill("sample"); await page.getByRole("button", { name: "Pilih example/sample", exact: true }).click();
     await page.getByRole("button", { name: "Muat branch berikutnya", exact: true }).click();
@@ -78,7 +96,7 @@ try {
     assert.deepEqual(submittedTargets.at(-1), { repository: repo.fullName, branch: "feature/demo", commit: "aaaaaaa" });
     await page.getByLabel("Commit (opsional)").fill("bbbbbbb"); assert.equal(await page.getByText("Target tervalidasi", { exact: true }).count(), 0);
     await page.getByLabel("Branch", { exact: true }).selectOption("main"); assert.equal(await page.getByLabel("Commit (opsional)").inputValue(), "");
-    mode = "error"; await page.getByRole("button", { name: "Muat ulang branch" }).click(); await page.getByRole("alert").waitFor();
+    mode = "error"; await page.getByRole("button", { name: "Muat ulang branch" }).click(); await page.getByRole("alert").filter({ hasText: "Branch belum dapat dimuat." }).waitFor();
     assert.equal(await page.getByRole("button", { name: "Periksa target", exact: true }).isDisabled(), true);
     mode = "empty"; await page.getByRole("button", { name: "Muat ulang branch" }).click(); await page.getByText("Repository ini belum memiliki branch.", { exact: false }).waitFor();
     mode = "ready"; await page.getByRole("button", { name: "Muat ulang branch" }).click(); await page.getByLabel("Branch", { exact: true }).selectOption("main");
@@ -98,15 +116,23 @@ try {
     assert.equal(await page.getByText("Target tervalidasi", { exact: true }).count(), 0);
     targetFails = false; await page.getByRole("button", { name: "Periksa target", exact: true }).click();
     await page.getByText("Target tervalidasi", { exact: true }).waitFor();
+    providerUnauthorized = true;
+    await page.getByRole("button", { name: "Muat ulang repository public", exact: true }).click();
+    await page.getByRole("alert").filter({ hasText: "akses GitHub perlu diperbarui" }).waitFor();
+    await page.getByRole("button", { name: "Keluar untuk menyambungkan ulang GitHub", exact: true }).waitFor();
+    assert.equal(page.url(), `${base}/workspace/repositories`);
+    providerUnauthorized = false;
+    await page.getByRole("button", { name: "Coba lagi", exact: true }).click();
+    await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).waitFor();
     installationMode = "error"; await page.getByRole("button", { name: "Muat ulang instalasi", exact: true }).click();
     await page.getByRole("alert").filter({ hasText: "Instalasi belum tersedia" }).waitFor();
     installationMode = "empty"; await page.getByRole("button", { name: "Muat ulang instalasi", exact: true }).click();
-    await page.getByText("Belum ada instalasi yang dapat diakses.", { exact: false }).waitFor();
+    await page.getByText("Belum ada instalasi yang dapat diakses lewat App.", { exact: false }).waitFor();
     installationMode = "ready"; await page.getByRole("button", { name: "Muat ulang instalasi", exact: true }).click();
     await page.getByRole("button", { name: "example", exact: true }).waitFor();
     assert.equal(analysisRequests, 0, "Target validation must not submit analysis jobs");
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    assert.deepEqual(errors, []); checks.push(`${width}: installation/repository/branch pagination, branch deduplication, search, private card, public form and invalid URL feedback, slash branch, explicit/empty commit payload, stale reset, target error/retry, branch/installation error/empty/retry, no analysis submission, no overflow or JS errors`);
+    assert.deepEqual(errors, []); checks.push(`${width}: account-bound identity, own public listing/pagination/direct branch-target selection, installation/repository/branch pagination, branch deduplication, search, private card, public form and invalid URL feedback, slash branch, explicit/empty commit payload, stale reset, target error/retry, branch/installation error/empty/retry, no analysis submission, no overflow or JS errors`);
     await page.screenshot({ path: `${output}/target-${width}.png`, fullPage: true });
     await context.close();
   }

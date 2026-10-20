@@ -2,15 +2,15 @@ import { randomUUID } from "node:crypto";
 import { isSameOriginPost, parseAuthBaseConfig } from "../auth/config.ts";
 import { GitHubRepositoryClient, GitHubRepositoryError } from "./client.ts";
 
-type RepositorySession = { userId: string; accessToken: string };
+export type RepositorySession = { userId: string; githubUserId: string; githubLogin: string; accessToken: string };
 export type RepositoryHandlerDependencies = {
   readSession: (request: Request) => Promise<RepositorySession | null>;
   env: Record<string, string | undefined>;
-  createClient?: (token: string) => Pick<GitHubRepositoryClient, "listInstallations" | "listInstallationRepositories" | "resolveRepository">;
+  createClient?: (token: string) => Pick<GitHubRepositoryClient, "listInstallations" | "listInstallationRepositories" | "listPublicRepositories" | "resolveRepository">;
 };
 
 function json(body: unknown, status = 200) {
-  return Response.json(body, { status, headers: { "Cache-Control": "private, no-store", Vary: "Cookie", "X-Content-Type-Options": "nosniff" } });
+  return Response.json(body, { status, headers: { "Cache-Control": "private, no-store", Vary: "Cookie, X-SAGE-Account", "X-Content-Type-Options": "nosniff" } });
 }
 function failure(code: string, message: string, status: number) {
   return json({ error: { code, message, details: {} }, requestId: randomUUID() }, status);
@@ -23,18 +23,35 @@ function pageOf(request: Request): number | null {
 }
 
 export function createRepositoryHandlers(deps: RepositoryHandlerDependencies) {
-  async function run(request: Request, action: (client: Pick<GitHubRepositoryClient, "listInstallations" | "listInstallationRepositories" | "resolveRepository">) => Promise<unknown>) {
+  async function run(request: Request, action: (client: Pick<GitHubRepositoryClient, "listInstallations" | "listInstallationRepositories" | "listPublicRepositories" | "resolveRepository">, session: RepositorySession) => Promise<unknown>) {
     try {
       const session = await deps.readSession(request);
       if (!session) return failure("AUTH_REQUIRED", "Sesi berakhir. Masuk lagi dengan GitHub.", 401);
+      if (request.headers.has("x-sage-account") && request.headers.get("x-sage-account") !== session.githubUserId) {
+        return failure("AUTH_REQUIRED", "Akun GitHub berubah. Muat ulang halaman.", 401);
+      }
       const client = deps.createClient?.(session.accessToken) ?? new GitHubRepositoryClient({ accessToken: session.accessToken });
-      return json({ data: await action(client) });
+      return json({ data: await action(client, session) });
     } catch (error) {
       if (error instanceof GitHubRepositoryError) return failure(error.code, error.message, error.status);
       return failure("GITHUB_UNAVAILABLE", "Layanan repository belum tersedia. Coba lagi.", 503);
     }
   }
   return {
+    session(request: Request) {
+      return (async () => {
+        try {
+          const session = await deps.readSession(request);
+          if (!session) return failure("AUTH_REQUIRED", "Sesi berakhir atau akun GitHub berubah. Muat ulang halaman.", 401);
+          if (request.headers.has("x-sage-account") && request.headers.get("x-sage-account") !== session.githubUserId) {
+            return failure("AUTH_REQUIRED", "Akun GitHub berubah. Muat ulang halaman.", 401);
+          }
+          return json({ data: { accountKey: session.githubUserId, login: session.githubLogin } });
+        } catch {
+          return failure("GITHUB_UNAVAILABLE", "Sesi belum dapat diperiksa. Coba lagi.", 503);
+        }
+      })();
+    },
     installations(request: Request) {
       const page = pageOf(request);
       if (!page) return Promise.resolve(failure("INVALID_INPUT", "Halaman tidak valid.", 400));
@@ -44,6 +61,11 @@ export function createRepositoryHandlers(deps: RepositoryHandlerDependencies) {
       const page = pageOf(request);
       if (!page || !/^[1-9][0-9]{0,15}$/.test(id)) return Promise.resolve(failure("INVALID_INPUT", "Instalasi atau halaman tidak valid.", 400));
       return run(request, client => client.listInstallationRepositories(id, { page }));
+    },
+    publicRepositories(request: Request) {
+      const page = pageOf(request);
+      if (!page) return Promise.resolve(failure("INVALID_INPUT", "Halaman tidak valid.", 400));
+      return run(request, (client, session) => client.listPublicRepositories(session.githubLogin, { page }));
     },
     async resolve(request: Request) {
       const config = parseAuthBaseConfig(deps.env);
