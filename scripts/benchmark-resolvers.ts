@@ -81,6 +81,8 @@ async function main(): Promise<void> {
       const edges = Array.isArray(ccm?.edges) ? ccm.edges : null;
       const status = typeof resultRecord?.status === "string" ? resultRecord.status : null;
       const errorCode = resultRecord?.errorCode;
+      const hasErrorCodeField = resultRecord !== null && Object.prototype.hasOwnProperty.call(resultRecord, "errorCode");
+      const recordedErrorCode = thrownMessage !== null ? "ANALYZE_REFERENCES_THROW" : errorCode ?? null;
       const ccmHash = typeof resultRecord?.contentSha256 === "string"
         ? resultRecord.contentSha256
         : typeof ccm?.contentSha256 === "string" ? ccm.contentSha256 : null;
@@ -109,7 +111,8 @@ async function main(): Promise<void> {
         processRssAfterBytes: rssAfterBytes,
         processRssDeltaBytes: rssAfterBytes - rssBeforeBytes,
         status: thrownMessage === null ? status : "THREW",
-        errorCode: thrownMessage === null ? errorCode ?? null : "ANALYZE_REFERENCES_THROW",
+        errorCode: recordedErrorCode,
+        hasErrorCodeField: thrownMessage === null && hasErrorCodeField,
         ccmNodeCount: nodes?.length ?? null,
         ccmEdgeCount: edges?.length ?? null,
         ccmHash,
