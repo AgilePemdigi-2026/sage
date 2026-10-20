@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { chromium } from "playwright";
 
 const base = process.env.SAGE_HTTP_BASE_URL ?? "http://web:3000";
-const output = "artifacts/ui-02";
+const output = process.env.FIGMA_UI_EVIDENCE_DIR ?? "artifacts/ui-02";
 const sha = "a136f9c488b04116ac641732e451d2c4a8b6291e";
 const browser = await chromium.launch({ headless: true });
 const checks: string[] = [];

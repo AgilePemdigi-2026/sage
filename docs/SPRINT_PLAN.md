@@ -1,6 +1,6 @@
 # Sprint plan
 
-Baseline: 18 Oktober 2026, Asia/Jakarta. Rencana ini menggantikan pembagian fitur 6/7/7 pada PDF awal untuk pelaksanaan mendatang. Histori estimasi awal tetap dicatat di [sumber](SOURCES.md). Pembagian 42 issue berdasarkan bobot dan bukti tiap anggota telah diterapkan pada GitHub; lihat [alokasi sprint](SPRINT_ALLOCATION.md).
+Baseline: 18 Oktober 2026, Asia/Jakarta. Rencana ini menggantikan pembagian fitur 6/7/7 pada PDF awal untuk pelaksanaan mendatang. Histori estimasi awal tetap dicatat di [sumber](SOURCES.md). Pembagian 43 issue berdasarkan bobot dan bukti tiap anggota telah diterapkan pada GitHub; lihat [alokasi sprint](SPRINT_ALLOCATION.md).
 
 ## Kalender yang disepakati
 
@@ -30,6 +30,7 @@ Tujuan: setup lokal dapat direproduksi, login/target repository berfungsi, serta
 | Runner/progress | ANA-07-S1 | Rizqy: sembilan key tahap, persistensi state, failure menghentikan downstream; stub tepercaya berlabel pada test |
 | UI dasar | UI-01, GRAPH-01-S1, QA-03-S1 | Valentina: komponen responsive, canvas fixture valid, keyboard dan lima viewport |
 | Dokumentasi penggunaan | DOC-03 | Rizqy: README, use flow, logo stack dan operasi Docker |
+| Regression browser (tambahan 20 Oktober) | QA-04-S1 | Valentina: tujuh suite Playwright, lima viewport, auth/session, public/pagination, akses provider terpisah dan laporan cakupan |
 | Frontend Figma (tambahan 20 Oktober) | UI-02, UI-03 | Valentina: landing/repository/progres/history/graph; Zarra: dokumen dan sinkronisasi docs. Preview berlabel, integrasi produk tetap Sprint 2 |
 
 Review user story menilai login, penolakan izin, search/branch/commit invalid, snapshot immutable, antrean dua request, serta contoh source PHP dan JS/TS. Adapter dasar tidak berarti fitur analisis lengkap sudah Done. Ketiga artefak dan ekspor tetap harus dituntaskan pada Sprint 2.
