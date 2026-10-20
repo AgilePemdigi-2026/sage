@@ -1,0 +1,68 @@
+{
+  "issue": 11,
+  "scope": "CCM validator hardening and declaration adapter compatibility; parent acceptance remains open",
+  "date": "2026-10-21",
+  "timezone": "Asia/Jakarta",
+  "baseCommit": "4c93f5dcbebb9edc6a47881ca380c14e26423b5b",
+  "implementationCommits": [
+    "ec553891153ef80132a3936728b8f9ec4301975a",
+    "da8f3c42f1ab776eaeb6a280742ef487756d236e"
+  ],
+  "environment": {
+    "platform": "linux",
+    "arch": "arm64",
+    "node": "24.22.0",
+    "npm": "11.17.0",
+    "php": "8.4.26",
+    "typescript": "5.9.3",
+    "imageId": "sha256:bf6056ca5e14513523f5e30784dcd20bf232d886c7d73e94a515c333de8b2629",
+    "cpuLimit": 1,
+    "memoryLimitGiB": 2,
+    "network": "none"
+  },
+  "results": {
+    "lint": "PASS",
+    "rootAndWebTypecheck": "PASS",
+    "mainTests": {
+      "passed": 176,
+      "failed": 0
+    },
+    "dataUnitTests": {
+      "passed": 8,
+      "failed": 0
+    },
+    "contractTests": {
+      "passed": 13,
+      "failed": 0
+    },
+    "fixtureIntegrity": {
+      "files": 15,
+      "oracles": 12,
+      "integrity": "PASS",
+      "semanticAcceptance": "NOT_RUN",
+      "reviewStatus": "DRAFT_AWAITING_TEAM_REVIEW"
+    },
+    "baselineRegressions": {
+      "expectedFailures": 6,
+      "actualFailures": 6
+    },
+    "diffCheck": "PASS",
+    "independentCodeReview": "no remaining material findings after graph fixture correction"
+  },
+  "notRun": [
+    "production build",
+    "browser E2E",
+    "real PostgreSQL integration",
+    "full resolver oracle acceptance",
+    "end-to-end product pipeline"
+  ],
+  "sourceFileSha256": {
+    "packages/contracts/src/index.ts": "e64768ac56a1152e05cc4f1e8de9447cd8085b25ce2e81729244557028ebe6e0",
+    "tests/contracts.test.ts": "6240e3c9dde14fde13c454a7ae9c91414d1eaf51f7411aada526e0a6c4c0348f",
+    "tests/source-analysis.test.ts": "b5b6ab0f2f2f6f5e40057f0985d52d997b04988aae302ea1462bf93eab6c2517",
+    "apps/web/app/graph-preview/fixture-data.ts": "b1c97b04b215f9d3c63597df1d1c68db73a2dc46ab285e83d64eed8611963b46",
+    "tests/graph-foundation.test.ts": "04f7c42b5944ef676a9825fc7c049e2d623d9d851ad180f647fb9f20cdd14a08",
+    "tests/fixtures/manifest.json": "41697b000ef84741303d82828740fcfb6cd0c0a52355dfd2b742bf94c3a54148",
+    "package-lock.json": "d46da4a65404fc3919451f5db4741fab413e12ed22d8cdb483a79bf0e85eea6a"
+  }
+}
