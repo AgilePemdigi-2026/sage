@@ -54,7 +54,7 @@ Field minimum: `id`, `kind`, `name`, `qualifiedName`, `language`, `filePath`, `l
 
 Kategori inti mengikuti desain: `Module`, `Class`, `Interface`, `Function`, `Method`, `Property`, dan `UnresolvedReference`. Label UI kategori terakhir adalah `Referensi belum terselesaikan`. `Controller`, `Service`, dan `Repository` adalah nama/peran kode, bukan kategori AST.
 
-Kategori tambahan untuk `TypeAlias`, `Enum`, dan `Trait` memerlukan fixture, label/filter UI, dan keputusan taxonomy pada spike; jangan menyamarkannya sebagai kategori lain. Sampai kategorinya terdaftar, catat konstruksi yang belum terwakili sebagai keterbatasan.
+Kategori tambahan untuk `TypeAlias`, `Enum`, dan `Trait` memerlukan fixture, label/filter UI, dan keputusan taxonomy pada spike; jangan menyamarkannya sebagai kategori lain. Sampai kategorinya terdaftar, catat konstruksi yang belum terwakili sebagai keterbatasan. [Spike taxonomy ANA-05](CCM_TAXONOMY_SPIKE.md) mencatat karakterisasi dua adapter, alasan mempertahankan registry v1 saat ini, dan syarat perluasannya; bukan klaim dukungan konstruksi tersebut.
 
 `origin` bernilai `source`, `stdlib`, `external`, atau `unresolved`. Node source memiliki lokasi deklarasi nyata. Placeholder unresolved tidak memiliki deklarasi palsu; evidence berada pada edge referensi. Simbol standard library boleh memiliki deklarasi null bila identitasnya didukung katalog bahasa berversi dan evidence referensinya tetap tersedia.
 

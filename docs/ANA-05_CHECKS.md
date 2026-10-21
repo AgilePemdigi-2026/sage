@@ -54,3 +54,24 @@ Issue #11 tetap terbuka. Paket ini membuktikan hardening struktur dan kompatibil
 ## Pembaruan integrasi 21 Oktober 2026
 
 Dua resolver statis kini menghasilkan CCM yang cocok dengan 21 fakta oracle independen, termasuk target/reason, evidence dan replay canonical. Full check integrasi lulus 202 tes utama dan 8 tes data; lihat [RESOLVER_CHECKS](RESOLVER_CHECKS.md). Bukti hardening di atas tetap berlaku. Issue ANA-05 dan QA-01 mengikuti acceptance parent-nya sendiri; review formal manifest serta benchmark repository representatif belum dinyatakan selesai.
+
+## Spike taxonomy dan regresi ID edge — 21 Oktober 2026
+
+Base integrasi: `118156fd649766f906b9e8361701fbbe35cb4f4d` (sesudah canonical CKG). Paket ini menambahkan satu regresi validator/canonicalizer untuk ID edge Exact dan Unresolved palsu, serta dua tes kompatibilitas taxonomy. Tidak ada perubahan registry atau kemampuan parser yang diklaim. [Hasil spike](CCM_TAXONOMY_SPIKE.md) memetakan konstruksi source ke kind atau limitation, alasan kompatibilitas, dan syarat perluasan.
+
+Pengujian memakai image worker lokal Node 24.22.0, PHP 8.4.26, npm 11.17.0, TypeScript 5.9.3; container sementara dibatasi 1 CPU/2 GiB tanpa jaringan. Worktree dipasang di `/workspace`, dependency root `node_modules`, generated Prisma, serta PHP `vendor` dipasang pada lokasi paket yang sama. Command aktual di dalam lingkungan tersebut:
+
+```sh
+node --import tsx --test tests/contracts.test.ts
+node --import tsx --test tests/taxonomy-compatibility.test.ts
+npm run check
+npm run fixtures:verify
+npm run fixtures:verify:resolvers
+git diff --check
+```
+
+Hasil: 14/14 tes kontrak, 2/2 tes taxonomy, lint dan typecheck root/web PASS, **237/237 tes utama dan 8/8 tes data PASS**, integritas seed 15 file/12 oracle dan resolver 6 file/21 fakta PASS. Tes taxonomy membuktikan limitation per path/stage/reason, sibling yang didukung, tidak adanya deklarasi/member palsu dari konstruksi unsupported, serta canonical CCM/CKG yang tetap sama setelah JSON round-trip dan pengubahan urutan input. Fingerprint kode/tes ada pada [evidence taxonomy](evidence/ANA-05-taxonomy-2026-10-21.json).
+
+Percobaan awal tes terfokus PHP belum memasang dependency vendor pada worktree; setelah dependency dipasang, tes lulus. Ini kegagalan konfigurasi pengujian, bukan kegagalan parser. Tidak ditemukan bug analyzer baru pada subset yang diuji. Build web, PostgreSQL nyata, browser E2E, dan benchmark representatif tidak dijalankan ulang karena perubahan hanya menambah bukti kontrak/taxonomy dan dokumentasi. Layanan aplikasi/database tidak dinyalakan dan container verifikasi sudah berhenti.
+
+Issue #11 tetap terbuka untuk gate QA-01: manifest oracle masih `DRAFT_AWAITING_TEAM_REVIEW`, review formal tim dan benchmark repository representatif belum diterima. Status verifier integritas `semanticAcceptance: NOT_RUN` tetap benar; bukti semantik berasal dari tes terpisah. Review PR independen tidak disebut sebagai review manusia tim atau penerimaan penuh QA-01.
