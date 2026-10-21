@@ -141,3 +141,9 @@ Error job seperti `PARSE_FAILED`, `NO_SUPPORTED_SOURCE`, `CCM_INVALID`, `ARTIFAC
 ## Hal yang masih perlu dipin
 
 Ukuran pagination, interval polling, TTL idempotency, resource limits, masa berlaku session, versi schema validator, dan detail cleanup transaction dipastikan pada ENV-01/GH-01/DATA-01. Kontrak yang berubah harus dicatat sebelum frontend/backend mengandalkan implementasi berbeda.
+
+## Implementasi pembacaan dokumen DOC-01
+
+`GET /api/analyses/{analysisId}/document` tidak menerima query parameter. Envelope `{ data: { analysisId, accountKey, contentHash, document } }` membawa `sage-add-v1` lengkap dari canonical CKG dan archive ACTIVE terbaru yang terikat owner/analysis, diurutkan createdAt/id. Source bytes, storage key dan kredensial tidak dikirim. Owner/status diperiksa sebelum akses storage; parent target/config serta hash/mirror graph dan dokumen diperiksa ulang.
+
+ID/query invalid menghasilkan 400 `INVALID_INPUT`; session atau `X-SAGE-Account` tidak cocok menghasilkan 401 `AUTH_REQUIRED`; missing/foreign 404 `ANALYSIS_NOT_FOUND`; milik sendiri belum sukses 409 `RESULT_NOT_READY`; hasil terminal hilang/rusak 503 `DOCUMENT_UNAVAILABLE` generik. Respons memakai `Cache-Control: private, no-store`, `Vary: Cookie, X-SAGE-Account`, serta `X-Content-Type-Options: nosniff`. Halaman dokumen memeriksa ulang identitas dan membuang respons lama setelah pergantian akun. Endpoint ini tidak menyediakan download/ekspor #20/#21 atau menerbitkan status terminal #16.

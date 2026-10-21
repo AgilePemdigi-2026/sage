@@ -1,6 +1,6 @@
 # Requirements traceability
 
-Status diperbarui 20 Oktober 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Paket Sprint 1 memiliki bukti implementasi terpisah; keberadaan mapping tidak membuktikan acceptance MVP penuh. Status “paket teruji” mengacu bukti issue dan check record, termasuk batas pengujian controlled/live; status Planned tetap menunggu penerimaan produk.
+Status diperbarui 21 Oktober 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Paket Sprint 1 memiliki bukti implementasi terpisah; keberadaan mapping tidak membuktikan acceptance MVP penuh. Status “paket teruji” mengacu bukti issue dan check record, termasuk batas pengujian controlled/live; status Planned tetap menunggu penerimaan produk.
 
 Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Rincian perilaku dibaca bersama sumber dan PRD, bukan digantikan hanya oleh judul. ID backlog adalah ID internal; nomor issue GitHub tersedia pada tabel product backlog. Test ID merujuk [test plan](TEST_PLAN.md).
 
@@ -37,10 +37,10 @@ Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Ri
 | SAGE-FR-ANA-04 | Supported Source Code Analysis | 32 | Progres / Hasil | ANA-03, ANA-04 | T-ANA-03 | 1-2 | Adapter statis teruji sesuai capability; integrasi produk menunggu pipeline |
 | SAGE-FR-ANA-05 | Common Code Model Generation | 32 | Progres / Hasil | ANA-05 | T-ANA-04 | 1-2 | Hardening validator, regresi ID edge, dan spike taxonomy; kompatibilitas resolver/CKG diuji; acceptance parent menunggu gate QA-01 |
 | SAGE-FR-ANA-06 | Code Knowledge Graph Generation | 33 | Graph | ANA-06 | T-ANA-04, T-GRAPH-01 | 2 | Planned |
-| SAGE-FR-ANA-07 | Interface Catalog Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | Planned |
-| SAGE-FR-ANA-08 | Software Engineering Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-02 component tested; ADD/UI integration pending |
-| SAGE-FR-ANA-09 | UML Class Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-02 component tested; ADD/UI integration pending |
-| SAGE-FR-ANA-10 | Architecture Definition Document Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | Planned |
+| SAGE-FR-ANA-07 | Interface Catalog Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
+| SAGE-FR-ANA-08 | Software Engineering Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
+| SAGE-FR-ANA-09 | UML Class Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
+| SAGE-FR-ANA-10 | Architecture Definition Document Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
 | SAGE-FR-ANA-11 | Analysis Progress Update | 33 | Progres | ANA-07 | T-ANA-02 | 1-2 | Planned |
 | SAGE-FR-ANA-12 | Unsupported Language Notification | 33 | Progres / Keterbatasan | ANA-02 | T-ANA-05 | 1 | Paket ANA-02 teruji; integrasi penuh mengikuti test plan |
 | SAGE-FR-ANA-13 | Partial Analysis Continuation | 33 | Progres / Keterbatasan | ANA-02, ANA-03, ANA-04 | T-ANA-05 | 1-2 | Partial/failed sibling dan unresolved teruji pada worker; alur produk menunggu pipeline |
@@ -56,13 +56,13 @@ Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Ri
 | SAGE-FR-GRAPH-08 | Location and AST Bounds Display | 35 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Planned |
 | SAGE-FR-GRAPH-09 | Direct Relations Display | 36 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Planned |
 | SAGE-FR-GRAPH-10 | Source Evidence Display | 36 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Planned |
-| SAGE-FR-GRAPH-11 | Document Access | 36 | Graph / Dokumen | DOC-01 | T-DOC-01 | 2 | Planned |
+| SAGE-FR-GRAPH-11 | Document Access | 36 | Graph / Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
 | SAGE-FR-GRAPH-12 | Unavailable Result Handling | 36 | Graph unavailable / Progres | ANA-07 | T-ANA-02, T-GRAPH-03 | 1-2 | Planned |
 | SAGE-FR-GRAPH-13 | Analysis Progress Display | 36 | Graph unavailable / Progres | ANA-07 | T-ANA-02, T-GRAPH-03 | 1-2 | Planned |
-| SAGE-FR-EXP-01 | Architecture Definition Document Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | Planned |
-| SAGE-FR-EXP-02 | Interface Catalog Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | Planned |
-| SAGE-FR-EXP-03 | Software Engineering Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-02 component tested; ADD/UI integration pending |
-| SAGE-FR-EXP-04 | UML Class Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-02 component tested; ADD/UI integration pending |
+| SAGE-FR-EXP-01 | Architecture Definition Document Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
+| SAGE-FR-EXP-02 | Interface Catalog Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
+| SAGE-FR-EXP-03 | Software Engineering Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
+| SAGE-FR-EXP-04 | UML Class Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
 | SAGE-FR-EXP-05 | PDF Export | 38 | Dokumen / Ekspor PDF | EXP-02 | T-EXP-02 | 2 | Planned |
 | SAGE-FR-EXP-06 | Markdown Export | 38 | Dokumen / Ekspor Markdown | EXP-01 | T-EXP-01 | 2 | Planned |
 | SAGE-FR-EXP-07 | Export File Generation | 38 | Dokumen / Ekspor | EXP-01, EXP-02 | T-EXP-01, T-EXP-02, T-EXP-03 | 2 | Planned |

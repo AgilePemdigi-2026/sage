@@ -1,6 +1,6 @@
 # Arsitektur sistem
 
-Status per 21 Oktober 2026: login GitHub, akses repository, validasi target, submission idempotent ke durable queue, snapshot immutable, serta source handlers tersedia dan memiliki bukti per issue. Runner tahap dan penyimpanan status juga tersedia. Consumer analisis produk tetap nonaktif (`workerQueueEnabled=false`), sehingga submission belum menjalankan pipeline sembilan tahap sampai selesai. History produk membaca record analisis nyata melalui list/detail GET (HIST-01); graph produk membaca canonical CKG tersimpan setelah status sukses (GRAPH-01). Query/filter, inspector, dokumen produk, ekspor, dan penghapusan masih mengikuti issue terbuka. Detail setup dan batas bukti ada di [setup lokal](LOCAL_SETUP.md).
+Status per 21 Oktober 2026: login GitHub, akses repository, validasi target, submission idempotent ke durable queue, snapshot immutable, serta source handlers tersedia dan memiliki bukti per issue. Runner tahap dan penyimpanan status juga tersedia. Consumer analisis produk tetap nonaktif (`workerQueueEnabled=false`), sehingga submission belum menjalankan pipeline sembilan tahap sampai selesai. History produk membaca record analisis nyata melalui list/detail GET (HIST-01); graph produk membaca canonical CKG tersimpan setelah status sukses (GRAPH-01). Dokumen produk membaca ADD canonical tersimpan dengan katalog dan diagram SVG lokal (DOC-01). Query/filter, inspector, ekspor, dan penghapusan masih mengikuti issue terbuka. Detail setup dan batas bukti ada di [setup lokal](LOCAL_SETUP.md).
 
 ## Komponen
 
@@ -76,7 +76,7 @@ Publikasikan graph dan ADD sebagai satu result bundle setelah kesembilan tahap b
 
 Kegagalan ekspor setelah hasil tersedia hanya memengaruhi export job. Graph dan ADD yang telah selesai tetap dapat dibuka. Satu format aktif pada toolbar dokumen menonaktifkan permintaan format lain pada toolbar yang sama sesuai alur mockup.
 
-Diagram statis merupakan proyeksi dari canonical graph. DOC-02 memakai Mermaid untuk source mandiri dan SVG, melalui Chromium dengan jaringan diblokir serta validasi output. Pilihan renderer tidak menentukan fakta atau resolusi relasi. Integrasi ADD dan ekspor produk masih mengikuti DOC-01/EXP-01/EXP-02.
+Diagram statis merupakan proyeksi dari canonical graph. DOC-02 memakai Mermaid untuk source mandiri dan SVG, melalui Chromium dengan jaringan diblokir serta validasi output. Pilihan renderer tidak menentukan fakta atau resolusi relasi. DOC-01 mengintegrasikan ADD dan tampilan diagram lokal. Ekspor produk masih mengikuti EXP-01/EXP-02.
 
 ## Batas keamanan pemrosesan
 
@@ -112,3 +112,11 @@ ANA-06 menyediakan `createCkgStageHandlers` untuk COMMON_CODE_MODEL dan KNOWLEDG
 Web memeriksa session dan pemilik/status analisis sebelum membaca snapshot archive dari volume read-only. Archive aktif terbaru dipilih secara owner/analysis-scoped dengan urutan createdAt/id; canonical reader memverifikasi kembali hash/source/mirror dan target immutable. Endpoint graph hanya menyediakan proyeksi lengkap setelah status sukses, tanpa source bytes, path storage atau token. Validasi byte archive ini tidak menjalankan adapter/resolver atau source target.
 
 Browser mengikat payload ke ID analisis serta akun, membuang respons generasi lama, dan menghapus data sebelum pemeriksaan ulang identitas pada focus/pageshow/visibility. Mode Ikhtisar/Fokus/Semua referensi hanya menghasilkan subset tampilan dari fakta canonical. Budget render 200 node/500 edge dijelaskan bersama canonical/mode/visible counts; API tidak memotong graph. Query/filter dan inspector/source mengikuti GRAPH-02/03. Bukti terisolasi dan batas pipeline tersedia pada [GRAPH-01_CHECKS](GRAPH-01_CHECKS.md).
+
+## Model dan akses dokumen DOC-01
+
+Setelah KNOWLEDGE_GRAPH, handler INTERFACE_CATALOG, SOFTWARE_ENGINEERING_DIAGRAM dan UML_CLASS_DIAGRAM memproyeksikan CKG yang sama. ARCHITECTURE_DOCUMENT memeriksa ulang identitas serta isi artefak sebelumnya dan menyimpan tiga artefak sekaligus sebagai canonical ADD. Snapshot/source tetap owner-bound; tidak ada fetch HEAD atau eksekusi source target pada tahap dokumen. Model murni diekspor melalui `@sage/documents/model`, sehingga database tidak perlu memuat Chromium atau renderer Mermaid.
+
+Dokumen internal dan graph disembunyikan oleh canonical reader selama analisis belum sukses. DOC-01 tidak menyatakan Analysis/Job selesai dan tidak mengaktifkan consumer. ANA-07 memeriksa kelengkapan/hash kedua hasil dan menerbitkan status sukses secara atomik. Detail kontrak: [spesifikasi analisis](ANALYSIS_SPEC.md#model-add-dan-batas-publikasi-doc-01).
+
+Halaman `/analyses/{analysisId}/document` mengambil model melalui API privat setelah memeriksa session dan owner. Client mengosongkan hasil saat identitas diperiksa ulang atau akun berubah, dan menolak respons lama. Mermaid lokal merender source proyeksi tervalidasi dengan guard DOC-02; SVG diperiksa lalu ditampilkan sebagai gambar Blob. Kontrol zoom 100–400% dan scroll lokal membantu membaca diagram lebar; karakter escape dinormalisasi hanya sebagai teks SVG. Kegagalan/batas renderer ditampilkan eksplisit tanpa memotong katalog atau fakta canonical. Ekspor Markdown/PDF mengikuti issue berikutnya.

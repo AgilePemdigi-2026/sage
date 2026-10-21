@@ -1,6 +1,6 @@
 # Spesifikasi analisis
 
-Status: kontrak teknis awal `schemaVersion = 1`; belum menjadi hasil analyzer yang telah diuji. Perubahan kontrak harus memperbarui API, data model, fixture, dan traceability.
+Status per 21 Oktober 2026: kontrak CCM `schemaVersion = 1`, canonical CKG `sage-ckg-v1` dan ADD `sage-add-v1` memiliki bukti komponen serta integrasi per issue. Consumer pipeline produk dan gate oracle formal tetap terbuka. Perubahan kontrak harus memperbarui API, data model, fixture, dan traceability.
 
 ## Prinsip
 
@@ -120,7 +120,7 @@ Dokumen menyimpan repository, branch, full SHA, versi analyzer/schema/config, so
 
 Relasi unresolved tetap terlihat dan berbeda dari exact pada ketiga artefak yang relevan. Node synthetic projection boleh membantu layout, tetapi tidak menambah canonical fact. Setiap elemen artefak menyimpan `nodeIds`/`edgeIds` dan evidence agar sumbernya dapat ditelusuri.
 
-Markdown dan PDF dirender dari document model yang sama. DOC-02 menyediakan source Mermaid mandiri dan SVG melalui `@sage/documents`; integrasi document model, Markdown, dan ekspor PDF produk tetap dikerjakan pada DOC-01/EXP-01/EXP-02. Export job tidak menganalisis ulang repository atau mengikuti HEAD terbaru.
+Markdown dan PDF dirender dari document model yang sama. DOC-02 menyediakan source Mermaid mandiri dan SVG melalui `@sage/documents`; DOC-01 menyediakan document model dan halaman hasil; Markdown dan ekspor PDF produk tetap dikerjakan pada EXP-01/EXP-02. Export job tidak menganalisis ulang repository atau mengikuti HEAD terbaru.
 
 ## Kontrak proyeksi diagram DOC-02
 
@@ -129,3 +129,13 @@ Markdown dan PDF dirender dari document model yang sama. DOC-02 menyediakan sour
 Bundle menyimpan hash CKG, snapshot, provenance, configuration hash, limitation, salinan fakta canonical, serta pemetaan baris Mermaid ke node/edge ID dan evidence. Member UML mempertahankan ID dan relasi containment induknya walaupun tampil di dalam kotak class. Diagram struktur membedakan Exact dengan garis utuh dan Unresolved dengan garis putus-putus serta alasan. UML memakai panah generalization/realization standar untuk relasi exact; relasi unresolved diberi label UNRESOLVED beserta alasan. Label berasal dari data yang di-encode, sedangkan alias berasal dari ID canonical.
 
 `renderDiagramBundle` menerima canonical CKG yang sama, membangkitkan proyeksi sendiri, lalu merender Mermaid lokal di Chromium tanpa akses jaringan. SVG diperiksa terhadap konten aktif dan referensi eksternal. Dua diagram diterbitkan bersama hanya jika keduanya berhasil. Guard per diagram: 50.000 karakter/byte Mermaid, 500 node, 500 edge, dan SVG 4 MiB; timeout default 15 detik, opsi 250–30.000 ms. Batas ini guard renderer, bukan klaim kapasitas repository produk. Input berlebih ditolak tanpa pemotongan fakta.
+
+## Model ADD dan batas publikasi DOC-01
+
+`projectArchitectureDocument` membentuk `sage-add-v1` dari satu canonical CKG dan byte snapshot tervalidasi. Model memuat context repository/branch/full SHA, hash CKG/configuration, provenance, metadata file, counts canonical, limitation, Interface Catalog, Software Engineering Diagram dan UML Class Diagram. JSON/hash deterministik tidak memasukkan ID job, waktu generate atau status antrean. `parseCanonicalArchitectureDocument` meregenerasi proyeksi yang diharapkan dan menolak JSON/hash atau fakta/mapping yang berubah.
+
+Interface Catalog mencatat deklarasi source non-Module beserta signature nullable, ID node/relasi dan evidence. Cakupan ini tidak menyatakan semua deklarasi sebagai API publik. Ekspor hanya ditunjukkan oleh fakta EXPORTS; callback, HTTP method/URL, visibility atau type alias yang tidak direkam CCM tidak dibuat. Seluruh relasi canonical, termasuk CONTAINS serta Unresolved beserta alasan dan evidence, dipertahankan sebagai observasi. Kedua proyeksi diagram memakai kontrak DOC-02 yang sama.
+
+Stage 6–8 menghasilkan artefak terpisah dengan identitas CKG/document dan context yang sama; stage 9 memverifikasi ulang ketiganya lalu menyimpan seluruh dokumen dalam satu transaksi. Penulisan dibatasi owner, attempt/token, lease berdasarkan jam database, tahap aktif, target immutable dan GraphBundle yang cocok. Replay identik boleh diterima; isi berbeda tidak menimpa hasil. Reader hasil hanya mengembalikan dokumen canonical milik akun untuk analisis sukses.
+
+Atomicity DOC-01 berarti ketiga artefak dokumen tersedia bersama dalam satu baris internal. Publikasi GraphBundle + dokumen + resultHash dan status Analysis/Job terminal berhasil merupakan ANA-07 #16. Sampai publikasi tersebut tersedia, stage selesai tidak otomatis mengubah analisis menjadi Completed. Halaman dan API dokumen DOC-01 membaca model canonical hanya setelah status sukses. Diagram dirender Mermaid lokal dengan guard DOC-02 dan SVG diperiksa sebelum ditampilkan sebagai gambar Blob. Batas/kegagalan render terlihat tanpa memotong fakta atau menyatakan diagram sukses. Download Markdown/PDF tetap mengikuti #20/#21.

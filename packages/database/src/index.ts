@@ -87,3 +87,5 @@ export type {
   HistoryStatusFilter,
 } from "./history.ts";
 export type { ResolvedSession } from "./session.ts";
+
+export { CanonicalDocumentIntegrityError, persistCanonicalDocument, readCanonicalDocumentForUser } from "./documents.ts";
