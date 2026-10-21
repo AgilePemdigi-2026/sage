@@ -308,6 +308,8 @@ model GraphBundle {
   analysisId        String
   schemaVersion     String
   configurationHash String
+  /// Canonical, replayable CKG envelope. Null only for legacy rows created before ANA-06.
+  canonicalContent  String?
   nodes             Json
   edges             Json
   nodeCount         Int

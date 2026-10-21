@@ -29,6 +29,7 @@ export {
   findSourceFileForUser,
   findStorageObjectForUser,
 } from "./access.ts";
+export { CanonicalGraphIntegrityError, persistCanonicalGraph, readCanonicalGraphForUser } from "./graphs.ts";
 export {
   decryptCredential,
   encryptCredential,
