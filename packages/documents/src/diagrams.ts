@@ -55,10 +55,10 @@ export type DiagramProjectionResult =
 
 const CLASSIFIER_KINDS = new Set<CcmNode["kind"]>(["Class", "Interface"]);
 const UML_RELATION_KINDS = new Set<CcmEdge["kind"]>(["EXTENDS", "IMPLEMENTS"]);
-const MERMAID_ESCAPED_CHARACTERS = new Set(Array.from("\"'&<>[]{}|#;(){}+-~@`\\"));
+const MERMAID_ESCAPED_CHARACTERS = new Set(Array.from("\"'&<>[]{}|#;(){}+-~@`$*_\\"));
 
 /** Keep ordinary label text readable and entity-escape Mermaid/XML delimiters deterministically. */
-function mermaidText(value: string): string {
+function mermaidText(value: string, methodGrammar = false): string {
   let encoded = "";
   for (const character of value) {
     const codePoint = character.codePointAt(0)!;
@@ -75,7 +75,8 @@ function mermaidText(value: string): string {
       : character;
     for (const visibleCharacter of visible) {
       const visibleCodePoint = visibleCharacter.codePointAt(0)!;
-      if (MERMAID_ESCAPED_CHARACTERS.has(visibleCharacter) ||
+      if ((MERMAID_ESCAPED_CHARACTERS.has(visibleCharacter) &&
+          !(methodGrammar && (visibleCharacter === "(" || visibleCharacter === ")"))) ||
           (visibleCodePoint < 0x20 && visibleCodePoint !== 0x09 && visibleCodePoint !== 0x0a && visibleCodePoint !== 0x0d)) {
         encoded += `#${visibleCodePoint};`;
       } else {
@@ -199,7 +200,12 @@ function buildUmlDiagram(allNodes: CcmNode[], allEdges: CcmEdge[]): DiagramProje
     for (const member of ownMembers) {
       // No visibility or type is inferred; use only the declared signature/name carried by the CKG.
       const category = member.kind === "Method" ? "method" : "property";
-      mermaid.push(`    ${category} ${mermaidText(member.signature ?? member.name)}`);
+      const declaredText = member.signature ?? member.name;
+      // Parentheses select Mermaid's method compartment. If the adapter did not
+      // record parameters, say so explicitly instead of implying zero arguments.
+      const memberText = member.kind === "Method" && !declaredText.includes(")")
+        ? `${declaredText}(parameter tidak tersedia)` : declaredText;
+      mermaid.push(`    ${category} ${mermaidText(memberText, member.kind === "Method")}`);
       const parentContainmentEdgeIds = allEdges
         .filter(edge => edge.kind === "CONTAINS" && edge.sourceId === classifier.id && edge.targetId === member.id)
         .map(edge => edge.id);

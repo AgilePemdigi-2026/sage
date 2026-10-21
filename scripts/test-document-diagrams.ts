@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import { createHash } from "node:crypto";
-import { access, mkdir, rm, stat, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
@@ -68,6 +69,47 @@ async function readVisibleSvgText(markups: readonly string[]): Promise<string[]>
       }
       return visibleText;
     }, [...markups]);
+  } finally {
+    await browser.close();
+  }
+}
+
+async function verifyUmlCompartments(bundle: Awaited<ReturnType<typeof renderDiagramBundle>>): Promise<void> {
+  assert.ok(bundle.ok);
+  const uml = bundle.value.bundle.diagrams[0];
+  const require = createRequire(import.meta.url);
+  const script = await readFile(resolve(dirname(require.resolve("mermaid")), "mermaid.min.js"), "utf8");
+  const browser = await chromium.launch({ headless: true, timeout: 10_000 });
+  try {
+    const context = await browser.newContext({ serviceWorkers: "block" });
+    await context.route("**/*", route => route.abort());
+    const page = await context.newPage();
+    await page.setContent("<!doctype html><html><head><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; object-src 'none'\"></head><body></body></html>");
+    await page.addScriptTag({ content: "globalThis.__name = (value) => value;" });
+    await page.addScriptTag({ content: script });
+    const parsed = await page.evaluate(async (source: string) => {
+      const mermaid = (window as unknown as { mermaid: {
+        initialize(config: object): void;
+        mermaidAPI: { getDiagramFromText(source: string): Promise<{ db: { getClasses(): Map<string, {
+          methods: unknown[]; members: unknown[];
+        }> } }> };
+      } }).mermaid;
+      mermaid.initialize({ securityLevel: "strict", htmlLabels: false, startOnLoad: false });
+      const diagram = await mermaid.mermaidAPI.getDiagramFromText(source);
+      return Array.from(diagram.db.getClasses(), ([id, item]) => ({ id, methods: item.methods.length, properties: item.members.length }));
+    }, uml.mermaid);
+    for (const language of ["javascript", "typescript", "php"]) {
+      assert.ok(uml.nodes.some(node => node.kind === "Method" && node.language === language), `method fixture required for ${language}`);
+    }
+    for (const classifier of uml.nodes.filter(node => node.kind === "Class" || node.kind === "Interface")) {
+      const alias = uml.nodeMappings.find(mapping => mapping.nodeId === classifier.id)!.mermaidId;
+      const actual = parsed.find(item => item.id === alias);
+      assert.ok(actual, `Mermaid classifier missing: ${alias}`);
+      assert.equal(actual.methods, uml.nodes.filter(node => node.parentId === classifier.id && node.kind === "Method").length,
+        `native Mermaid method compartment differs for ${classifier.language} ${classifier.name}`);
+      assert.equal(actual.properties, uml.nodes.filter(node => node.parentId === classifier.id && node.kind === "Property").length,
+        `native Mermaid property compartment differs for ${classifier.language} ${classifier.name}`);
+    }
   } finally {
     await browser.close();
   }
@@ -225,9 +267,9 @@ require("node:fs").writeFileSync(${JSON.stringify(jsCanaryMarker)}, "executed");
   };
   const tsSources = {
     "src/ts/model.ts": encoder.encode(`
-export interface Contract { value: string; }
+export interface Contract { value: string; run(value: string): void; }
 export class Parent {}
-export class Child extends Parent implements Contract { value = "ready"; }
+export class Child extends Parent implements Contract { value = "ready"; run(value: string) { return value; } }
 export class MissingChild extends MissingBase {}
 `),
   };
@@ -264,6 +306,7 @@ final class MissingChild extends MissingBase {}
   assert.ok(rendered.value.browserVersion.length > 0);
   assert.equal(rendered.value.blockedRequestCount, 0, "diagram rendering must not attempt external network requests");
   assert.deepEqual(rendered.value.diagrams.map(diagram => diagram.kind), ["uml-class", "software-structure"]);
+  await verifyUmlCompartments(rendered);
   const visibleLabels = await readVisibleSvgText(rendered.value.diagrams.map(diagram => diagram.svg));
   assert.ok(visibleLabels.every(labels => labels.includes("DiagramCanary")), "visible model labels must survive SVG rendering");
   assert.doesNotMatch(visibleLabels.join("\n"), /&#58;/, "ordinary path and location punctuation remains readable");

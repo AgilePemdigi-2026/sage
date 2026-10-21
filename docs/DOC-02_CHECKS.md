@@ -27,7 +27,7 @@ Label di-encode sebagai data, alias diturunkan dari ID canonical. Chromium memak
 | Timeout dan kegagalan diagram kedua | Browser ditutup, hasil parsial tidak dikembalikan | PASS dengan browser double terkontrol |
 | Cetak A4 | Dua halaman terbaca tanpa clipping | PASS; kedua halaman dirasterisasi dan diperiksa visual |
 
-Tes proyeksi memakai resolver nyata masing-masing bahasa. Tes Chromium memakai CKG gabungan 30 node/25 edge dari tiga source fixture, termasuk Exact/Unresolved, quoted computed member, URL/HTML berbahaya, dan canary source JS/PHP. Byte source fixture dan full snapshot SHA sintetis direkam dalam canonical CKG; ini bukan analisis GitHub live. Hash CKG keamanan `f097f95ebb354459d83dd7a7395df2efd092072ec36662a21149a29a55c98fd2`.
+Tes proyeksi memakai resolver nyata masing-masing bahasa. Tes Chromium memakai CKG gabungan 32 node/27 edge dari tiga source fixture, termasuk Exact/Unresolved, quoted computed member, URL/HTML berbahaya, dan canary source JS/PHP. Byte source fixture dan full snapshot SHA sintetis direkam dalam canonical CKG; ini bukan analisis GitHub live. Hash CKG keamanan `49a8ac87a82c24b914efd7bb65f55c1f102320ca61f461d95cc25e63a5170074`.
 
 Untuk cetak terbaca, PDF memakai fixture campuran terpisah yang ringkas (8 node/5 edge), hash CKG `8533d526d690fd0bd3c8819f64b6513d026426ca4baf97dd93c040223b2d93bf`. Fixture keamanan yang panjang tetap diuji melalui Chromium dan pemeriksaan DOM/SVG, tanpa mengklaim graph besar otomatis terbaca pada satu lembar A4. Layout dan pagination ekspor produk tetap EXP-02.
 
@@ -42,6 +42,10 @@ git diff --check
 ```
 
 Container dibatasi 1 CPU/2 GiB dan jaringan nonaktif. Tidak perlu menjalankan web atau database aplikasi. Laporan, screenshot, serta PDF pemeriksaan disimpan pada `artifacts/document-diagrams` yang diabaikan Git.
+
+## Review PR
+
+Review independen pada [PR #78](https://github.com/AgilePemdigi-2026/sage/pull/78), head awal `031dcfd4bef17c07dff22ce79faa19b3e693c0aa`, menemukan method masuk ke kompartemen atribut karena tanda kurung ikut di-escape. Koreksi mempertahankan grammar method dan menandai parameter yang tidak direkam adapter sebagai `parameter tidak tersedia`. Regresi baru memeriksa jumlah method/property pada hasil parsing Mermaid asli untuk classifier JS, TS dan PHP; label, security, PDF, serta suite utama diuji ulang setelah koreksi.
 
 ## Batas penerimaan
 
