@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "reviewStatus": "DRAFT_AWAITING_TEAM_REVIEW",
   "reviewedBy": null,
-  "scope": "Hand-authored static resolver expectations for small cross-file JavaScript, TypeScript, and PHP source fixtures. Expected semantics were written from source, independently of analyzer output; this manifest records a draft oracle, not semantic acceptance.",
+  "scope": "Hand-authored static resolver expectations for small cross-file JavaScript, TypeScript, and PHP source fixtures, including aliased CommonJS bindings, class-member access versus conservative UNKNOWN_RECEIVER for local instance aliases, ambiguous extensionless modules, and parse-only execution canaries. Expected semantics and evidence are specified from source; this manifest remains a draft oracle, not semantic acceptance.",
   "files": [
     {
       "path": "tests/fixtures/resolver/javascript/src/app.js",
@@ -42,6 +42,81 @@
       "sha256": "152073b9cfa8c4081eb5bc1fd5bf673d57f9e60e52e0f9108d9f23953baf1af2",
       "sizeBytes": 241,
       "canary": "RESOLVER_PHP_FIXTURE_MUST_NOT_EXECUTE"
+    },
+    {
+      "path": "tests/fixtures/resolver/javascript/src/legacy.cjs",
+      "language": "javascript",
+      "sha256": "3ac07a6ada423602d00e24f195f1decf38d8fb54ca97dae76050519479ccc0e6",
+      "sizeBytes": 84
+    },
+    {
+      "path": "tests/fixtures/resolver/javascript/src/alias.cjs",
+      "language": "javascript",
+      "sha256": "b95333204d255321292714676840ddcf88d860baf17581498057190061c5c6e1",
+      "sizeBytes": 133
+    },
+    {
+      "path": "tests/fixtures/resolver/javascript/src/unsafe.js",
+      "language": "javascript",
+      "sha256": "454770988970ce28b08b55a3558d8a675ef3418d4bc246544935a0c8ec31fe71",
+      "sizeBytes": 213,
+      "canary": "SAGE_RESOLVER_JS_CANARY_MUST_NOT_EXECUTE"
+    },
+    {
+      "path": "tests/fixtures/resolver/typescript/src/model-node.ts",
+      "language": "typescript",
+      "sha256": "e47b74a7099094360533b2228ba922b1e8398b5edcc1636fb87fde101dc0763e",
+      "sizeBytes": 127
+    },
+    {
+      "path": "tests/fixtures/resolver/typescript/src/construction.ts",
+      "language": "typescript",
+      "sha256": "634a2e37192fdd1eb1ea04d9de2bdc9b9fb6474e3b3fb89f9af310f4ea9c397c",
+      "sizeBytes": 260
+    },
+    {
+      "path": "tests/fixtures/resolver/typescript/src/unsafe.ts",
+      "language": "typescript",
+      "sha256": "549b3b787e1a68e2d1b7f456ce5af59bb1b41d9b777b202274107f181d12cdd6",
+      "sizeBytes": 213,
+      "canary": "SAGE_RESOLVER_TS_CANARY_MUST_NOT_EXECUTE"
+    },
+    {
+      "path": "tests/fixtures/resolver/php/src/factory.php",
+      "language": "php",
+      "sha256": "7c3f5cdc3996123e53f4343ff9ef7bbcd3e77b86fac40cd64979950bd05de8d8",
+      "sizeBytes": 222
+    },
+    {
+      "path": "tests/fixtures/resolver/php/src/unsafe.php",
+      "language": "php",
+      "sha256": "bc7d5c48ed59517d982e6d20e19ba05dc8268b7605b1409f4e505d9549ee4640",
+      "sizeBytes": 208,
+      "canary": "SAGE_RESOLVER_PHP_CANARY_MUST_NOT_EXECUTE"
+    },
+    {
+      "path": "tests/fixtures/resolver/typescript/src/ambiguous.ts",
+      "language": "typescript",
+      "sha256": "5bbe2434653cdd560d1d2c91796ff6b06480fec62e1098a6e9cc68b40d9ecbee",
+      "sizeBytes": 28
+    },
+    {
+      "path": "tests/fixtures/resolver/typescript/src/variants/choice.ts",
+      "language": "typescript",
+      "sha256": "fd63bd0f18efb8972077aea90072f11770979d281d37006633bb97e731ed37d6",
+      "sizeBytes": 33
+    },
+    {
+      "path": "tests/fixtures/resolver/typescript/src/variants/choice.mts",
+      "language": "typescript",
+      "sha256": "c19855bcf7c2490733c34177d526b640c2a938a1605a844bd4e6cd0ffc8212af",
+      "sizeBytes": 39
+    },
+    {
+      "path": "tests/fixtures/resolver/typescript/src/variants/choice.cts",
+      "language": "typescript",
+      "sha256": "47825b8f12eb562cc61b6da5da8ae64b427f80859cc26a233b66a4b48f508333",
+      "sizeBytes": 37
     }
   ],
   "expectedEdges": [
@@ -548,12 +623,300 @@
         "startColumn": 5,
         "endColumn": 31
       }
+    },
+    {
+      "id": "js-cjs-alias-module",
+      "scenario": "commonjs-alias",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/alias.cjs",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/alias.cjs"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/javascript/src/legacy.cjs",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/legacy.cjs"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/alias.cjs",
+        "snippet": "./legacy.cjs",
+        "startByte": 38,
+        "endByte": 50,
+        "startLine": 1,
+        "endLine": 1,
+        "startColumn": 39,
+        "endColumn": 51
+      }
+    },
+    {
+      "id": "js-cjs-import-aliased-symbol",
+      "scenario": "commonjs-alias",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/alias.cjs",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/alias.cjs"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/javascript/src/legacy.cjs",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/legacy.cjs.normalize"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/alias.cjs",
+        "snippet": "normalize: clean",
+        "startByte": 8,
+        "endByte": 24,
+        "startLine": 1,
+        "endLine": 1,
+        "startColumn": 9,
+        "endColumn": 25
+      }
+    },
+    {
+      "id": "js-cjs-call-aliased-symbol",
+      "scenario": "commonjs-alias",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/javascript/src/alias.cjs",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/alias.cjs.render"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/javascript/src/legacy.cjs",
+        "qualifiedName": "tests/fixtures/resolver/javascript/src/legacy.cjs.normalize"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/javascript/src/alias.cjs",
+        "snippet": "clean",
+        "startByte": 88,
+        "endByte": 93,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 10,
+        "endColumn": 15
+      }
+    },
+    {
+      "id": "ts-construct-record-node",
+      "scenario": "construction-and-members",
+      "kind": "INSTANTIATES",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/construction.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/construction.ts.createRecord"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/typescript/src/model-node.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model-node.ts.RecordNode"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/construction.ts",
+        "snippet": "RecordNode",
+        "startByte": 104,
+        "endByte": 114,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 14,
+        "endColumn": 24
+      }
+    },
+    {
+      "id": "ts-ambiguous-extensionless-module",
+      "scenario": "ambiguous-module",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/ambiguous.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/ambiguous.ts"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "AMBIGUOUS_SYMBOL",
+        "reason": "AMBIGUOUS_SYMBOL"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/ambiguous.ts",
+        "snippet": "./variants/choice",
+        "startByte": 8,
+        "endByte": 25,
+        "startLine": 1,
+        "endLine": 1,
+        "startColumn": 9,
+        "endColumn": 26
+      }
+    },
+    {
+      "id": "php-instantiate-imported-base",
+      "scenario": "constructor",
+      "kind": "INSTANTIATES",
+      "source": {
+        "path": "tests/fixtures/resolver/php/src/factory.php",
+        "qualifiedName": "Resolver\\App\\Factory::create"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/php/src/contracts.php",
+        "qualifiedName": "Resolver\\Contracts\\Base"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/php/src/factory.php",
+        "snippet": "Base",
+        "startByte": 138,
+        "endByte": 142,
+        "startLine": 5,
+        "endLine": 5,
+        "startColumn": 47,
+        "endColumn": 51
+      }
+    },
+    {
+      "id": "php-check-payload-parameter",
+      "scenario": "typed-reference",
+      "kind": "TYPE_REFERENCES",
+      "source": {
+        "path": "tests/fixtures/resolver/php/src/factory.php",
+        "qualifiedName": "Resolver\\App\\Factory::check"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/php/src/contracts.php",
+        "qualifiedName": "Resolver\\Contracts\\Payload"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/php/src/factory.php",
+        "snippet": "Payload",
+        "startByte": 172,
+        "endByte": 179,
+        "startLine": 6,
+        "endLine": 6,
+        "startColumn": 25,
+        "endColumn": 32
+      }
+    },
+    {
+      "id": "php-check-payload-return",
+      "scenario": "typed-reference",
+      "kind": "TYPE_REFERENCES",
+      "source": {
+        "path": "tests/fixtures/resolver/php/src/factory.php",
+        "qualifiedName": "Resolver\\App\\Factory::check"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/php/src/contracts.php",
+        "qualifiedName": "Resolver\\Contracts\\Payload"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/php/src/factory.php",
+        "snippet": "Payload",
+        "startByte": 191,
+        "endByte": 198,
+        "startLine": 6,
+        "endLine": 6,
+        "startColumn": 44,
+        "endColumn": 51
+      }
+    },
+    {
+      "id": "ts-write-record-label",
+      "scenario": "construction-and-members",
+      "kind": "WRITES",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/model-node.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model-node.ts.RecordNode.update"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/typescript/src/model-node.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model-node.ts.RecordNode.label"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/model-node.ts",
+        "snippet": "label",
+        "startByte": 83,
+        "endByte": 88,
+        "startLine": 4,
+        "endLine": 4,
+        "startColumn": 10,
+        "endColumn": 15
+      }
+    },
+    {
+      "id": "ts-read-record-label",
+      "scenario": "construction-and-members",
+      "kind": "READS",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/model-node.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model-node.ts.RecordNode.update"
+      },
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/typescript/src/model-node.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model-node.ts.RecordNode.label"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/model-node.ts",
+        "snippet": "label",
+        "startByte": 114,
+        "endByte": 119,
+        "startLine": 5,
+        "endLine": 5,
+        "startColumn": 17,
+        "endColumn": 22
+      }
+    },
+    {
+      "id": "ts-write-local-record-label-unresolved",
+      "scenario": "uncertain-local-instance",
+      "kind": "WRITES",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/construction.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/construction.ts.updateLocalRecord"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "local.label",
+        "reason": "UNKNOWN_RECEIVER"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/construction.ts",
+        "snippet": "label",
+        "startByte": 221,
+        "endByte": 226,
+        "startLine": 7,
+        "endLine": 7,
+        "startColumn": 9,
+        "endColumn": 14
+      }
+    },
+    {
+      "id": "ts-read-local-record-label-unresolved",
+      "scenario": "uncertain-local-instance",
+      "kind": "READS",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/construction.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/construction.ts.updateLocalRecord"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "local.label",
+        "reason": "UNKNOWN_RECEIVER"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/construction.ts",
+        "snippet": "label",
+        "startByte": 251,
+        "endByte": 256,
+        "startLine": 8,
+        "endLine": 8,
+        "startColumn": 16,
+        "endColumn": 21
+      }
     }
   ],
   "languageCoverage": [
     {
       "language": "javascript",
-      "minimumExactEdges": 4,
+      "minimumExactEdges": 7,
       "minimumUnresolvedEdges": 5,
       "requiredScenarios": [
         "static-import",
@@ -561,25 +924,29 @@
         "dynamic-reference",
         "unknown-receiver",
         "shadowed-reference",
-        "unavailable-reference"
+        "unavailable-reference",
+        "commonjs-alias"
       ]
     },
     {
       "language": "typescript",
-      "minimumExactEdges": 5,
-      "minimumUnresolvedEdges": 1,
+      "minimumExactEdges": 8,
+      "minimumUnresolvedEdges": 4,
       "requiredScenarios": [
         "static-import",
         "inheritance",
         "implements",
         "type-reference",
         "cross-file-call",
-        "unknown-receiver"
+        "unknown-receiver",
+        "construction-and-members",
+        "ambiguous-module",
+        "uncertain-local-instance"
       ]
     },
     {
       "language": "php",
-      "minimumExactEdges": 4,
+      "minimumExactEdges": 7,
       "minimumUnresolvedEdges": 2,
       "requiredScenarios": [
         "static-import",
@@ -587,7 +954,9 @@
         "implements",
         "cross-file-call",
         "unknown-receiver",
-        "unavailable-reference"
+        "unavailable-reference",
+        "constructor",
+        "typed-reference"
       ]
     }
   ]
