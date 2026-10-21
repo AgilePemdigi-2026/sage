@@ -268,6 +268,7 @@ require("node:fs").writeFileSync(${JSON.stringify(jsCanaryMarker)}, "executed");
   const tsSources = {
     "src/ts/model.ts": encoder.encode(`
 export interface Contract { value: string; run(value: string): void; }
+export abstract class Signatureless { abstract ["close)"](): void; abstract ["open("](): void; }
 export class Parent {}
 export class Child extends Parent implements Contract { value = "ready"; run(value: string) { return value; } }
 export class MissingChild extends MissingBase {}
@@ -299,6 +300,9 @@ final class MissingChild extends MissingBase {}
   assert.equal(await pathExists(phpCanaryMarker), false, "PHP source is parsed and never included or executed");
   assert.equal((globalThis as typeof globalThis & { __SAGE_DIAGRAM_CANARY__?: boolean }).__SAGE_DIAGRAM_CANARY__, undefined);
 
+  const signatureless = canonical.value.ccm.nodes.filter(node => node.kind === "Method" && ["close)", "open("].includes(node.name));
+  assert.equal(signatureless.length, 2, "both hostile parenthesis names must reach the real analyzer");
+  assert.ok(signatureless.every(node => node.signature === null), "computed-name fallback regression needs unavailable signatures");
   const rendered = await renderDiagramBundle(canonical.json, allSourcesWithTs, canonical.sha256);
   assert.equal(rendered.ok, true, rendered.ok ? undefined : `renderer failed: ${rendered.errorCode}`);
   if (!rendered.ok) throw new Error("DIAGRAM_TEST_RENDER_FAILED");

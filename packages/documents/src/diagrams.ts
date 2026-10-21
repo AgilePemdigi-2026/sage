@@ -200,12 +200,14 @@ function buildUmlDiagram(allNodes: CcmNode[], allEdges: CcmEdge[]): DiagramProje
     for (const member of ownMembers) {
       // No visibility or type is inferred; use only the declared signature/name carried by the CKG.
       const category = member.kind === "Method" ? "method" : "property";
-      const declaredText = member.signature ?? member.name;
-      // Parentheses select Mermaid's method compartment. If the adapter did not
-      // record parameters, say so explicitly instead of implying zero arguments.
-      const memberText = member.kind === "Method" && !declaredText.includes(")")
-        ? `${declaredText}(parameter tidak tersedia)` : declaredText;
-      mermaid.push(`    ${category} ${mermaidText(memberText, member.kind === "Method")}`);
+      // Parentheses select Mermaid's method compartment. Missing signatures
+      // keep the entire name as data and append only trusted unknown-param grammar.
+      const memberText = member.kind === "Method"
+        ? member.signature === null
+          ? `${mermaidText(member.name)}(parameter tidak tersedia)`
+          : mermaidText(member.signature, true)
+        : mermaidText(member.signature ?? member.name);
+      mermaid.push(`    ${category} ${memberText}`);
       const parentContainmentEdgeIds = allEdges
         .filter(edge => edge.kind === "CONTAINS" && edge.sourceId === classifier.id && edge.targetId === member.id)
         .map(edge => edge.id);
