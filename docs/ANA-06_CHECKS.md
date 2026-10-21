@@ -56,3 +56,7 @@ git diff --check
 Consumer queue produk tetap nonaktif. Publikasi graph dan dokumen secara atomik, retry/recovery produk, graph canvas/inspector nyata, dokumen, ekspor dan replay browser masih mengikuti #16/#17–21. Integrasi ini memakai PostgreSQL nyata dan source fixture, bukan GitHub live atau browser E2E. Penghapusan graph mengikuti cascade analysis yang ada; cleanup produk tetap #23.
 
 Dependency formal ANA-05 #11 dan QA-01 #4 masih terbuka untuk acceptance parent/review formal tim dan benchmark representatif. PR ini memakai `Refs #14`; issue tidak ditutup otomatis dan tidak mengklaim dependency tersebut selesai. Bukti parent sebelumnya tetap berlaku dengan scope historisnya.
+
+## Pembaruan dependency QA-01 — 21 Oktober 2026
+
+QA-01 kini menyediakan 33 fakta resolver source-backed, canary processed tanpa efek samping, review teknis independen serta enam run benchmark dua corpus repository nyata; lihat [hasil QA-01](QA-01_CHECKS.md). Gate yang tersisa adalah signoff formal tim pada manifest; tidak lagi menyatakan benchmark dua corpus belum dijalankan. Pengukuran tersebut tetap bukan bukti kapasitas dekat ceiling atau pipeline E2E. Penerimaan parent tidak ditutup otomatis.
