@@ -26,8 +26,9 @@ const stylesheet: StylesheetJson = [
     padding: "8px",
   } },
   { selector: 'node[category = "Struktur"]', style: { "background-color": "#dff3eb", "border-color": "#3e8066", shape: "hexagon" } },
-  { selector: 'node[category = "Simbol"]', style: { "background-color": "#e4f2f4", "border-color": "#36818a", shape: "round-rectangle" } },
+  { selector: 'node[category = "Simbol"]', style: { "background-color": "#e4f2f4", "border-color": "#36818a", shape: "ellipse" } },
   { selector: 'node[category = "Belum terpecahkan"]', style: { "background-color": "#fff0f0", "border-color": "#a53c4a", color: "#812839", shape: "diamond", width: 154, height: 76 } },
+  { selector: "node:parent", style: { "background-opacity": 0.18, "border-style": "dashed", "border-width": 2, "border-color": "#587b91", padding: "28px", "text-valign": "top", "text-halign": "center", "font-size": 11 } },
   { selector: "node.sage-selected", style: { "border-width": 4, "border-color": "#075f58", "overlay-color": "#2ac6ae", "overlay-opacity": 0.16, "overlay-padding": 7 } },
   { selector: "edge", style: {
     width: 2,
@@ -50,11 +51,17 @@ const stylesheet: StylesheetJson = [
   { selector: "edge.sage-selected", style: { width: 4 } },
 ];
 
-function canvasElements(graph: GraphViewModel): ElementDefinition[] {
+function canvasElements(graph: GraphViewModel, moduleParentByNodeId?: Readonly<Record<string, string>>): ElementDefinition[] {
   return [
     ...graph.nodes.map((node) => ({
       group: "nodes" as const,
-      data: { id: node.id, label: node.label, name: node.name, category: node.category },
+      data: {
+        id: node.id,
+        label: node.label,
+        name: node.name,
+        category: node.category,
+        ...(moduleParentByNodeId?.[node.id] ? { parent: moduleParentByNodeId[node.id] } : {}),
+      },
     })),
     ...graph.edges.map((edge) => ({
       group: "edges" as const,
@@ -67,11 +74,16 @@ function zoomPercent(core: Core | null): number {
   return core ? Math.round(core.zoom() * 100) : 100;
 }
 
-export function GraphCanvas({ graph, selectedId, onSelect }: { graph: GraphViewModel; selectedId: string | null; onSelect: (id: string) => void }) {
+export function GraphCanvas({ graph, selectedId, onSelect, moduleParentByNodeId }: {
+  graph: GraphViewModel;
+  selectedId: string | null;
+  onSelect: (id: string) => void;
+  moduleParentByNodeId?: Readonly<Record<string, string>>;
+}) {
   const hostRef = useRef<HTMLDivElement>(null);
   const coreRef = useRef<Core | null>(null);
   const [zoom, setZoom] = useState(100);
-  const elements = useMemo(() => canvasElements(graph), [graph]);
+  const elements = useMemo(() => canvasElements(graph, moduleParentByNodeId), [graph, moduleParentByNodeId]);
 
   useEffect(() => {
     const host = hostRef.current;
@@ -152,6 +164,6 @@ export function GraphCanvas({ graph, selectedId, onSelect }: { graph: GraphViewM
     <div className={styles.canvasFrame}>
       <div ref={hostRef} role="region" aria-label="Kanvas knowledge graph" aria-describedby="graph-canvas-help" className={styles.canvas} />
     </div>
-    <p id="graph-canvas-help" className={styles.canvasHelp}>Gunakan roda mouse atau tombol zoom untuk mengubah tampilan. Untuk memilih node dengan keyboard, gunakan daftar node di bawah.</p>
+    <p id="graph-canvas-help" className={styles.canvasHelp}>Gunakan roda mouse atau tombol zoom untuk mengubah tampilan. Untuk memilih node dengan keyboard, gunakan kontrol pemilihan node.</p>
   </div>;
 }
