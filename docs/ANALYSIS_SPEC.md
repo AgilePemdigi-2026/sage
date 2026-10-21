@@ -120,4 +120,12 @@ Dokumen menyimpan repository, branch, full SHA, versi analyzer/schema/config, so
 
 Relasi unresolved tetap terlihat dan berbeda dari exact pada ketiga artefak yang relevan. Node synthetic projection boleh membantu layout, tetapi tidak menambah canonical fact. Setiap elemen artefak menyimpan `nodeIds`/`edgeIds` dan evidence agar sumbernya dapat ditelusuri.
 
-Markdown dan PDF dirender dari document model yang sama. Renderer diagram diputuskan setelah spike; Markdown memuat source diagram yang mandiri, sedangkan PDF memuat diagram terender tanpa tautan aset lokal yang hilang. Export job tidak menganalisis ulang repository atau mengikuti HEAD terbaru.
+Markdown dan PDF dirender dari document model yang sama. DOC-02 menyediakan source Mermaid mandiri dan SVG melalui `@sage/documents`; integrasi document model, Markdown, dan ekspor PDF produk tetap dikerjakan pada DOC-01/EXP-01/EXP-02. Export job tidak menganalisis ulang repository atau mengikuti HEAD terbaru.
+
+## Kontrak proyeksi diagram DOC-02
+
+`projectDiagrams(canonicalJson, sourceBytes, expectedSha256?)` memvalidasi ulang canonical CKG dan menghasilkan dua proyeksi deterministik. Diagram struktur mempertahankan seluruh node/edge; `CONTAINS` diberi label ownership, bukan dependency. UML menampilkan Class/Interface, Method/Property langsung, serta EXTENDS/IMPLEMENTS yang terbukti. Jika adapter tidak mencatat parameter method, labelnya menyatakan `parameter tidak tersedia`; ini tidak mengasumsikan parameter kosong. Fakta di luar subset UML tercatat dalam `excludedNodeIds`/`excludedEdgeIds`; visibility, composition, dan cardinality tidak ditebak.
+
+Bundle menyimpan hash CKG, snapshot, provenance, configuration hash, limitation, salinan fakta canonical, serta pemetaan baris Mermaid ke node/edge ID dan evidence. Member UML mempertahankan ID dan relasi containment induknya walaupun tampil di dalam kotak class. Diagram struktur membedakan Exact dengan garis utuh dan Unresolved dengan garis putus-putus serta alasan. UML memakai panah generalization/realization standar untuk relasi exact; relasi unresolved diberi label UNRESOLVED beserta alasan. Label berasal dari data yang di-encode, sedangkan alias berasal dari ID canonical.
+
+`renderDiagramBundle` menerima canonical CKG yang sama, membangkitkan proyeksi sendiri, lalu merender Mermaid lokal di Chromium tanpa akses jaringan. SVG diperiksa terhadap konten aktif dan referensi eksternal. Dua diagram diterbitkan bersama hanya jika keduanya berhasil. Guard per diagram: 50.000 karakter/byte Mermaid, 500 node, 500 edge, dan SVG 4 MiB; timeout default 15 detik, opsi 250–30.000 ms. Batas ini guard renderer, bukan klaim kapasitas repository produk. Input berlebih ditolak tanpa pemotongan fakta.

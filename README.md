@@ -198,7 +198,7 @@ Pengujian fixture tidak membuktikan pipeline produk, ekspor PDF, history atau pe
 | Dokumen dan PDF | Mermaid untuk rendering diagram · Playwright/Chromium untuk PDF |
 | Lingkungan lokal | Docker Compose · Persistent volumes |
 
-Logo disimpan lokal; sumber dan lisensinya tersedia di [aset teknologi](docs/assets/tech/README.md). Dependency dipin pada lockfile dan base image memakai digest. Renderer SVG/PDF sudah melewati probe fondasi; generator artefak produk serta ekspor terotorisasi tetap perlu diimplementasikan dan diuji.
+Logo disimpan lokal; sumber dan lisensinya tersedia di [aset teknologi](docs/assets/tech/README.md). Dependency dipin pada lockfile dan base image memakai digest. Modul DOC-02 menyediakan proyeksi UML/struktur dan renderer SVG dari canonical CKG. Uji renderer dijalankan dengan `npm run test:documents:diagrams`; kontrak dan batasnya tersedia pada [spesifikasi analisis](docs/ANALYSIS_SPEC.md#kontrak-proyeksi-diagram-doc-02). Integrasi ADD serta ekspor produk terotorisasi masih perlu diselesaikan.
 
 ## Prinsip pengembangan
 

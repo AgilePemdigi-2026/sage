@@ -41,7 +41,7 @@ Baseline: 18 Oktober 2026, Asia/Jakarta. `Disepakati` adalah keputusan project; 
 | A-08 | Software Engineering Diagram berupa proyeksi struktur/dependency dari CKG | DOC-02, DOC-01 |
 | A-09 | Authenticated encryption untuk credential, key terpisah di environment; session server-side | GH-01, DATA-01 |
 | A-10 | Delete hanya untuk analysis terminal tanpa export aktif; cleanup idempotent dan akses langsung dicabut | DATA-02 |
-| A-11 | Mermaid telah lolos probe SVG/PDF ENV-01; proyeksi diagram produk dan Markdown/PDF terintegrasi tetap perlu diuji | DOC-02, DOC-01, EXP-01, EXP-02 |
+| A-11 | Mermaid dipakai DOC-02 untuk proyeksi canonical CKG dan SVG; integrasi ADD serta ekspor Markdown/PDF produk tetap perlu diuji | DOC-02, DOC-01, EXP-01, EXP-02 |
 | A-12 | Query AND kategori; focus context diberi penanda; hitungan canonical tidak berubah | GRAPH-01, GRAPH-02 |
 | A-13 | Batas resource wajib sebelum repository arbitrer; nilai dari fixture/benchmark lokal | ENV-01, QA-01 |
 
