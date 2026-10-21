@@ -136,3 +136,41 @@ test("CKG persistence is owner and lease fenced, immutable, canonical and hidden
     await disconnectDatabase();
   }
 });
+
+test("legacy analysis captures current repository name once without reconstructing an unknown historical name", {
+  skip: process.env.SAGE_CKG_TESTS !== "1",
+}, async () => {
+  assertIsolatedDatabase();
+  const db = database();
+  const suffix = randomUUID();
+  let ownerId = "";
+  let repositoryId = "";
+  let claim: AnalysisJobClaim | null = null;
+  try {
+    const owner = await db.user.create({ data: { githubUserId: `legacy-${suffix}`, login: `legacy-${suffix}` } });
+    ownerId = owner.id;
+    const repository = await db.repository.create({ data: { githubRepositoryId: `legacy-${suffix}`, ownerLogin: "legacy", name: suffix, fullName: `legacy/${suffix}`, visibility: "PUBLIC" } });
+    repositoryId = repository.id;
+    const queued = await enqueueAnalysis(db, { ownerUserId: ownerId, repositoryId, branchName: "main", commitSha: "a".repeat(40), configuration: {}, analyzerVersion: "test", schemaVersion: "1" });
+    await db.analysis.update({ where: { id: queued.analysisId }, data: { repositoryFullNameSnapshot: null } });
+    await db.repository.update({ where: { id: repositoryId }, data: { fullName: `legacy-renamed/${suffix}` } });
+    claim = await claimAnalysisJob(db, { leaseDurationMs: 300000 });
+    assert.ok(claim);
+    assert.equal(claim.analysisId, queued.analysisId);
+    const first = await initializeAnalysisStages(db, claim);
+    assert.equal(first?.target.repositoryFullName, `legacy-renamed/${suffix}`);
+    await db.repository.update({ where: { id: repositoryId }, data: { fullName: `legacy-renamed-again/${suffix}` } });
+    const second = await initializeAnalysisStages(db, claim);
+    assert.equal(second?.target.repositoryFullName, first?.target.repositoryFullName, "legacy name is captured only once");
+  } finally {
+    if (claim) await failAnalysisJob(db, claim, "CKG_TEST_CLEANUP").catch(() => false);
+    if (ownerId) {
+      await db.workerSlot.updateMany({ where: { ownerUserId: ownerId }, data: { jobId: null, ownerUserId: null, leaseUntil: null, heartbeatAt: null, leaseTokenHash: null } });
+      await db.job.deleteMany({ where: { ownerUserId: ownerId } });
+      await db.analysis.deleteMany({ where: { ownerUserId: ownerId } });
+      await db.user.delete({ where: { id: ownerId } });
+    }
+    if (repositoryId) await db.repository.delete({ where: { id: repositoryId } });
+    await disconnectDatabase();
+  }
+});

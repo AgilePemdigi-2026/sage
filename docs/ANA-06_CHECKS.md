@@ -10,7 +10,9 @@ Tanggal: 21 Oktober 2026, Asia/Jakarta. Refs [#14](https://github.com/AgilePemdi
 
 Stage `COMMON_CODE_MODEL` memvalidasi ulang artefak serialized dari static analysis terhadap snapshot milik analysis dan target immutable. Stage `KNOWLEDGE_GRAPH` membangun canonical CKG serta menyimpan GraphBundle internal. Penulis database memeriksa pemilik, attempt/token, lease berdasarkan waktu PostgreSQL, status analysis, target/configuration hash, serta stage CCM selesai/graph aktif. Slot dikunci dalam transaksi; pengecekan lease terakhir membatalkan transaksi bila masa lease habis selama penulisan. Replay identik idempotent; hasil berbeda ditolak tanpa overwrite.
 
-Migrasi `202610210001_ana06_canonical_graph` menambahkan `GraphBundle.canonicalContent` nullable untuk kompatibilitas baris lama. Nodes/edges/counts tetap disimpan sebagai mirror dan diperiksa saat replay/read. `readCanonicalGraphForUser` memakai predicate owner dan status terminal berhasil, memeriksa parent target/config serta mirror/hash/source. Baris legacy tanpa canonical content tidak dianggap CKG tervalidasi. Tidak ada endpoint graph produk baru pada paket ini.
+Migrasi `202610210002_ana06_repository_context` menambahkan nama target immutable `Analysis.repositoryFullNameSnapshot`, diisi saat enqueue. Rename metadata repository berikutnya tidak mengubah konteks job atau membatalkan graph historis. Untuk analysis legacy yang belum menyimpan nama, inisialisasi worker menangkap nama terkini satu kali; ini tidak merekonstruksi nama historis yang tidak pernah direkam.
+
+Migrasi `202610210001_ana06_canonical_graph` menambahkan `GraphBundle.canonicalContent` nullable untuk kompatibilitas baris lama. Nodes/edges disimpan sebagai string JSON canonical di kolom JSONB, bukan array JSONB decoded: source dengan escaped NUL atau lone surrogate tetap tersimpan tanpa sanitasi atau kehilangan fakta. Encoding ini bagian dari storage contract `sage-ckg-v1`; reader mengembalikan model decoded. Mirror tersebut dan count diperiksa saat replay/read. `readCanonicalGraphForUser` memakai predicate owner dan status terminal berhasil, memeriksa parent target/config serta mirror/hash/source. Baris legacy tanpa canonical content tidak dianggap CKG tervalidasi. Tidak ada endpoint graph produk baru pada paket ini.
 
 ## Hasil aktual
 
@@ -19,14 +21,18 @@ Migrasi `202610210001_ana06_canonical_graph` menambahkan `GraphBundle.canonicalC
 | Lint dan typecheck root/web | Tanpa error/warning | PASS |
 | Tes utama | Seluruh suite lulus | 234/234 PASS |
 | Tes data tanpa layanan DB | Seluruh suite lulus | 8/8 PASS |
-| Migrasi pada PostgreSQL kosong | Enam migrasi berhasil | PASS |
+| Migrasi pada PostgreSQL kosong | Tujuh migrasi berhasil | PASS |
 | Replay, counts dan input arrays diurutkan berbeda | JSON/hash sama, source/extra field/count/hash palsu ditolak | PASS |
 | Hash/target/evidence pada batas stage | Perubahan ditolak sebelum persistensi | PASS |
 | PostgreSQL owner/lease/stage fence, replay immutable dan rollback | Claim owner/token salah ditolak, graph sementara tersembunyi | PASS |
 | Lease habis selama INSERT | Trigger uji menunda INSERT 400 ms melewati deadline 200 ms; transaksi rollback dan baris tidak tersimpan | PASS |
 | Snapshot tersimpan → JS/TS/PHP → CCM → canonical CKG | Provenance/evidence/hash dipertahankan, unresolved tetap terlihat | PASS |
-| Integrasi database | Dua tes tanpa skip | 2/2 PASS |
+| Label dependency dengan escaped NUL/lone surrogate | Source valid diparse, seluruh codepoint tersimpan dan direplay lossless | PASS setelah perbaikan encoding JSONB |
+| Integrasi CKG, rename dan capture legacy | Tiga tes tanpa skip | 3/3 PASS |
+| Regression queue/stage PostgreSQL | Atomic/FIFO/recovery, heartbeat, cancellation dan lease loss tetap benar | 1 tes queue + 2 tes stage PASS |
 | Production build | Prisma generate, Next compilation/typecheck dan static pages berhasil | PASS |
+
+Review independen langsung pada diff PR menemukan label NUL yang ditolak JSONB. Tes source-backed PostgreSQL direproduksi gagal di KNOWLEDGE_GRAPH sebelum perubahan encoding; setelahnya tes yang sama lulus. Review juga menemukan perbandingan nama snapshot dengan nama repository yang mutable; koreksi membekukan nama analysis saat enqueue dan menambahkan regresi rename pada konteks worker/read historis.
 
 Tes fixture kontrak memakai output resolver nyata. Integrasi worker memakai source sintetis publik tiga bahasa termasuk BOM/CRLF/Unicode, source excluded, unknown receiver dan canary throw yang tidak dieksekusi. Stage 1–5 menjalankan handler nyata; stage 6–9 memakai placeholder uji yang ditandai eksplisit. Assertion memastikan analysis tetap RUNNING dan ArchitectureDocument belum tersedia, sehingga ini bukan bukti pipeline produk sembilan tahap selesai.
 
@@ -43,7 +49,7 @@ npm run build
 git diff --check
 ```
 
-`DATABASE_URL` untuk integrasi harus menunjuk database disposable bernama `sage_ckg14`; jangan memakai database aplikasi. Dua suite berjalan berurutan untuk slot worker global tunggal.
+`DATABASE_URL` untuk integrasi harus menunjuk database disposable bernama `sage_ckg14`; jangan memakai database aplikasi. Dua suite CKG berjalan berurutan untuk slot worker global tunggal. Regression queue/stage memakai database disposable terpisah `sage_queue01` dan `SAGE_QUEUE_TESTS=1`; command `npm run test:queue:integration` serta `npm run test:stages:integration` juga lulus sesudah migrasi.
 
 ## Batas acceptance
 
