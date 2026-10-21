@@ -104,3 +104,7 @@ Rincian hasil terbaru, matriks fitur, batas OAuth/fixture/pipeline dan perintah 
 ## GH-03-S1 — Daftar public dan pergantian akun
 
 `npm run test:accounts:ui` menggunakan dua identitas disposable untuk memeriksa sesi/identity endpoint nyata, penolakan header akun lama sebelum provider, dan tab terbuka yang cookie-nya berubah. Metadata repository/branch pada browser dikontrol dan diberi label; unit provider memeriksa pemilik/public filtering serta pagination. Target UI memeriksa daftar public tanpa instalasi, muat berikutnya, retry dan pemilihan branch. [Bukti dan batas](GH-03-S1_CHECKS.md).
+
+## Replay canonical dan persistensi ANA-06
+
+T-ANA-04/T-GRAPH-01 diperluas oleh `tests/ckg.test.ts`, `tests/ckg-handlers.test.ts`, dan `tests/ckg-persistence.test.ts` untuk determinisme/counts, batas hash/target/evidence serta integritas read/replay. `npm run test:ckg:integration` hanya dijalankan dengan opt-in dan database disposable `sage_ckg14`: source handlers nyata, snapshot owner-bound, graph canonical, lease/owner/stage fencing dan rollback saat lease habis dalam INSERT. Stage dokumen masih placeholder uji; suite memastikan tidak ada analysis terminal sukses yang diterbitkan. Hasil aktual dan batas di [ANA-06_CHECKS](ANA-06_CHECKS.md).

@@ -37,9 +37,11 @@ Penanggung jawab paket memperbarui branch dari base yang sesuai, memeriksa diff,
 
 ## Branch dan PR
 
-Gunakan branch seperti `feat/12-github-callback`, `fix/34-source-preview`, atau `docs/56-test-plan`; nomor hanya contoh dan harus diganti dengan nomor issue nyata. Satu branch berfokus pada satu paket atau beberapa issue yang memiliki dependensi kuat.
+Gunakan branch seperti `feat/12-github-callback`, `fix/34-source-preview`, atau `docs/56-test-plan`; nomor hanya contoh dan harus diganti dengan nomor issue nyata. Satu branch berfokus pada satu paket atau beberapa issue yang memiliki dependensi kuat. Satu issue boleh berisi beberapa commit untuk perubahan substantif yang terpisah, seperti kontrak, persistensi, integrasi, dan dokumentasi; jangan menambah commit kosong atau memecah perubahan tanpa alasan teknis.
 
 Alur kerja: issue siap -> pengerjaan paket -> verifikasi -> commit -> PR -> review teknis oleh Iltizam -> merge oleh Iltizam ke `main`. Commit awal baseline planning dibuat langsung pada repository yang masih kosong. Proteksi `main` mewajibkan PR dan penyelesaian percakapan review; minimum approval adalah 0 sehingga PR buatan sendiri dapat di-merge setelah diperiksa tanpa menunggu approval akun lain. GitHub tetap tidak menyediakan self-approval. Review teknis dan bukti verifikasi tetap dicatat; force push dan penghapusan diblokir. Akun yang terdaftar untuk push/merge adalah `iltizamhasan3`; administrator tetap dapat mengubah pengaturan proteksi. Pemeriksaan wajib CI ditambahkan setelah workflow CI tersedia.
+
+Agent reviewer independen meninjau diff dan konteks langsung dari PR pada head SHA yang dicatat. Temuan dicantumkan pada review PR dan diperbaiki sebelum merge; review diri sendiri dicatat sebagai komentar karena GitHub tidak mengizinkan self-approval.
 
 PR menjelaskan perubahan, ID requirement, issue, dan bukti pengujian. Gunakan `Closes #N` hanya ketika acceptance criteria issue sudah terpenuhi dan PR ditujukan ke default branch. Untuk pekerjaan parsial, gunakan `Refs #N`. Penutupan issue harus mencerminkan hasil review, termasuk saat menggunakan otomatisasi GitHub.
 

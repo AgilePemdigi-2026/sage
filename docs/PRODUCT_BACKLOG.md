@@ -44,7 +44,7 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | ANA-05 | Contracts CCM/evidence dan validator | 1-2 | P0 / M | Iltizam | ENV-01, QA-01, ANA-05-S1, ANA-03-S1, ANA-04-S1 | - | In progress (hardening; lihat ANA-05_CHECKS) | [#11](https://github.com/AgilePemdigi-2026/sage/issues/11) |
 | ANA-03 | Adapter JavaScript/TypeScript dan resolver | 1-2 | P0 / XL | Iltizam | ANA-05, QA-01, ANA-03-S1 | - | Done (resolver statis sesuai capability; lihat RESOLVER_CHECKS) | [#12](https://github.com/AgilePemdigi-2026/sage/issues/12) |
 | ANA-04 | Adapter PHP dan resolver | 1-2 | P0 / XL | Zarra | ANA-05, QA-01, ANA-04-S1 | - | Done (resolver statis sesuai capability; lihat RESOLVER_CHECKS) | [#13](https://github.com/AgilePemdigi-2026/sage/issues/13) |
-| ANA-06 | Canonical CKG, provenance, dan persistensi | 2 | P0 / L | Iltizam | ANA-03, ANA-04, ANA-05 | - | Planned | [#14](https://github.com/AgilePemdigi-2026/sage/issues/14) |
+| ANA-06 | Canonical CKG, provenance, dan persistensi | 2 | P0 / L | Iltizam | ANA-03, ANA-04, ANA-05 | - | Implemented; acceptance parent pending (ANA-06_CHECKS) | [#14](https://github.com/AgilePemdigi-2026/sage/issues/14) |
 | DOC-02 | Proyeksi UML/struktur dan rendering diagram dari CKG | 2 | P0 / L | Valentina | ANA-06 | DOC-01 | Planned | [#38](https://github.com/AgilePemdigi-2026/sage/issues/38) |
 | DOC-01 | Interface Catalog, model ADD, dan integrasi tiga artefak | 2 | P0 / L | Zarra | ANA-06, DOC-02 | - | Planned | [#15](https://github.com/AgilePemdigi-2026/sage/issues/15) |
 | ANA-07 | Pipeline sembilan tahap, progress, failure/retry, atomic result | 1-2 | P0 / XL | Rizqy | ANA-01, ANA-02, ANA-06, DOC-01, ANA-07-S1 | - | Planned | [#16](https://github.com/AgilePemdigi-2026/sage/issues/16) |

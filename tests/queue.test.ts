@@ -63,9 +63,9 @@ test("enqueue snapshots mutable caller input before waiting for the database tra
     $executeRaw: async () => 1,
     $queryRaw: async () => {
       queryNumber += 1;
-      return queryNumber === 1
-        ? [{ jobId: null, ownerUserId: null, leaseUntil: null, heartbeatAt: null, leaseTokenHash: null, lastEnqueueSequence: 0n }]
-        : [{ sequence: 1n }];
+      if (queryNumber === 1) return [{ jobId: null, ownerUserId: null, leaseUntil: null, heartbeatAt: null, leaseTokenHash: null, lastEnqueueSequence: 0n }];
+      if (queryNumber === 2) return [{ sequence: 1n }];
+      return [{ fullName: "example/repository" }];
     },
     analysis: { create: async ({ data }: { data: Record<string, unknown> }) => { analysisData = data; return { id: "analysis-snapshot" }; } },
     job: { create: async ({ data }: { data: Record<string, unknown> }) => { jobData = data; return { id: "job-snapshot" }; } },
@@ -94,6 +94,7 @@ test("enqueue snapshots mutable caller input before waiting for the database tra
   assert.deepEqual(analysisData, {
     ownerUserId: "user-1",
     repositoryId: "repository-1",
+    repositoryFullNameSnapshot: "example/repository",
     retryParentId: null,
     branchName: "main",
     commitSha: "a".repeat(40),

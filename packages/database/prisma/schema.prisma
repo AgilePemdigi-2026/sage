@@ -184,6 +184,8 @@ model Analysis {
   id                   String                @id @default(cuid())
   ownerUserId          String
   repositoryId         String
+  /// Repository name captured when the analysis was enqueued; later repository renames do not change its source target.
+  repositoryFullNameSnapshot String?
   retryParentId        String?
   branchName           String
   commitSha            String
@@ -308,6 +310,8 @@ model GraphBundle {
   analysisId        String
   schemaVersion     String
   configurationHash String
+  /// Canonical, replayable CKG envelope. Null only for legacy rows created before ANA-06.
+  canonicalContent  String?
   nodes             Json
   edges             Json
   nodeCount         Int
