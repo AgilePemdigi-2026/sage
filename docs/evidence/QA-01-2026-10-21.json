@@ -1,0 +1,59 @@
+{
+  "date": "2026-10-21",
+  "baseCommit": "04b97c6a1be4c6ff3d378a04f3fa812788879bc4",
+  "runtime": {
+    "analysisNode": "24.22.0",
+    "npm": "11.17.0",
+    "php": "8.4.26",
+    "typescript": "5.9.3",
+    "hostPreparationAndSupervisorNode": "26.4.0"
+  },
+  "results": {
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "mainTests": 242,
+    "dataTests": 8,
+    "safetyTestAfterReviewFix": 1,
+    "seedFiles": 15,
+    "seedOracles": 12,
+    "resolverFiles": 18,
+    "resolverFacts": 33,
+    "repositoryBenchmarkRuns": 6,
+    "benchmarkReplay": "PASS"
+  },
+  "review": {
+    "method": "Independent automated source review; no analyzer output used as expected truth",
+    "seedFactsReviewed": 12,
+    "resolverFactsReviewed": 33,
+    "humanTeamSignoff": "PENDING"
+  },
+  "notRun": [
+    "production build",
+    "PostgreSQL integration",
+    "browser E2E",
+    "near-ceiling repository capacity",
+    "deliberate OOM injection"
+  ],
+  "files": {
+    "docs/evidence/corpora/php-parser.json": "d44bd34a2087aedf155294b26a37a50c5cbf7074bd9d95c21f6051fa8ef02b89",
+    "docs/evidence/corpora/sage-js.json": "9a0862804470739f9f720798361e43d619b827978431c22fb14f79fe5645784c",
+    "docs/evidence/qa01-repository-benchmark-2026-10-21.json": "89d8a3502fbaad9a7801ec170c8f62b34151ab68fde46112e8d2f33ce2a541bc",
+    "packages/analyzer-js/src/index.ts": "f039c110278b47bea85f4cea0951a4791d8dcd446f5593d6275bb6fd2bc682ba",
+    "packages/analyzer-js/src/probe.ts": "b142932ee792c2da722b8357c99ccb443e4f038e3217ccf7357dc41fdc9e2aec",
+    "packages/analyzer-js/src/resolver.ts": "8875c8650b57201af5704b6036a05a94ab5a7241858f91bf303269bd264bb90f",
+    "packages/analyzer-php/bin/declarations.php": "3fc243012acd3645d5720830c23bf67eb89b4c06e461bb31409254529bb5d21e",
+    "packages/analyzer-php/bin/probe.php": "afe3af7eaa605ba798aa223ea07b1a24d153f806e868742cbd162612a68f0778",
+    "packages/analyzer-php/src/index.ts": "a9543e55e9dca77db14b29cf436aa02476fa8c30c7ad28866812f1d6e338ed0c",
+    "packages/analyzer-php/src/probe.ts": "d0501b944fd0308ad40722a069feda3f6067147a44109c09e57a5a1e8ffb5500",
+    "packages/contracts/src/ckg.ts": "ab4cc66f46bc384a3fd9977cd537df3111ff060ee7dc44dd8a9254b998767fac",
+    "packages/contracts/src/index.ts": "f2d83c750dba10f4df490b0dd37cc4e41d0092aa1bea22d70e9c4e2657fc7b2a",
+    "packages/contracts/src/stages.ts": "45cd5018e3f993a5e1a5f54c9391de35fb7530c7766bd2fdc7d6a677dba85237",
+    "scripts/benchmark-repository.ts": "d1b4e65b9dd1e72d835e981fbab564586f7048eeeb05f59db835fe41f2fd91b1",
+    "scripts/prepare-benchmark-corpora.mjs": "1a828e2b0f5c39e03185ce2b8926c60a15e3a8f8b4e2578e07531fbb3f4bf0c1",
+    "scripts/run-repository-benchmarks.mjs": "1d8e530b2e5b3906eaec57a1383d03f8cb28870a5040955eba139e126e934bcc",
+    "tests/analysis-safety.test.ts": "6236398bff7c2aeeb6defc5e9d65f560983e59ffa3462685d040bd487b2b3dc4",
+    "tests/fixtures/manifest.json": "41697b000ef84741303d82828740fcfb6cd0c0a52355dfd2b742bf94c3a54148",
+    "tests/fixtures/resolver/resolver-oracle-v1.json": "5906d49bb123c69c957ea579d20b5c1273f64b302d05f0be1f1a4f7b3214058c",
+    "tests/repository-benchmark.test.ts": "4358c64ae60222cfcff8eef7566b351bcb08e4867bdd30afbe320caedaff6ed5"
+  }
+}

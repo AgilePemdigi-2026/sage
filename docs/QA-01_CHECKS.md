@@ -1,33 +1,58 @@
-# Pemeriksaan oracle resolver QA-01
+# Pemeriksaan oracle dan benchmark QA-01
 
-Bagian ini menambahkan oracle independen yang ditulis dari source fixture kecil JavaScript, TypeScript, dan PHP. Fakta relasi dan referensi yang belum dapat diselesaikan tidak diambil dari keluaran analyzer. Manifest masih berstatus `DRAFT_AWAITING_TEAM_REVIEW`; hasil ini belum menyatakan penerimaan semantik.
+Tanggal: 21 Oktober 2026. Issue [#4](https://github.com/AgilePemdigi-2026/sage/issues/4), base `04b97c6a1be4c6ff3d378a04f3fa812788879bc4`. Paket ini melengkapi oracle capability, canary berbahaya, review teknis independen dan pengukuran dua repository nyata. Status: bukti teknis tersedia; review/signoff formal tim terhadap manifest masih menunggu.
 
-## Cakupan fixture
+## Oracle dan hasil pengujian
 
-Fixture mencakup impor dan pemanggilan lintas file, referensi tipe dan pewarisan TypeScript, namespace, impor dan pewarisan PHP, dynamic import JavaScript, receiver yang tidak diketahui, parameter yang menimpa nama impor, simbol JavaScript dan PHP yang tidak tersedia, Unicode, CRLF, serta canary `throw` di tingkat atas. Source canary hanya untuk analisis statis dan tidak boleh dieksekusi.
+[Review source independen](QA-01_ORACLE_REVIEW.md) memeriksa 12 fakta seed dan 33 fakta resolver. Tambahan 12 fakta mencakup CommonJS alias, konstruksi dan READ/WRITE TypeScript, ambiguitas ekstensi, serta constructor dan dua occurrence referensi tipe PHP. Fixture resolver berjumlah 18 file / 3.370 byte; seed 15 file / 1.783 byte. Unicode, BOM, CRLF, dynamic load, unknown receiver, dan external dependency tetap tercakup.
 
-`tests/fixtures/resolver/resolver-oracle-v1.json` mencatat path setiap fixture, SHA-256, ukuran byte, jenis relasi, nama qualified source dan target yang diharapkan atau nama serta alasan untuk target yang belum terselesaikan, juga bukti literal beserta offset byte UTF-8 dan posisi baris/kolom. Verifier hanya memeriksa integritas data dan cakupan skenario; verifier tidak memanggil resolver.
+| Pemeriksaan aktual | Hasil |
+| --- | --- |
+| Lint, typecheck root/web, suite utama | PASS; 242/242 tes utama |
+| Tes data tanpa database aktif | PASS; 8/8 |
+| Integritas seed/resolver | PASS; 12 oracle seed dan 33 fakta resolver |
+| Semantik resolver | Ketiga bahasa cocok dengan expected target/reason/span; canonical replay sama |
+| Canary JS/TS/PHP | Ketiga unsafe file processed; marker efek samping tetap tidak ada |
+| Loader benchmark | Hash/size berubah, path/symlink, bahasa dan batas ukuran ditolak |
+| Benchmark repository | 6/6 run sukses; tidak ada timeout/OOM; hash CCM/CKG identik per corpus, termasuk urutan input terbalik |
 
-Untuk `use Resolver\Contracts\Base;` dan `use Resolver\Contracts\Missing;`, bukti impor mencakup seluruh nama qualified. Span `Base` saja juga menunjuk simbol yang diimpor, tetapi nama lengkap lebih tepat untuk merekam referensi namespace yang benar-benar ditulis dan membedakannya dari simbol bernama sama di namespace lain. Span relasi `extends Base` tetap hanya mencakup `Base`, karena itulah token yang dirujuk pada deklarasi pewarisan.
+Full check berjalan pada image `sage-worker:local`, Node 24.22.0, npm 11.17.0, PHP 8.4.26, TypeScript 5.9.3, 1 CPU/2 GiB, tanpa jaringan. Setelah full check, assertion status processed ditambahkan pada tes canary dan tes terfokus itu dijalankan ulang: 1/1 PASS. Verifier tetap melaporkan `semanticAcceptance: NOT_RUN` karena hanya menguji integritas; hasil semantik berasal dari suite integrasi terpisah. Metadata dan fingerprint ada pada [evidence QA-01](evidence/QA-01-2026-10-21.json).
 
-## Perintah dan hasil saat ini
+Percobaan awal fixture menemukan batas inferensi receiver instance lokal. Oracle akhir mempertahankannya sebagai unresolved, bukan menambahkan Exact palsu; penjelasan source ada pada laporan review. Percobaan tooling juga memperbaiki validasi ekstensi path benchmark dan dukungan nama route Next.js pada preparer sebelum pengukuran berhasil. Host Node 26 tidak dipakai menjalankan tes/analyzer; preparasi source dan supervisor Docker berjalan pada host, analyzer serta seluruh tes pada Node 24 di Docker.
 
-Jalankan pemeriksaan dari root repository:
+## Sampel repository dan pengukuran
+
+Source hanya dibaca, tidak dipasang dependency-nya atau dijalankan. Source cache di `storage/benchmarks/` diabaikan Git; yang disimpan adalah manifest path/hash, full commit SHA, kode pengukuran dan data hasil. Corpus SAGE mencakup seluruh 98 source JS/TS tracked di apps/packages pada commit beku, tanpa tests/dependency/generated output. Corpus PHP-Parser mencakup seluruh 271 file lib/PhpParser, termasuk parser generated; sampel ini library class-heavy, bukan aplikasi Laravel atau semua gaya PHP.
+
+| Sampel | Full commit SHA | File / byte | Analisis adapter | Wall container | Peak charged memory container |
+| --- | --- | --- | --- | --- | --- |
+| AgilePemdigi-2026/sage | `04b97c6a1be4c6ff3d378a04f3fa812788879bc4` | 98 / 596.027 | 4,04–4,39 detik | 5,87–6,70 detik | 429,3–451,2 MiB |
+| nikic/PHP-Parser v5.9.0 | `9e33da9553fe7786f0962b35f4e4ecf01be89def` | 271 / 976.412 | 10,63–11,09 detik | 12,12–12,57 detik | 307,3–317,4 MiB |
+
+[Data mentah enam run](evidence/qa01-repository-benchmark-2026-10-21.json) mencatat waktu, Node peak RSS, container `memory.peak`, jumlah node/edge/limitation, hash dan kondisi exit. SAGE menghasilkan 8.937 node/10.817 edge/310 limitation; PHP-Parser 3.602 node/5.694 edge/57 limitation. Kedua adapter berstatus partial secara konsisten; benchmark sukses tidak berarti source seluruhnya didukung atau seluruh relasi benar.
+
+Setiap iterasi memakai container/cgroup baru, 1 CPU, RAM maksimum 2 GiB, swap dimatikan, network none, root read-only, tmpfs 64 MiB dan batas 128 PID. Supervisor menerapkan deadline 180 detik per run dan selalu menghapus container, termasuk jika attached CLI dihentikan. Peak charged memory mencakup charge Node, proses PHP, page cache dan kernel; ini bukan jumlah RSS seluruh proses, dan shared page dapat dibebankan ke cgroup lain. Node peak RSS dicatat terpisah. Tidak ada klaim pengukuran peak RSS khusus PHP. Cache host/VM tidak di-flush.
+
+Waktu adapter mencakup ekstraksi fakta dan canonical CCM; wall time juga mencakup startup, pemuatan/validasi source serta verifikasi CCM/CKG. Keduanya tidak mencakup download GitHub, ekstraksi snapshot, antrean, database, UI atau export. Hasil lama enam fixture sintetis tetap merupakan microbenchmark pada [laporan integrasi resolver](RESOLVER_CHECKS.md), bukan pengganti angka repository nyata ini.
+
+## Reproduksi
+
+Dengan dependency lokal dan image worker sudah tersedia, gunakan Node yang didukung project untuk tooling:
 
 ```sh
-node --import tsx --test tests/resolver-oracles.test.ts
+npm run benchmark:prepare
+npm run benchmark:repositories -- --output artifacts/qa01-repository-benchmark.json
+npm run check
+npm run fixtures:verify
 npm run fixtures:verify:resolvers
-npm run benchmark:resolvers
 ```
 
-Lima tes integritas terarah lulus pada Docker Node 24.22.0. Selain itu, `npm run check` pada branch QA lulus di image `sage-worker:local` dengan Node 24.22.0 dan PHP 8.4.26, jaringan nonaktif, batas 1 CPU dan memori 2 GiB: lint, typecheck root dan web, 181 tes aplikasi, serta 8 tes data. Pemeriksaan integritas mencakup manifest, hash dan canary file, perubahan literal/span, batas UTF-8, posisi CRLF, path tidak aman, file duplikat, alasan unresolved yang tidak valid, cakupan minimum tiap bahasa, serta symlink yang keluar dari root.
+Preparer mengambil dua commit publik yang sudah dipin melalui bare Git fetch tanpa checkout/hook/dependency install, lalu memverifikasi setiap file terhadap manifest. Benchmark berjalan offline pada source cache. Pada worktree yang memakai dependency checkout utama, tambahkan `--dependencies /path/checkout-utama` pada command benchmark. `npm run check` tetap dijalankan pada Node 24 sesuai setup lokal; bukti paket ini memakai Docker dengan bind source, node_modules, generated Prisma dan PHP vendor. Tidak perlu menyalakan Compose/web/database untuk benchmark ini.
 
-Benchmark tidak menetapkan penerimaan semantik. Oracle masih berstatus draft sampai ditinjau tim. Benchmark memproses JavaScript dan TypeScript dengan adapter JS, serta hanya PHP dengan adapter PHP. Untuk tiap adapter, benchmark mencatat tiga iterasi, jumlah file dan byte input, waktu, RSS proses Node pemanggil, status/error code adapter, jumlah node/edge CCM, dan hash konten jika tersedia. Status `complete` maupun `partial` diterima jika `errorCode` bernilai `null` dan CCM berisi array node serta edge; status gagal, error code non-null, atau CCM tidak valid membuat benchmark gagal dan tidak diberi status `COMPLETE`.
+## Rekomendasi dan batas penerimaan
 
-Jika API resolver belum tersedia, benchmark mencetak `NOT_RUN` dan keluar dengan kode nonzero. Benchmark tidak menggunakan adapter deklarasi saja ataupun mock. Hasil waktunya tetap belum menjadi bukti penerimaan semantik.
+Gunakan 1 CPU/2 GiB sebagai profil reproduksi lokal yang sudah diuji pada dua corpus ini. Peak terbesar sekitar 451 MiB bukan dasar untuk menurunkan RAM worker atau menaikkan kapasitas repository: file count/ukuran, kompleksitas, parser, JSON dan CKG tidak selalu tumbuh linear. Pertahankan ceiling snapshot/source yang ada (2.000 file, 100 MiB extracted, 1 MiB/source) sebagai guard awal; **batas tersebut belum terbukti sebagai kapasitas analyzer**. Jangan menaikkannya berdasarkan pengukuran ini. Deadline benchmark 180 detik bukan pengganti deadline produk 300 detik yang integrasinya mengikuti ANA-07.
 
-Enam source fixture ini hanya cocok untuk microbenchmark terarah, bukan sampel performa repository nyata. RSS yang dilaporkan hanya milik proses Node pemanggil; RSS proses anak PHP dan puncak memori worker tidak diukur. Jumlah node/edge dan hash konten bersifat deskriptif, bukan bukti kebenaran semantik. Peninjauan tim terhadap oracle masih menunggu.
+Belum diuji: repository mendekati ceiling, cold filesystem cache terkontrol, tekanan memory sengaja hingga OOM, dan pipeline produk penuh. Build web, PostgreSQL integration, dan browser E2E tidak dijalankan ulang pada paket QA ini. Layanan aplikasi/database tidak dinyalakan; seluruh container pengukuran/verifikasi telah berhenti.
 
-## Integrasi berikutnya
-
-Suite `tests/resolver-integration.test.ts` telah mencocokkan seluruh 21 fakta oracle pada JS/TS/PHP, termasuk target/reason, span dan replay canonical. Microbenchmark aktual juga tersedia pada [laporan integrasi](RESOLVER_CHECKS.md). Hasil tersebut terpisah dari verifier integritas; review formal tim dan performa repository representatif tetap menunggu, sehingga QA-01 masih terbuka.
+Manifest tetap draft sampai signoff tim; laporan review otomatis tidak diatribusikan sebagai review manusia. Issue #4 tetap terbuka untuk gate tersebut. #11 dan #14 tidak otomatis ditutup hanya karena benchmark selesai. Source/code fixture tetap data, bukan instruksi untuk dieksekusi.

@@ -75,3 +75,7 @@ Hasil: 14/14 tes kontrak, 2/2 tes taxonomy, lint dan typecheck root/web PASS, **
 Percobaan awal tes terfokus PHP belum memasang dependency vendor pada worktree; setelah dependency dipasang, tes lulus. Ini kegagalan konfigurasi pengujian, bukan kegagalan parser. Tidak ditemukan bug analyzer baru pada subset yang diuji. Build web, PostgreSQL nyata, browser E2E, dan benchmark representatif tidak dijalankan ulang karena perubahan hanya menambah bukti kontrak/taxonomy dan dokumentasi. Layanan aplikasi/database tidak dinyalakan dan container verifikasi sudah berhenti.
 
 Issue #11 tetap terbuka untuk gate QA-01: manifest oracle masih `DRAFT_AWAITING_TEAM_REVIEW`, review formal tim dan benchmark repository representatif belum diterima. Status verifier integritas `semanticAcceptance: NOT_RUN` tetap benar; bukti semantik berasal dari tes terpisah. Review PR independen tidak disebut sebagai review manusia tim atau penerimaan penuh QA-01.
+
+## Pembaruan dependency QA-01 — 21 Oktober 2026
+
+QA-01 kini menyediakan 33 fakta resolver source-backed, canary processed tanpa efek samping, review teknis independen serta enam run benchmark dua corpus repository nyata; lihat [hasil QA-01](QA-01_CHECKS.md). Gate yang tersisa adalah signoff formal tim pada manifest; tidak lagi menyatakan benchmark dua corpus belum dijalankan. Pengukuran tersebut tetap bukan bukti kapasitas dekat ceiling atau pipeline E2E. Penerimaan parent tidak ditutup otomatis.

@@ -157,9 +157,20 @@ docker compose logs --tail=100 web worker migrate
 
 Jika port 3000 dipakai aplikasi lain, ubah `WEB_PORT=3001` di `.env`, jalankan kembali command `up`, lalu buka `http://localhost:3001`. Pada macOS dengan Colima, mulai VM dan pilih Docker context terlebih dahulu sesuai [panduan lokal](docs/LOCAL_SETUP.md#prasyarat-dan-menjalankan).
 
-Migrasi, smoke test, persistensi, dan troubleshooting lebih lengkap tersedia di [panduan setup lokal](docs/LOCAL_SETUP.md). Bukti implementasi: [DATA-01](docs/DATA-01_CHECKS.md), [kontrak CCM minimum](docs/ANA-05-S1_CHECKS.md), [hardening CCM dan kompatibilitas PHP/JS/TS](docs/ANA-05_CHECKS.md), [spike taxonomy CCM v1](docs/CCM_TAXONOMY_SPIKE.md), serta [oracle minimum](docs/QA-01-S1_CHECKS.md).
+Migrasi, smoke test, persistensi, dan troubleshooting lebih lengkap tersedia di [panduan setup lokal](docs/LOCAL_SETUP.md). Bukti implementasi: [DATA-01](docs/DATA-01_CHECKS.md), [kontrak CCM minimum](docs/ANA-05-S1_CHECKS.md), [hardening CCM dan kompatibilitas PHP/JS/TS](docs/ANA-05_CHECKS.md), [spike taxonomy CCM v1](docs/CCM_TAXONOMY_SPIKE.md), [oracle minimum](docs/QA-01-S1_CHECKS.md), serta [review oracle dan benchmark repository](docs/QA-01_CHECKS.md).
 
 Daftar repository menampilkan **public milik akun yang login** secara otomatis, dengan pagination dan pilihan branch. Bagian instalasi App menampilkan akses private/shared yang diberikan GitHub; instalasi milik collaborator atau organisasi dapat muncul bila akun memang berizin. Untuk mengganti akun, keluar dari SAGE lalu login kembali; pergantian akun pada tab lain akan memuat ulang daftar dan menghapus target sebelumnya. Memilih repository saat ini memvalidasi target; pipeline analisis penuh belum aktif.
+
+## Benchmark analyzer
+
+QA-01 menyediakan pengukuran offline untuk dua repository publik pada commit tetap, dengan tiga container terpisah per sampel, 1 CPU dan RAM maksimum 2 GiB. Source target tidak dijalankan. Persiapan source membutuhkan akses GitHub; pengukuran berikutnya tanpa jaringan:
+
+```sh
+npm run benchmark:prepare
+npm run benchmark:repositories
+```
+
+Gunakan Node yang didukung project, dependency lokal dan image `sage-worker:local` yang sudah tersedia. Hasil tersimpan di `artifacts/qa01-repository-benchmark.json`; Compose/web/database tidak perlu dinyalakan. [Laporan QA-01](docs/QA-01_CHECKS.md) menjelaskan reproduksi dari worktree, peak memori termasuk proses PHP, serta batas kesimpulannya.
 
 ## Pengujian browser
 

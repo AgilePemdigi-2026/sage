@@ -108,3 +108,7 @@ Rincian hasil terbaru, matriks fitur, batas OAuth/fixture/pipeline dan perintah 
 ## Replay canonical dan persistensi ANA-06
 
 T-ANA-04/T-GRAPH-01 diperluas oleh `tests/ckg.test.ts`, `tests/ckg-handlers.test.ts`, dan `tests/ckg-persistence.test.ts` untuk determinisme/counts, batas hash/target/evidence serta integritas read/replay. `npm run test:ckg:integration` hanya dijalankan dengan opt-in dan database disposable `sage_ckg14`: source handlers nyata, snapshot owner-bound, graph canonical, lease/owner/stage fencing dan rollback saat lease habis dalam INSERT. Stage dokumen masih placeholder uji; suite memastikan tidak ada analysis terminal sukses yang diterbitkan. Hasil aktual dan batas di [ANA-06_CHECKS](ANA-06_CHECKS.md).
+
+## Pembaruan QA-01 — 21 Oktober 2026
+
+Suite integrasi kini memakai 33 fakta resolver source-authored (18 file), ditambah canary JS/TS/PHP yang wajib processed tanpa menghasilkan marker efek samping. Review teknis independen memeriksa 12 fakta seed dan 33 fakta resolver langsung dari source; metode/fingerprint/nuansa konservatif ada pada [laporan review](QA-01_ORACLE_REVIEW.md). Full check lulus 242 tes utama dan 8 tes data. Benchmark memakai dua corpus repository pada commit beku, tiga container baru per corpus, termasuk replay input terbalik, waktu serta peak charged memory container yang mencakup proses anak PHP. [Laporan QA-01](QA-01_CHECKS.md) mencatat command, angka, batas dan gate signoff tim. Ini tidak menggantikan regression produk penuh, kapasitas dekat ceiling atau review manusia terhadap manifest.
