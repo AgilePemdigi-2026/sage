@@ -50,7 +50,7 @@ test("real snapshot and mixed-language handlers persist canonical CKG without pu
     const sources = {
       "src/app.ts": new TextEncoder().encode('\ufeffexport class Café { run(): void {} }\r\nconst app = new Café(); app.run(); external.run();\r\n'),
       "src/app.php": new TextEncoder().encode('<?php\nclass Worker { public function run(): void {} }\n$worker = new Worker(); $worker->run();\n'),
-      "src/canary.js": new TextEncoder().encode('throw new Error("SOURCE_MUST_NEVER_EXECUTE"); export function ready() { return true; }\n'),
+      "src/canary.js": new TextEncoder().encode('import value from "pkg\\u0000name"; import lone from "pkg\\ud800"; value(); lone(); throw new Error("SOURCE_MUST_NEVER_EXECUTE"); export function ready() { return true; }\n'),
       "README.md": new TextEncoder().encode('fixture only'),
     };
     const bytes = await archive(sources);
@@ -77,6 +77,8 @@ test("real snapshot and mixed-language handlers persist canonical CKG without pu
         assert.ok(replay.value.ccm.nodes.some(node => node.language === "php"));
         assert.ok(replay.value.ccm.nodes.some(node => node.language === "typescript"));
         assert.ok(replay.value.counts.unresolvedEdges > 0);
+        assert.ok(JSON.stringify(replay.value.ccm.nodes).includes("\\u0000"), "escaped NUL labels survive database round-trip losslessly");
+        assert.ok(JSON.stringify(replay.value.ccm.nodes).includes("\\ud800"), "lone surrogate labels survive database round-trip losslessly");
         assert.equal(replay.value.counts.referenceEdges + replay.value.counts.containmentEdges, row.edgeCount);
         const ccm = canonicalizeCcm(replay.value.ccm, sources);
         assert.ok(ccm.ok);

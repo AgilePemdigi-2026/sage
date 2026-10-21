@@ -1,5 +1,4 @@
 import { createHash } from "node:crypto";
-import { isDeepStrictEqual } from "node:util";
 import { CKG_SCHEMA_VERSION, canonicalizeCkg, parseCanonicalCkg } from "@sage/contracts";
 import type { CkgV1 } from "@sage/contracts";
 import type { Prisma } from "../generated/client.ts";
@@ -73,8 +72,8 @@ function bundleMatchesCanonical(
     bundle.contentHash === canonical.sha256 &&
     bundle.nodeCount === canonical.value.counts.nodes &&
     bundle.edgeCount === canonical.value.counts.edges &&
-    isDeepStrictEqual(bundle.nodes, canonical.value.ccm.nodes) &&
-    isDeepStrictEqual(bundle.edges, canonical.value.ccm.edges);
+    bundle.nodes === JSON.stringify(canonical.value.ccm.nodes) &&
+    bundle.edges === JSON.stringify(canonical.value.ccm.edges);
 }
 
 export class CanonicalGraphIntegrityError extends Error {
@@ -99,8 +98,11 @@ export async function persistCanonicalGraph(
   const canonical = canonicalizeCkg(input.ccm, input.sourceBytes, input.configurationHash);
   if (!canonical.ok) throw new Error("CCM tidak valid untuk persistensi CKG.");
   const graph = canonical.value;
-  const serializedNodes = JSON.parse(JSON.stringify(graph.ccm.nodes)) as Prisma.InputJsonValue;
-  const serializedEdges = JSON.parse(JSON.stringify(graph.ccm.edges)) as Prisma.InputJsonValue;
+  // JSONB rejects decoded NUL and lone surrogates. Store each canonical array as a JSON
+  // string value so escaped source codepoints survive losslessly; canonicalContent remains
+  // authoritative. This encoding is part of the new sage-ckg-v1 storage contract.
+  const serializedNodes = JSON.stringify(graph.ccm.nodes);
+  const serializedEdges = JSON.stringify(graph.ccm.edges);
 
   const tokenHash = createHash("sha256").update(claim.leaseToken, "utf8").digest("hex");
   try {
@@ -116,15 +118,15 @@ export async function persistCanonicalGraph(
         where: { id: claim.analysisId, ownerUserId: claim.ownerUserId },
         select: {
           configurationHash: true,
+          repositoryFullNameSnapshot: true,
           branchName: true,
           commitSha: true,
           status: true,
-          repository: { select: { fullName: true } },
         },
       });
       if (!analysis) return null;
       if (analysis.status !== "RUNNING" || analysis.configurationHash !== graph.configurationHash ||
-          analysis.repository.fullName !== graph.ccm.snapshot.repository || analysis.branchName !== graph.ccm.snapshot.branch ||
+          analysis.repositoryFullNameSnapshot !== graph.ccm.snapshot.repository || analysis.branchName !== graph.ccm.snapshot.branch ||
           analysis.commitSha !== graph.ccm.snapshot.commitSha) {
         throw new Error("CKG tidak cocok dengan target analisis yang terdaftar.");
       }
@@ -192,9 +194,9 @@ export async function readCanonicalGraphForUser(
     },
     select: {
       configurationHash: true,
+      repositoryFullNameSnapshot: true,
       branchName: true,
       commitSha: true,
-      repository: { select: { fullName: true } },
       graphBundle: {
         select: {
           id: true,
@@ -215,7 +217,7 @@ export async function readCanonicalGraphForUser(
   const parsed = parseCanonicalCkg(bundle.canonicalContent, safeSourceBytes, bundle.contentHash);
   if (!parsed.ok || !bundleMatchesCanonical(bundle, parsed) ||
       record.configurationHash !== parsed.value.configurationHash ||
-      record.repository.fullName !== parsed.value.ccm.snapshot.repository ||
+      record.repositoryFullNameSnapshot !== parsed.value.ccm.snapshot.repository ||
       record.branchName !== parsed.value.ccm.snapshot.branch ||
       record.commitSha !== parsed.value.ccm.snapshot.commitSha) {
     throw new CanonicalGraphIntegrityError();

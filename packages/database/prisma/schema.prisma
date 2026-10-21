@@ -184,6 +184,8 @@ model Analysis {
   id                   String                @id @default(cuid())
   ownerUserId          String
   repositoryId         String
+  /// Repository name captured when the analysis was enqueued; later repository renames do not change its source target.
+  repositoryFullNameSnapshot String?
   retryParentId        String?
   branchName           String
   commitSha            String

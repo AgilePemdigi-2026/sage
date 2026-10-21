@@ -148,16 +148,42 @@ export async function initializeAnalysisStages(
         select: {
           id: true,
           repositoryId: true,
+          repositoryFullNameSnapshot: true,
           branchName: true,
           commitSha: true,
           configuration: true,
           configurationHash: true,
           analyzerVersion: true,
           schemaVersion: true,
-          repository: { select: { fullName: true, visibility: true } },
+          repository: { select: { visibility: true } },
         },
       });
       if (!analysis || !/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(analysis.commitSha)) throw new AnalysisQueueInvariantError();
+
+      let repositoryFullNameSnapshot = analysis.repositoryFullNameSnapshot;
+      if (repositoryFullNameSnapshot === null) {
+        // Legacy rows did not save the submission-time name. Capture today's name once while
+        // holding the worker lease and a shared repository row lock; this cannot reconstruct
+        // historical truth if that repository was renamed before this migration was deployed.
+        const repositoryRows = await tx.$queryRaw<Array<{ fullName: string }>>`
+          SELECT repository."fullName"
+          FROM "Repository" AS repository
+          JOIN "Analysis" AS analysis ON analysis."repositoryId" = repository."id"
+          WHERE analysis."id" = ${claim.analysisId} AND analysis."ownerUserId" = ${claim.ownerUserId}
+          FOR SHARE OF repository
+        `;
+        if (repositoryRows.length !== 1 || !repositoryRows[0].fullName) throw new AnalysisQueueInvariantError();
+        const capturedRows = await tx.$queryRaw<Array<{ fullName: string }>>`
+          UPDATE "Analysis"
+          SET "repositoryFullNameSnapshot" = ${repositoryRows[0].fullName}, "updatedAt" = clock_timestamp()
+          WHERE "id" = ${claim.analysisId} AND "ownerUserId" = ${claim.ownerUserId}
+            AND "repositoryFullNameSnapshot" IS NULL
+          RETURNING "repositoryFullNameSnapshot" AS "fullName"
+        `;
+        if (capturedRows.length !== 1) throw new AnalysisQueueInvariantError();
+        repositoryFullNameSnapshot = capturedRows[0].fullName;
+      }
+      if (!repositoryFullNameSnapshot) throw new AnalysisQueueInvariantError();
 
       const stageRows = await tx.analysisStage.findMany({
         where: { analysisId: claim.analysisId, ownerUserId: claim.ownerUserId },
@@ -170,7 +196,7 @@ export async function initializeAnalysisStages(
         target: {
           analysisId: analysis.id,
           repositoryId: analysis.repositoryId,
-          repositoryFullName: analysis.repository.fullName,
+          repositoryFullName: repositoryFullNameSnapshot,
           repositoryVisibility: analysis.repository.visibility,
           branchName: analysis.branchName,
           commitSha: analysis.commitSha,

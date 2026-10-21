@@ -44,9 +44,9 @@ test("published graph reads require owner and terminal analysis status and accep
     where: { id: "analysis-1", ownerUserId: "owner-1", status: { in: ["COMPLETED", "COMPLETED_WITH_LIMITATIONS"] } },
     select: {
       configurationHash: true,
+      repositoryFullNameSnapshot: true,
       branchName: true,
       commitSha: true,
-      repository: { select: { fullName: true } },
       graphBundle: { select: {
         id: true, schemaVersion: true, configurationHash: true, canonicalContent: true,
         nodes: true, edges: true, nodeCount: true, edgeCount: true, contentHash: true,
@@ -62,15 +62,15 @@ test("published graph read verifies canonical content, source evidence and mirro
   if (!canonical.ok) return;
   const parent = {
     configurationHash,
+    repositoryFullNameSnapshot: canonical.value.ccm.snapshot.repository,
     branchName: canonical.value.ccm.snapshot.branch,
     commitSha: canonical.value.ccm.snapshot.commitSha,
-    repository: { fullName: canonical.value.ccm.snapshot.repository },
   };
   const db = {
     analysis: { findFirst: async () => ({ ...parent, graphBundle: {
       id: "graph-1", schemaVersion: canonical.value.schemaVersion,
       configurationHash: canonical.value.configurationHash, canonicalContent: canonical.json,
-      nodes: canonical.value.ccm.nodes, edges: canonical.value.ccm.edges,
+      nodes: JSON.stringify(canonical.value.ccm.nodes), edges: JSON.stringify(canonical.value.ccm.edges),
       nodeCount: canonical.value.counts.nodes, edgeCount: canonical.value.counts.edges,
       contentHash: canonical.sha256,
     } }) },
@@ -82,7 +82,7 @@ test("published graph read verifies canonical content, source evidence and mirro
     analysis: { findFirst: async () => ({ ...parent, graphBundle: {
       id: "graph-1", schemaVersion: canonical.value.schemaVersion,
       configurationHash: canonical.value.configurationHash, canonicalContent: canonical.json,
-      nodes: [], edges: canonical.value.ccm.edges,
+      nodes: [], edges: JSON.stringify(canonical.value.ccm.edges),
       nodeCount: canonical.value.counts.nodes, edgeCount: canonical.value.counts.edges,
       contentHash: canonical.sha256,
     } }) },
@@ -93,7 +93,7 @@ test("published graph read verifies canonical content, source evidence and mirro
     { ...parent, configurationHash: "d".repeat(64) },
     { ...parent, branchName: "different-branch" },
     { ...parent, commitSha: "e".repeat(40) },
-    { ...parent, repository: { fullName: "different/repository" } },
+    { ...parent, repositoryFullNameSnapshot: "different/repository" },
   ]) {
     const parentMismatchDb = {
       analysis: { findFirst: async () => ({
@@ -101,7 +101,7 @@ test("published graph read verifies canonical content, source evidence and mirro
         graphBundle: {
           id: "graph-1", schemaVersion: canonical.value.schemaVersion,
           configurationHash: canonical.value.configurationHash, canonicalContent: canonical.json,
-          nodes: canonical.value.ccm.nodes, edges: canonical.value.ccm.edges,
+          nodes: JSON.stringify(canonical.value.ccm.nodes), edges: JSON.stringify(canonical.value.ccm.edges),
           nodeCount: canonical.value.counts.nodes, edgeCount: canonical.value.counts.edges,
           contentHash: canonical.sha256,
         },
@@ -117,7 +117,7 @@ test("published graph read verifies canonical content, source evidence and mirro
       return { ...parent, graphBundle: {
         id: "graph-1", schemaVersion: canonical.value.schemaVersion,
         configurationHash: canonical.value.configurationHash, canonicalContent: canonical.json,
-        nodes: canonical.value.ccm.nodes, edges: canonical.value.ccm.edges,
+        nodes: JSON.stringify(canonical.value.ccm.nodes), edges: JSON.stringify(canonical.value.ccm.edges),
         nodeCount: canonical.value.counts.nodes, edgeCount: canonical.value.counts.edges,
         contentHash: canonical.sha256,
       } };
@@ -142,7 +142,7 @@ test("immutable graph replay rejects a database row with tampered mirrors", asyn
     configurationHash,
     canonicalContent: canonical.json,
     nodes: [], // Deliberately inconsistent with the canonical content.
-    edges: canonical.value.ccm.edges,
+    edges: JSON.stringify(canonical.value.ccm.edges),
     nodeCount: canonical.value.counts.nodes,
     edgeCount: canonical.value.counts.edges,
     contentHash: canonical.sha256,
@@ -155,7 +155,7 @@ test("immutable graph replay rejects a database row with tampered mirrors", asyn
       branchName: canonical.value.ccm.snapshot.branch,
       commitSha: canonical.value.ccm.snapshot.commitSha,
       status: "RUNNING",
-      repository: { fullName: canonical.value.ccm.snapshot.repository },
+      repositoryFullNameSnapshot: canonical.value.ccm.snapshot.repository,
     }) },
     analysisStage: { findMany: async () => [
       { key: "COMMON_CODE_MODEL", status: "COMPLETED" },
@@ -195,7 +195,7 @@ test("expired lease at the final fence rolls back a newly written graph", async 
       branchName: canonical.value.ccm.snapshot.branch,
       commitSha: canonical.value.ccm.snapshot.commitSha,
       status: "RUNNING",
-      repository: { fullName: canonical.value.ccm.snapshot.repository },
+      repositoryFullNameSnapshot: canonical.value.ccm.snapshot.repository,
     }) },
     analysisStage: { findMany: async () => [
       { key: "COMMON_CODE_MODEL", status: "COMPLETED" },

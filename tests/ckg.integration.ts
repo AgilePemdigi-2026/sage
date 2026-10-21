@@ -42,12 +42,18 @@ test("CKG persistence is owner and lease fenced, immutable, canonical and hidden
       commitSha: "a".repeat(40), configuration: { includeTests: false },
       analyzerVersion: "ckg-test", schemaVersion: "1",
     });
+    const submittedRepositoryName = repository.fullName;
+    await db.repository.update({
+      where: { id: repository.id },
+      data: { ownerLogin: "sage-ckg-renamed", fullName: `sage-ckg-renamed/${suffix}` },
+    });
     jobs.push(enqueued.jobId);
     const claim = await claimAnalysisJob(db, { leaseDurationMs: 300_000 });
     assert.ok(claim);
     claims.push(claim);
     assert.equal(claim.analysisId, enqueued.analysisId);
-    await initializeAnalysisStages(db, claim);
+    const stageInput = await initializeAnalysisStages(db, claim);
+    assert.equal(stageInput?.target.repositoryFullName, submittedRepositoryName, "worker target keeps the name captured at enqueue");
     for (const key of ["SNAPSHOT", "LANGUAGE_DETECTION", "STATIC_ANALYSIS", "COMMON_CODE_MODEL"] as const) {
       assert.equal(await startAnalysisStage(db, claim, key), true);
       assert.equal(await completeAnalysisStage(db, claim, key), true);
@@ -59,7 +65,7 @@ test("CKG persistence is owner and lease fenced, immutable, canonical and hidden
       readFile(new URL("../packages/contracts/examples/minimum-ccm.json", import.meta.url), "utf8"),
     ]);
     const ccm = JSON.parse(payloadText) as Record<string, unknown>;
-    ccm.snapshot = { repository: repository.fullName, branch: "main", commitSha: "a".repeat(40) };
+    ccm.snapshot = { repository: submittedRepositoryName, branch: "main", commitSha: "a".repeat(40) };
     const sourceBytes = { "examples/minimum-ccm.source.ts": new TextEncoder().encode(sourceText) };
     const persistInput = { claim, ccm, sourceBytes, configurationHash: enqueued.configurationHash };
 
@@ -104,10 +110,15 @@ test("CKG persistence is owner and lease fenced, immutable, canonical and hidden
     assert.equal(afterConflict.contentHash, stored.contentHash);
 
     await db.analysis.update({ where: { id: enqueued.analysisId }, data: { status: "COMPLETED", completedAt: new Date() } });
+    await db.repository.update({
+      where: { id: repository.id },
+      data: { ownerLogin: "sage-ckg-renamed-final", fullName: `sage-ckg-renamed-final/${suffix}` },
+    });
     const visible = await readCanonicalGraphForUser(db, owner.id, enqueued.analysisId, sourceBytes);
     assert.equal(visible?.id, stored.id);
     assert.equal(visible?.contentHash, stored.contentHash);
     assert.equal(visible?.graph.ccm.snapshot.commitSha, "a".repeat(40));
+    assert.equal(visible?.graph.ccm.snapshot.repository, submittedRepositoryName, "later repository renames do not change the result target");
   } finally {
     for (const claim of claims) await failAnalysisJob(db, claim, "CKG_TEST_CLEANUP").catch(() => false);
     await db.$transaction(async tx => {

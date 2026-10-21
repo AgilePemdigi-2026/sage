@@ -486,10 +486,18 @@ export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisIn
     `;
     if (nextRows.length !== 1 || nextRows[0].sequence <= 0n) throw new AnalysisQueueInvariantError();
 
+    // Freeze the display name that identifies the repository at submission time.
+    // FOR SHARE serializes a concurrent repository rename until this transaction commits.
+    const repositoryRows = await tx.$queryRaw<Array<{ fullName: string }>>`
+      SELECT "fullName" FROM "Repository" WHERE "id" = ${repositoryId} FOR SHARE
+    `;
+    if (repositoryRows.length !== 1 || !repositoryRows[0].fullName) throw new AnalysisQueueInvariantError();
+
     const analysis = await tx.analysis.create({
       data: {
         ownerUserId,
         repositoryId,
+        repositoryFullNameSnapshot: repositoryRows[0].fullName,
         retryParentId: retryParentId ?? null,
         branchName,
         commitSha,
