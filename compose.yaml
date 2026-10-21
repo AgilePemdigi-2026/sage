@@ -50,6 +50,7 @@ services:
     environment:
       <<: *database-environment
       NEXT_TELEMETRY_DISABLED: "1"
+      STORAGE_ROOT: /app/storage
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?Jalankan npm run setup:local terlebih dahulu}
       AUTH_BASE_URL: ${AUTH_BASE_URL:-http://localhost:3000}
       GITHUB_APP_CLIENT_ID: ${GITHUB_APP_CLIENT_ID:-}
