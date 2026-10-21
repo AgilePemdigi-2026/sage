@@ -331,6 +331,8 @@ model ArchitectureDocument {
   analysisId                 String
   title                      String
   documentModelVersion       String
+  /// Canonical, replayable architecture document. Null only for legacy rows created before DOC01.
+  canonicalContent           String?
   interfaceCatalog           Json
   softwareEngineeringDiagram Json
   umlClassDiagram            Json
