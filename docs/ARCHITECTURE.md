@@ -1,6 +1,6 @@
 # Arsitektur sistem
 
-Status per 20 Oktober 2026: login GitHub, akses repository, validasi target, submission idempotent ke durable queue, snapshot immutable, serta source handlers tersedia dan memiliki bukti per issue. Runner tahap dan penyimpanan status juga tersedia. Consumer analisis produk tetap nonaktif (`workerQueueEnabled=false`), sehingga submission belum menjalankan pipeline sembilan tahap sampai selesai. History produk membaca record analisis nyata melalui list/detail GET (HIST-01); graph/dokumen produk, ekspor, dan penghapusan masih mengikuti issue terbuka. Detail setup dan batas bukti ada di [setup lokal](LOCAL_SETUP.md).
+Status per 21 Oktober 2026: login GitHub, akses repository, validasi target, submission idempotent ke durable queue, snapshot immutable, serta source handlers tersedia dan memiliki bukti per issue. Runner tahap dan penyimpanan status juga tersedia. Consumer analisis produk tetap nonaktif (`workerQueueEnabled=false`), sehingga submission belum menjalankan pipeline sembilan tahap sampai selesai. History produk membaca record analisis nyata melalui list/detail GET (HIST-01); graph produk membaca canonical CKG tersimpan setelah status sukses (GRAPH-01). Query/filter, inspector, dokumen produk, ekspor, dan penghapusan masih mengikuti issue terbuka. Detail setup dan batas bukti ada di [setup lokal](LOCAL_SETUP.md).
 
 ## Komponen
 
@@ -15,7 +15,7 @@ Status per 20 Oktober 2026: login GitHub, akses repository, validasi target, sub
 | GitHub | Identitas, izin, metadata target, dan snapshot source | Akses dibatasi pada hak pengguna/instalasi |
 | Browser | UI Indonesia, Cytoscape.js, inspector, dan unduhan | Tidak menerima token GitHub atau private key |
 
-Target pipeline: GitHub -> snapshot immutable -> adapter bahasa -> Common Code Model -> canonical Code Knowledge Graph -> tiga proyeksi artefak -> Architecture Definition Document -> ekspor. Baru akses repository, validasi/submission, snapshot, dan fondasi queue/runner yang tersedia; alur penuh belum aktif.
+Target pipeline: GitHub -> snapshot immutable -> adapter bahasa -> Common Code Model -> canonical Code Knowledge Graph -> tiga proyeksi artefak -> Architecture Definition Document -> ekspor. Akses repository, validasi/submission, snapshot, handler source/CKG dan pembacaan graph tersimpan tersedia sebagai komponen; alur penuh belum aktif.
 
 LLM tidak terhubung ke jalur MVP. Framework backend tambahan, graph database, dan layanan antrean terpisah tidak menjadi dependency awal.
 
@@ -106,3 +106,9 @@ Workspace web/worker/database, parser probe, renderer probe, serta tests/fixture
 ## Handler internal canonical CKG
 
 ANA-06 menyediakan `createCkgStageHandlers` untuk COMMON_CODE_MODEL dan KNOWLEDGE_GRAPH, setelah handler snapshot/source. Keduanya membaca ulang snapshot owner-bound dan memverifikasi hash/target artefak tahap sebelumnya. Graph canonical adalah wrapper CCM tervalidasi; tidak menjalankan resolver ulang atau mengubah fakta. Persistensi memakai lease aktif, stage fence, transaksi dan replay immutable. Handler berikutnya menerima graph beserta hash untuk proyeksi dokumen; publikasi analysis selesai tidak dilakukan di tahap graph. Consumer queue produk tetap nonaktif sampai registry sembilan handler dan publikasi atomik diterima pada ANA-07. Bukti serta batas ada di [ANA-06_CHECKS](ANA-06_CHECKS.md).
+
+## Pembacaan graph tersimpan GRAPH-01
+
+Web memeriksa session dan pemilik/status analisis sebelum membaca snapshot archive dari volume read-only. Archive aktif terbaru dipilih secara owner/analysis-scoped dengan urutan createdAt/id; canonical reader memverifikasi kembali hash/source/mirror dan target immutable. Endpoint graph hanya menyediakan proyeksi lengkap setelah status sukses, tanpa source bytes, path storage atau token. Validasi byte archive ini tidak menjalankan adapter/resolver atau source target.
+
+Browser mengikat payload ke ID analisis serta akun, membuang respons generasi lama, dan menghapus data sebelum pemeriksaan ulang identitas pada focus/pageshow/visibility. Mode Ikhtisar/Fokus/Semua referensi hanya menghasilkan subset tampilan dari fakta canonical. Budget render 200 node/500 edge dijelaskan bersama canonical/mode/visible counts; API tidak memotong graph. Query/filter dan inspector/source mengikuti GRAPH-02/03. Bukti terisolasi dan batas pipeline tersedia pada [GRAPH-01_CHECKS](GRAPH-01_CHECKS.md).
