@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-21",
+  "baseCommit": "118156fd649766f906b9e8361701fbbe35cb4f4d",
+  "workerImage": "sha256:bf6056ca5e14513523f5e30784dcd20bf232d886c7d73e94a515c333de8b2629",
+  "runtime": {
+    "node": "24.22.0",
+    "npm": "11.17.0",
+    "php": "8.4.26",
+    "typescript": "5.9.3"
+  },
+  "limits": {
+    "cpus": 1,
+    "memoryGiB": 2,
+    "network": "none"
+  },
+  "results": {
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "contractTests": 14,
+    "taxonomyTests": 2,
+    "mainTests": 237,
+    "dataTests": 8,
+    "seedFiles": 15,
+    "seedOracles": 12,
+    "resolverFiles": 6,
+    "resolverFacts": 21
+  },
+  "notRun": [
+    "production build",
+    "PostgreSQL integration",
+    "browser E2E",
+    "representative benchmark",
+    "formal team oracle review"
+  ],
+  "files": {
+    "tests/contracts.test.ts": "9ac315f7066d4c3298a3a627b59180faf4451482fee414e33a9c9d7b525a8f9b",
+    "tests/taxonomy-compatibility.test.ts": "f966ada101ad2696686f8a0aeb2c1c0d4a7fff93601fd406de0e573132ba98f6",
+    "packages/contracts/src/index.ts": "f2d83c750dba10f4df490b0dd37cc4e41d0092aa1bea22d70e9c4e2657fc7b2a",
+    "packages/contracts/src/ckg.ts": "ab4cc66f46bc384a3fd9977cd537df3111ff060ee7dc44dd8a9254b998767fac",
+    "packages/analyzer-js/src/index.ts": "f039c110278b47bea85f4cea0951a4791d8dcd446f5593d6275bb6fd2bc682ba",
+    "packages/analyzer-php/bin/declarations.php": "3fc243012acd3645d5720830c23bf67eb89b4c06e461bb31409254529bb5d21e",
+    "package-lock.json": "d46da4a65404fc3919451f5db4741fab413e12ed22d8cdb483a79bf0e85eea6a"
+  }
+}

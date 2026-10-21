@@ -238,6 +238,18 @@ test("validator rejects bad resolution, unresolved reason, evidence and source h
   assertRejected(validateCcm(wrongHash, sourceBytes), "CCM_FILE_HASH_MISMATCH");
 });
 
+test("validator and canonicalizer reject forged deterministic edge identifiers", async () => {
+  const { model, sourceBytes } = await validFixture();
+  for (const resolution of ["Exact", "Unresolved"] as const) {
+    const forged = structuredClone(model);
+    const edge = forged.edges.find((candidate) => candidate.resolution === resolution);
+    assert.ok(edge, `fixture must include a ${resolution} edge`);
+    edge.id = `edge_${"0".repeat(64)}`;
+    assertRejected(validateCcm(forged, sourceBytes), "CCM_EDGE_ID_INVALID");
+    assertRejected(canonicalizeCcm(forged, sourceBytes), "CCM_EDGE_ID_INVALID");
+  }
+});
+
 test("strict arrays reject holes and hidden or custom properties at every contract level", async () => {
   const { model, sourceBytes } = await validFixture();
   for (const key of ["files", "nodes", "edges", "limitations"] as const) {
