@@ -4,6 +4,7 @@ export type GraphCategory = "Berkas" | "Struktur" | "Simbol" | "Belum terpecahka
 
 export interface GraphNodeView {
   id: string;
+  parentId?: string | null;
   name: string;
   label: string;
   kind: NodeKind;
@@ -47,6 +48,7 @@ export function projectCcmForGraph(model: CcmV1): GraphViewModel {
     commitSha: model.snapshot.commitSha,
     nodes: model.nodes.map((node) => ({
       id: node.id,
+      parentId: node.parentId,
       name: node.name,
       label: `${node.name}\n${node.kind}`,
       kind: node.kind,

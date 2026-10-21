@@ -74,7 +74,7 @@ Compose membatasi web 768 MiB, worker 2 GiB, dan database 384 MiB. Web/worker be
 
 Mermaid memakai strict mode. Modul DOC-02 menambahkan encoding label, pembatasan diagram, blokir jaringan, pengujian label berbahaya, serta validasi SVG; lihat [bukti DOC-02](DOC-02_CHECKS.md). Integrasi ekspor produk tetap diuji pada DOC-01/EXP-02. Chromium tidak boleh dipakai membuka URL bebas dari input pengguna.
 
-Status acceptance produk mengikuti [test plan](TEST_PLAN.md) dan bukti per issue. Login/repository nyata, target branch/full SHA, dan snapshot telah diuji pada slice GH-01/02 serta REP-01/02; alur analisis sampai graph/dokumen/ekspor belum tersedia. Bukti fondasi dicatat terpisah dalam [pemeriksaan environment](ENVIRONMENT_CHECKS.md); QA-01 tetap terbuka untuk kelengkapan oracle semantik dan review tim.
+Status acceptance produk mengikuti [test plan](TEST_PLAN.md) dan bukti per issue. Login/repository nyata, target branch/full SHA, dan snapshot telah diuji pada slice GH-01/02 serta REP-01/02; history dan graph membaca hasil tersimpan, dengan bukti [GRAPH-01](GRAPH-01_CHECKS.md). Submission sampai hasil graph/dokumen/ekspor penuh tetap menunggu pipeline aktif. Bukti fondasi dicatat terpisah dalam [pemeriksaan environment](ENVIRONMENT_CHECKS.md); QA-01 tetap terbuka untuk kelengkapan oracle semantik dan review tim.
 
 ## Referensi implementasi
 

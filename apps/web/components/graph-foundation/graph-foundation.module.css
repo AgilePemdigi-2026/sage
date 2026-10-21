@@ -12,7 +12,7 @@
 .legendItem { display: inline-flex; align-items: center; gap: 6px; color: #344b68; font-size: 10px; line-height: 1.5; white-space: nowrap; }
 .categoryMark { display: inline-block; width: 12px; height: 12px; flex: 0 0 auto; border: 1.5px solid; border-radius: 4px; }
 .categoryFile { background: #e3edf5; border-color: #7993aa; }
-.categoryStructure { background: #dff3eb; border-color: #3e8066; border-radius: 2px; transform: rotate(45deg) scale(.82); }
+.categoryStructure { background: #dff3eb; border-color: #3e8066; clip-path: polygon(25% 0, 75% 0, 100% 50%, 75% 100%, 25% 100%, 0 50%); }
 .categorySymbol { background: #e4f2f4; border-color: #36818a; border-radius: 50%; }
 .categoryUnresolved { background: #fff0f0; border-color: #a53c4a; border-radius: 1px; transform: rotate(45deg) scale(.82); }
 .exactMark, .unresolvedMark { display: inline-block; width: 22px; height: 0; border-top: 2px solid #307d70; }
@@ -44,12 +44,33 @@
 .nodeDetails dt { color: var(--graph-muted); }
 .nodeDetails dd { min-width: 0; margin: 0; color: #253d58; overflow-wrap: anywhere; }
 .emptySelection { color: var(--graph-muted); font-size: 12px; line-height: 1.7; }
+.graphIdentity { display: grid; gap: 8px; margin: 12px 0 0; }
+.graphIdentity > div { min-width: 0; }
+.graphIdentity dt { color: var(--graph-muted); font-size: 10px; }
+.graphIdentity dd { min-width: 0; margin: 2px 0 0; }
+.graphIdentity code { color: #344b68; font-family: "JetBrains Mono", monospace; font-size: 10px; overflow-wrap: anywhere; }
+.modeControls { display: grid; gap: 12px; padding: 14px 0; }
+.modeButtons { display: flex; flex-wrap: wrap; gap: 8px; }
+.modeButton { min-height: 40px; padding: 8px 11px; border: 1px solid #7c8ba1; border-radius: 6px; background: #fff; color: #061e42; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
+.modeButton:hover { background: #f1f5f8; }
+.modeButton[aria-pressed="true"] { border-color: #096c67; background: #eaf7f3; color: #075b52; }
+.modeButton:focus-visible, .nodePicker:focus-visible { outline: 3px solid #096c67; outline-offset: 2px; }
+.nodePickerLabel { display: grid; gap: 6px; color: #344b68; font-size: 11px; font-weight: 600; }
+.nodePicker { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid #b8c6d3; border-radius: 6px; background: #fff; color: #061e42; font: inherit; font-size: 12px; }
+.graphCounts { display: grid; gap: 5px; padding: 12px; border: 1px solid #dce5eb; border-radius: 6px; background: #f7f9fb; color: #344b68; font-size: 11px; }
+.graphCounts h3 { margin: 0 0 2px; font-size: 12px; font-weight: 600; }
+.countDetails { color: #52637b; font-size: 10px; line-height: 1.6; }
+.subsetNotice { color: #79500a; font-size: 10px; line-height: 1.6; }
+.modeDescription { margin-top: 8px !important; color: var(--graph-muted); font-size: 11px; line-height: 1.6; }
+.liveGraphFooter { margin-top: 16px !important; font-size: 12px; }
+.liveGraphFooter a { color: #075f55; text-underline-offset: 3px; }
 @media (min-width: 600px) {
   .graphCard, .nodeListCard, .selectedCard { padding: 20px; }
   .graphCardHeader { grid-template-columns: minmax(0, 1fr) auto; }
   .snapshotLabel { max-width: 260px; text-align: right; }
   .canvas { height: 520px; }
   .nodeDetails { grid-template-columns: minmax(80px, .55fr) minmax(0, 1.6fr); }
+  .graphIdentity { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
 @media (min-width: 1200px) {
   .supportGrid { grid-template-columns: minmax(0, 1fr) minmax(280px, .8fr); align-items: start; }
