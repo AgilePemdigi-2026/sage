@@ -120,3 +120,7 @@ Migrasi kosong/upgrade, isolasi dua pengguna, expiry/revocation, refresh/reconne
 ## Hasil spike taxonomy ANA-05 — 21 Oktober 2026
 
 Registry CCM v1 dipertahankan selama TypeAlias, Enum, dan Trait belum mempunyai kontrak kategori/konsumen yang teruji. Konstruksi tersebut dicatat sebagai limitation dan tidak dipetakan ke kategori inti yang berbeda makna. Ini keputusan kompatibilitas implementasi saat ini untuk review PR, bukan penerimaan formal oracle atau pengurangan target bahasa. Alternatif, matriks per konstruksi, bukti tes, serta syarat perluasan ada pada [spike taxonomy](CCM_TAXONOMY_SPIKE.md). Acceptance QA-01 dan ANA-05 tetap dicatat terpisah.
+
+## DOC-01: satu model dokumen, tiga artefak
+
+ADD `sage-add-v1` memproyeksikan satu CKG tervalidasi tanpa resolver ulang. Catalog mempertahankan deklarasi non-Module dan seluruh relasi canonical sebagai observasi, tanpa menganggapnya seluruhnya API publik. Diagram memakai DOC-02. Satu transaksi menyimpan ketiga artefak dan hash canonical; API/halaman hanya membaca hasil milik akun yang berstatus sukses. Publikasi terminal graph+ADD+resultHash tetap menjadi tanggung jawab ANA-07. Mermaid browser lokal memakai SVG yang diperiksa sebagai Blob image dengan batas renderer eksplisit. Ekspor Markdown/PDF tidak menjadi bagian DOC-01. Bukti: [DOC-01_CHECKS](DOC-01_CHECKS.md).

@@ -1,6 +1,6 @@
 # Product backlog
 
-Status per 20 Oktober 2026: **44 GitHub Issues**, tiga milestone sprint, dan delapan relasi parent/sub-issue sudah dibuat. Revisi pembagian memakai bobot pekerjaan serta bukti kontribusi tiap sprint; jumlah issue tidak harus sama. Penanggung jawab paket mengikuti [alur kontribusi](../CONTRIBUTING.md); Iltizam melakukan review teknis dan merge PR.
+Status per 21 Oktober 2026: **44 GitHub Issues**, tiga milestone sprint, dan delapan relasi parent/sub-issue sudah dibuat. Revisi pembagian memakai bobot pekerjaan serta bukti kontribusi tiap sprint; jumlah issue tidak harus sama. Penanggung jawab paket mengikuti [alur kontribusi](../CONTRIBUTING.md); Iltizam melakukan review teknis dan merge PR.
 
 Seluruh akun sudah dipetakan dan assignment aktif: Iltizam (`iltizamhasan3`), Rizqy (`rizqy-fadhil`), Valentina (`liliks13`), serta Zarra (`zarrrafirdaus`). Sebelas paket Zarra sudah di-assign ke akunnya. Ringkasan lintas anggota ada di [alokasi sprint](SPRINT_ALLOCATION.md).
 
@@ -46,7 +46,7 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | ANA-04 | Adapter PHP dan resolver | 1-2 | P0 / XL | Zarra | ANA-05, QA-01, ANA-04-S1 | - | Done (resolver statis sesuai capability; lihat RESOLVER_CHECKS) | [#13](https://github.com/AgilePemdigi-2026/sage/issues/13) |
 | ANA-06 | Canonical CKG, provenance, dan persistensi | 2 | P0 / L | Iltizam | ANA-03, ANA-04, ANA-05 | - | Implemented; acceptance parent pending (ANA-06_CHECKS) | [#14](https://github.com/AgilePemdigi-2026/sage/issues/14) |
 | DOC-02 | Proyeksi UML/struktur dan rendering diagram dari CKG | 2 | P0 / L | Valentina | ANA-06 | DOC-01 | Done (PR #78); integrasi ADD pada DOC-01 | [#38](https://github.com/AgilePemdigi-2026/sage/issues/38) |
-| DOC-01 | Interface Catalog, model ADD, dan integrasi tiga artefak | 2 | P0 / L | Zarra | ANA-06, DOC-02 | - | Planned | [#15](https://github.com/AgilePemdigi-2026/sage/issues/15) |
+| DOC-01 | Interface Catalog, model ADD, dan integrasi tiga artefak | 2 | P0 / L | Zarra | ANA-06, DOC-02 | - | Paket teruji (DOC-01_CHECKS); publikasi terminal ANA-07 | [#15](https://github.com/AgilePemdigi-2026/sage/issues/15) |
 | ANA-07 | Pipeline sembilan tahap, progress, failure/retry, atomic result | 1-2 | P0 / XL | Rizqy | ANA-01, ANA-02, ANA-06, DOC-01, ANA-07-S1 | - | Planned | [#16](https://github.com/AgilePemdigi-2026/sage/issues/16) |
 | GRAPH-01 | Graph canvas, mode, legend, zoom, dan counts | 1-2 | P1 / L | Valentina | ANA-06, UI-01, GRAPH-01-S1 | - | Implemented; verification recorded in GRAPH-01_CHECKS | [#17](https://github.com/AgilePemdigi-2026/sage/issues/17) |
 | GRAPH-02 | Node Query dan filter kategori gabungan | 2 | P1 / M | Valentina | GRAPH-01 | - | Planned | [#18](https://github.com/AgilePemdigi-2026/sage/issues/18) |
@@ -74,7 +74,7 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | ANA-07 | ANA-07-S1 | Sprint 2: sambungkan sembilan tahap nyata, atomic bundle, izin retry, recovery dan polling terminal; runner dasar pada ANA-07-S1. |
 | GRAPH-01 | GRAPH-01-S1 | Sprint 2: integrasi CKG nyata, focus/overview/references dan counts canonical; canvas fixture dasar pada GRAPH-01-S1. |
 | QA-03 | QA-03-S1 | Sprint 2: verifikasi semua screen dan state produk pada data analisis nyata; baseline UI pada QA-03-S1. |
-| DOC-01 | DOC-02 | Interface Catalog, model ADD, context/provenance dan publish bundle atomik. UML/diagram struktur dipasok DOC-02; kriteria tiga artefak lengkap tetap wajib. |
+| DOC-01 | DOC-02 | Interface Catalog, model ADD, context/provenance, penyimpanan tiga artefak atomik dan akses/tampilan dokumen. UML/diagram struktur dipasok DOC-02; publikasi terminal graph+ADD+resultHash merupakan ANA-07. |
 | FIN-01 | - | Regression analyzer JS/TS/PHP, validator/CCM/CKG/evidence, resource/performa worker; regression integrasi dan visual ditangani FIN-03/04. |
 
 QA-01-S1 menyediakan oracle minimum lebih dahulu; QA-01 melengkapi capability/benchmark pada Sprint 2. ANA-05-S1 menjadi kontrak awal agar dua adapter dan canvas dapat dikembangkan paralel. Hardening ANA-05 memakai keluaran dua adapter dasar sebelum resolver lengkap diterima.
@@ -113,7 +113,7 @@ Kriteria berikut tetap wajib bersama scope fase/sisa di atas. Setiap hasil menca
 | ANA-04 | Capability matrix PHP beserta namespace/member/inheritance sesuai oracle, dynamic tetap unresolved | T-ANA-03, T-ANA-04 |
 | ANA-06 | CKG deterministik, counts containment/reference benar, evidence/provenance lengkap, proyeksi tidak mengubah data | T-ANA-04, T-GRAPH-01 |
 | DOC-02 | Dua proyeksi membaca canonical CKG yang sama dan mempertahankan nodeIds/edgeIds/evidence; Exact/Unresolved terlihat tanpa fakta/cardinality buatan; source diagram mandiri tersedia untuk Markdown; label berbahaya di-escape dan render tidak mengambil URL bebas; SVG/diagram dapat dicetak dan kegagalan renderer tidak dipublikasikan sebagai sukses | T-DOC-01, T-EXP-02, T-SEC-01 (bagian proyeksi/render) |
-| DOC-01 | Ketiga artefak dari CKG yang sama, unresolved/evidence terpelihara, tidak menambah fakta, publish bundle atomik | T-DOC-01, T-ANA-02 |
+| DOC-01 | Ketiga artefak dari CKG yang sama, unresolved/evidence terpelihara, tidak menambah fakta, penyimpanan dokumen atomik dan akses/tampilan owner-scoped; publikasi terminal bersama graph pada ANA-07 | T-DOC-01, T-ANA-02 |
 | ANA-07 | Sembilan stage berurutan, polling berhenti terminal, failure/limitation/recovery benar, retry record baru dengan SHA sama | T-ANA-02, T-ANA-05, T-ANA-06 |
 | GRAPH-01 | Focus/overview/references dan zoom/fit dapat dipakai, counts lengkap dibedakan dari tampilan subset | T-GRAPH-01 |
 | GRAPH-02 | Query AND kategori, kategori AST nyata, reset/no result tidak mengubah canonical result | T-GRAPH-02 |
