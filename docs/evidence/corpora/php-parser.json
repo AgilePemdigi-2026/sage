@@ -1,0 +1,1365 @@
+{
+  "schemaVersion": 1,
+  "id": "php-parser",
+  "repository": "nikic/PHP-Parser",
+  "commitSha": "9e33da9553fe7786f0962b35f4e4ecf01be89def",
+  "language": "php",
+  "selection": "All lib/PhpParser/**/*.php library source including generated parser tables at composer.lock pinned v5.9.0; no vendor dependencies or target execution.",
+  "files": [
+    {
+      "path": "lib/PhpParser/Builder.php",
+      "sha256": "3ad88dc8184305a97fe3f79aa632e6f6c5a6b9f7c2ec91bddf25eeee6958b72d",
+      "sizeBytes": 202
+    },
+    {
+      "path": "lib/PhpParser/Builder/ClassConst.php",
+      "sha256": "612f70598f3fe57c383562ac5ed6170b21a8b0ac7989c8f0280f1da5fb6fa670",
+      "sizeBytes": 3875
+    },
+    {
+      "path": "lib/PhpParser/Builder/Class_.php",
+      "sha256": "52ac5021c5f21687ef6b7af006e8e79f945df2579cbe49829938f5e33c9d4652",
+      "sizeBytes": 4171
+    },
+    {
+      "path": "lib/PhpParser/Builder/Declaration.php",
+      "sha256": "43725c0752bf56685d84ed2de0fe680e8892c7284f11c7587ff1bbe5cc58974d",
+      "sizeBytes": 1261
+    },
+    {
+      "path": "lib/PhpParser/Builder/EnumCase.php",
+      "sha256": "a159fd916cb323327c50dd9f6b3b32ad145e91603168a3aca7823a32394a0642",
+      "sizeBytes": 2004
+    },
+    {
+      "path": "lib/PhpParser/Builder/Enum_.php",
+      "sha256": "52ad3361756d52523c16548d008c95351983e3029a16294761b42ed0584a41b5",
+      "sizeBytes": 3258
+    },
+    {
+      "path": "lib/PhpParser/Builder/FunctionLike.php",
+      "sha256": "bff940018d197d78fcab25e57b9ec6d91bcfb6651427cbfd920afccbef2df254",
+      "sizeBytes": 1806
+    },
+    {
+      "path": "lib/PhpParser/Builder/Function_.php",
+      "sha256": "a8a525dee19a9be174df9bf0b19c071fa0753f3e813031b6d6e96f068d0af121",
+      "sizeBytes": 1691
+    },
+    {
+      "path": "lib/PhpParser/Builder/Interface_.php",
+      "sha256": "54cf145b3f7b2a1011e810ee66b5ca908036194a1a0ae7be7216d51989c1095a",
+      "sizeBytes": 2628
+    },
+    {
+      "path": "lib/PhpParser/Builder/Method.php",
+      "sha256": "425434befc6b8263a44bd3b7aa543e42b2acfa9ece4cabc61c72c72bf307b844",
+      "sizeBytes": 3756
+    },
+    {
+      "path": "lib/PhpParser/Builder/Namespace_.php",
+      "sha256": "4411734a3b4a62a223cdbe6656fa92e9b41f6ccd324cb2bf8748e8d28f573ece",
+      "sizeBytes": 1073
+    },
+    {
+      "path": "lib/PhpParser/Builder/Param.php",
+      "sha256": "fe89e9b836b02d5e96718233382793eeca0dc4a6e7aaf799c31d16e071d44ba4",
+      "sizeBytes": 4466
+    },
+    {
+      "path": "lib/PhpParser/Builder/Property.php",
+      "sha256": "f2942d1081065cba95dd9ed19dc90bbfbf340a8ffec4d36a2aa112a2777a3a68",
+      "sizeBytes": 5747
+    },
+    {
+      "path": "lib/PhpParser/Builder/TraitUse.php",
+      "sha256": "a3678f87a206ab69c673a3b804d4ca018c0251af0e20d3dbf8c087f8e5b3bf94",
+      "sizeBytes": 1654
+    },
+    {
+      "path": "lib/PhpParser/Builder/TraitUseAdaptation.php",
+      "sha256": "f02b707ea62ec4f9aee3f46c292dee6b23b9e3f3950473728655f74b512ac5d8",
+      "sizeBytes": 4266
+    },
+    {
+      "path": "lib/PhpParser/Builder/Trait_.php",
+      "sha256": "5a172865ea085dedb7fd0cef4af643ee3e21c447e712977192525394a8de599e",
+      "sizeBytes": 2356
+    },
+    {
+      "path": "lib/PhpParser/Builder/Use_.php",
+      "sha256": "f5ea44b9eed3164e35d6f25ab1827dcfa2431f0454f0d7eb908a1714aaecd59e",
+      "sizeBytes": 1277
+    },
+    {
+      "path": "lib/PhpParser/BuilderFactory.php",
+      "sha256": "6ea8e388b9e43738d3f84406f5e43f189da22c5ceb3ec33030d16fc887e49869",
+      "sizeBytes": 10549
+    },
+    {
+      "path": "lib/PhpParser/BuilderHelpers.php",
+      "sha256": "287d77dbff4ac911744f3abc03a4de13b6e9847577f36f7a892d3612e1d100a5",
+      "sizeBytes": 9962
+    },
+    {
+      "path": "lib/PhpParser/Comment.php",
+      "sha256": "b2d89a515ca23716768d6c179f8df87d67b149276d933ef6a4fbfddec1f61107",
+      "sizeBytes": 6907
+    },
+    {
+      "path": "lib/PhpParser/Comment/Doc.php",
+      "sha256": "b9255899fa97e4c44ed39dd7a175adf4e87b4487146ab966590f01ef0dca7746",
+      "sizeBytes": 103
+    },
+    {
+      "path": "lib/PhpParser/ConstExprEvaluationException.php",
+      "sha256": "0b891976f6f75d763222e5e34bce2a295db33f489ac98660c5762780172b9935",
+      "sizeBytes": 112
+    },
+    {
+      "path": "lib/PhpParser/ConstExprEvaluator.php",
+      "sha256": "6151c45ec5424204f849a3527c79e1687b74adbfdbdef6a404beff36b66335b4",
+      "sizeBytes": 9498
+    },
+    {
+      "path": "lib/PhpParser/Error.php",
+      "sha256": "65c32d6135c2b214eee37a7f00ccf1f2c8d01430c8e65af99ebe74359dffd9a9",
+      "sizeBytes": 4952
+    },
+    {
+      "path": "lib/PhpParser/ErrorHandler.php",
+      "sha256": "4b25e0ec2643272ae01657d9943fbf5d896b3df0294305a5fb87b8bacab71b7b",
+      "sizeBytes": 300
+    },
+    {
+      "path": "lib/PhpParser/ErrorHandler/Collecting.php",
+      "sha256": "f111088d9f324ae70ff85af766e03f8d91e13f6c98ec5f1aa524f7efd131276d",
+      "sizeBytes": 869
+    },
+    {
+      "path": "lib/PhpParser/ErrorHandler/Throwing.php",
+      "sha256": "1c218e36ba923384ad1fc6b7b044d92a58d01458601ad3df8a93d623e159818d",
+      "sizeBytes": 368
+    },
+    {
+      "path": "lib/PhpParser/Internal/DiffElem.php",
+      "sha256": "e66978539b72c8f178ea7cc188f19712b96006abb3aee5eb8bf4d3ed890b7d8c",
+      "sizeBytes": 763
+    },
+    {
+      "path": "lib/PhpParser/Internal/Differ.php",
+      "sha256": "53b40a5dc51e4c48f79860416b137d3ff7f344ea2dc4a56b6f38292a9ddf5422",
+      "sizeBytes": 5093
+    },
+    {
+      "path": "lib/PhpParser/Internal/PrintableNewAnonClassNode.php",
+      "sha256": "dcfa95be29de4811791c8c600c590c2513cb5134f366779da6018d17262c5c4b",
+      "sizeBytes": 2709
+    },
+    {
+      "path": "lib/PhpParser/Internal/TokenPolyfill.php",
+      "sha256": "da9e874d628ca1e8ee0f56cdaebb73ba402f12484bd0c03b07164c8538c50ed8",
+      "sizeBytes": 9632
+    },
+    {
+      "path": "lib/PhpParser/Internal/TokenStream.php",
+      "sha256": "366dbae6222c80f7d5b81f098cbf0d4f683cd6f0240ac1a22ae26900cbbd1216",
+      "sizeBytes": 9239
+    },
+    {
+      "path": "lib/PhpParser/JsonDecoder.php",
+      "sha256": "1b9ceb9fc6f1ba725383d5372dacd83f600c1be902feb3c9ffa2822ac6b7ac9f",
+      "sizeBytes": 3520
+    },
+    {
+      "path": "lib/PhpParser/Lexer.php",
+      "sha256": "d404876d2c850af1a83c4c0847a793c52fd88a745227923a3b7cbf54bb42e51b",
+      "sizeBytes": 4366
+    },
+    {
+      "path": "lib/PhpParser/Lexer/Emulative.php",
+      "sha256": "8490565fe986b1f581967863b688ec97fb46a4560720eeb4fca75df841aa0353",
+      "sizeBytes": 8612
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/AsymmetricVisibilityTokenEmulator.php",
+      "sha256": "12544449a30282610c2f501cdf7ec741977e0fcd6ae4c41464c195559d2aa6a6",
+      "sizeBytes": 3344
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/AttributeEmulator.php",
+      "sha256": "2b89f64eb9660ebd3f5ce3f96e9d77391ee876cdb3176e7c1e7b2ffecc6bc033",
+      "sizeBytes": 1473
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/EnumTokenEmulator.php",
+      "sha256": "88a31ab4ddd114a3ed5d4bb1311fc802d7e908c729856504fa11c76b0bcfc54d",
+      "sizeBytes": 701
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/ExplicitOctalEmulator.php",
+      "sha256": "fab022824353dc8074ea249d7adee03411020f4cd7cf2a641d390cae3800b8cb",
+      "sizeBytes": 1569
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/FnTokenEmulator.php",
+      "sha256": "ca400fd04de3e15f8b54388282ef209430a38dd05c2c904800f18ba440fec5d3",
+      "sizeBytes": 458
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/KeywordEmulator.php",
+      "sha256": "95c599bc4e1b6085f514a3d75446850b830817332a5bda5cae40f8c7b925453d",
+      "sizeBytes": 1926
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/MatchTokenEmulator.php",
+      "sha256": "6f13fa6195dce2e11b35839e59074afe35f3b0b0b999495eccb1b7b5594184dd",
+      "sizeBytes": 422
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/NullsafeTokenEmulator.php",
+      "sha256": "262107a265db2a777447f7b86afc5f89c7cce6c6468dbd9963cd34345efcc54f",
+      "sizeBytes": 2282
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/PipeOperatorEmulator.php",
+      "sha256": "ad2ab2af4e5d285eb2405d66748baa2854c7480322797a91e9a076be62210ee2",
+      "sizeBytes": 1444
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/PropertyTokenEmulator.php",
+      "sha256": "695d12a66bfa9f2a5ae1a4f267ab5e6222e2bf30ebeff3128c42097cc3950e50",
+      "sizeBytes": 437
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/ReadonlyFunctionTokenEmulator.php",
+      "sha256": "c500d34cb258aaebccd7a504a4d96e3c4caa6a220811cbeaa689ea9f18d7636d",
+      "sizeBytes": 976
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/ReadonlyTokenEmulator.php",
+      "sha256": "9735b74eb5965953109579d68d44be25b5a8fb8f206300d56459cce5fc1ee708",
+      "sizeBytes": 905
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/ReverseEmulator.php",
+      "sha256": "c802f69a5319242aa03e3eed4656551ce8c18e535df4905299f0f2ab931aba46",
+      "sizeBytes": 1013
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/TokenEmulator.php",
+      "sha256": "744ba8ba60d422f07737a1438a541f843432ca7cbcdd8c57c07a89d73ba552b1",
+      "sizeBytes": 819
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/VoidCastEmulator.php",
+      "sha256": "3c5bd0b4a0a5d2f351adc32c7b9e3e56949e2c3b7364fde73e7810ff2652bc9c",
+      "sizeBytes": 3116
+    },
+    {
+      "path": "lib/PhpParser/Modifiers.php",
+      "sha256": "33fa68031067f532c0e4930c4a25f41ba817e8681b4b60853c75b2e12900bfd7",
+      "sizeBytes": 2779
+    },
+    {
+      "path": "lib/PhpParser/NameContext.php",
+      "sha256": "3343e0a931414df07484457919adc64c43d75460875588a07a898cc8228eb816",
+      "sizeBytes": 10053
+    },
+    {
+      "path": "lib/PhpParser/Node.php",
+      "sha256": "8661124cdfe90d86af7937f563942d59c63630da2fa994e290e7b9294442eed5",
+      "sizeBytes": 4122
+    },
+    {
+      "path": "lib/PhpParser/Node/Arg.php",
+      "sha256": "030ed7dcaa6f4f151f9fff43bbcc832dc4cbc739ad07ed5571dd51dcc3408aec",
+      "sizeBytes": 1299
+    },
+    {
+      "path": "lib/PhpParser/Node/ArgPlaceholder.php",
+      "sha256": "b39e3892d51289caba615000825217fc47b5e23b36f89cd2f9b066278aac99f5",
+      "sizeBytes": 1028
+    },
+    {
+      "path": "lib/PhpParser/Node/ArrayItem.php",
+      "sha256": "e6b0eb605f056d786138aec752df541d63538b9a59d358686e5e4e6fa5d45fef",
+      "sizeBytes": 1212
+    },
+    {
+      "path": "lib/PhpParser/Node/Attribute.php",
+      "sha256": "27fe66c422dea0ce774bdb9cb8fb4aef1852609463349d085c30c858881a820c",
+      "sizeBytes": 820
+    },
+    {
+      "path": "lib/PhpParser/Node/AttributeGroup.php",
+      "sha256": "057986cf63df36ad270b580b8ea4a53503803bd0d0d9e894601d35b0ded0c413",
+      "sizeBytes": 647
+    },
+    {
+      "path": "lib/PhpParser/Node/ClosureUse.php",
+      "sha256": "ef83ae1143215706eb696a09ec2b4379a3e6339f54a81f6eb661cb2a9758cd36",
+      "sizeBytes": 973
+    },
+    {
+      "path": "lib/PhpParser/Node/ComplexType.php",
+      "sha256": "cfadc646eda7cd40d4f7875a6d79e0ba9b66db75138eb32efba9592babf27180",
+      "sizeBytes": 323
+    },
+    {
+      "path": "lib/PhpParser/Node/Const_.php",
+      "sha256": "817a307133e8115db17e35fa66ee6a8251f0eb61c7d43869a0cbe56db0c38752",
+      "sizeBytes": 971
+    },
+    {
+      "path": "lib/PhpParser/Node/DeclareItem.php",
+      "sha256": "806679ee332545fa2d7cd14e7c52ab5fb299af56d4d215336229caa664fa5ba9",
+      "sizeBytes": 992
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr.php",
+      "sha256": "e351baf9a98c07e754eac85704d73095c59ee26ff3ddaf69c22080e6d65fbe9e",
+      "sizeBytes": 133
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/ArrayDimFetch.php",
+      "sha256": "e111a948b8fc23242408d61928d0f15730c3d473952cac46014a519ef4562237",
+      "sizeBytes": 822
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/ArrayItem.php",
+      "sha256": "1c6d3b5b41a02cb1775f72ad9725419eebdaced3e543cf09742c000b555d4b2a",
+      "sizeBytes": 305
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Array_.php",
+      "sha256": "23b09b9ca53f91e616febe3d3f3e779aab249dd5600f6d0db28d67d67e994f57",
+      "sizeBytes": 831
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/ArrowFunction.php",
+      "sha256": "d5232d1b61200e1b19b1441f5303a4882ca0ff81781bc65c7b3f3401f95ff059",
+      "sizeBytes": 2552
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Assign.php",
+      "sha256": "36ba60df88de34b4021408d2976c5166a9b6930f4fe3650318bf774ed2b3a03a",
+      "sizeBytes": 774
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp.php",
+      "sha256": "e05947ed6756ca0d4c21d0f20880a625c3358aca342f0f241a134ec9e67770b5",
+      "sizeBytes": 726
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/BitwiseAnd.php",
+      "sha256": "090c7a30ac4573dfd5e686af528eab3b9727a6f6228be8b65f26fd982b138269",
+      "sizeBytes": 235
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/BitwiseOr.php",
+      "sha256": "ad8b684d06df61651bfa49823637a41d6a60188578411e431f2f9b952738dda5",
+      "sizeBytes": 233
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/BitwiseXor.php",
+      "sha256": "93e075cd13e7c95047ef83bb9c45b778746ad626a3b0003bc9d28015f609cfc3",
+      "sizeBytes": 235
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/Coalesce.php",
+      "sha256": "8c81f170fa6f6b028d2e0eb9cf27e04cb037f492d0552ff2f1e8ac984ce8647e",
+      "sizeBytes": 231
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/Concat.php",
+      "sha256": "26a76e3a13a7c2dc0518033a942f601b03b6e9505c800ee1536d5b93ce5d1915",
+      "sizeBytes": 227
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/Div.php",
+      "sha256": "7ef917cbd61bc155fb982ae133c1a95dcf7b6cfb9a6469967a0a2a0f5c174e78",
+      "sizeBytes": 221
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/Minus.php",
+      "sha256": "f602a9df74b2ee400fa1ba7b9b01373f68aa8db280a7ee5426d0edd96eea441f",
+      "sizeBytes": 225
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/Mod.php",
+      "sha256": "8a9934c9859626c9bd5d52abd2ecb94e5cd09e42998f3f3bd052fb2c2e8203dc",
+      "sizeBytes": 221
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/Mul.php",
+      "sha256": "39ae0de8479481e48fef0805254bbad09bc911f30d9fa0a8d7e7c7b739116513",
+      "sizeBytes": 221
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/Plus.php",
+      "sha256": "b6ef355df9fea41fcd2f7b08ee24ce7408335e84cb724d19a08e28a933435209",
+      "sizeBytes": 223
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/Pow.php",
+      "sha256": "14c8cb57ace582b939116aca0af9f441490d47fb2b1245d8e45234c547b67c29",
+      "sizeBytes": 221
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/ShiftLeft.php",
+      "sha256": "c276f95d4f57549f71d5e46220baad1647f46eb256696a76e134eb30f0d83673",
+      "sizeBytes": 233
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/ShiftRight.php",
+      "sha256": "5776c7f3d35cb921c5534cceddbd966aabe50dd3657a60f6ab7896153e8973c3",
+      "sizeBytes": 235
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignRef.php",
+      "sha256": "efb318cc50eca7d859113fa9424ff760e09bd055ffcf730dd713a339d1e6f94d",
+      "sizeBytes": 823
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp.php",
+      "sha256": "719f694f2a3f357fd7b998d262cab8b835507189c3879fd5e5e56d724808badb",
+      "sizeBytes": 1095
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/BitwiseAnd.php",
+      "sha256": "720a6f7a706c099ab1c2a140bceaeb58581c466ba319ad0efd9f1a40b00a9be9",
+      "sizeBytes": 311
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/BitwiseOr.php",
+      "sha256": "164eb3c0586a528109b96be8f5d56cd4bb247960420764b51cf1b4ebfb8367dd",
+      "sizeBytes": 309
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/BitwiseXor.php",
+      "sha256": "beebe2a0fe1c60f69fbaddca9621c7b62ea9072a7041de14edc5d32a5e3d4952",
+      "sizeBytes": 311
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/BooleanAnd.php",
+      "sha256": "c3adbbae3dad2e338e17a0e4769f023eddeb079c382149431caa7ac56314dd62",
+      "sizeBytes": 312
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/BooleanOr.php",
+      "sha256": "fb4384315dc721d551e1bc7e4e50b8718521ecf174291e74f584317776361062",
+      "sizeBytes": 310
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Coalesce.php",
+      "sha256": "d29ebd37a4fe2288352c120bbf306005c7a235c120f2315ec569afdb08090bfb",
+      "sizeBytes": 308
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Concat.php",
+      "sha256": "66959caea66f97099b7ce1d6370fb1c0d4a663403da860eb3ea7af241bd7ae80",
+      "sizeBytes": 303
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Div.php",
+      "sha256": "f7b8f699d907c43e89accf6b5d1fcb95ccaee4824a6f429a44138588f8adff35",
+      "sizeBytes": 297
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Equal.php",
+      "sha256": "a0e1e7ed8fb3c49ae4b653db1e4cf33f723ae7f4e58cbc76753d8484149d5945",
+      "sizeBytes": 302
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Greater.php",
+      "sha256": "688cbdc563971fbd74ddcbc1519080ac2d5cb847e17bd578f3423fef66d245d7",
+      "sizeBytes": 305
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/GreaterOrEqual.php",
+      "sha256": "31af8b1c279b8da9e3bbdff08e7f7917e304c67fba09c00d56cdbf51d7b36a4a",
+      "sizeBytes": 320
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Identical.php",
+      "sha256": "ced953f3ed73a5eaa3709a9be78be68a6b73767e7918ed031f075178ba73b36b",
+      "sizeBytes": 311
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/LogicalAnd.php",
+      "sha256": "f68bb5e3894b18f4b2453f8745c39f86adff1005fcdded369d42b69c573d97b9",
+      "sizeBytes": 313
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/LogicalOr.php",
+      "sha256": "ba4dc5a0b0aa519ad30765ed0cbf8eecda532f8d3da62471a51f0aba30da1d26",
+      "sizeBytes": 310
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/LogicalXor.php",
+      "sha256": "aa1c3a605247652e5b2cc7aef6535e0cc0df286f201df9320fecd335fd50f16a",
+      "sizeBytes": 313
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Minus.php",
+      "sha256": "51fd474ffb23c1e1d7e983d0915a2a7062954638eb1bfa01796c002deeccc5b9",
+      "sizeBytes": 301
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Mod.php",
+      "sha256": "6fe5da966131c05b9e7e165e2f655464e1b0be9089c8ea9bf2b0b6015e6cce8c",
+      "sizeBytes": 297
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Mul.php",
+      "sha256": "cb19b6c2dfae0ba59bd7b952857c764be8ecfe89abff41e8f016ee5feebcd29f",
+      "sizeBytes": 297
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/NotEqual.php",
+      "sha256": "c3de29ee5fe58ead003386210023f515417587a67c5588335658cf12e1690dff",
+      "sizeBytes": 308
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/NotIdentical.php",
+      "sha256": "962b81f95270bbc5d56e20060b501c12b4d25398ed137b66011e2c61aa830ace",
+      "sizeBytes": 317
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Pipe.php",
+      "sha256": "9ed11b099658962a5a3e19c87bf691f00f212fc649f7a8edc2be1d8f7f46b187",
+      "sizeBytes": 300
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Plus.php",
+      "sha256": "b5dc11c60a12a37c842a325908f83610f0c0456a0efe6189330e1b5d707d91e5",
+      "sizeBytes": 299
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Pow.php",
+      "sha256": "3ec873b8bd0ddb264ab476596c00399ad7270c2c5760046c9698e28364d142b1",
+      "sizeBytes": 298
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/ShiftLeft.php",
+      "sha256": "d89f8ddc63969133845536828847c3d471a760ae86b2ae4834ce6b5db625e056",
+      "sizeBytes": 310
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/ShiftRight.php",
+      "sha256": "a3a4ed9612c746fed8cd44f8e247b477b84415c74afdc58cc3bf0b691746c735",
+      "sizeBytes": 312
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Smaller.php",
+      "sha256": "7739d653b588a8c2f92bda7a0ed1cd0e3ba8a3fa15015fb351de5b97a817cf65",
+      "sizeBytes": 305
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/SmallerOrEqual.php",
+      "sha256": "48cd7b36ee38034567ffa45de26c4141ff4757cb2430be0e2739c3b531473869",
+      "sizeBytes": 320
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Spaceship.php",
+      "sha256": "b315a0a7bdc878a755870f7e1f791f19f11a23186dac1e1ec45426ca6d7cf34d",
+      "sizeBytes": 311
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BitwiseNot.php",
+      "sha256": "45cf8952a85469ee478508720a9f2009cb32f173043d8246bc005a7aed5b3c74",
+      "sizeBytes": 652
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BooleanNot.php",
+      "sha256": "cf5f053949845a53f41f759d3ed8d769f9475b49acc14bad3c888f5aadf76aa6",
+      "sizeBytes": 652
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/CallLike.php",
+      "sha256": "95b997c2ad9ed16da078d6daacf31377e50ab7f79a918e45939ef97eb0e74adc",
+      "sizeBytes": 2806
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Cast.php",
+      "sha256": "ad4c2f0a8b942d7e1b54c089775e7e203582f76068bd6c137af331aa088ffd28",
+      "sizeBytes": 567
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Cast/Array_.php",
+      "sha256": "57abcdd5c84c9cd70a03c2a2f567fcd44aed4c978f58c8b7ec5bc6ee52228a67",
+      "sizeBytes": 210
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Cast/Bool_.php",
+      "sha256": "fabf29bd0da462da76e4e020d0b8a0128811aa5821433fa3b7bcc4f3e0abf18b",
+      "sizeBytes": 348
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Cast/Double.php",
+      "sha256": "2922bd29ace168eb14f925d440a7b8c03937d212192b5157e5212833a8aae41c",
+      "sizeBytes": 401
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Cast/Int_.php",
+      "sha256": "ccdca203aea87c6867a90f258581d67bbed4f2e0b0d599649681ccb485465a45",
+      "sizeBytes": 344
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Cast/Object_.php",
+      "sha256": "ff8d9ee886082464859c2ca9ce127a2dc9482daa0dd5106a7b1f0062be51f2be",
+      "sizeBytes": 212
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Cast/String_.php",
+      "sha256": "d822df8e26baefccc81bb996392c1f3dfe60483cdc1208681de12d42bf1a9fc8",
+      "sizeBytes": 354
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Cast/Unset_.php",
+      "sha256": "8f9aa973ee39cb51217f8f5bdd8990039e30780e894c444095ea47b2a4fd4bee",
+      "sizeBytes": 210
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Cast/Void_.php",
+      "sha256": "992eecce2136f89ae50424dd88bc4762005ec3ddbde9f4e9cec689cff157b8a7",
+      "sizeBytes": 208
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/ClassConstFetch.php",
+      "sha256": "a2dc8a0e55883f4b6c53854634320591a4ad5eb6df31ae7c43104372db87fd58",
+      "sizeBytes": 986
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Clone_.php",
+      "sha256": "6954a28005ada5538b7c807a6eb875c5577017f42c0664c1dd8236b7510ce86f",
+      "sizeBytes": 637
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Closure.php",
+      "sha256": "677e18896ec4c67097131932eab22f4ab597c5e75f18158075b34bc776bc7847",
+      "sizeBytes": 2836
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/ClosureUse.php",
+      "sha256": "e21353b82c3a3c674c8302d3420f3ef02c577076367631b72b54e04e6e1bad6e",
+      "sizeBytes": 309
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/ConstFetch.php",
+      "sha256": "96afd231b802755f5df33a3544f9bf69e3c678e0affd0e5a2db098f708ad92cf",
+      "sizeBytes": 683
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Empty_.php",
+      "sha256": "74a11a97db8cf6d25387ddf95fb9070eaac4fa7e28dbc42005e389fec6e6bbfa",
+      "sizeBytes": 640
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Error.php",
+      "sha256": "d60dc1724727c3d942ccb5a06431929c1f74b47e31d4890e33db63e232b8719b",
+      "sizeBytes": 757
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/ErrorSuppress.php",
+      "sha256": "6ab55d14508a51f1ea54902c863dff98dca2d1598a16d77b921438df8420d49a",
+      "sizeBytes": 662
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Eval_.php",
+      "sha256": "c8f7e38b4f6ef5b31b75c4b12386949a02df1c8ef1906f024468c080afa327e0",
+      "sizeBytes": 637
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Exit_.php",
+      "sha256": "32cbba07044d3f5c0a4dfc6a0b524b14d60332bed605788335dcbfdca8df9671",
+      "sizeBytes": 758
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/FuncCall.php",
+      "sha256": "ec7050b1bbb2f9a9965c38cad7b224c42eebf305860c703711b437984631ba67",
+      "sizeBytes": 1034
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Include_.php",
+      "sha256": "5ca1b094a07fbe4a107141a506a8148ccec0c6fd2b05696ae45dd904330078cd",
+      "sizeBytes": 951
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Instanceof_.php",
+      "sha256": "8a45716153f75efe1f4ff493d9f0cbfaa885e3631022b2bf4d185654374f6d14",
+      "sizeBytes": 860
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Isset_.php",
+      "sha256": "d650fb124782bb544a0acd0a1db81702f7f59908b57c4c48e80fce5bb7f8bfeb",
+      "sizeBytes": 642
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/List_.php",
+      "sha256": "9ec555c4e1ac143255cf6209ec8be871f914ca825671394fad4c24573ee329b3",
+      "sizeBytes": 879
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Match_.php",
+      "sha256": "4e453e11e3871aeffc894c14a5f066d3c216d30cc2cdcec229abf6fe9f70f301",
+      "sizeBytes": 782
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/MethodCall.php",
+      "sha256": "2ac81c254dd41ed7ec20207c0ec32db9f9c07fc375d8b87bebc1578ebb9e75eb",
+      "sizeBytes": 1342
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/New_.php",
+      "sha256": "4743ba9e1be19a7095a7d8f6b223311a6fb351e99749868255604d77d72a6e73",
+      "sizeBytes": 1166
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/NullsafeMethodCall.php",
+      "sha256": "a4057c48e57528b8fc3c564454f217e87142f58b6f7241a414e7fbe9657a0130",
+      "sizeBytes": 1365
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/NullsafePropertyFetch.php",
+      "sha256": "a33ea0c37b4185b2aa17990dfb435608b3a14c35aa4fdf26596a9940e9f0d3ec",
+      "sizeBytes": 971
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/PostDec.php",
+      "sha256": "1eba821056df840f2523c4552df1159c35164e5cf73abddae8be3e35b1b88174",
+      "sizeBytes": 639
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/PostInc.php",
+      "sha256": "267f140d33e4cf90fd2e76f7c6e572657af681f9fff286200273456694c566da",
+      "sizeBytes": 639
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/PreDec.php",
+      "sha256": "b9dcd950129ebfa675418c5aa617e302f801fec09622e2a9bcad5746d88638f9",
+      "sizeBytes": 636
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/PreInc.php",
+      "sha256": "bfbe6c82c87f0bca6c62051f58565b5509df7deeea63d8b7d3a251f872af6550",
+      "sizeBytes": 636
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Print_.php",
+      "sha256": "d6df04246ec62a9e6fed0f20ebfee69e5da727f5c6166d4a56cd627ac751c255",
+      "sizeBytes": 640
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/PropertyFetch.php",
+      "sha256": "3ca2f513625f0422dcbb2858cb736b58f4bd6874d18d0756b7fcfc79b27b5bc3",
+      "sizeBytes": 945
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/ShellExec.php",
+      "sha256": "edce20bbc6bac9b4364527717b11ed58477d0b90267f94ead5d70086c1329692",
+      "sizeBytes": 795
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/StaticCall.php",
+      "sha256": "df4e9650cb941988ec366efc8a903d3d86edd04113a5b31190e3b0d23b1c8ba4",
+      "sizeBytes": 1353
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/StaticPropertyFetch.php",
+      "sha256": "486c0e74e15a445c00595a999072fc8b3dbd7ef65867e4bfbb1d68414d5fb2f5",
+      "sizeBytes": 1014
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Ternary.php",
+      "sha256": "c4303f9ccdd63cb1001a887fd64138989abc12524f54636f43afae33394b52a9",
+      "sizeBytes": 967
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Throw_.php",
+      "sha256": "449f689a32e7508d650e1b12dba3eea097aafa733d764919b347000feaf954da",
+      "sizeBytes": 668
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/UnaryMinus.php",
+      "sha256": "675164c34505c649ffb8bf94ece44a8047c4f4ec78b8643f279e718534a25d10",
+      "sizeBytes": 652
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/UnaryPlus.php",
+      "sha256": "8e887df6dc9546776b9715a09b0e79ac09e3330445d9388da0a3f5b61fa0a977",
+      "sizeBytes": 649
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Variable.php",
+      "sha256": "68bf2e74636906d2a0e20e983869ec73ebf14df97773861a6dd72bd5e383fc26",
+      "sizeBytes": 637
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/YieldFrom.php",
+      "sha256": "4e334bf6b74a47b07c6d3ba3d83f402aa244434e2c27743266c366ca0905354f",
+      "sizeBytes": 666
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Yield_.php",
+      "sha256": "29161abe4ecb0bac053eacbd4d9d6d0a124fef5462c61a6c954401488492283d",
+      "sizeBytes": 846
+    },
+    {
+      "path": "lib/PhpParser/Node/FunctionLike.php",
+      "sha256": "1c0ff871b2dd43dfcff87ab151397ec9fb061e137a413f1073a12a57e9ffebff",
+      "sizeBytes": 731
+    },
+    {
+      "path": "lib/PhpParser/Node/Identifier.php",
+      "sha256": "cede41b830a4915a30f215fed2f57994f190cbebda1976a65774ce1cd3927a9c",
+      "sizeBytes": 2117
+    },
+    {
+      "path": "lib/PhpParser/Node/InterpolatedStringPart.php",
+      "sha256": "e622c2cb6554ca1a5bdedbe41dc18dafbf842c104ab21a3a6f81aa13a4ab0c4e",
+      "sizeBytes": 850
+    },
+    {
+      "path": "lib/PhpParser/Node/IntersectionType.php",
+      "sha256": "d9e71fe6ac0ef79e245fc82ed3ea02a4d981649ff2cc7658104384ba507cad75",
+      "sizeBytes": 665
+    },
+    {
+      "path": "lib/PhpParser/Node/MatchArm.php",
+      "sha256": "7e481afc9a9ac55d689620bf02bd2ec040b0020948c0b45022721e0eb2e8c990",
+      "sizeBytes": 652
+    },
+    {
+      "path": "lib/PhpParser/Node/Name.php",
+      "sha256": "94e48045300605d197c7edcd27fb9a72cf96d3f2e359ab67621e6c63e6e350a8",
+      "sizeBytes": 8671
+    },
+    {
+      "path": "lib/PhpParser/Node/Name/FullyQualified.php",
+      "sha256": "8c9cf335d24d4586a327f48f9b8d778c17eaa83d206e51dbe13e7563e4478375",
+      "sizeBytes": 1170
+    },
+    {
+      "path": "lib/PhpParser/Node/Name/Relative.php",
+      "sha256": "9859677ea50d6af93962838ef53a9b85e37813bbb1a25d312faef984ee563251",
+      "sizeBytes": 1167
+    },
+    {
+      "path": "lib/PhpParser/Node/NullableType.php",
+      "sha256": "a012e2a478898f1d2e860b837a5ce338a3276f8286756f7be60daf925085754f",
+      "sizeBytes": 679
+    },
+    {
+      "path": "lib/PhpParser/Node/Param.php",
+      "sha256": "374bf0a201832a45027ac381571ef66040caec87a51a816c2bcf6dc647a7b945",
+      "sizeBytes": 3787
+    },
+    {
+      "path": "lib/PhpParser/Node/PropertyHook.php",
+      "sha256": "9a9ed312012df7e2d11d64e84c048811071dde9242c38d318ab5f90fda05c9b9",
+      "sizeBytes": 3431
+    },
+    {
+      "path": "lib/PhpParser/Node/PropertyItem.php",
+      "sha256": "7ef310b30abcfbb41fc4f3df9c6994eee3e5703f61e5394bc98da996943e645f",
+      "sizeBytes": 1072
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar.php",
+      "sha256": "5c408d2f5439a74451f2e059b53457c96b58960518a3f2d5a62ed2cea6748411",
+      "sizeBytes": 98
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/DNumber.php",
+      "sha256": "cbd6d9a260eed90c3f4ebb1b1d7c0e813e7380d88f38e5ae1ffefa99c2edb140",
+      "sizeBytes": 284
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/Encapsed.php",
+      "sha256": "c5c399fc1f1a6552d3801e4c249a824c9048e87a8bd45fdd4ea1b745164a3517",
+      "sizeBytes": 321
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/EncapsedStringPart.php",
+      "sha256": "3be506c0b4ddea055123bfeaa09a5dd1c3a9173047b6162018f7ce0997a098e8",
+      "sizeBytes": 383
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/Float_.php",
+      "sha256": "770cf182c04670e0aa79e26e09ab9e8912353e5e26f5e615da5f265ab040ba4b",
+      "sizeBytes": 2299
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/Int_.php",
+      "sha256": "72eee48f57ddb99a9b01e30887eb486097e433e387ba41def19a87a0a61bd3ba",
+      "sizeBytes": 2512
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/InterpolatedString.php",
+      "sha256": "7726b755a255431acd315449bb0c1bf121aca308c4a563b4f9b2facf2d4bc212",
+      "sizeBytes": 933
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/LNumber.php",
+      "sha256": "a02806bc93807336bb31a6b07d69bbf6276963c979cc59ea657028d51985196e",
+      "sizeBytes": 278
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst.php",
+      "sha256": "8204dfa8d51f8ad09447624c58102f0ead7bd5f05f62816f2f2ccd275015a736",
+      "sizeBytes": 602
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst/Class_.php",
+      "sha256": "aec7f0abe2c64d292768f7383d990f911dac2914c48a67f8915ca54d9fcf25a3",
+      "sizeBytes": 315
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst/Dir.php",
+      "sha256": "b93f162a956686edadff0cabc59273312c9bb05f876e416d6817bfb58987aa0c",
+      "sizeBytes": 308
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst/File.php",
+      "sha256": "193588e4def45171d96be57e0e4aff5740208c0fe3f85c88331452c1a8795347",
+      "sizeBytes": 311
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst/Function_.php",
+      "sha256": "46aef20fa6ec7d04869fe2d93ed7ae7348f779225827db1233519e7552429640",
+      "sizeBytes": 324
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst/Line.php",
+      "sha256": "c065f99ffbd51f48f2684db3d2ddee52442812001c18f9afd737ed9a1319274f",
+      "sizeBytes": 311
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst/Method.php",
+      "sha256": "8ad6e85b2cbb4a0e46287802d5a50b3e05555d8f1067309a603cc5bf2dfe6017",
+      "sizeBytes": 317
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst/Namespace_.php",
+      "sha256": "cde131b3ab28393bdf6cea1de64579cc0e7f014536cf09d4e63622b17870da47",
+      "sizeBytes": 327
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst/Property.php",
+      "sha256": "62c4415867806827e52ffcd0e3affed3bd15a12d226508d5e0ece12b89e43533",
+      "sizeBytes": 323
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst/Trait_.php",
+      "sha256": "acc4a0f40bdc9dd91e884a9c93b1c07c3e0e9d946105ea1f898540f629f63951",
+      "sizeBytes": 315
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/String_.php",
+      "sha256": "9a0618689797c113c323ba7f0d26a5b408e69ab13fe4808fc8eea8d656bc8f62",
+      "sizeBytes": 5147
+    },
+    {
+      "path": "lib/PhpParser/Node/StaticVar.php",
+      "sha256": "4d613c95c4e8b05c1f10a09241f00ceeb966ac61a92986a32564397f3251d7bf",
+      "sizeBytes": 999
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt.php",
+      "sha256": "af62540f4e049a4d77171f7f4dc3cf05d968b10e06761478e776c83bb90a20b7",
+      "sizeBytes": 133
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Block.php",
+      "sha256": "a2db3e7197215887d04f8efab3ad4720ad2dae85b85a8a5f974c488967a4709d",
+      "sizeBytes": 646
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Break_.php",
+      "sha256": "d44e59729d1a186ce9bfb5154bf93677d9d828916fd871e89f54840b7c92e26d",
+      "sizeBytes": 698
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Case_.php",
+      "sha256": "7461b8e0a38b79531c395ee5c642ac406a8103f3d0d285290c90facd5411ab87",
+      "sizeBytes": 869
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Catch_.php",
+      "sha256": "646ac0dc0b20a1f76289dcc32cc85bd137333fde7b2f4171c5be291e73e9fed2",
+      "sizeBytes": 1114
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/ClassConst.php",
+      "sha256": "e6238f12a18c84e5384e366192f98d15faf7083b2b198a2d1886a64f73f3694c",
+      "sizeBytes": 2132
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/ClassLike.php",
+      "sha256": "e717f1d5d7cf072613284cbdda37d4b6b1b38c571e5ff1f26dfabe1f4271c4b1",
+      "sizeBytes": 3044
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/ClassMethod.php",
+      "sha256": "3e0becfcca689f858f1e8393fe9f7ccec13db847f5f2fc5b27a51541ea8dd1de",
+      "sizeBytes": 4716
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Class_.php",
+      "sha256": "fb97e2c0b38f92bc9768c6f7dc6f6b60d68e2470f9552d87953da27218f81959",
+      "sizeBytes": 3215
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Const_.php",
+      "sha256": "f9efd623c06c1a076b3c7fdb0d1e84357962ae7ab3addf5a37dff603b17e5f8b",
+      "sizeBytes": 967
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Continue_.php",
+      "sha256": "cdddee39a64c32bb923af63c59a916dc32a8ee111bf71e97429380fdde9e2206",
+      "sizeBytes": 713
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/DeclareDeclare.php",
+      "sha256": "a59a746e710471ef8b93dc7bd3f3c277a35501077cbffd63cad1a058fd69c184",
+      "sizeBytes": 333
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Declare_.php",
+      "sha256": "f3fc6e45b5c7e37db41bfb569a18f84473ae87aeffdd9b39d6b51289da39be95",
+      "sizeBytes": 912
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Do_.php",
+      "sha256": "0e4df9e6cbb8f685e975108f6ad829f1d49f259708ad091365e8002ba09cca67",
+      "sizeBytes": 819
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Echo_.php",
+      "sha256": "6d6f02629b9372d002690177fe6f9977fd260cbd9a9d7b9938e56866ae79f528",
+      "sizeBytes": 659
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/ElseIf_.php",
+      "sha256": "9680cdcc0ae7e1e11f1ccd93eba62af1dba021fc2fc03d43673fc3cdc8205ac3",
+      "sizeBytes": 826
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Else_.php",
+      "sha256": "c5c9870bc6ccc7e657489ced637908b01294acef46be5d73801280c3175cf7a9",
+      "sizeBytes": 662
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/EnumCase.php",
+      "sha256": "a16e07d8aa4880f13f38cd889fc95fe283d211f0ff25dab9a73ffbf5c70034fa",
+      "sizeBytes": 1166
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Enum_.php",
+      "sha256": "c29616fcc34a29facea615e1a243dd8e90902e4c1e981ac6f01b7f595d316e6d",
+      "sizeBytes": 1578
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Expression.php",
+      "sha256": "f60d9c98244467319fe31d428604880199c863b1b9d174f563be389615db5a9d",
+      "sizeBytes": 726
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Finally_.php",
+      "sha256": "f9a6ad6d9a6cfafd701729e83c88a8b035f514d5e0ef9f6e4fa0243a51962b03",
+      "sizeBytes": 670
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/For_.php",
+      "sha256": "ddc23435290bd49cdcc032cd5ab4fa2938be9a0ff730a6211bf966a2cbdc90c1",
+      "sizeBytes": 1435
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Foreach_.php",
+      "sha256": "feb8b2097283c3ad1bf9887ef05f574f73fee8163c3683e6fece896a142ef87c",
+      "sizeBytes": 1710
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Function_.php",
+      "sha256": "14185718285583d919d2276d34f750d455dfeb82c3f3b750eda9232e11468f41",
+      "sizeBytes": 2672
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Global_.php",
+      "sha256": "9d4186831da6f9c54dfdc9648ffa65eb1f5edde30ce9bc8e9f0e1b7dcf91b315",
+      "sizeBytes": 678
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Goto_.php",
+      "sha256": "392faa2d03c64872de06c2dab358b1629758b645fc7d296b28be5bbc244dd03f",
+      "sizeBytes": 757
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/GroupUse.php",
+      "sha256": "76148a920654c853995e73bcce7fbcf94318f2a2e6f720219aad219135eaaa01",
+      "sizeBytes": 1061
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/HaltCompiler.php",
+      "sha256": "11bb40e091c24109f441bc91ae1482e15a34813322d608a37f40454e4b820335",
+      "sizeBytes": 768
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/If_.php",
+      "sha256": "ebaf402904b2024e952cb246913750420ca5877511eff842c0c03e876d6a2111",
+      "sizeBytes": 1392
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/InlineHTML.php",
+      "sha256": "7499d7e6db37e2ec9f63312caa848959d153a40fb8354c15cec591870d75112d",
+      "sizeBytes": 659
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Interface_.php",
+      "sha256": "3751f84488830fcde0e71f147608848e3af0dd516e99f62998477b66123f1b81",
+      "sizeBytes": 1325
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Label.php",
+      "sha256": "596174c16909c9e927f0960d65e9432055030ab6e324956cc2617c115721a4ac",
+      "sizeBytes": 719
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Namespace_.php",
+      "sha256": "3cc21128ba727be07a34d6162f0468779c2cebf85970b2c31d5a32a9c8b225d6",
+      "sizeBytes": 957
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Nop.php",
+      "sha256": "ef02362ba47499142f771a3a84098530b10e0d5fd54b8da91bccfe5ffa28cdab",
+      "sizeBytes": 295
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Property.php",
+      "sha256": "bd4b14ce323cf849da58960b62eac02cd248f1f9ef697a56d538b9483ec7eef7",
+      "sizeBytes": 3426
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/PropertyProperty.php",
+      "sha256": "946edaaf1e7fad8d0785f0c4b6e72507c7814ec3c5fbdd085dca71efc4f07f8d",
+      "sizeBytes": 339
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Return_.php",
+      "sha256": "73c88eb938ce2625811f095b3e542f2561dcc4215aca08f05a3cbdfbdcaa0f3d",
+      "sizeBytes": 679
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/StaticVar.php",
+      "sha256": "2a75bdb30c6b2c39735bebc21246dd63748d5f88290d15c474c408a12b2810d7",
+      "sizeBytes": 305
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Static_.php",
+      "sha256": "834ff72a03fb6ac625e5a9ce0d0b115adf3644fcd685ab6680940c42e7d2a6e9",
+      "sizeBytes": 721
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Switch_.php",
+      "sha256": "982e58185b852490d5ba41f9a70adbad4c2dffcca3c07aa493ea68b345d251f2",
+      "sizeBytes": 808
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/TraitUse.php",
+      "sha256": "147ab388f8439479b974d025a876907b5203078c28c8e81dd489c092cfdd8026",
+      "sizeBytes": 889
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/TraitUseAdaptation.php",
+      "sha256": "899f0ad5964c440c3d193b2761e112c630330eea1e7aa4c32883395be709e161",
+      "sizeBytes": 293
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/TraitUseAdaptation/Alias.php",
+      "sha256": "56a40c5aaac95414d22255e5537f94806ff76d7b544d11921f30d1ba8a529aee",
+      "sizeBytes": 1296
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/TraitUseAdaptation/Precedence.php",
+      "sha256": "189b04dde1ac4e47fa13234313317e75cebefe038919f0c021091c5a9fca2012",
+      "sizeBytes": 1053
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Trait_.php",
+      "sha256": "5d0493e222a965495178fe8a8b88b85b009d29c25b28db35a523b3e31582f10e",
+      "sizeBytes": 1071
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/TryCatch.php",
+      "sha256": "1c54e9b8053816abc5824e676d41b2efd25f42cecb831d70988c7e0cce82e3de",
+      "sizeBytes": 1045
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Unset_.php",
+      "sha256": "3082ae0bf6a7e82382a2c54a228ee377e049c585c46cce64df7761a26b43c639",
+      "sizeBytes": 670
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/UseUse.php",
+      "sha256": "cd23831251aeb23a92dff4194a79a5b7bb1f2771631ef2592fea1397e6eb9fa2",
+      "sizeBytes": 309
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Use_.php",
+      "sha256": "b8306106f1eb953a3e855e544aa510cb0d4da4838ee0394cb723180f1de39385",
+      "sizeBytes": 1448
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/While_.php",
+      "sha256": "327130124087aae779da331846da494a95e2fa2ed1cdb07bbbb8f9bcb5edcabf",
+      "sizeBytes": 822
+    },
+    {
+      "path": "lib/PhpParser/Node/UnionType.php",
+      "sha256": "5633a4821f1d92f373e76bb8b47d799bf14d91cc4e13117e09580e88ab58d045",
+      "sizeBytes": 677
+    },
+    {
+      "path": "lib/PhpParser/Node/UseItem.php",
+      "sha256": "5869d3e22bd2d8fa0b8399c91ee316f74ddfc2e91a7cdf5d8071a2ce6a6a4a16",
+      "sizeBytes": 1677
+    },
+    {
+      "path": "lib/PhpParser/Node/VarLikeIdentifier.php",
+      "sha256": "2031fa31e4698d611701a553ef46cff711b82a650b997cf57e6df95cee0a6b3b",
+      "sizeBytes": 502
+    },
+    {
+      "path": "lib/PhpParser/Node/VariadicPlaceholder.php",
+      "sha256": "530d8cabb35f674fa12c812f1f879943e1658e944975c7a14abac3de1fd6be12",
+      "sizeBytes": 653
+    },
+    {
+      "path": "lib/PhpParser/NodeAbstract.php",
+      "sha256": "b5a9bbcfb2e85eb01d566d3eaf831029b066ced2679d98adabe8c8776b3a86ae",
+      "sizeBytes": 5370
+    },
+    {
+      "path": "lib/PhpParser/NodeDumper.php",
+      "sha256": "ac5c06e19b3e75e192a3a701a60ccd4dc57d739b65029765b4f5944088f19cae",
+      "sizeBytes": 10485
+    },
+    {
+      "path": "lib/PhpParser/NodeFinder.php",
+      "sha256": "d937e66449205c8aac94ebbb2a45b3208e052f634c85e1dff7a467160febadfd",
+      "sizeBytes": 2607
+    },
+    {
+      "path": "lib/PhpParser/NodeTraverser.php",
+      "sha256": "9fac77e8ea2f056fd662d9a819d7f857fece2a108af35937981c007713984736",
+      "sizeBytes": 10331
+    },
+    {
+      "path": "lib/PhpParser/NodeTraverserInterface.php",
+      "sha256": "26a6379d56fe546a707c92287ee15284a29d398ba4f6042af19fbae165acfb87",
+      "sizeBytes": 598
+    },
+    {
+      "path": "lib/PhpParser/NodeVisitor.php",
+      "sha256": "8e851a8442287afa9ad7dbcf644d75f45dab8280efdd9fed8f346cf42578847a",
+      "sizeBytes": 4179
+    },
+    {
+      "path": "lib/PhpParser/NodeVisitor/CloningVisitor.php",
+      "sha256": "018df93e22741603c5558acf363b37c30b55dc27c2703e5854b84a2e3a081ffd",
+      "sizeBytes": 502
+    },
+    {
+      "path": "lib/PhpParser/NodeVisitor/CommentAnnotatingVisitor.php",
+      "sha256": "3ae3c2e1939e5e10c63a42c192169a6fd46485a2aa67c045b1dac24f002d2bfd",
+      "sizeBytes": 2777
+    },
+    {
+      "path": "lib/PhpParser/NodeVisitor/FindingVisitor.php",
+      "sha256": "60e7a2f53a7dc2931334de50218b6431e8a646d824fd629fe415241e46106e88",
+      "sizeBytes": 1143
+    },
+    {
+      "path": "lib/PhpParser/NodeVisitor/FirstFindingVisitor.php",
+      "sha256": "4df0cbf759e6822616278c2adec5afecba4771a8e6721f67a0902975105a2d4c",
+      "sizeBytes": 1251
+    },
+    {
+      "path": "lib/PhpParser/NodeVisitor/NameResolver.php",
+      "sha256": "591e6e4d62294119deeed035dd08ac5c1f3bed95de5add728f55d907ad3548d5",
+      "sizeBytes": 10370
+    },
+    {
+      "path": "lib/PhpParser/NodeVisitor/NodeConnectingVisitor.php",
+      "sha256": "63720759ca7f378c83636627e7db24fb11795c0dd18ff49f91b0a19cedd156af",
+      "sizeBytes": 2329
+    },
+    {
+      "path": "lib/PhpParser/NodeVisitor/ParentConnectingVisitor.php",
+      "sha256": "8661e95d4bdae96b7c0163fd27040e50f34232785198b6c3605a2ecd93aa517b",
+      "sizeBytes": 1341
+    },
+    {
+      "path": "lib/PhpParser/NodeVisitorAbstract.php",
+      "sha256": "eca428fcb22637ba5cdd172eecd2ec98bdc2267b259f1cef114cddf4594d5eb7",
+      "sizeBytes": 447
+    },
+    {
+      "path": "lib/PhpParser/Parser.php",
+      "sha256": "1bd7d9e6f51a9fe774e6024645df4ac14cac698f1fb3f1c97b47925a070890bb",
+      "sizeBytes": 765
+    },
+    {
+      "path": "lib/PhpParser/Parser/Php7.php",
+      "sha256": "53556d5a9adb8314c52cb7d4d0d88f694f80910ae2533c699187a35a148f583b",
+      "sizeBytes": 194697
+    },
+    {
+      "path": "lib/PhpParser/Parser/Php8.php",
+      "sha256": "ecdc15f12020ca8ec30760b6061b5502a8c4fd30ee94dd7f86d4a29f167e7999",
+      "sizeBytes": 196281
+    },
+    {
+      "path": "lib/PhpParser/ParserAbstract.php",
+      "sha256": "3c7f2b9418279aa2e6303e932db918eab3ca55349dddccd2b488f88d62b783dd",
+      "sizeBytes": 53120
+    },
+    {
+      "path": "lib/PhpParser/ParserFactory.php",
+      "sha256": "d2b3816a6707af2bb918f553170b2b480849a76b367b48a41b39635752d135b6",
+      "sizeBytes": 1448
+    },
+    {
+      "path": "lib/PhpParser/PhpVersion.php",
+      "sha256": "86d2acc2619dbbab0e62149b43f264ba9e804bbc520f02a53073d9960ec1c7f9",
+      "sizeBytes": 4841
+    },
+    {
+      "path": "lib/PhpParser/PrettyPrinter.php",
+      "sha256": "95627ed06bb89660934498a2890033040af8b74e70a182ef59c315d07979aa57",
+      "sizeBytes": 1699
+    },
+    {
+      "path": "lib/PhpParser/PrettyPrinter/Standard.php",
+      "sha256": "b24d5f026e94f0f7463888dfc5e8f525ac84f0f10f7482181fac58da154b0501",
+      "sizeBytes": 54372
+    },
+    {
+      "path": "lib/PhpParser/PrettyPrinterAbstract.php",
+      "sha256": "f483f831fe8e92c47d03abb413f9d5a8a9c08abe94005f0ead9fcf4cb56122dd",
+      "sizeBytes": 74025
+    },
+    {
+      "path": "lib/PhpParser/Token.php",
+      "sha256": "674df1e06ae2be80f5e60df6cbdacb34ce362035664d033cf8bfa106121d6f59",
+      "sizeBytes": 487
+    },
+    {
+      "path": "lib/PhpParser/compatibility_tokens.php",
+      "sha256": "74083e705700d25d140ea74b0cf3973c2198bfbdd94a5376a38f915dd4a2d59b",
+      "sizeBytes": 2515
+    }
+  ]
+}
