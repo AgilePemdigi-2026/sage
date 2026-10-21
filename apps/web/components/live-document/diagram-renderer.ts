@@ -28,6 +28,57 @@ function cssIsLocal(value: string): boolean {
   return true;
 }
 
+function decodeMermaidTextRows(textElement: Element): void {
+  const positionedRows = Array.from(textElement.querySelectorAll(".text-outer-tspan"));
+  const rows = positionedRows.length > 0 ? positionedRows : [textElement];
+  const original = rows.map((row) => row.textContent ?? "");
+  const offsets: number[] = [];
+  let length = 0;
+  for (const row of original) {
+    offsets.push(length);
+    length += row.length;
+  }
+
+  const joined = original.join("");
+  const matches = Array.from(joined.matchAll(/&#([0-9]+);/g));
+  for (const match of matches.reverse()) {
+    const start = match.index;
+    const entity = match[0];
+    const end = start + entity.length;
+    const codePoint = Number(match[1]);
+    if (!Number.isSafeInteger(codePoint) || codePoint < 0x20 || codePoint > 0x10ffff ||
+        (codePoint >= 0xd800 && codePoint <= 0xdfff) || codePoint === 0xfffe || codePoint === 0xffff) {
+      continue;
+    }
+
+    let startRow = -1;
+    let endRow = -1;
+    for (let index = 0; index < original.length; index += 1) {
+      const rowStart = offsets[index]!;
+      const rowEnd = rowStart + original[index]!.length;
+      if (start >= rowStart && start < rowEnd) startRow = index;
+      if (end > rowStart && end <= rowEnd) endRow = index;
+    }
+    if (startRow < 0 || endRow < startRow) continue;
+
+    const startInRow = start - offsets[startRow]!;
+    const endInRow = end - offsets[endRow]!;
+    const decoded = String.fromCodePoint(codePoint);
+    if (startRow === endRow) {
+      const rowText = rows[startRow]!.textContent ?? "";
+      rows[startRow]!.textContent = rowText.slice(0, startInRow) + decoded + rowText.slice(endInRow);
+      continue;
+    }
+
+    const firstRowText = rows[startRow]!.textContent ?? "";
+    rows[startRow]!.textContent = firstRowText.slice(0, startInRow) + decoded;
+    for (let index = startRow + 1; index <= endRow; index += 1) {
+      const rowText = rows[index]!.textContent ?? "";
+      rows[index]!.textContent = index === endRow ? rowText.slice(endInRow) : "";
+    }
+  }
+}
+
 /** Reject active content, network references, and malformed SVG before making an image URL. */
 export function sanitizeDiagramSvg(svg: string): string {
   const inputBytes = new TextEncoder().encode(svg).byteLength;
@@ -39,6 +90,12 @@ export function sanitizeDiagramSvg(svg: string): string {
   const root = parsed.documentElement;
   if (root.localName.toLowerCase() !== "svg" || root.namespaceURI !== "http://www.w3.org/2000/svg") {
     throw new DiagramRenderError("INVALID_SVG");
+  }
+
+  // Mermaid can serialize numeric label entities as literal text, sometimes
+  // splitting an entity across positioned rows. Decode one layer in text only.
+  for (const textElement of Array.from(root.querySelectorAll("text"))) {
+    decodeMermaidTextRows(textElement);
   }
 
   for (const element of [root, ...Array.from(root.querySelectorAll("*"))]) {

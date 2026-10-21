@@ -44,8 +44,14 @@
 .detailSummary { display: grid; gap: 8px; margin: 14px 0 0; color: #52637b; font-size: 11px; }
 .detailSummary > * { min-width: 0; overflow-wrap: anywhere; }
 .detailSummary code,.fileTable code { overflow-wrap: anywhere; word-break: break-word; }
-.diagramViewport { max-width: 100%; overflow: auto; border: 1px solid #e2e9ef; border-radius: 6px; background: #fbfcfd; }
-.diagramImage { display: block; width: 100%; min-width: 640px; height: auto; }
+.diagramZoomControls { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 8px; }
+.diagramZoomButton { min-height: 40px; padding: 7px 11px; border: 1px solid #b8c6d3; border-radius: 5px; color: #061e42; background: #fff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.diagramZoomButton:hover:not(:disabled) { background: #f1f6f8; }
+.diagramZoomButton:focus-visible { outline: 3px solid #08796e; outline-offset: 2px; }
+.diagramZoomButton:disabled { color: #738196; background: #f3f5f7; cursor: not-allowed; }
+.diagramZoomValue { min-width: 90px; color: #344b68; font-size: 12px; font-variant-numeric: tabular-nums; text-align: center; }
+.diagramViewport { max-width: 100%; max-height: min(70vh, 720px); overflow: auto; overscroll-behavior: contain; border: 1px solid #e2e9ef; border-radius: 6px; background: #fbfcfd; }
+.diagramImage { display: block; height: auto; max-width: none; }
 .diagramStatus { padding: 12px; color: #52637b; font-size: 12px; line-height: 19px; }
 .diagramStatus[role="alert"] { color: #8f2636; }
 .retryButton { min-height: 38px; margin-top: 8px; padding: 7px 11px; border: 1px solid #b8c6d3; border-radius: 5px; color: #061e42; background: #fff; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }

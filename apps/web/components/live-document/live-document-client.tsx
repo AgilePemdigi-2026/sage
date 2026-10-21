@@ -146,6 +146,7 @@ function DiagramSection({
 }) {
   const [result, setResult] = useState<{ key: string; state: "ready" | "error" | "unavailable"; url?: string } | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const [zoomState, setZoomState] = useState<{ key: string; percent: number } | null>(null);
   const generation = useRef(0);
   const currentUrl = useRef<string | null>(null);
   const budget = diagramBudget(diagram);
@@ -153,6 +154,7 @@ function DiagramSection({
   const currentResult = result?.key === renderKey ? result : null;
   const state = budget.kind === "unavailable" ? "unavailable" : currentResult?.state ?? "loading";
   const url = currentResult?.url ?? null;
+  const zoomPercent = zoomState?.key === renderKey ? zoomState.percent : 100;
 
   useEffect(() => {
     let active = true;
@@ -195,11 +197,23 @@ function DiagramSection({
       <p>{"Diagram gagal dirender atau hasil SVG melewati batas 4 MiB. Katalog dan evidence tetap tersedia."}</p>
       <button className={styles.retryButton} type="button" onClick={() => setAttempt(value => value + 1)}>Coba lagi</button>
     </div> : null}
-    {url ? <div className={styles.diagramViewport}>
-      {/* The sanitized SVG is loaded as an image Blob URL, never inserted into the active DOM. */}
-      {/* eslint-disable-next-line @next/next/no-img-element -- Blob-backed canonical SVG keeps active markup out of the page. */}
-      <img className={styles.diagramImage} src={url} alt={label} />
-    </div> : null}
+    {url ? <>
+      <div className={styles.diagramZoomControls} role="group" aria-label="Kontrol zoom diagram" data-testid="document-diagram-zoom">
+        <button className={styles.diagramZoomButton} type="button" disabled={zoomPercent <= 100}
+          onClick={() => setZoomState({ key: renderKey, percent: Math.max(100, zoomPercent - 50) })}>Perkecil</button>
+        <output className={styles.diagramZoomValue} aria-live="polite" data-testid="document-diagram-zoom-value">Zoom: {zoomPercent}%</output>
+        <button className={styles.diagramZoomButton} type="button" disabled={zoomPercent >= 400}
+          onClick={() => setZoomState({ key: renderKey, percent: Math.min(400, zoomPercent + 50) })}>Perbesar</button>
+        <button className={styles.diagramZoomButton} type="button" disabled={zoomPercent === 100}
+          onClick={() => setZoomState({ key: renderKey, percent: 100 })}>Sesuaikan</button>
+      </div>
+      <div className={styles.diagramViewport} data-testid="document-diagram-viewport" tabIndex={0} role="region" aria-label={`Area ${label}; gunakan tombol panah untuk menggeser diagram`}>
+        {/* The sanitized SVG is loaded as an image Blob URL, never inserted into the active DOM. */}
+        {/* eslint-disable-next-line @next/next/no-img-element -- Blob-backed canonical SVG keeps active markup out of the page. */}
+        <img className={styles.diagramImage} data-testid="document-diagram-image" src={url} alt={label}
+          style={{ width: `${zoomPercent}%`, minWidth: `${640 * zoomPercent / 100}px` }} />
+      </div>
+    </> : null}
   </>;
 }
 
