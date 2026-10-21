@@ -26,9 +26,9 @@ Renderer mengirim maksimal 200 node/500 edge secara deterministik ke Cytoscape. 
 | Graph kosong dan preview lama | Empty-state valid; preview tanpa API/provider | PASS |
 | Retry 503 | Error terlihat lalu retry membaca API nyata | PASS dengan satu respons 503 browser yang diintersep eksplisit |
 
-Laporan browser memuat 16 kelompok pemeriksaan, nol page error dan nol request provider. Fixture TypeScript menghasilkan 14 node/21 edge: 9 containment, 12 reference, 18 Exact, 3 Unresolved. Hash CKG `40ba440a49e3c7344527612dd7c550ca9bf6b006a2d904fa61af4c807bae5891`, snapshot SHA sintetis `dddddddddddddddddddddddddddddddddddddddd`. Node Module, Class, Interface, Function, Method, Property dan UnresolvedReference semuanya berasal dari adapter nyata. Node 24.22.0, Next.js 16.4.2, Prisma 7.10.1, PostgreSQL 17, Chromium 156.0.8078.4.
+Laporan browser memuat 17 kelompok pemeriksaan, nol page error dan nol request provider. Fixture TypeScript menghasilkan 14 node/21 edge: 9 containment, 12 reference, 18 Exact, 3 Unresolved. Hash CKG `40ba440a49e3c7344527612dd7c550ca9bf6b006a2d904fa61af4c807bae5891`, snapshot SHA sintetis `dddddddddddddddddddddddddddddddddddddddd`. Node Module, Class, Interface, Function, Method, Property dan UnresolvedReference semuanya berasal dari adapter nyata. Node 24.22.0, Next.js 16.4.2, Prisma 7.10.1, PostgreSQL 17, Chromium 156.0.8078.4.
 
-Pengujian unit mencakup budget subset 205 node/505 edge menjadi 200/500, parent compound yang valid, self-loop/parallel edge, fokus yang incident-only dan hasil kosong. Tes ini tidak mengklaim benchmark graph besar. Satu 503 dan penahanan respons A dikendalikan Playwright untuk menguji recovery/race; API sukses, ownership, integrity, sesi dan database tetap nyata.
+Pengujian unit mencakup budget subset 205 node/505 edge menjadi 200/500, parent compound yang valid, self-loop/parallel edge, fokus yang incident-only dan hasil kosong. Tes ini tidak mengklaim benchmark graph besar. Satu 503, body error yang tertunda, dan penahanan respons A dikendalikan Playwright untuk menguji recovery/race; API sukses, ownership, integrity, sesi dan database tetap nyata.
 
 ```sh
 npm run check
@@ -43,3 +43,7 @@ Tes integrasi wajib memakai database sementara bernama `sage_graph17`, storage s
 ## Batas penerimaan
 
 Fixture berasal dari resolver TypeScript nyata lalu langsung disimpan sebagai canonical GraphBundle dan SOURCE_ARCHIVE pada database uji. Status terminal dibuat oleh setup tes. Ini membuktikan jalur baca hasil tersimpan, API, ownership dan browser; bukan eksekusi/publikasi pipeline sembilan tahap. Submission baru tetap mengikuti aktivasi ANA-07 #16. Query/filter #18, inspector/source #19, dokumen/ekspor serta signoff formal ANA-06 tetap mengikuti issue masing-masing.
+
+## Review PR
+
+Review independen [PR #79](https://github.com/AgilePemdigi-2026/sage/pull/79) pada head awal `10052f838f96d05f47d2072de5bca10c1c6c1bbb` menemukan satu P2 pada respons error yang tersupersesi ketika `response.json()` masih menunggu. Guard generasi ditambahkan setelah pembacaan body, sebelum perubahan state. Tes browser tambahan menahan body 503, memuat graph pengganti lewat API nyata, lalu mengaborsi body lama; graph terbaru tetap tampil tanpa error usang. Lint/typecheck/build serta suite browser diuji ulang setelah koreksi.

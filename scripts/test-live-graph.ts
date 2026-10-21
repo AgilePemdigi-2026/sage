@@ -828,6 +828,45 @@ async function runLiveGraphRegression(): Promise<void> {
     await raceContext.close();
     checks.push("delayed owner-A graph response: real owner-B session mismatch triggers reload/404 and stale response never restores the old canvas");
 
+    // Explicit browser double: headers resolve, but a superseded error body aborts later.
+    // This exercises the await boundary after response.json(), not only delayed headers.
+    const errorRaceContext = await browser.newContext({ viewport: { width: 390, height: 1000 } });
+    await errorRaceContext.addCookies([{
+      name: "sage_session", value: owner.token, url: base, httpOnly: true, sameSite: "Lax",
+    }]);
+    await errorRaceContext.addInitScript(({ graphPath }) => {
+      const originalFetch = window.fetch.bind(window);
+      let holdFirstBody = true;
+      const state = window as unknown as { graphErrorBodyPending?: boolean; releaseGraphErrorBody?: () => void };
+      window.fetch = async (input, init) => {
+        const target = input instanceof Request ? input.url : String(input);
+        const response = await originalFetch(input, init);
+        if (!holdFirstBody || new URL(target, window.location.href).pathname !== graphPath || !response.ok) return response;
+        holdFirstBody = false;
+        await response.body?.cancel();
+        const body = new ReadableStream<Uint8Array>({
+          start(controller) {
+            state.graphErrorBodyPending = true;
+            state.releaseGraphErrorBody = () => controller.error(new DOMException("Superseded test response", "AbortError"));
+          },
+        });
+        return new Response(body, { status: 503, headers: { "Content-Type": "application/json" } });
+      };
+    }, { graphPath: `/api/analyses/${ready.analysisId}/graph` });
+    const errorRacePage = await errorRaceContext.newPage();
+    errorRacePage.on("pageerror", error => pageErrors.push(`delayed error body: ${error.message}`));
+    await errorRacePage.goto(graphPageUrl(base, ready.analysisId), { waitUntil: "domcontentloaded" });
+    await errorRacePage.waitForFunction(() => (window as unknown as { graphErrorBodyPending?: boolean }).graphErrorBodyPending === true);
+    await errorRacePage.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await errorRacePage.getByTestId("canonical-counts").waitFor();
+    await errorRacePage.evaluate(() => (window as unknown as { releaseGraphErrorBody?: () => void }).releaseGraphErrorBody?.());
+    await errorRacePage.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    assert.equal(await errorRacePage.getByTestId("canonical-counts").count(), 1, "an aborted stale error body must not clear the newer graph");
+    assert.equal(await errorRacePage.getByRole("region", { name: "Kanvas knowledge graph", exact: true }).count(), 1);
+    assert.equal(await errorRacePage.getByRole("alert").filter({ hasText: "Graph sementara tidak dapat dibaca." }).count(), 0);
+    await errorRaceContext.close();
+    checks.push("controlled delayed error body: superseded 503 body abort cannot clear the replacement graph or publish an obsolete error");
+
     const emptyContext = await browser.newContext({ viewport: { width: 390, height: 1000 } });
     await emptyContext.addCookies([{
       name: "sage_session", value: owner.token, url: base, httpOnly: true, sameSite: "Lax",
@@ -893,7 +932,7 @@ async function runLiveGraphRegression(): Promise<void> {
         canonicalCounts: ready.canonical.value.counts,
       } : null,
       seedScope: "Direct test database seed of canonical GraphBundle and SOURCE_ARCHIVE; this is not the actual nine-stage pipeline or worker publication.",
-      controlledCase: "The first 360px browser graph request receives one explicitly intercepted 503; retry continues to the genuine Next/Postgres API.",
+      controlledCase: "The first 360px request receives one intercepted 503; a separate controlled response body abort checks stale-error handling; all replacement requests read the genuine Next/Postgres API.",
       delayedIdentityCase: "A genuine owner-A graph API response is held in Playwright while the genuine session endpoint rejects cookie B with the stale A account binding; A's delayed response is then released and must not restore graph data.",
       storageRoot: "Dedicated private temporary fixture root; only script-created snapshot-* folders are removed.",
       ...(reportError ? { error: reportError } : {}),

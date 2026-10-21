@@ -127,6 +127,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         if (!response.ok) {
           let message: string | null = null;
           try { message = responseMessage(await response.json()); } catch { /* Keep the status-specific message. */ }
+          if (!isCurrent(requestGeneration)) return;
           setPayload(null);
           setError({ status: response.status, message: message ?? "Graph belum dapat dimuat. Coba lagi." });
           return;
