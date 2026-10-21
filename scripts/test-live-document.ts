@@ -915,6 +915,126 @@ async function runLiveDocumentRegression(): Promise<void> {
     await raceContext.close();
     checks.push("delayed owner-A document response: focus recheck detects account B, receives real 404, and clears stale catalog data");
 
+    // Keep the page open and leave focus, visibility, and pageshow untouched.
+    // The document request holds a genuine 200 response while the 15-second
+    // periodic identity check is suppressed by the active full load.
+    const noFocusContext = await browser.newContext({ viewport: { width: 390, height: 1000 }, reducedMotion: "reduce", serviceWorkers: "block" });
+    await noFocusContext.addCookies([{ name: "sage_session", value: owner.token, url: base, httpOnly: true, sameSite: "Lax" }]);
+    const noFocusPage = await noFocusContext.newPage();
+    noFocusPage.setDefaultTimeout(25_000);
+    const noFocusAuditKey = "doc15-no-focus-stale-owner";
+    await noFocusPage.addInitScript(auditKey => {
+      const events = { focus: 0, pageshow: 0, visibility: 0 };
+      Object.defineProperty(window, "__doc15NoFocusEvents", { configurable: true, value: events });
+      window.addEventListener("focus", () => { events.focus += 1; });
+      window.addEventListener("pageshow", () => { events.pageshow += 1; });
+      document.addEventListener("visibilitychange", () => { events.visibility += 1; });
+      const observer = new MutationObserver(() => {
+        if (sessionStorage.getItem(`${auditKey}:armed`) === "1" && document.body?.innerText.includes("CaféService")) {
+          sessionStorage.setItem(`${auditKey}:leaked`, "1");
+        }
+      });
+      observer.observe(document, { childList: true, subtree: true, characterData: true });
+    }, noFocusAuditKey);
+    noFocusPage.on("pageerror", error => pageErrors.push(`no-focus identity switch: ${error.message}`));
+    const noFocusSessionChecks: string[] = [];
+    noFocusPage.on("request", req => {
+      const url = new URL(req.url());
+      if ((url.protocol === "http:" || url.protocol === "https:") && url.origin !== parsedBase.origin) offOriginRequests.push(`no-focus identity switch ${req.url()}`);
+      if (url.hostname === "github.com" || url.hostname === "api.github.com" || url.pathname.startsWith("/api/github/")) providerRequests.push(`no-focus identity switch ${req.url()}`);
+      if (url.pathname === "/api/auth/session") noFocusSessionChecks.push(req.url());
+    });
+    let releaseNoFocusResponse = () => {};
+    let finishNoFocusRoute = () => {};
+    let signalNoFocusRequest = () => {};
+    let signalNoFocusResponseReady = () => {};
+    const noFocusResponseGate = new Promise<void>(resolveGate => { releaseNoFocusResponse = resolveGate; });
+    const noFocusRouteFinished = new Promise<void>(resolveGate => { finishNoFocusRoute = resolveGate; });
+    const noFocusRequestStarted = new Promise<void>(resolveGate => { signalNoFocusRequest = resolveGate; });
+    const noFocusResponseReady = new Promise<void>(resolveGate => { signalNoFocusResponseReady = resolveGate; });
+    let holdFirstNoFocusResponse = true;
+    let noFocusHeldResponseStatus = 0;
+    await noFocusPage.route(`**/api/analyses/${ready.analysisId}/document`, async route => {
+      if (!holdFirstNoFocusResponse) return route.continue();
+      holdFirstNoFocusResponse = false;
+      signalNoFocusRequest();
+      try {
+        const actual = await route.fetch();
+        noFocusHeldResponseStatus = actual.status();
+        signalNoFocusResponseReady();
+        await noFocusResponseGate;
+        try { await route.fulfill({ response: actual }); }
+        catch { /* The identity reload may abort the original document request. */ }
+      } finally {
+        finishNoFocusRoute();
+      }
+    });
+    await noFocusPage.goto(documentPageUrl(base, ready.analysisId), { waitUntil: "domcontentloaded" });
+    await noFocusRequestStarted;
+    await noFocusResponseReady;
+    assert.equal(noFocusHeldResponseStatus, 200, "held no-focus owner-A document must be the real database-backed HTTP response");
+    assert.ok(noFocusSessionChecks.length > 0, "the initial document load must make a real session check");
+    assert.equal(await noFocusPage.evaluate(() => document.visibilityState), "visible", "the no-focus race must keep the page visible");
+    assert.ok(!(await noFocusPage.locator("body").innerText()).includes("CaféService"), "owner-A data must not be visible while its response is held");
+    const observerProbeDetected = await noFocusPage.evaluate(async auditKey => {
+      sessionStorage.setItem(`${auditKey}:armed`, "1");
+      sessionStorage.removeItem(`${auditKey}:leaked`);
+      // Prove the observer is active before testing the real cookie transition.
+      const probe = document.createElement("span");
+      probe.textContent = "CaféService observer probe";
+      document.body.append(probe);
+      await new Promise<void>(resolveProbe => setTimeout(resolveProbe, 0));
+      const detected = sessionStorage.getItem(`${auditKey}:leaked`) === "1";
+      probe.remove();
+      await new Promise<void>(resolveProbe => setTimeout(resolveProbe, 0));
+      sessionStorage.removeItem(`${auditKey}:leaked`);
+      return detected;
+    }, noFocusAuditKey);
+    assert.equal(observerProbeDetected, true, "the leak observer must detect its pre-switch probe before being reset");
+    const eventsBeforeCookieSwitch = await noFocusPage.evaluate(() => {
+      const events = (window as unknown as { __doc15NoFocusEvents?: { focus: number; pageshow: number; visibility: number } }).__doc15NoFocusEvents;
+      return events ? { ...events } : null;
+    });
+    assert.ok(eventsBeforeCookieSwitch, "no-focus event counters must be installed before changing the cookie");
+    const sessionChecksBeforeCookieSwitch = noFocusSessionChecks.length;
+    await noFocusContext.addCookies([{ name: "sage_session", value: other.token, url: base, httpOnly: true, sameSite: "Lax" }]);
+    await noFocusPage.waitForTimeout(16_000);
+    const eventsAfterHold = await noFocusPage.evaluate(() => {
+      const events = (window as unknown as { __doc15NoFocusEvents?: { focus: number; pageshow: number; visibility: number } }).__doc15NoFocusEvents;
+      return events ? { ...events } : null;
+    });
+    assert.deepEqual(eventsAfterHold, eventsBeforeCookieSwitch, "no focus, pageshow, or visibility event may trigger an identity refresh during the hold");
+    assert.equal(await noFocusPage.evaluate(() => document.visibilityState), "visible", "the no-focus page must remain visible during the hold");
+    assert.equal(noFocusSessionChecks.length, sessionChecksBeforeCookieSwitch,
+      "the periodic identity check must not issue a session request while the document body is held");
+    assert.equal(await noFocusPage.evaluate(auditKey => sessionStorage.getItem(`${auditKey}:leaked`) === "1", noFocusAuditKey), false,
+      "the observer must see no owner-A declaration before releasing the response");
+
+    const staleOwnerSession401 = noFocusPage.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === "/api/auth/session" && response.request().headers()["x-sage-account"] === owner!.accountKey && response.status() === 401;
+    });
+    const noFocusOwnerBDocument404 = noFocusPage.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === `/api/analyses/${ready!.analysisId}/document` &&
+        response.request().headers()["x-sage-account"] === other!.accountKey && response.status() === 404;
+    });
+    releaseNoFocusResponse();
+    const staleOwnerIdentity = await staleOwnerSession401;
+    assert.equal(staleOwnerIdentity.status(), 401, "post-body identity check must reject cookie B against the owner-A account binding");
+    await noFocusRouteFinished;
+    await noFocusOwnerBDocument404;
+    await noFocusPage.getByRole("alert").filter({ hasText: "Analisis tidak ditemukan." }).waitFor();
+    await noFocusPage.evaluate(() => new Promise<void>(resolveFrame => requestAnimationFrame(() => setTimeout(resolveFrame, 0))));
+    assert.equal(await noFocusPage.getByRole("table").count(), 0, "the no-focus owner-B page must not retain owner-A catalog rows");
+    const noFocusText = await noFocusPage.locator("body").innerText();
+    assert.ok(!noFocusText.includes("CaféService"), "owner-A declaration must never appear during the no-focus cookie switch");
+    assert.ok(!noFocusText.includes("<script>"), "owner-A source path must never appear during the no-focus cookie switch");
+    assert.equal(await noFocusPage.evaluate(auditKey => sessionStorage.getItem(`${auditKey}:leaked`) === "1", noFocusAuditKey), false,
+      "a MutationObserver must record no transient owner-A declaration between cookie B and the owner-scoped 404");
+    await noFocusContext.close();
+    checks.push("delayed no-focus owner-A response: after 16 seconds without focus/pageshow/visibility checks, the real post-body session check rejects B, reloads to a real B-scoped 404, and MutationObserver records no transient A data");
+
     assert.deepEqual(offOriginRequests, [], "document pages must make no off-origin HTTP(S) requests");
     assert.deepEqual(providerRequests, [], "document pages must make no GitHub/provider requests");
     checks.push("all browser paths, including retry and identity switch, make no off-origin or GitHub/provider requests");
@@ -985,6 +1105,7 @@ async function runLiveDocumentRegression(): Promise<void> {
       seedScope: "Direct test database seed of canonical GraphBundle, ArchitectureDocument, and SOURCE_ARCHIVE; this is not the nine-stage worker pipeline or worker publication.",
       controlledUiFailure: "One browser-only 503 is injected for the named retry case; the page retry recovers through the genuine API. The identity-switch response is held from the genuine API and is not fabricated.",
       delayedIdentityCase: "The held owner-A document body comes from the real HTTP API; changing to B makes the real session endpoint reject the stale A account binding, and B receives a real owner-scoped 404 before the held body can restore A's document.",
+      delayedNoFocusIdentityCase: "A fresh owner-A tab holds the real 200 document response while cookie B is installed. The page stays visible and receives no focus, pageshow, or visibility event; after 16 seconds the periodic session request is still suppressed while loading. Releasing the response must trigger a real session 401 against owner A, reload as owner B, then receive a real document 404. A MutationObserver armed before the cookie change persists its audit in sessionStorage and must never observe CaféService during the race.",
       storageRoot: "Dedicated private temporary fixture root; cleanup removes only script-created snapshot-* directories and rows tracked by generated IDs.",
       ...(reportError ? { error: reportError } : {}),
     };

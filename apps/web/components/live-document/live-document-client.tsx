@@ -355,6 +355,10 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
         const body = await response.json() as { data?: unknown };
         if (!isCurrent(requestGeneration)) return;
         const validated = parseLiveDocumentPayload(body.data, analysisId, accountKey);
+        // A cookie can change while a large response is in flight, without a focus event.
+        // Recheck the server identity after reading the body before publishing private facts.
+        const identity = await checkSession(requestGeneration);
+        if (!identity || !isCurrent(requestGeneration)) return;
         setPayload(validated);
         setError(null);
       } catch (cause) {

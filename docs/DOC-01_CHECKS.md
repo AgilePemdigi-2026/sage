@@ -25,8 +25,9 @@ Reader canonical mensyaratkan pemilik dan status analisis sukses, lalu memverifi
 | Lima viewport 360/390/768/1024/1440 | Katalog dan kedua diagram, keyboard/zoom tanpa overflow halaman | PASS |
 | Label Unicode/HTML-like path | Teks SVG tetap terbaca dan inert, tanpa external resource | PASS |
 | Pergantian akun dengan body lama tertahan | Session menolak identitas lama, akun baru menerima 404 dan katalog lama hilang | PASS |
+| Cookie berubah tanpa focus selama body tertahan 16 detik | Pemeriksaan identitas setelah body menolak akun lama; observer tidak melihat data lama sekalipun sesaat | PASS |
 | Retry UI terkontrol | Satu 503 bertanda menampilkan Coba lagi, kemudian API nyata pulih | PASS |
-| Pemeriksaan browser keseluruhan | Tidak ada browser error atau provider request | 13/13 PASS; 0 error, 0 off-origin/provider request |
+| Pemeriksaan browser keseluruhan | Tidak ada browser error atau provider request | 14/14 PASS; 0 error, 0 off-origin/provider request |
 | Visual manual | Mobile metadata membungkus; UML dan diagram struktur dapat dibaca dengan zoom | PASS pada screenshot mobile/desktop serta diagram viewport 400% |
 
 Lingkungan: Node 24.22.0, npm 11.17.0, PHP 8.4.26, Next.js 16.4.2, Prisma 7.10.1, PostgreSQL 17.11, Mermaid 12.2.0 dan Chromium 156.0.8078.4. Suite utama dijalankan penuh; setelah perbaikan tampilan, lint/typecheck/build serta Playwright diulang pada hasil terbaru.
@@ -54,3 +55,7 @@ Integrasi wajib memakai database disposable `sage_document15` dan opt-in `SAGE_D
 Paket ini membuktikan model, atomic row persistence, handler dokumen serta API/halaman pembaca privat. Snapshot integrasi berasal dari source fixture publik yang disimpan dalam archive uji; tidak ada GitHub live atau credential pengguna. Stage 2–9 memakai implementasi nyata, sementara stage snapshot fixture merupakan producer terkontrol. Tidak ada klaim consumer produk aktif, retry UI, publikasi terminal hasil atau E2E GitHub penuh. Halaman produk menampilkan katalog dan merender SVG dari proyeksi Mermaid lokal, dengan batas keamanan dan state error eksplisit. Download/ekspor Markdown/PDF mengikuti #20/#21.
 
 Gate formal QA-01 #4 dan ANA-05/06 #11/#14 tidak ditutup oleh paket ini; bukti teknis dependency dipakai tanpa mengklaim signoff manusia tim yang belum diberikan.
+
+## Review PR
+
+Review independen pada [PR #80](https://github.com/AgilePemdigi-2026/sage/pull/80), head awal `30dcc19eb5c4828fa489ad965c88ecf620a7d1ef`, menemukan satu P2: body dokumen akun lama dapat ditampilkan jika cookie berubah tanpa event focus selama request tertahan. Client kini memeriksa ulang session server sesudah body dibaca dan sebelum fakta ditampilkan, dengan generation guard sesudah setiap await. Regresi tambahan menahan respons API nyata selama 16 detik tanpa focus/pageshow/visibility event, lalu membuktikan 401 identitas lama dan 404 milik akun baru. MutationObserver yang diuji dengan probe sebelum pergantian akun menyimpan audit di sessionStorage agar kebocoran sementara tidak hilang saat reload. Review ulang memakai remote head setelah perbaikan.
