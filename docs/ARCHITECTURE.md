@@ -76,7 +76,7 @@ Publikasikan graph dan ADD sebagai satu result bundle setelah kesembilan tahap b
 
 Kegagalan ekspor setelah hasil tersedia hanya memengaruhi export job. Graph dan ADD yang telah selesai tetap dapat dibuka. Satu format aktif pada toolbar dokumen menonaktifkan permintaan format lain pada toolbar yang sama sesuai alur mockup.
 
-Diagram statis merupakan proyeksi dari canonical graph. Renderer SVG dan representasi Markdown dipilih pada spike, dengan Mermaid sebagai kandidat awal; pilihan renderer tidak menentukan fakta atau resolusi relasi.
+Diagram statis merupakan proyeksi dari canonical graph. DOC-02 memakai Mermaid untuk source mandiri dan SVG, melalui Chromium dengan jaringan diblokir serta validasi output. Pilihan renderer tidak menentukan fakta atau resolusi relasi. Integrasi ADD dan ekspor produk masih mengikuti DOC-01/EXP-01/EXP-02.
 
 ## Batas keamanan pemrosesan
 

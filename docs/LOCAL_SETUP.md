@@ -72,7 +72,7 @@ Compose membatasi web 768 MiB, worker 2 GiB, dan database 384 MiB. Web/worker be
 
 `config/analysis-limits.json` memuat batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Kebijakan source diterapkan pada jalur snapshot immutable; lihat batas bukti REP-02. Karena consumer sembilan tahap nonaktif, nilai batas lintas pipeline belum terverifikasi sebagai proteksi analisis penuh. Consumer pipeline #16, lifecycle deletion #23, ekspor produk #20–21, dan validasi isi tiga artefak dokumen #15 tetap menunggu issue masing-masing. API claim/recovery #9 sudah diuji terpisah. Parser PHP memiliki timeout sendiri.
 
-Mermaid memakai strict mode pada sample tepercaya. Escape label/source, pembatasan ukuran diagram, pengujian injeksi, serta validasi output untuk konten repository tetap wajib pada DOC-01/EXP-02. Chromium tidak boleh dipakai membuka URL bebas dari input pengguna.
+Mermaid memakai strict mode. Modul DOC-02 menambahkan encoding label, pembatasan diagram, blokir jaringan, pengujian label berbahaya, serta validasi SVG; lihat [bukti DOC-02](DOC-02_CHECKS.md). Integrasi ekspor produk tetap diuji pada DOC-01/EXP-02. Chromium tidak boleh dipakai membuka URL bebas dari input pengguna.
 
 Status acceptance produk mengikuti [test plan](TEST_PLAN.md) dan bukti per issue. Login/repository nyata, target branch/full SHA, dan snapshot telah diuji pada slice GH-01/02 serta REP-01/02; alur analisis sampai graph/dokumen/ekspor belum tersedia. Bukti fondasi dicatat terpisah dalam [pemeriksaan environment](ENVIRONMENT_CHECKS.md); QA-01 tetap terbuka untuk kelengkapan oracle semantik dan review tim.
 
