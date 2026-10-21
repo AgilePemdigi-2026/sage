@@ -99,6 +99,10 @@ Delete analysis queued/running menghasilkan `409 ANALYSIS_ACTIVE`; delete dengan
 | GET | `/analyses/{analysisId}/files/{fileId}/source` | Source snapshot, hash, line range yang diminta dan bounds highlight |
 | GET | `/analyses/{analysisId}/document` | Document model dan tiga artefak dari result bundle yang sama |
 
+Implementasi GRAPH-01 menyediakan `GET /api/analyses/{analysisId}/graph` tanpa query parameter untuk membaca proyeksi lengkap dari canonical CKG tersimpan. Envelope memuat `accountKey`, snapshot immutable, hash CKG/configuration, provenance, limitation, `canonicalCounts`, `filteredCounts`, `returnedCounts`, `paginated: false`, dan `graph`. Byte source, kredensial, serta path storage tidak dikirim. Mode tampilan diproyeksikan di client; parameter query/filter/paginasi tabel di atas tetap mengikuti GRAPH-02. Query asing ditolak secara eksplisit, bukan diabaikan.
+
+Owner diambil dari session cookie; `X-SAGE-Account` mendeteksi tab dengan akun lama. API memakai `private, no-store` serta `Vary: Cookie, X-SAGE-Account`. Analisis asing/tidak ada menghasilkan 404, analisis milik sendiri yang belum sukses menghasilkan 409 `RESULT_NOT_READY`, dan storage/CKG rusak menghasilkan 503 generik tanpa membocorkan source atau path. Graph diperiksa ulang terhadap archive ACTIVE terbaru yang terikat owner/analysis, dengan urutan createdAt/id deterministik; metadata target tetap dari snapshot CKG, bukan nama repository yang dapat berubah.
+
 Response graph memisahkan `canonicalCounts`, `filteredCounts`, node/edge yang dikembalikan, serta tanda hasil yang dipaginasi. Jangan menyatakan satu halaman graph sebagai graph lengkap. Focus menyertakan context nodes dengan penanda ketika tidak termasuk hit query/filter.
 
 Categories memakai registry dari kontrak analisis; query dan category digabung AND. Empty result adalah `200` dengan koleksi kosong dan metadata, bukan `404`. Source hanya menerima file ID milik analisis, bukan arbitrary path/URL; snippet berasal dari hash snapshot yang sama.

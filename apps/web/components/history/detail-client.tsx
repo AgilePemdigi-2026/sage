@@ -93,7 +93,7 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
     {detail.results ? <Panel title="Hasil" className={styles.historyPanel}>
       <Link className={styles.primaryAction} href={detail.results.graphUrl}>Buka knowledge graph</Link>
       <Link className={styles.secondaryAction} href={detail.results.documentUrl}>Buka dokumentasi</Link>
-      <p className={styles.historyFootnote}>Halaman hasil dibangun paket graph/dokumen (GRAPH-01/DOC-01); tautan sudah canonical.</p>
+      <p className={styles.historyFootnote}>Graph membaca hasil tersimpan setelah analisis sukses; halaman dokumen mengikuti integrasi DOC-01.</p>
     </Panel> : null}
   </DesignFrame>;
 }

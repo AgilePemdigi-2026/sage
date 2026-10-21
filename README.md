@@ -28,14 +28,14 @@
   <a href="CONTRIBUTING.md">Kontribusi</a>
 </p>
 
-**Dalam pengembangan — per 20 Oktober 2026.** Login dan akses repository sudah tersedia; pipeline analisis penuh serta ekspor produk masih dalam pengembangan.
+**Dalam pengembangan — per 21 Oktober 2026.** Login dan akses repository sudah tersedia; pipeline analisis penuh serta ekspor produk masih dalam pengembangan.
 
 <details>
 <summary>Rincian implementasi dan batas pratinjau</summary>
 
 Login GitHub App, daftar repository public/instalasi, pemilihan branch dan full SHA, `POST /api/analyses` yang mengantre secara idempotent, serta snapshot immutable dan source handlers tersambung ke provider nyata. Worker dapat menjalankan komponen queue dan runner tahap, tetapi consumer analisis penuh masih nonaktif (`workerQueueEnabled=false`); submission belum menghasilkan analisis sembilan tahap.
 
-Landing, login, workspace, dan halaman repository memakai backend autentikasi/repository nyata. Halaman `/preview/progress`, `/preview/history`, `/preview/graph`, dan `/preview/document` adalah pratinjau fixture dari satu contoh source-backed tervalidasi berisi 10 node dan 9 edge, termasuk `ReportService`; halaman tersebut bukan hasil analisis repository pengguna. `/ui-preview` dan `/graph-preview` tetap tersedia sebagai fixture kompatibilitas. Hanya pratinjau Markdown yang dapat diunduh dan ditandai sebagai fixture; ekspor PDF produk belum tersedia. History produk, graph berbasis analysis, dokumen produk, ekspor, dan penghapusan masih mengikuti issue terbuka. Bukti dan batas verifikasi UI dicatat di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md).
+Landing, login, workspace, dan halaman repository memakai backend autentikasi/repository nyata. Halaman `/preview/progress`, `/preview/history`, `/preview/graph`, dan `/preview/document` adalah pratinjau fixture dari satu contoh source-backed tervalidasi berisi 10 node dan 9 edge, termasuk `ReportService`; halaman tersebut bukan hasil analisis repository pengguna. `/ui-preview` dan `/graph-preview` tetap tersedia sebagai fixture kompatibilitas. Hanya pratinjau Markdown yang dapat diunduh dan ditandai sebagai fixture; ekspor PDF produk belum tersedia. Riwayat dan progres produk membaca record tersimpan. Graph `/analyses/{analysisId}/graph` membaca canonical CKG milik akun setelah analisis sukses, dengan mode overview, fokus, dan semua referensi. Query/filter lanjutan, inspector/source, dokumen produk, ekspor, dan penghapusan masih mengikuti issue terkait. Bukti dan batas verifikasi UI dicatat di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md).
 
 </details>
 
@@ -126,6 +126,8 @@ Ikuti [panduan GitHub App](docs/GITHUB_APP_SETUP.md). Callback pengembangan meng
 | Riwayat analisis (nyata) | [http://localhost:3000/workspace/history](http://localhost:3000/workspace/history) |
 
 Landing, login, workspace, dan akses repository nyata sudah tersedia. Rute `/preview/*` memakai fixture yang sama untuk menunjukkan state UI, bukan record tersimpan. Adapter worker menyediakan deklarasi dan relasi statis sesuai [capability JS/TS](docs/ANA-03_CHECKS.md) dan [capability PHP](docs/ANA-04_CHECKS.md); target dinamis atau tidak terbukti tetap `Unresolved`. Submission masuk queue durable, tetapi consumer analisis penuh belum aktif. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
+
+Graph hasil tersimpan dibuka melalui **Buka knowledge graph** pada detail analisis yang sukses; lihat [bukti verifikasi graph](docs/GRAPH-01_CHECKS.md). Submission baru tetap menunggu aktivasi pipeline penuh; halaman graph tidak mengubah status analisis atau mempublikasikan hasil sementara.
 
 ### 5. Stop, jalankan kembali, atau perbarui
 
