@@ -98,3 +98,7 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 - #15 memvalidasi tiga artefak dokumen; kolom JSON saat ini menyimpan struktur dan belum menjamin validitas kontennya. History #22 menyediakan pembacaan list/detail GET (HIST-01); graph produk #17–19 dan ekspor #20–21 tetap terbuka.
 - #23 menentukan alur penghapusan analysis dan objek storage secara idempotent.
 - Pipeline analisis harus menegakkan kelengkapan graph/document dan hash sebelum menyatakan analysis selesai.
+
+## Canonical CKG ANA-06
+
+`GraphBundle.canonicalContent` menyimpan canonical JSON `sage-ckg-v1` berisi CCM lengkap, fingerprint queue dan counts. Nullable hanya untuk baris legacy. Hash canonical mencakup snapshot, file/evidence, provenance dan limitation; node/edge JSON serta count kolom merupakan mirror tervalidasi. Penulisan berada di transaksi lease/stage-fenced dan hasil per analysis immutable. Reader canonical memerlukan owner, status terminal berhasil, kesamaan target parent serta validasi source/hash/mirror. Graph draft tidak dipublikasikan lewat reader tersebut; publikasi result bundle lengkap tetap #16. Lihat [verifikasi ANA-06](ANA-06_CHECKS.md).

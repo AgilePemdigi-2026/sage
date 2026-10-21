@@ -102,3 +102,7 @@ tests/e2e/                alur aplikasi dan ekspor
 ```
 
 Workspace web/worker/database, parser probe, renderer probe, serta tests/fixtures sudah dibuat. packages/contracts masih berupa batas modul; contracts CCM dan struktur E2E produk mengikuti issue berikutnya.
+
+## Handler internal canonical CKG
+
+ANA-06 menyediakan `createCkgStageHandlers` untuk COMMON_CODE_MODEL dan KNOWLEDGE_GRAPH, setelah handler snapshot/source. Keduanya membaca ulang snapshot owner-bound dan memverifikasi hash/target artefak tahap sebelumnya. Graph canonical adalah wrapper CCM tervalidasi; tidak menjalankan resolver ulang atau mengubah fakta. Persistensi memakai lease aktif, stage fence, transaksi dan replay immutable. Handler berikutnya menerima graph beserta hash untuk proyeksi dokumen; publikasi analysis selesai tidak dilakukan di tahap graph. Consumer queue produk tetap nonaktif sampai registry sembilan handler dan publikasi atomik diterima pada ANA-07. Bukti serta batas ada di [ANA-06_CHECKS](ANA-06_CHECKS.md).
