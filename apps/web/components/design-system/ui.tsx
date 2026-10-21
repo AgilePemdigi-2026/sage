@@ -26,7 +26,7 @@ export function DesignFrame({ children, active = "none", preview = false }: {
           <Link href="/preview/document?analysis=fixture-report">Dokumentasi</Link>
         </> : <>
           <Link href={`${prefix}/repositories`} aria-current={active === "repositories" ? "page" : undefined}>Repositories</Link>
-          <Link href="/preview/history" aria-current={active === "history" ? "page" : undefined}>Riwayat <span className={styles.navNote}>pratinjau</span></Link>
+          <Link href={`${prefix}/history`} aria-current={active === "history" ? "page" : undefined}>Riwayat</Link>
           <Link href="/preview/progress">Pratinjau</Link>
         </>}
       </nav>

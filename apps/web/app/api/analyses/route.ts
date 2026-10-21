@@ -2,8 +2,10 @@ import { database, enqueueAnalysis, findEnqueuedAnalysisRequest } from "@sage/da
 import { GitHubRepositoryClient } from "../../../lib/github/client.ts";
 import { readRepositorySession } from "../../../lib/github/session.ts";
 import { createSubmissionHandler } from "../../../lib/github/submission-handlers.ts";
+import { analysisHandlers } from "../../../lib/analyses/server-handlers.ts";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const GET = analysisHandlers.list;
 export const POST = createSubmissionHandler({
   env: process.env,
   readSession: readRepositorySession,

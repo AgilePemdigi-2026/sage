@@ -73,11 +73,13 @@ Header `Idempotency-Key` digunakan untuk mencegah double-submit. Scope key adala
 
 | Method | Endpoint | Hasil |
 | --- | --- | --- |
-| GET | `/analyses` | History milik user; filter `query`, `status`, dan cursor |
-| GET | `/analyses/{analysisId}` | Context, full SHA, status, antrean, sembilan stage, limitations, serta link hasil jika tersedia |
+| GET | `/analyses` | **Tersedia (HIST-01)**: history milik user; filter `query`, `status`, dan cursor keyset 20 per halaman |
+| GET | `/analyses/{analysisId}` | **Tersedia (HIST-01)**: context, full SHA, status, sembilan stage, limitations, serta link hasil jika tersedia |
 | POST | `/analyses/{analysisId}/retry` | Analysis baru dengan full SHA/config yang sama dan `retryOfAnalysisId` |
 | DELETE | `/analyses/{analysisId}` | Penghapusan data terminal milik user; `202` selama cleanup atau `204` setelah selesai |
 | GET | `/jobs/{jobId}` | Status job milik user, termasuk cleanup/export yang masih diproses |
+
+`GET /analyses` paginasi memakai cursor keyset `(createdAt DESC, id DESC)` membatasi 20 record; `nextCursor: null` berarti habis. Tautan graph/dokumen pada detail hanya muncul untuk status `COMPLETED`/`COMPLETED_WITH_LIMITATIONS` dan berformat canonical `/analyses/{analysisId}/graph` dan `/analyses/{analysisId}/document`; halaman tujuannya mengikuti paket GRAPH-01 dan DOC-01.
 
 Enum analysis: `QUEUED`, `RUNNING`, `COMPLETED`, `COMPLETED_WITH_LIMITATIONS`, `FAILED`. Enum stage: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`.
 

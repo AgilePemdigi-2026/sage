@@ -70,4 +70,19 @@ export type {
   ReadonlyJsonValue,
 } from "./stages.ts";
 export type { EncryptedCredential } from "./credentials.ts";
+export {
+  encodeHistoryCursor,
+  getAnalysisDetailForUser,
+  HistoryQueryError,
+  listAnalysesForUser,
+  parseHistoryCursor,
+} from "./history.ts";
+export type {
+  AnalysisDetailRecord,
+  AnalysisStageRecord,
+  HistoryListItem,
+  HistoryListOptions,
+  HistoryListResult,
+  HistoryStatusFilter,
+} from "./history.ts";
 export type { ResolvedSession } from "./session.ts";

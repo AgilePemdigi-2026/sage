@@ -123,6 +123,7 @@ Ikuti [panduan GitHub App](docs/GITHUB_APP_SETUP.md). Callback pengembangan meng
 | Pratinjau history (fixture) | [http://localhost:3000/preview/history](http://localhost:3000/preview/history) |
 | Pratinjau graph (fixture) | [http://localhost:3000/preview/graph](http://localhost:3000/preview/graph) |
 | Pratinjau dokumen (fixture) | [http://localhost:3000/preview/document](http://localhost:3000/preview/document) |
+| Riwayat analisis (nyata) | [http://localhost:3000/workspace/history](http://localhost:3000/workspace/history) |
 
 Landing, login, workspace, dan akses repository nyata sudah tersedia. Rute `/preview/*` memakai fixture yang sama untuk menunjukkan state UI, bukan record tersimpan. Adapter worker menyediakan deklarasi dan relasi statis sesuai [capability JS/TS](docs/ANA-03_CHECKS.md) dan [capability PHP](docs/ANA-04_CHECKS.md); target dinamis atau tidak terbukti tetap `Unresolved`. Submission masuk queue durable, tetapi consumer analisis penuh belum aktif. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
 
