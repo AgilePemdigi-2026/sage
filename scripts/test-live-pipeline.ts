@@ -648,6 +648,136 @@ async function runLivePipelineRegression(): Promise<void> {
     emittedScreenshots.push("retry-progress.png");
     await retryPageContext.close();
 
+    phase = "retry-preflight-response-unmount-race";
+    const preflightContext = await browser.newContext({ viewport: { width: 1280, height: 1000 }, reducedMotion: "reduce" });
+    await installSession(preflightContext, owner);
+    const preflightPage = await preflightContext.newPage();
+    preflightPage.setDefaultTimeout(20_000);
+    preflightPage.on("pageerror", error => pageErrors.push(`retry preflight race: ${error.message}`));
+    let holdNextPreflightResponse = false;
+    let releasePreflightResponse = () => {};
+    let resolvePreflightReady = () => {};
+    let resolvePreflightDone = () => {};
+    let preflightStatus = 0;
+    const preflightGate = new Promise<void>(resolve => { releasePreflightResponse = resolve; });
+    releaseHeldResponses.push(releasePreflightResponse);
+    const preflightReady = new Promise<void>(resolve => { resolvePreflightReady = resolve; });
+    const preflightDone = new Promise<void>(resolve => { resolvePreflightDone = resolve; });
+    await preflightPage.route("**/api/auth/session", async route => {
+      if (!holdNextPreflightResponse || route.request().headers()["x-sage-account"] !== owner!.accountKey) return route.continue();
+      holdNextPreflightResponse = false;
+      try {
+        const actual = await route.fetch();
+        preflightStatus = actual.status();
+        resolvePreflightReady();
+        await preflightGate;
+        try { await route.fulfill({ response: actual }); }
+        catch { /* The route response may finish after the detail page unmounts. */ }
+      } finally {
+        resolvePreflightReady();
+        resolvePreflightDone();
+      }
+    });
+    const initialIdentityCheck = preflightPage.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === "/api/auth/session" && response.request().headers()["x-sage-account"] === owner!.accountKey;
+    });
+    await preflightPage.goto(`${base}/analyses/${parentOwnerId}`, { waitUntil: "domcontentloaded" });
+    assert.equal((await initialIdentityCheck).status(), 200, "the failed detail page completes its initial owner session check before the retry race");
+    await preflightPage.getByRole("button", { name: /coba lagi|ulangi|retry/i }).waitFor();
+    await preflightPage.waitForLoadState("networkidle");
+    holdNextPreflightResponse = true;
+    let preflightRetryPostCount = 0;
+    preflightPage.on("request", request => {
+      if (new URL(request.url()).pathname === `/api/analyses/${parentOwnerId}/retry` && request.method() === "POST") preflightRetryPostCount += 1;
+    });
+    await preflightPage.getByRole("button", { name: /coba lagi|ulangi|retry/i }).click();
+    await preflightReady;
+    assert.equal(preflightStatus, 200, "held retry preflight session response comes from the real auth API");
+    await preflightPage.locator('[class*="breadcrumb"]').getByRole("link", { name: "Riwayat", exact: true }).click();
+    await preflightPage.waitForURL(`${base}/workspace/history`);
+    await preflightPage.getByRole("heading", { name: "Riwayat analisis", exact: true }).waitFor();
+    const unexpectedRetryPost = preflightPage.waitForRequest(
+      request => new URL(request.url()).pathname === `/api/analyses/${parentOwnerId}/retry` && request.method() === "POST",
+      { timeout: 1_500 },
+    ).then(() => true, () => false);
+    releasePreflightResponse();
+    await preflightDone;
+    assert.equal(await unexpectedRetryPost, false, "a successful preflight response consumed after unmount does not send a retry POST");
+    assert.equal(preflightRetryPostCount, 0, "the delayed preflight response cannot enqueue after navigating to history");
+    assert.equal(new URL(preflightPage.url()).pathname, "/workspace/history");
+    assert.equal(await db.analysis.count({ where: { ownerUserId: owner.userId, retryParentId: parentOwnerId } }), 1, "preflight unmount creates no second retry child");
+    await preflightContext.close();
+    checks.push("navigating to history while retry preflight session is held prevents the unmounted detail action from posting a retry");
+
+    phase = "retry-success-response-unmount-race";
+    const delayedRetryContext = await browser.newContext({ viewport: { width: 1280, height: 1000 }, reducedMotion: "reduce" });
+    await installSession(delayedRetryContext, owner);
+    const delayedRetryPage = await delayedRetryContext.newPage();
+    delayedRetryPage.setDefaultTimeout(20_000);
+    delayedRetryPage.on("pageerror", error => pageErrors.push(`retry response race: ${error.message}`));
+    let holdSuccessfulRetryResponse = true;
+    let releaseSuccessfulRetryResponse = () => {};
+    let resolveSuccessfulRetryReady = () => {};
+    let resolveSuccessfulRetryDone = () => {};
+    let successfulRetryStatus = 0;
+    const successfulRetryGate = new Promise<void>(resolve => { releaseSuccessfulRetryResponse = resolve; });
+    releaseHeldResponses.push(releaseSuccessfulRetryResponse);
+    const successfulRetryReady = new Promise<void>(resolve => { resolveSuccessfulRetryReady = resolve; });
+    const successfulRetryDone = new Promise<void>(resolve => { resolveSuccessfulRetryDone = resolve; });
+    await delayedRetryPage.route(`**/api/analyses/${parentOwnerId}/retry`, async route => {
+      if (!holdSuccessfulRetryResponse) return route.continue();
+      holdSuccessfulRetryResponse = false;
+      try {
+        const actual = await route.fetch();
+        successfulRetryStatus = actual.status();
+        resolveSuccessfulRetryReady();
+        await successfulRetryGate;
+        try { await route.fulfill({ response: actual }); }
+        catch { /* The response is intentionally released after detail unmounts. */ }
+      } finally {
+        resolveSuccessfulRetryReady();
+        resolveSuccessfulRetryDone();
+      }
+    });
+    await delayedRetryPage.goto(`${base}/analyses/${parentOwnerId}`, { waitUntil: "domcontentloaded" });
+    await delayedRetryPage.getByRole("alert").filter({ hasText: /analisis gagal|analisis berhenti/i }).waitFor();
+    const delayedRetryRequest = delayedRetryPage.waitForRequest(
+      request => new URL(request.url()).pathname === `/api/analyses/${parentOwnerId}/retry` && request.method() === "POST",
+    );
+    const delayedRetryResponse = delayedRetryPage.waitForResponse(
+      response => new URL(response.url()).pathname === `/api/analyses/${parentOwnerId}/retry` && response.request().method() === "POST",
+    );
+    await delayedRetryPage.getByRole("button", { name: /coba lagi|ulangi|retry/i }).click();
+    const delayedRetryHttpRequest = await delayedRetryRequest;
+    await successfulRetryReady;
+    assert.equal(successfulRetryStatus, 202, "held successful retry response is a real newly enqueued retry");
+    assert.match(delayedRetryHttpRequest.headers()["idempotency-key"] ?? "", /^[A-Za-z0-9_-]{16,128}$/);
+    await delayedRetryPage.locator('[class*="breadcrumb"]').getByRole("link", { name: "Riwayat", exact: true }).click();
+    await delayedRetryPage.waitForURL(`${base}/workspace/history`);
+    await delayedRetryPage.getByRole("heading", { name: "Riwayat analisis", exact: true }).waitFor();
+    let staleRetryRedirect = false;
+    delayedRetryPage.on("framenavigated", frame => {
+      if (frame === delayedRetryPage.mainFrame() && new URL(frame.url()).pathname.startsWith("/analyses/")) staleRetryRedirect = true;
+    });
+    releaseSuccessfulRetryResponse();
+    await successfulRetryDone;
+    const deliveredRetryResponse = await delayedRetryResponse;
+    assert.equal(deliveredRetryResponse.status(), 202);
+    const delayedRetryBody = await deliveredRetryResponse.json() as ApiEnvelope<QueuedResponse>;
+    assert.ok(delayedRetryBody.data?.analysisId);
+    const delayedRetryAnalysisId = delayedRetryBody.data.analysisId;
+    analysisIds.push(delayedRetryAnalysisId);
+    assert.notEqual(delayedRetryAnalysisId, parentOwnerId);
+    await delayedRetryPage.waitForTimeout(1_500);
+    assert.equal(new URL(delayedRetryPage.url()).pathname, "/workspace/history", "a successful retry response consumed after unmount cannot redirect away from history");
+    assert.equal(staleRetryRedirect, false, "no transient detail navigation occurs after the delayed retry response is released");
+    assert.equal(await delayedRetryPage.getByRole("heading", { name: "Riwayat analisis", exact: true }).count(), 1);
+    const delayedRetryTerminal = await waitForTerminalAnalysis(db, delayedRetryAnalysisId);
+    assert.equal(delayedRetryTerminal.status, "COMPLETED_WITH_LIMITATIONS", "the held request still created a real worker-consumable retry");
+    await delayedRetryContext.close();
+    checks.push("navigating to history while retry POST response is held prevents the unmounted detail action from redirecting after response delivery");
+
     const deniedContext = await browser.newContext({ viewport: { width: 1280, height: 1000 }, reducedMotion: "reduce" });
     await installSession(deniedContext, denied);
     const deniedPage = await deniedContext.newPage();

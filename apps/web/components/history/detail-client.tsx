@@ -58,8 +58,12 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
       if (isRelevant()) reloadForSessionChange();
       return false;
     }
-    return true;
+    return isRelevant();
   }
+
+  useEffect(() => {
+    return () => { retrySequenceRef.current += 1; };
+  }, [analysisId, accountKey]);
 
   async function retryFailedAnalysis() {
     if (!detail || detail.status !== "FAILED" || retryBusy) return;
@@ -104,6 +108,7 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
       try {
         if (!(await verifyCurrentAccount(() => retrySequenceRef.current === retrySequence))) return;
       } catch { /* Keep the request error; the periodic identity check will retry. */ }
+      if (retrySequenceRef.current !== retrySequence) return;
       setRetryError(cause instanceof Error ? cause.message : "Analisis belum dapat diulang. Coba lagi dengan tombol yang sama.");
     } finally {
       if (retrySequenceRef.current === retrySequence) setRetryBusy(false);

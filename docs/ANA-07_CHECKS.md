@@ -24,7 +24,7 @@ Preload provider uji hanya boleh aktif dengan SAGE_PIPELINE_TESTS=1 dan database
 
 ## Hasil aktual
 
-- `npm run test:pipeline:live`: PASS, 12 pemeriksaan HTTP/Chromium. UI membuat antrean nyata, retry mempertahankan SHA/configuration, replay idempotent, foreign owner ditolak, izin dicabut tidak mengantre, polling berhenti terminal, dan dua respons A yang ditahan dibuang setelah cookie beralih ke B tanpa event focus.
+- `npm run test:pipeline:live`: PASS, 14 pemeriksaan HTTP/Chromium. UI membuat antrean nyata, retry mempertahankan SHA/configuration, replay idempotent, foreign owner ditolak, izin dicabut tidak mengantre, polling berhenti terminal, dan dua respons A yang ditahan dibuang setelah cookie beralih ke B tanpa event focus. Dua regresi tambahan menahan respons preflight/POST retry sambil pengguna berpindah ke Riwayat; respons setelah unmount tidak mengirim retry baru atau memindahkan halaman.
 - Analisis awal dan retry masing-masing menyelesaikan sembilan tahap dengan 34 node/37 edge. Hash hasil keduanya `d162f7b8019821927e003fa92ccdc581edbf90416b5df5be56d2713b485e2d1d`; hash ADD `6076699c3ec364f730afc61e825e51b0e722ef507ca60b22a15d92ed98e0d1f8`.
 - Laporan dan lima screenshot lokal: `artifacts/pipeline-16/report.json`. Browser memakai lebar 390 px untuk pergantian akun pada target dan 1280 px untuk progres/retry; ini bukan pengulangan audit lima viewport seluruh aplikasi.
 - `npm run check`: PASS, ESLint tanpa warning, TypeScript, 292 tes utama dan 8 tes data.
