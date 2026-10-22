@@ -34,20 +34,20 @@ Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Ri
 | SAGE-FR-ANA-01 | Analysis Progress Display | 32 | Progres | ANA-07 | T-ANA-02 | 1-2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
 | SAGE-FR-ANA-02 | Repository Snapshot Processing | 32 | Progres | REP-02 | T-REP-02 | 1 | Paket REP-02 teruji; integrasi penuh mengikuti test plan |
 | SAGE-FR-ANA-03 | Language and Project Structure Detection | 32 | Progres / Keterbatasan | ANA-02 | T-ANA-05 | 1 | Paket ANA-02 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-ANA-04 | Supported Source Code Analysis | 32 | Progres / Hasil | ANA-03, ANA-04 | T-ANA-03 | 1-2 | Adapter statis teruji sesuai capability; integrasi produk menunggu pipeline |
+| SAGE-FR-ANA-04 | Supported Source Code Analysis | 32 | Progres / Hasil | ANA-03, ANA-04 | T-ANA-03 | 1-2 | Adapter statis teruji sesuai capability; pipeline nyata teruji dengan provider terkontrol (ANA-07_CHECKS) |
 | SAGE-FR-ANA-05 | Common Code Model Generation | 32 | Progres / Hasil | ANA-05 | T-ANA-04 | 1-2 | Hardening validator, regresi ID edge, dan spike taxonomy; kompatibilitas resolver/CKG diuji; acceptance parent menunggu gate QA-01 |
 | SAGE-FR-ANA-06 | Code Knowledge Graph Generation | 33 | Graph | ANA-06 | T-ANA-04, T-GRAPH-01 | 2 | Planned |
-| SAGE-FR-ANA-07 | Interface Catalog Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
-| SAGE-FR-ANA-08 | Software Engineering Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
-| SAGE-FR-ANA-09 | UML Class Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
-| SAGE-FR-ANA-10 | Architecture Definition Document Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
+| SAGE-FR-ANA-07 | Interface Catalog Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
+| SAGE-FR-ANA-08 | Software Engineering Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
+| SAGE-FR-ANA-09 | UML Class Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
+| SAGE-FR-ANA-10 | Architecture Definition Document Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
 | SAGE-FR-ANA-11 | Analysis Progress Update | 33 | Progres | ANA-07 | T-ANA-02 | 1-2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
 | SAGE-FR-ANA-12 | Unsupported Language Notification | 33 | Progres / Keterbatasan | ANA-02 | T-ANA-05 | 1 | Paket ANA-02 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-ANA-13 | Partial Analysis Continuation | 33 | Progres / Keterbatasan | ANA-02, ANA-03, ANA-04 | T-ANA-05 | 1-2 | Partial/failed sibling dan unresolved teruji pada worker; alur produk menunggu pipeline |
+| SAGE-FR-ANA-13 | Partial Analysis Continuation | 33 | Progres / Keterbatasan | ANA-02, ANA-03, ANA-04 | T-ANA-05 | 1-2 | Partial/failed sibling dan unresolved teruji pada worker; alur produk teruji dengan provider terkontrol (ANA-07_CHECKS) |
 | SAGE-FR-ANA-14 | Analysis Completion Status | 33 | Progres | ANA-07 | T-ANA-02, T-ANA-05 | 2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
 | SAGE-FR-ANA-15 | Analysis Result Access | 33 | Progres / Graph | ANA-07, GRAPH-01 | T-GRAPH-01 | 2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-GRAPH-01 | Analysis Context Display | 35 | Graph | GRAPH-01 | T-GRAPH-01 | 2 | Stored CKG graph integrated; pipeline acceptance separate (GRAPH-01_CHECKS) |
-| SAGE-FR-GRAPH-02 | Code Knowledge Graph Display | 35 | Graph | GRAPH-01 | T-GRAPH-01 | 2 | Stored CKG graph integrated; pipeline acceptance separate (GRAPH-01_CHECKS) |
+| SAGE-FR-GRAPH-01 | Analysis Context Display | 35 | Graph | GRAPH-01 | T-GRAPH-01 | 2 | Graph CKG tersimpan dan publikasi pipeline teruji dengan provider terkontrol (GRAPH-01_CHECKS, ANA-07_CHECKS) |
+| SAGE-FR-GRAPH-02 | Code Knowledge Graph Display | 35 | Graph | GRAPH-01 | T-GRAPH-01 | 2 | Graph CKG tersimpan dan publikasi pipeline teruji dengan provider terkontrol (GRAPH-01_CHECKS, ANA-07_CHECKS) |
 | SAGE-FR-GRAPH-03 | Node Query | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Planned |
 | SAGE-FR-GRAPH-04 | AST Category Filter | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Planned |
 | SAGE-FR-GRAPH-05 | Graph Filtering Result | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Planned |
@@ -56,13 +56,13 @@ Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Ri
 | SAGE-FR-GRAPH-08 | Location and AST Bounds Display | 35 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Planned |
 | SAGE-FR-GRAPH-09 | Direct Relations Display | 36 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Planned |
 | SAGE-FR-GRAPH-10 | Source Evidence Display | 36 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Planned |
-| SAGE-FR-GRAPH-11 | Document Access | 36 | Graph / Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
+| SAGE-FR-GRAPH-11 | Document Access | 36 | Graph / Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
 | SAGE-FR-GRAPH-12 | Unavailable Result Handling | 36 | Graph unavailable / Progres | ANA-07 | T-ANA-02, T-GRAPH-03 | 1-2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
 | SAGE-FR-GRAPH-13 | Analysis Progress Display | 36 | Graph unavailable / Progres | ANA-07 | T-ANA-02, T-GRAPH-03 | 1-2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-EXP-01 | Architecture Definition Document Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
-| SAGE-FR-EXP-02 | Interface Catalog Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
-| SAGE-FR-EXP-03 | Software Engineering Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
-| SAGE-FR-EXP-04 | UML Class Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi pipeline ANA-07 terpisah (DOC-01_CHECKS) |
+| SAGE-FR-EXP-01 | Architecture Definition Document Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
+| SAGE-FR-EXP-02 | Interface Catalog Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
+| SAGE-FR-EXP-03 | Software Engineering Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
+| SAGE-FR-EXP-04 | UML Class Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
 | SAGE-FR-EXP-05 | PDF Export | 38 | Dokumen / Ekspor PDF | EXP-02 | T-EXP-02 | 2 | Planned |
 | SAGE-FR-EXP-06 | Markdown Export | 38 | Dokumen / Ekspor Markdown | EXP-01 | T-EXP-01 | 2 | Planned |
 | SAGE-FR-EXP-07 | Export File Generation | 38 | Dokumen / Ekspor | EXP-01, EXP-02 | T-EXP-01, T-EXP-02, T-EXP-03 | 2 | Planned |
