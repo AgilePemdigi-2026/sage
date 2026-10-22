@@ -114,7 +114,7 @@ Kriteria berikut tetap wajib bersama scope fase/sisa di atas. Setiap hasil menca
 | ANA-06 | CKG deterministik, counts containment/reference benar, evidence/provenance lengkap, proyeksi tidak mengubah data | T-ANA-04, T-GRAPH-01 |
 | DOC-02 | Dua proyeksi membaca canonical CKG yang sama dan mempertahankan nodeIds/edgeIds/evidence; Exact/Unresolved terlihat tanpa fakta/cardinality buatan; source diagram mandiri tersedia untuk Markdown; label berbahaya di-escape dan render tidak mengambil URL bebas; SVG/diagram dapat dicetak dan kegagalan renderer tidak dipublikasikan sebagai sukses | T-DOC-01, T-EXP-02, T-SEC-01 (bagian proyeksi/render) |
 | DOC-01 | Ketiga artefak dari CKG yang sama, unresolved/evidence terpelihara, tidak menambah fakta, penyimpanan dokumen atomik dan akses/tampilan owner-scoped; publikasi terminal bersama graph pada ANA-07 | T-DOC-01, T-ANA-02 |
-| ANA-07 | Sembilan stage berurutan, polling berhenti terminal, failure/limitation/recovery benar, retry record baru dengan SHA sama | T-ANA-02, T-ANA-05, T-ANA-06 |
+| ANA-07 | Sembilan stage berurutan, polling berhenti terminal, failure/limitation/recovery benar, retry record baru dengan SHA sama; bukti dan batas provider pada [ANA-07_CHECKS](ANA-07_CHECKS.md) | T-ANA-02, T-ANA-05, T-ANA-06 |
 | GRAPH-01 | Focus/overview/references dan zoom/fit dapat dipakai, counts lengkap dibedakan dari tampilan subset | T-GRAPH-01 |
 | GRAPH-02 | Query AND kategori, kategori AST nyata, reset/no result tidak mengubah canonical result | T-GRAPH-02 |
 | GRAPH-03 | Relasi dua arah dan evidence benar, source snapshot sesuai hash/line, loading/unavailable/close berfungsi | T-GRAPH-03 |

@@ -65,7 +65,7 @@ Slug di atas hanya ilustrasi; ID repository lokal diperoleh server dari metadata
 
 Sebelum response `202`, server resolve target ke full SHA dan menyimpan analysis ID, pemilik, branch, versi config, serta urutan antrean. Worker memeriksa izin kembali dan mengambil snapshot SHA yang sama. Kegagalan validasi tidak membuat record analisis yang seolah sudah berjalan.
 
-Implementasi REP-02 menerima key 16–128 karakter ASCII huruf/angka/underscore/minus; hash key dan hash payload kanonis disimpan per pemilik. Replay mengembalikan ID, full SHA, configuration hash, dan status persisten, tanpa resolve HEAD ulang. Key bertahan selama analysis belum dihapus. Perubahan payload, termasuk mengganti bentuk slug/URL, memakai key baru. Worker consumer penuh masih ANA-07 #16; submission saat ini menyimpan antrean dan tidak mengklaim pipeline selesai.
+Implementasi REP-02 menerima key 16–128 karakter ASCII huruf/angka/underscore/minus; hash key dan hash payload kanonis disimpan per pemilik. Replay mengembalikan ID, full SHA, configuration hash, dan status persisten, tanpa resolve HEAD ulang. Key bertahan selama analysis belum dihapus. Perubahan payload, termasuk mengganti bentuk slug/URL, memakai key baru. Consumer ANA-07 mengambil antrean dan menjalankan sembilan handler nyata; respons submission tetap menyatakan status antrean, bukan hasil selesai.
 
 Header `Idempotency-Key` digunakan untuk mencegah double-submit. Scope key adalah user dan operasi; key yang sama dengan payload berbeda menghasilkan `409 IDEMPOTENCY_CONFLICT`. Analisis kedua yang valid mengantre, bukan berjalan bersamaan atau mengganti target sebelumnya.
 
@@ -75,7 +75,7 @@ Header `Idempotency-Key` digunakan untuk mencegah double-submit. Scope key adala
 | --- | --- | --- |
 | GET | `/analyses` | **Tersedia (HIST-01)**: history milik user; filter `query`, `status`, dan cursor keyset 20 per halaman |
 | GET | `/analyses/{analysisId}` | **Tersedia (HIST-01)**: context, full SHA, status, sembilan stage, limitations, serta link hasil jika tersedia |
-| POST | `/analyses/{analysisId}/retry` | Analysis baru dengan full SHA/config yang sama dan `retryOfAnalysisId` |
+| POST | `/analyses/{analysisId}/retry` | Analysis baru dengan full SHA/config yang sama; detail menyajikan `retryOfAnalysisId` dari relasi internal `retryParentId` |
 | DELETE | `/analyses/{analysisId}` | Penghapusan data terminal milik user; `202` selama cleanup atau `204` setelah selesai |
 | GET | `/jobs/{jobId}` | Status job milik user, termasuk cleanup/export yang masih diproses |
 
@@ -85,7 +85,7 @@ Enum analysis: `QUEUED`, `RUNNING`, `COMPLETED`, `COMPLETED_WITH_LIMITATIONS`, `
 
 Response progress menyertakan `updatedAt` dan `stateVersion` monoton untuk menghindari pembaruan UI yang mundur. UI tidak membuat persentase/ETA dari jumlah stage. Jika stage gagal, stage berikutnya tetap pending dan link hasil tetap tidak tersedia.
 
-Retry hanya diterima untuk analysis `FAILED`; pemilik yang ingin mengulang hasil sukses membuat analysis baru dari target yang dipilih. Retry selalu menjalankan validasi izin dan tidak mengubah record lama.
+Retry hanya diterima untuk analysis `FAILED`; pemilik yang ingin mengulang hasil sukses membuat analysis baru dari target yang dipilih. Retry selalu menjalankan validasi izin dan tidak mengubah record lama. Endpoint retry menerima object JSON kosong, `Idempotency-Key` 16–128 karakter dan header akun, jika dikirim, harus cocok dengan session; field target/owner/config dari klien ditolak. Izin provider diperiksa lagi termasuk saat replay. Parent asing menghasilkan 404, non-FAILED 409 `ANALYSIS_NOT_RETRYABLE`, identitas repository/SHA berubah 409 `RETRY_TARGET_CHANGED`; kegagalan izin tidak membuat analysis baru. Nama snapshot parent dipertahankan pada retry meskipun metadata repository berubah.
 
 Delete analysis queued/running menghasilkan `409 ANALYSIS_ACTIVE`; delete dengan export aktif menghasilkan `409 EXPORT_ACTIVE`. Setelah cleanup dimulai, hasil dan file tidak dapat dibaca lagi meskipun penghapusan volume masih retry. Perilaku lifecycle lengkap mengikuti [model data](DATA_MODEL.md).
 
