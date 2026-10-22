@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "status": "SNAPSHOT_AND_SOURCE_ENFORCED_PIPELINE_PENDING",
+  "status": "SNAPSHOT_SOURCE_AND_PIPELINE_ENFORCED_EXPORT_PENDING",
   "maxArchiveBytes": 26214400,
   "maxExtractedBytes": 104857600,
   "maxSourceFileBytes": 1048576,
@@ -10,6 +10,6 @@
   "analysisTimeoutSeconds": 300,
   "parserTimeoutSeconds": 10,
   "exportTimeoutSeconds": 60,
-  "note": "REP-02 enforces archive/extracted byte, file/entry count, expansion ratio and snapshot timeout ceilings; ANA-02 excludes individual source files above 1 MiB and records reasons. ANA-07 must integrate whole analysis deadlines. Export limit remains pending. These conservative ceilings are not production capacity evidence.",
+  "note": "REP-02 enforces archive/extracted byte, file/entry count, expansion ratio and snapshot timeout ceilings; ANA-02 excludes source files above 1 MiB and records reasons; ANA-07 enforces a 300-second whole-analysis cancellation deadline through terminal publication. Export limit remains pending. These conservative ceilings are not production capacity evidence.",
   "sourcePolicyVersion": "sage-source-policy-v1"
 }

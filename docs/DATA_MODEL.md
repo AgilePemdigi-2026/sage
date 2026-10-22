@@ -1,6 +1,6 @@
 # Model data dan lifecycle
 
-Status per 21 Oktober 2026: DATA-01 menyediakan schema PostgreSQL, helper session/kredensial, query owner-scoped, dan pemeriksaan integrasi/persistensi. GH-01/02 menyediakan autentikasi dan akses repository nyata; REP-01/02 menyediakan validasi target, submission idempotent, snapshot immutable, serta source handlers. ANA-01 menyediakan queue durable dan runner stage terbatas sudah memiliki slice teruji. Consumer analisis produk masih nonaktif (`workerQueueEnabled=false`); history, graph dan dokumen membaca hasil tersimpan yang sukses. Ekspor dan cleanup lifecycle masih mengikuti issue terbuka.
+Status per 22 Oktober 2026: DATA-01 menyediakan schema PostgreSQL, helper session/kredensial, query owner-scoped, dan pemeriksaan integrasi/persistensi. GH-01/02 menyediakan autentikasi dan akses repository nyata; REP-01/02 menyediakan validasi target, submission idempotent, snapshot immutable, serta source handlers. ANA-01 menyediakan queue durable dan runner stage terbatas sudah memiliki slice teruji. Consumer sembilan tahap dan publikasi bundle atomik tersedia pada ANA-07; history, graph dan dokumen membaca hasil tersimpan yang sukses. Ekspor dan cleanup lifecycle masih mengikuti issue terbuka.
 
 ## Entitas
 
@@ -63,7 +63,7 @@ Koneksi pertama memakai `storeGitHubCredential`; refresh atau reconnect memakai 
 
 Helper `find*ForUser` selalu memasukkan user yang dipercaya server ke predicate SQL. Relasi analysis-child memakai foreign key komposit `(analysisId, ownerUserId)`; relasi storage source/export mengikat analysis dan owner sekaligus. Repository global boleh dibagi, sedangkan baris hasil dan kredensial tetap owner-scoped. `POST /api/analyses` mengambil pemilik dari session server dan tidak mempercayai `userId` request. History membaca melalui `listAnalysesForUser` dan `getAnalysisDetailForUser` yang mengikuti konvensi `find*ForUser` (predicate `ownerUserId`); graph dan dokumen memakai reader canonical dengan validasi snapshot serta owner/status; export dan delete tetap mengikuti issue produknya.
 
-Izin GitHub diperiksa saat repository diajukan dan saat snapshot immutable diambil; bukti per slice ada pada [GH-02](GH-02_CHECKS.md) dan [REP-02](REP-02_CHECKS.md). Helper pembacaan server tidak mengembalikan token jika status bukan `ACTIVE`, token kedaluwarsa, atau koneksi dicabut. Consumer analisis penuh masih dimatikan, sehingga jalur worker end-to-end tetap menunggu ANA-07 #16.
+Izin GitHub diperiksa saat repository diajukan dan saat snapshot immutable diambil; bukti per slice ada pada [GH-02](GH-02_CHECKS.md) dan [REP-02](REP-02_CHECKS.md). Helper pembacaan server tidak mengembalikan token jika status bukan `ACTIVE`, token kedaluwarsa, atau koneksi dicabut. Consumer ANA-07 memakai kredensial aktif pada saat snapshot diambil dan mempertahankan full SHA yang dibekukan.
 
 ## Storage dan isolasi
 
@@ -94,17 +94,17 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 
 ## Cakupan yang masih menunggu issue lain
 
-- Queue durable, API submission idempotent, dan runner stage terbatas sudah memiliki bukti. Consumer sembilan tahap dan publikasi bundle atomik tetap di ANA-07 #16; `workerQueueEnabled=false` saat ini mencegah job submission diproses sebagai analisis penuh. Retry produk memerlukan pemeriksaan izin baru dan analysis ID baru pada integrasi pipeline.
+- Queue durable, API submission idempotent, dan runner stage terbatas sudah memiliki bukti. Consumer ANA-07 menjalankan sembilan tahap dan menerbitkan bundle atomik; retry FAILED memerlukan pemeriksaan izin baru serta analysis ID baru dengan SHA/configuration yang sama.
 - DOC-01 #15 memvalidasi dan menyimpan tiga artefak dokumen bersama serta menyediakan API/halaman privat. History #22 menyediakan pembacaan list/detail GET, GRAPH-01 #17 menyediakan graph canonical; query/filter/inspector #18–19 dan ekspor #20–21 tetap terbuka.
 - #23 menentukan alur penghapusan analysis dan objek storage secara idempotent.
 - Pipeline analisis harus menegakkan kelengkapan graph/document dan hash sebelum menyatakan analysis selesai.
 
 ## Canonical CKG ANA-06
 
-`GraphBundle.canonicalContent` menyimpan canonical JSON `sage-ckg-v1` berisi CCM lengkap, fingerprint queue dan counts. Nullable hanya untuk baris legacy. Hash canonical mencakup snapshot, file/evidence, provenance dan limitation; kolom node/edge JSONB menyimpan string JSON canonical agar escaped NUL/lone surrogate tidak ditolak PostgreSQL; reader canonical mengembalikan model decoded. Mirror string tersebut serta count kolom diverifikasi. Penulisan berada di transaksi lease/stage-fenced dan hasil per analysis immutable. Reader canonical memerlukan owner, status terminal berhasil, kesamaan target parent serta validasi source/hash/mirror. Graph draft tidak dipublikasikan lewat reader tersebut; publikasi result bundle lengkap tetap #16. Lihat [verifikasi ANA-06](ANA-06_CHECKS.md).
+`GraphBundle.canonicalContent` menyimpan canonical JSON `sage-ckg-v1` berisi CCM lengkap, fingerprint queue dan counts. Nullable hanya untuk baris legacy. Hash canonical mencakup snapshot, file/evidence, provenance dan limitation; kolom node/edge JSONB menyimpan string JSON canonical agar escaped NUL/lone surrogate tidak ditolak PostgreSQL; reader canonical mengembalikan model decoded. Mirror string tersebut serta count kolom diverifikasi. Penulisan berada di transaksi lease/stage-fenced dan hasil per analysis immutable. Reader canonical memerlukan owner, status terminal berhasil, kesamaan target parent serta validasi source/hash/mirror. Graph draft tidak dipublikasikan lewat reader tersebut; publikasi result bundle lengkap dilakukan ANA-07. Lihat [verifikasi ANA-06](ANA-06_CHECKS.md).
 
 `Analysis.repositoryFullNameSnapshot` membekukan nama target saat enqueue; stable repository relation, branch dan full SHA tetap dipakai. Context stage dan integritas CKG memakai snapshot ini sehingga rename repository tidak merusak hasil historis. Field nullable menjaga baris legacy; saat pertama diinisialisasi, worker menangkap nama terkini satu kali tanpa mengklaim rekonstruksi nama historis yang belum pernah disimpan.
 
 ## Canonical ADD DOC-01
 
-`ArchitectureDocument.canonicalContent` menyimpan JSON `sage-add-v1`; nullable hanya untuk legacy yang tidak disajikan sebagai hasil canonical. Ketiga kolom artefak JSONB berisi string JSON canonical agar escaped NUL/lone surrogate dipertahankan. Reader meregenerasi model dari CKG serta source snapshot dan memverifikasi hash, title/version dan semua mirror. Penulisan dilakukan sekali secara transaksional dengan lease/stage fence; replay berbeda ditolak. Model tidak memuat ID record/job atau waktu generate dalam hash. DOC-01 tidak mengubah status Analysis/Job terminal; publikasi graph+document+resultHash bersama merupakan #16. Lihat [bukti DOC-01](DOC-01_CHECKS.md).
+`ArchitectureDocument.canonicalContent` menyimpan JSON `sage-add-v1`; nullable hanya untuk legacy yang tidak disajikan sebagai hasil canonical. Ketiga kolom artefak JSONB berisi string JSON canonical agar escaped NUL/lone surrogate dipertahankan. Reader meregenerasi model dari CKG serta source snapshot dan memverifikasi hash, title/version dan semua mirror. Penulisan dilakukan sekali secara transaksional dengan lease/stage fence; replay berbeda ditolak. Model tidak memuat ID record/job atau waktu generate dalam hash. DOC-01 tidak mengubah status Analysis/Job terminal; publikasi graph+document+resultHash bersama dilakukan ANA-07. Lihat [bukti DOC-01](DOC-01_CHECKS.md).

@@ -1,6 +1,6 @@
 # Arsitektur sistem
 
-Status per 21 Oktober 2026: login GitHub, akses repository, validasi target, submission idempotent ke durable queue, snapshot immutable, serta source handlers tersedia dan memiliki bukti per issue. Runner tahap dan penyimpanan status juga tersedia. Consumer analisis produk tetap nonaktif (`workerQueueEnabled=false`), sehingga submission belum menjalankan pipeline sembilan tahap sampai selesai. History produk membaca record analisis nyata melalui list/detail GET (HIST-01); graph produk membaca canonical CKG tersimpan setelah status sukses (GRAPH-01). Dokumen produk membaca ADD canonical tersimpan dengan katalog dan diagram SVG lokal (DOC-01). Query/filter, inspector, ekspor, dan penghapusan masih mengikuti issue terbuka. Detail setup dan batas bukti ada di [setup lokal](LOCAL_SETUP.md).
+Status per 22 Oktober 2026: login GitHub, akses repository, validasi target, submission idempotent ke durable queue, snapshot immutable, serta source handlers tersedia dan memiliki bukti per issue. Runner tahap dan penyimpanan status juga tersedia. Consumer produk aktif: sembilan handler nyata dijalankan berurutan dan graph/ADD diterbitkan bersama melalui transaksi terminal ANA-07. History produk membaca record analisis nyata melalui list/detail GET (HIST-01); graph produk membaca canonical CKG tersimpan setelah status sukses (GRAPH-01). Dokumen produk membaca ADD canonical tersimpan dengan katalog dan diagram SVG lokal (DOC-01). Query/filter, inspector, ekspor, dan penghapusan masih mengikuti issue terbuka. Detail setup dan batas bukti ada di [setup lokal](LOCAL_SETUP.md).
 
 ## Komponen
 
@@ -60,7 +60,7 @@ Callback memakai state sekali pakai, session berumur terbatas, dan pemetaan inst
 | 8 | `UML_CLASS_DIAGRAM` | Menghasilkan UML Class Diagram |
 | 9 | `ARCHITECTURE_DOCUMENT` | Menyusun Architecture Definition Document |
 
-Antrean PostgreSQL, idempotent enqueue, claim, lease/lock database, dan guard global sudah diimplementasikan serta diuji pada [ANA-01](ANA-01_CHECKS.md). Runner tahap memiliki irisan teruji pada ANA-07-S1. Namun consumer produk dikendalikan `workerQueueEnabled=false`; job yang diantrekan belum memicu analisis sembilan tahap penuh. Integrasi consumer dan publikasi hasil tetap berada pada ANA-07 #16.
+Antrean PostgreSQL, idempotent enqueue, claim, lease/lock database, dan guard global sudah diimplementasikan serta diuji pada [ANA-01](ANA-01_CHECKS.md). Runner dasar ANA-07-S1 kini dipakai oleh consumer ANA-07. Worker mengambil satu job, menyusun registry sembilan handler nyata, mempertahankan lease selama eksekusi dan publikasi, lalu melepaskan slot hanya bersama transisi terminal. Restart tidak melanjutkan artefak in-memory: lease kedaluwarsa menjadi FAILED/WORKER_INTERRUPTED dan pengguna membuat retry baru. [Bukti ANA-07](ANA-07_CHECKS.md) membedakan provider terkontrol dari GitHub live.
 
 Status analisis: `QUEUED`, `RUNNING`, `COMPLETED`, `COMPLETED_WITH_LIMITATIONS`, `FAILED`. Status tahap: `PENDING`, `RUNNING`, `COMPLETED`, `FAILED`. Setiap tahap dimulai sesudah tahap sebelumnya selesai. Ketika gagal, tahap berikutnya tetap `PENDING` dan UI menjelaskan pipeline berhenti.
 
@@ -68,7 +68,7 @@ Retry membuat analysis ID baru, memiliki `retryOfAnalysisId`, menyalin target fu
 
 Worker yang kehilangan lease atau mati meninggalkan job yang dideteksi recovery. Percobaan lama ditandai `FAILED` dengan kode `WORKER_INTERRUPTED`; tidak dinyatakan Completed dan tidak dilanjutkan diam-diam dengan hasil parsial.
 
-Target komunikasi progress adalah polling endpoint read-only. Interval awal dan backoff mengikuti implementasi consumer penuh. Target arsitektur juga memakai worker untuk export dan cleanup; job export produk dan cleanup belum aktif dan tetap menunggu #20–23.
+Progress memakai endpoint read-only dengan polling tiga detik selama QUEUED/RUNNING; polling berhenti ketika terminal. Retry FAILED memeriksa izin GitHub terkini sebelum mengantre analysis baru dengan SHA/configuration/versi yang sama. Target arsitektur juga memakai worker untuk export dan cleanup; job export produk dan cleanup belum aktif dan tetap menunggu #20–23.
 
 ## Ketersediaan hasil
 
@@ -105,7 +105,7 @@ Workspace web/worker/database, parser probe, renderer probe, serta tests/fixture
 
 ## Handler internal canonical CKG
 
-ANA-06 menyediakan `createCkgStageHandlers` untuk COMMON_CODE_MODEL dan KNOWLEDGE_GRAPH, setelah handler snapshot/source. Keduanya membaca ulang snapshot owner-bound dan memverifikasi hash/target artefak tahap sebelumnya. Graph canonical adalah wrapper CCM tervalidasi; tidak menjalankan resolver ulang atau mengubah fakta. Persistensi memakai lease aktif, stage fence, transaksi dan replay immutable. Handler berikutnya menerima graph beserta hash untuk proyeksi dokumen; publikasi analysis selesai tidak dilakukan di tahap graph. Consumer queue produk tetap nonaktif sampai registry sembilan handler dan publikasi atomik diterima pada ANA-07. Bukti serta batas ada di [ANA-06_CHECKS](ANA-06_CHECKS.md).
+ANA-06 menyediakan `createCkgStageHandlers` untuk COMMON_CODE_MODEL dan KNOWLEDGE_GRAPH, setelah handler snapshot/source. Keduanya membaca ulang snapshot owner-bound dan memverifikasi hash/target artefak tahap sebelumnya. Graph canonical adalah wrapper CCM tervalidasi; tidak menjalankan resolver ulang atau mengubah fakta. Persistensi memakai lease aktif, stage fence, transaksi dan replay immutable. Handler berikutnya menerima graph beserta hash untuk proyeksi dokumen; publikasi analysis selesai tidak dilakukan di tahap graph. Consumer ANA-07 menyambungkan handler ini ke registry sembilan tahap dan publikasi terminal atomik. Bukti serta batas ada di [ANA-06_CHECKS](ANA-06_CHECKS.md).
 
 ## Pembacaan graph tersimpan GRAPH-01
 

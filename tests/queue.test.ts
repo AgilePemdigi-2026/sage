@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import {
+  AnalysisRetryConflictError,
   claimAnalysisJob,
   enqueueAnalysis,
   findEnqueuedAnalysisRequest,
@@ -105,6 +106,82 @@ test("enqueue snapshots mutable caller input before waiting for the database tra
   });
   assert.deepEqual(jobData, { ownerUserId: "user-1", analysisId: "analysis-snapshot", type: "ANALYSIS", queueSequence: 1n });
   assert.equal(result.analysisId, "analysis-snapshot");
+});
+
+test("retry enqueue locks and validates the failed immutable parent before inserting the new job", async () => {
+  const configurationHash = createHash("sha256").update('{"includeTests":false}', "utf8").digest("hex");
+  let queryNumber = 0;
+  let analysisData: Record<string, unknown> | undefined;
+  let jobData: Record<string, unknown> | undefined;
+  const transaction = {
+    $executeRaw: async () => 1,
+    $queryRaw: async () => {
+      queryNumber += 1;
+      if (queryNumber === 1) return [{ jobId: null, ownerUserId: null, leaseUntil: null, heartbeatAt: null, leaseTokenHash: null, lastEnqueueSequence: 4n }];
+      if (queryNumber === 2) return [{ status: "FAILED", repositoryId: validEnqueue.repositoryId, branchName: validEnqueue.branchName, commitSha: validEnqueue.commitSha, configurationHash, analyzerVersion: validEnqueue.analyzerVersion, schemaVersion: validEnqueue.schemaVersion, repositoryFullNameSnapshot: "example/repository" }];
+      if (queryNumber === 3) return [{ sequence: 5n }];
+      return [{ fullName: "renamed/repository" }];
+    },
+    analysis: {
+      findFirst: async () => null,
+      create: async ({ data }: { data: Record<string, unknown> }) => { analysisData = data; return { id: "analysis-retry" }; },
+    },
+    job: { create: async ({ data }: { data: Record<string, unknown> }) => { jobData = data; return { id: "job-retry" }; } },
+  };
+  const db = { $transaction: async (work: (tx: typeof transaction) => Promise<unknown>) => work(transaction) } as unknown as PrismaClient;
+  const input = {
+    ...validEnqueue,
+    retryParentId: "analysis-failed-parent",
+    retryParentRepositoryFullNameSnapshot: "example/repository",
+    idempotency: { keyHash: "c".repeat(64), requestHash: "d".repeat(64) },
+  };
+
+  const result = await enqueueAnalysis(db, input);
+  assert.equal(result.analysisId, "analysis-retry");
+  assert.equal(analysisData?.retryParentId, "analysis-failed-parent");
+  assert.equal(analysisData?.repositoryFullNameSnapshot, "example/repository", "retry preserves the parent's captured name after a repository rename");
+  assert.equal(analysisData?.commitSha, validEnqueue.commitSha);
+  assert.equal(analysisData?.configurationHash, configurationHash);
+  assert.equal(analysisData?.analyzerVersion, validEnqueue.analyzerVersion);
+  assert.equal(analysisData?.schemaVersion, validEnqueue.schemaVersion);
+  assert.equal(jobData?.analysisId, "analysis-retry");
+  assert.equal(queryNumber, 4, "parent lock precedes queue sequence and inserts");
+});
+
+test("retry enqueue rejects a foreign, non-failed, or changed parent before creating rows", async () => {
+  const configurationHash = createHash("sha256").update('{"includeTests":false}', "utf8").digest("hex");
+  for (const parent of [
+    null,
+    { status: "RUNNING" },
+    { status: "FAILED", repositoryId: "other-repository" },
+    { status: "FAILED", commitSha: "f".repeat(40) },
+    { status: "FAILED", configurationHash: "e".repeat(64) },
+  ]) {
+    let queryNumber = 0;
+    let analysisCreates = 0;
+    const transaction = {
+      $executeRaw: async () => 1,
+      $queryRaw: async () => {
+        queryNumber += 1;
+        if (queryNumber === 1) return [{ jobId: null, ownerUserId: null, leaseUntil: null, heartbeatAt: null, leaseTokenHash: null, lastEnqueueSequence: 0n }];
+        return parent ? [{
+          status: parent.status ?? "FAILED", repositoryId: parent.repositoryId ?? validEnqueue.repositoryId,
+          branchName: validEnqueue.branchName, commitSha: parent.commitSha ?? validEnqueue.commitSha,
+          configurationHash: parent.configurationHash ?? configurationHash,
+          analyzerVersion: validEnqueue.analyzerVersion, schemaVersion: validEnqueue.schemaVersion,
+          repositoryFullNameSnapshot: "example/repository",
+        }] : [];
+      },
+      analysis: { create: async () => { analysisCreates += 1; return { id: "should-not-create" }; } },
+      job: { create: async () => { throw new Error("job should not be created"); } },
+    };
+    const db = { $transaction: async (work: (tx: typeof transaction) => Promise<unknown>) => work(transaction) } as unknown as PrismaClient;
+    await assert.rejects(enqueueAnalysis(db, {
+      ...validEnqueue, retryParentId: "analysis-failed-parent", retryParentRepositoryFullNameSnapshot: "example/repository",
+    }), AnalysisRetryConflictError);
+    assert.equal(analysisCreates, 0);
+    assert.equal(queryNumber, 2, "validation fails before queue position is assigned");
+  }
 });
 
 test("queue lease durations reject caller-clock or unbounded values before database access", async () => {

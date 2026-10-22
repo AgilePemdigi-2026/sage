@@ -4,6 +4,11 @@
  * gagal mengembalikan tahap COMPLETED ke PENDING/RUNNING. */
 import type { AnalysisDetailView } from "../../lib/analyses/presenters.ts";
 
+const POLLING_STATUSES = ["QUEUED", "RUNNING"] as const;
+export function shouldPollAnalysisDetail(status: string): boolean {
+  return (POLLING_STATUSES as readonly string[]).includes(status);
+}
+
 /** Profil fetch yang dipakai klien detail: cukup `ok` + `json()` agar test bisa memalsukan respons. */
 export type DetailFetch = (input: string, init: RequestInit) => Promise<{ ok: boolean; json: () => Promise<unknown> }>;
 
@@ -20,6 +25,9 @@ export type DetailPollerOptions = {
   isLatestSequence: (sequence: number) => boolean;
   setFetchError: (value: boolean) => void;
   setDetail: (updater: (previous: AnalysisDetailView | null) => AnalysisDetailView | null) => void;
+  /** Re-check the cookie identity after reading each response body before publishing detail data. */
+  verifySession?: () => Promise<boolean>;
+  onAccountMismatch?: () => void;
 };
 
 export function createDetailPoller(options: DetailPollerOptions) {
@@ -38,14 +46,22 @@ export function createDetailPoller(options: DetailPollerOptions) {
     const sequence = options.touchSequence();
     try {
       const response = await options.fetch(`/api/analyses/${options.analysisId}`, {
-        headers: { "X-SAGE-Account": options.accountKey }, cache: "no-store",
+        headers: { "X-SAGE-Account": options.accountKey }, cache: "no-store", credentials: "same-origin",
       });
-      const data = response.ok
-        ? ((await response.json()) as { data: AnalysisDetailView }).data
-        : null;
+      let body: unknown = null;
+      let bodyRead = true;
+      try { body = await response.json(); } catch { bodyRead = false; }
       // Guard lifecycle dulu: instance yang sudah di stop tidak mengubah state apa pun,
       // sekalipun lastAppliedSequence miliknya masih memungkinkan snapshot diterima.
       if (!alive) return;
+      if (options.verifySession && !(await options.verifySession())) {
+        if (alive) options.onAccountMismatch?.();
+        return;
+      }
+      if (!alive) return;
+      const data = response.ok && bodyRead && body && typeof body === "object" && !Array.isArray(body)
+        ? (body as { data?: AnalysisDetailView }).data ?? null
+        : null;
       if (!response.ok || !data) {
         if (options.isLatestSequence(sequence)) options.setFetchError(true);
         return;

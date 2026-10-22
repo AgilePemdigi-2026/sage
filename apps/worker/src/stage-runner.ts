@@ -1,4 +1,5 @@
 import { ANALYSIS_STAGE_DEFINITIONS } from "../../../packages/contracts/src/stages.ts";
+import { performance } from "node:perf_hooks";
 import type {
   AnalysisStageKey,
   AnalysisStagesResult,
@@ -24,6 +25,8 @@ const MIN_LEASE_DURATION_MS = 1_000;
 const MAX_LEASE_DURATION_MS = 300_000;
 const DEFAULT_HANDLER_FAILURE = "STAGE_HANDLER_FAILED";
 const CANCELLED_HANDLER_FAILURE = "STAGE_CANCELLED";
+const PUBLICATION_HANDLER_FAILURE = "RESULT_PUBLICATION_FAILED";
+const ANALYSIS_TIMEOUT_FAILURE = "ANALYSIS_TIMEOUT";
 
 export type AnalysisStageArtifact =
   | ReadonlyJsonValue
@@ -48,9 +51,20 @@ export type AnalysisStageHandler = (
 
 export type AnalysisStageHandlers = Readonly<Record<AnalysisStageKey, AnalysisStageHandler>>;
 
+export type AnalysisResultPublisher = (
+  context: AnalysisStageContext,
+  signal: AbortSignal,
+) => Promise<boolean | void>;
+
 export interface RunAnalysisStagesOptions {
   readonly signal?: AbortSignal;
   readonly leaseDurationMs?: number;
+  /** Whole-claim deadline, including handlers and terminal publication. */
+  readonly executionTimeoutMs?: number;
+  /** Safe fixed code to persist when the owning worker is asked to stop. */
+  readonly externalAbortFailureCode?: "STAGE_CANCELLED" | "WORKER_INTERRUPTED";
+  /** Trusted publication callback invoked after all nine stages complete under the heartbeat. */
+  readonly publish?: AnalysisResultPublisher;
 }
 
 const SAFE_EXECUTION_FAILURES = ["NO_SUPPORTED_SOURCE", "PARSE_FAILED", "SNAPSHOT_INVALID"] as const;
@@ -65,7 +79,7 @@ export class AnalysisStageExecutionError extends Error {
   }
 }
 
-type AbortCause = "CANCELLED" | "LEASE_LOST" | "LEASE_UNVERIFIED";
+type AbortCause = "CANCELLED" | "TIMEOUT" | "LEASE_LOST" | "LEASE_UNVERIFIED";
 
 class StageHandlerAbortedError extends Error {
   constructor() {
@@ -103,6 +117,14 @@ function leaseDuration(value: number | undefined): number {
   if (value === undefined) return DEFAULT_LEASE_DURATION_MS;
   if (!Number.isSafeInteger(value) || value < MIN_LEASE_DURATION_MS || value > MAX_LEASE_DURATION_MS) {
     throw new Error(`Durasi lease harus bilangan bulat ${MIN_LEASE_DURATION_MS}–${MAX_LEASE_DURATION_MS} milidetik.`);
+  }
+  return value;
+}
+
+function executionTimeout(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined;
+  if (!Number.isSafeInteger(value) || value < 1 || value > 3_600_000) {
+    throw new Error("Batas waktu analisis harus bilangan bulat 1–3600000 milidetik.");
   }
   return value;
 }
@@ -221,7 +243,7 @@ async function readResult(db: PrismaClient, claim: AnalysisJobClaim, stagesFinis
 
 /**
  * Execute the fixed trusted-handler registry sequentially under the queue lease.
- * Stage state is persisted, while analysis/job publication remains for the result-publishing issue.
+ * Optional terminal publication runs before the lease heartbeat stops.
  */
 export async function runAnalysisStages(
   db: PrismaClient,
@@ -231,8 +253,14 @@ export async function runAnalysisStages(
 ): Promise<AnalysisStagesResult> {
   const orderedHandlers = validatedHandlers(handlers);
   const renewalDurationMs = leaseDuration(options.leaseDurationMs);
+  const timeoutMs = executionTimeout(options.executionTimeoutMs);
   if (options.signal !== undefined && !(options.signal instanceof AbortSignal)) throw new Error("Signal pembatalan tahap tidak valid.");
+  if (options.externalAbortFailureCode !== undefined && !["STAGE_CANCELLED", "WORKER_INTERRUPTED"].includes(options.externalAbortFailureCode)) {
+    throw new Error("Kode pembatalan worker tidak valid.");
+  }
+  if (options.publish !== undefined && typeof options.publish !== "function") throw new Error("Callback publikasi tepercaya tidak valid.");
   const claim = snapshotAnalysisJobClaim(inputClaim);
+  const executionStartedAt = performance.now();
 
   const initialRenewal = await renewAnalysisLease(db, claim, { leaseDurationMs: renewalDurationMs });
   if (!initialRenewal) return readResult(db, claim);
@@ -257,6 +285,12 @@ export async function runAnalysisStages(
   const forwardExternalAbort = () => abort("CANCELLED");
   options.signal?.addEventListener("abort", forwardExternalAbort, { once: true });
   if (options.signal?.aborted) forwardExternalAbort();
+  const remainingTimeoutMs = timeoutMs === undefined ? undefined : timeoutMs - (performance.now() - executionStartedAt);
+  const timeout = remainingTimeoutMs === undefined || remainingTimeoutMs <= 0
+    ? undefined
+    : setTimeout(() => abort("TIMEOUT"), remainingTimeoutMs);
+  timeout?.unref?.();
+  if (remainingTimeoutMs !== undefined && remainingTimeoutMs <= 0) abort("TIMEOUT");
 
   const heartbeatIntervalMs = Math.max(50, Math.floor(renewalDurationMs / 3));
   const heartbeat = (async () => {
@@ -298,7 +332,13 @@ export async function runAnalysisStages(
         if (output !== undefined) output = cloneArtifact(output);
       } catch (error) {
         if (abortCause === "LEASE_LOST" || abortCause === "LEASE_UNVERIFIED") break;
-        const failureCode = abortCause === "CANCELLED" ? CANCELLED_HANDLER_FAILURE : error instanceof AnalysisStageExecutionError && SAFE_EXECUTION_FAILURES.includes(error.code) ? error.code : DEFAULT_HANDLER_FAILURE;
+        const failureCode = abortCause === "TIMEOUT"
+          ? ANALYSIS_TIMEOUT_FAILURE
+          : abortCause === "CANCELLED"
+            ? options.externalAbortFailureCode ?? CANCELLED_HANDLER_FAILURE
+            : error instanceof AnalysisStageExecutionError && SAFE_EXECUTION_FAILURES.includes(error.code)
+              ? error.code
+              : DEFAULT_HANDLER_FAILURE;
         const failed = await failAnalysisJob(db, claim, failureCode);
         if (!failed) abort("LEASE_LOST");
         else jobFailureHandled = true;
@@ -306,8 +346,9 @@ export async function runAnalysisStages(
       }
 
       if (controller.signal.aborted) {
-        if (abortCause === "CANCELLED") {
-          const failed = await failAnalysisJob(db, claim, CANCELLED_HANDLER_FAILURE);
+        if (abortCause === "CANCELLED" || abortCause === "TIMEOUT") {
+          const failureCode = abortCause === "TIMEOUT" ? ANALYSIS_TIMEOUT_FAILURE : options.externalAbortFailureCode ?? CANCELLED_HANDLER_FAILURE;
+          const failed = await failAnalysisJob(db, claim, failureCode);
           if (!failed) abort("LEASE_LOST");
           else jobFailureHandled = true;
         }
@@ -325,12 +366,32 @@ export async function runAnalysisStages(
     }
 
     // Cancellation can arrive between two stages, when no stage row is RUNNING.
-    if (ownsExecution && abortCause === "CANCELLED" && !jobFailureHandled) {
-      const failed = await failAnalysisJob(db, claim, CANCELLED_HANDLER_FAILURE);
+    if (ownsExecution && (abortCause === "CANCELLED" || abortCause === "TIMEOUT") && !jobFailureHandled) {
+      const failureCode = abortCause === "TIMEOUT" ? ANALYSIS_TIMEOUT_FAILURE : options.externalAbortFailureCode ?? CANCELLED_HANDLER_FAILURE;
+      const failed = await failAnalysisJob(db, claim, failureCode);
       if (!failed) abort("LEASE_LOST");
       else jobFailureHandled = true;
     }
+
+    if (stagesFinished && !controller.signal.aborted && options.publish) {
+      try {
+        const published = await options.publish(handlerContext(persistedInput, outputs), controller.signal);
+        if (published === false) abort("LEASE_LOST");
+      } catch {
+        if (abortCause !== "LEASE_LOST" && abortCause !== "LEASE_UNVERIFIED") {
+          const failureCode = abortCause === "TIMEOUT"
+            ? ANALYSIS_TIMEOUT_FAILURE
+            : abortCause === "CANCELLED"
+              ? options.externalAbortFailureCode ?? CANCELLED_HANDLER_FAILURE
+              : PUBLICATION_HANDLER_FAILURE;
+          const failed = await failAnalysisJob(db, claim, failureCode);
+          if (!failed) abort("LEASE_LOST");
+          else jobFailureHandled = true;
+        }
+      }
+    }
   } finally {
+    if (timeout !== undefined) clearTimeout(timeout);
     if (!controller.signal.aborted) controller.abort(new Error("RUNNER_FINISHED"));
     options.signal?.removeEventListener("abort", forwardExternalAbort);
     await heartbeat;

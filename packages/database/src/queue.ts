@@ -17,6 +17,7 @@ export interface EnqueueAnalysisInput {
   analyzerVersion: string;
   schemaVersion: string;
   retryParentId?: string | null;
+  retryParentRepositoryFullNameSnapshot?: string | null;
   idempotency?: {
     keyHash: string;
     requestHash: string;
@@ -61,6 +62,14 @@ export class AnalysisIdempotencyConflictError extends Error {
   constructor() {
     super("Kunci idempotensi ini sudah digunakan untuk permintaan analisis yang berbeda.");
     this.name = "AnalysisIdempotencyConflictError";
+  }
+}
+
+/** A retry may only be inserted when the owner-scoped parent is still the same failed snapshot. */
+export class AnalysisRetryConflictError extends Error {
+  constructor() {
+    super("Analisis sebelumnya berubah atau tidak lagi dapat diulang.");
+    this.name = "AnalysisRetryConflictError";
   }
 }
 
@@ -280,6 +289,50 @@ async function ensureAndLockSlot(tx: Prisma.TransactionClient): Promise<SlotRow>
   return rows[0];
 }
 
+async function validateRetryParent(
+  tx: Prisma.TransactionClient,
+  input: {
+    ownerUserId: string;
+    retryParentId: string;
+    retryParentRepositoryFullNameSnapshot: string | null;
+    repositoryId: string;
+    branchName: string;
+    commitSha: string;
+    configurationHash: string;
+    analyzerVersion: string;
+    schemaVersion: string;
+  },
+): Promise<string | null> {
+  const parents = await tx.$queryRaw<Array<{
+    status: string;
+    repositoryId: string;
+    branchName: string;
+    commitSha: string;
+    configurationHash: string;
+    analyzerVersion: string;
+    schemaVersion: string;
+    repositoryFullNameSnapshot: string | null;
+  }>>`
+    SELECT "status"::text AS "status", "repositoryId", "branchName", "commitSha",
+      "configurationHash", "analyzerVersion", "schemaVersion", "repositoryFullNameSnapshot"
+    FROM "Analysis"
+    WHERE "id" = ${input.retryParentId} AND "ownerUserId" = ${input.ownerUserId}
+    FOR UPDATE
+  `;
+  const parent = parents[0];
+  if (!parent || parent.status !== "FAILED"
+    || parent.repositoryId !== input.repositoryId
+    || parent.branchName !== input.branchName
+    || parent.commitSha !== input.commitSha
+    || parent.configurationHash !== input.configurationHash
+    || parent.analyzerVersion !== input.analyzerVersion
+    || parent.schemaVersion !== input.schemaVersion
+    || parent.repositoryFullNameSnapshot !== input.retryParentRepositoryFullNameSnapshot) {
+    throw new AnalysisRetryConflictError();
+  }
+  return parent.repositoryFullNameSnapshot;
+}
+
 async function readSlotState(tx: Prisma.TransactionClient): Promise<SlotStateRow> {
   const rows = await tx.$queryRaw<SlotStateRow[]>`
     SELECT
@@ -434,6 +487,7 @@ export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisIn
   const analyzerVersion = input.analyzerVersion;
   const schemaVersion = input.schemaVersion;
   const retryParentId = input.retryParentId;
+  const retryParentRepositoryFullNameSnapshot = input.retryParentRepositoryFullNameSnapshot;
   const idempotencyInput: unknown = input.idempotency;
   requireNonEmpty(ownerUserId, "Pemilik analisis");
   requireNonEmpty(repositoryId, "Repository");
@@ -443,6 +497,11 @@ export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisIn
   requireNonEmpty(schemaVersion, "Versi schema");
   if (!/^(?:[0-9a-f]{40}|[0-9a-f]{64})$/i.test(originalCommitSha)) throw new Error("Commit SHA harus full SHA Git sepanjang 40 atau 64 karakter hex.");
   if (retryParentId !== undefined && retryParentId !== null) requireNonEmpty(retryParentId, "ID analisis sebelumnya");
+  if (retryParentId !== undefined && retryParentId !== null) {
+    if (retryParentRepositoryFullNameSnapshot !== null && typeof retryParentRepositoryFullNameSnapshot !== "string") {
+      throw new Error("Nama repository snapshot retry tidak valid.");
+    }
+  }
   let idempotency: { keyHash: string; requestHash: string } | undefined;
   if (idempotencyInput !== undefined) {
     if (typeof idempotencyInput !== "object" || idempotencyInput === null || Array.isArray(idempotencyInput)) {
@@ -475,6 +534,20 @@ export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisIn
       const prior = await findIdempotencyRecord(tx, ownerUserId, idempotency.keyHash, idempotency.requestHash);
       if (prior) return prior;
     }
+    let retryRepositoryFullNameSnapshot: string | null = null;
+    if (retryParentId) {
+      retryRepositoryFullNameSnapshot = await validateRetryParent(tx, {
+        ownerUserId,
+        retryParentId,
+        retryParentRepositoryFullNameSnapshot: retryParentRepositoryFullNameSnapshot ?? null,
+        repositoryId,
+        branchName,
+        commitSha,
+        configurationHash: configuration.hash,
+        analyzerVersion,
+        schemaVersion,
+      });
+    }
     // The singleton lock serializes enqueue and claim; its counter defines FIFO order
     // without relying on timestamp precision or caller clocks.
     if (slot.lastEnqueueSequence < 0n) throw new AnalysisQueueInvariantError();
@@ -497,7 +570,9 @@ export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisIn
       data: {
         ownerUserId,
         repositoryId,
-        repositoryFullNameSnapshot: repositoryRows[0].fullName,
+        repositoryFullNameSnapshot: retryParentId
+          ? retryRepositoryFullNameSnapshot ?? repositoryRows[0].fullName
+          : repositoryRows[0].fullName,
         retryParentId: retryParentId ?? null,
         branchName,
         commitSha,

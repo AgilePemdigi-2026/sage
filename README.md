@@ -28,12 +28,12 @@
   <a href="CONTRIBUTING.md">Kontribusi</a>
 </p>
 
-**Dalam pengembangan — per 21 Oktober 2026.** Login dan akses repository sudah tersedia; pipeline analisis penuh serta ekspor produk masih dalam pengembangan.
+**Dalam pengembangan — per 22 Oktober 2026.** Login dan akses repository sudah tersedia; pipeline sembilan tahap menerbitkan graph dan dokumen bersama; ekspor produk masih dalam pengembangan.
 
 <details>
 <summary>Rincian implementasi dan batas pratinjau</summary>
 
-Login GitHub App, daftar repository public/instalasi, pemilihan branch dan full SHA, `POST /api/analyses` yang mengantre secara idempotent, serta snapshot immutable dan source handlers tersambung ke provider nyata. Worker dapat menjalankan komponen queue dan runner tahap, tetapi consumer analisis penuh masih nonaktif (`workerQueueEnabled=false`); submission belum menghasilkan analisis sembilan tahap.
+Login GitHub App, daftar repository public/instalasi, pemilihan branch dan full SHA, `POST /api/analyses` yang mengantre secara idempotent, serta snapshot immutable dan source handlers tersambung ke provider nyata. Worker mengonsumsi antrean secara berurutan dan menjalankan sembilan handler nyata. Graph, ADD, limitation, dan hash hasil diterbitkan bersama setelah seluruh tahap selesai. Analisis gagal dapat diulang dengan SHA serta konfigurasi yang sama setelah izin GitHub diperiksa kembali.
 
 Landing, login, workspace, dan halaman repository memakai backend autentikasi/repository nyata. Halaman `/preview/progress`, `/preview/history`, `/preview/graph`, dan `/preview/document` adalah pratinjau fixture dari satu contoh source-backed tervalidasi berisi 10 node dan 9 edge, termasuk `ReportService`; halaman tersebut bukan hasil analisis repository pengguna. `/ui-preview` dan `/graph-preview` tetap tersedia sebagai fixture kompatibilitas. Hanya pratinjau Markdown yang dapat diunduh dan ditandai sebagai fixture; ekspor PDF produk belum tersedia. Riwayat dan progres produk membaca record tersimpan. Graph `/analyses/{analysisId}/graph` membaca canonical CKG milik akun setelah analisis sukses, dengan mode overview, fokus, dan semua referensi. Dokumen `/analyses/{analysisId}/document` membaca ADD canonical dari snapshot yang sama, dengan Interface Catalog dan dua diagram SVG lokal. Query/filter lanjutan, inspector/source, ekspor, dan penghapusan masih mengikuti issue terkait. Bukti dokumen dan batas pipeline ada pada [DOC-01 checks](docs/DOC-01_CHECKS.md). Bukti dan batas verifikasi UI dicatat di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md).
 
@@ -54,9 +54,9 @@ Seluruh kemampuan di atas masuk target MVP lokal. Status implementasi serta acce
 
 ## Alur penggunaan
 
-[Buka workflow interaktif — zoom dan geser diagram](https://mermaid.live/view#pako:eJxVkk1v2zAMhv8KoXPSATvmUCDNZ4cUCJptl3oH2pJjwjIl6KNFl-S_j7aTYL0YkMj3eV-RPqnKaaNmqrbuo2owJNi9FgwQc3kM6BuocgiG01uhfpoQjSaEiJiAmAr1p28FmEt1547EoA0fkWFDaZtLqcN0-ghPp0LtyVID2EYTIRjvIiUXPgt1GQlPfeN5n0tL7RkWwnvBmNtWWL9ed4AJM_gBoTGQfOqE4e5_VQd6x2TOsBT5M8eEFiPB3HvpZ6C_kq_ECr_4XwmLIejq7Ra0DMhVM-gq13WUwPlIjtHeJctRMh5Ww2Et-t9oSfe-EvBo0oCos7U3zmE7vyIM6y-T9haZjR7CJyN3Ajn4QJzg-911I-Uf8jDuR-PJG0tsIJquJLkU0wb9be7bYWk2xywjGz36NNq1uTN8R26H5mdpXrXRuwAvGFrtPhi-wX65HjRlbhEaiv8N7Rp_DdMHKNTCcRRqgFIMO1l0orpQ8CDkTcFqoqTWIWk1O6nUmK7_57SpMdukLhOFObnDJ1dqlkI2E5W9llUuCSV2N15e_gF6peKN). Tampilan ini membuka Mermaid Live; diagram di bawah tetap tersedia langsung di README.
+[Buka workflow interaktif — zoom dan geser diagram](https://mermaid.live/view#pako:eJxVkstu2zAQRX9lwLWd7r0oYMfPwAGMpO0m6mIkjq0BKZLgo4Fr-987khMh3Yggee-ZyxldVOM1qZk6Wv_etBgz7F8qB5BKfYoYWmhKjOTyW6V-UEykGSEhZmDHlfrdSwHmcrv3J3agyZ3QwYbzttRyD9Ppd1hcKnVgyy2gSZQgUvCJs4_nSt3uhEUvvB5Kbdlc4VF4z5iKMcL6-bIHzFggDAiNkeVzzBjH-h_uyH8w0xWWYt-5lNFiYpiHIHoH_Ffy1djgf_U_CI9D0NXbZ9A6omvawdf4ruMMPiT2Du1oWd4t981q2KzF_wst676uBDxRHhDHYu0n53U7HxHrwbUR15Nkdf1rAwey7AgSdTXLoXBaDKNlM1i2wzhsSUWacZ9TX0d7Uzpyo3g7iHciXhSDYAQp6aAji7YwtJy-NIGc7pcdTB9A2iCD7OXDOGuKbEp2Z6wUPAjySZArk4KP8IzRaP_u4BsclmthqYnqKHbIWs0uKrfU9f-XpiMWm9VtorBk_3p2jZrlWGiiStAytiWjPKS7H97-Aax22hM). Tampilan ini membuka Mermaid Live; diagram di bawah tetap tersedia langsung di README.
 
-Bagian “Tersedia saat ini” sudah tersedia pada UI. Bagian Sprint 2 menunjukkan alur yang ditargetkan setelah consumer pipeline dan integrasi hasil selesai; halaman `/preview/*` memakai data contoh terpisah.
+Alur hingga graph, dokumen, dan history tersedia pada aplikasi. Ekspor Markdown/PDF masih mengikuti issue ekspor; halaman `/preview/*` memakai data contoh terpisah.
 
 ```mermaid
 flowchart LR
@@ -67,15 +67,14 @@ flowchart LR
     C --> E["Pilih branch dan commit opsional"]
     D --> E
     E --> F["Validasi target dan full commit SHA"]
+    F --> G["Jalankan pipeline sembilan tahap"]
+    G --> H["Telusuri graph dan dokumen"]
+    H --> I["Buka kembali melalui history"]
   end
-  subgraph planned["Integrasi Sprint 2"]
-    G["Jalankan pipeline sembilan tahap"] --> H["Telusuri graph dan dokumen"]
-    H --> I["Ekspor Markdown / PDF dan buka history"]
-  end
-  F -. "Consumer belum aktif" .-> G
+  I -. "Pengembangan berikutnya" .-> J["Ekspor Markdown / PDF"]
 ```
 
-API submission dan queue durable sudah tersedia, tetapi pemilih target belum memanggil submission dan worker belum mengonsumsi antrean menjadi hasil lengkap. Rincian teknis: [arsitektur](docs/ARCHITECTURE.md) dan [ANA-07 #16](https://github.com/AgilePemdigi-2026/sage/issues/16).
+Pemilih target memanggil API submission idempotent; worker menjalankan satu analisis pada satu waktu. Progres diperbarui setiap tiga detik dan polling berhenti saat terminal. Rincian teknis: [arsitektur](docs/ARCHITECTURE.md) dan [ANA-07 #16](https://github.com/AgilePemdigi-2026/sage/issues/16).
 
 ## Menjalankan aplikasi di lokal
 
@@ -125,9 +124,9 @@ Ikuti [panduan GitHub App](docs/GITHUB_APP_SETUP.md). Callback pengembangan meng
 | Pratinjau dokumen (fixture) | [http://localhost:3000/preview/document](http://localhost:3000/preview/document) |
 | Riwayat analisis (nyata) | [http://localhost:3000/workspace/history](http://localhost:3000/workspace/history) |
 
-Landing, login, workspace, dan akses repository nyata sudah tersedia. Rute `/preview/*` memakai fixture yang sama untuk menunjukkan state UI, bukan record tersimpan. Adapter worker menyediakan deklarasi dan relasi statis sesuai [capability JS/TS](docs/ANA-03_CHECKS.md) dan [capability PHP](docs/ANA-04_CHECKS.md); target dinamis atau tidak terbukti tetap `Unresolved`. Submission masuk queue durable, tetapi consumer analisis penuh belum aktif. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
+Landing, login, workspace, dan akses repository nyata sudah tersedia. Rute `/preview/*` memakai fixture yang sama untuk menunjukkan state UI, bukan record tersimpan. Adapter worker menyediakan deklarasi dan relasi statis sesuai [capability JS/TS](docs/ANA-03_CHECKS.md) dan [capability PHP](docs/ANA-04_CHECKS.md); target dinamis atau tidak terbukti tetap `Unresolved`. Submission masuk queue durable dan diproses oleh worker selama container worker berjalan. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
 
-Graph hasil tersimpan dibuka melalui **Buka knowledge graph** pada detail analisis yang sukses; lihat [bukti verifikasi graph](docs/GRAPH-01_CHECKS.md). Submission baru tetap menunggu aktivasi pipeline penuh; halaman graph tidak mengubah status analisis atau mempublikasikan hasil sementara.
+Graph hasil tersimpan dibuka melalui **Buka knowledge graph** pada detail analisis yang sukses; lihat [bukti verifikasi graph](docs/GRAPH-01_CHECKS.md). Graph dan dokumen hanya tersedia setelah publikasi bundle lengkap; hasil sementara dari analisis gagal tetap tidak dapat dibuka. Lihat [bukti pipeline dan batas pengujiannya](docs/ANA-07_CHECKS.md).
 
 ### 5. Stop, jalankan kembali, atau perbarui
 
@@ -260,7 +259,7 @@ Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Con
 
 ## Langkah berikutnya
 
-1. Lengkapi consumer sembilan tahap dan publikasi hasil atomik pada **ANA-07 #16**. Queue/API submission, runner tahap terbatas, target SHA, dan snapshot sudah punya bukti per issue; consumer masih dimatikan.
-2. Canonical CKG dan persistensi owner/lease-scoped tersedia sebagai handler internal **ANA-06 #14**; lihat [bukti dan batas acceptance](docs/ANA-06_CHECKS.md). Model dan halaman dokumen **DOC-01 #15** tersedia untuk hasil tersimpan yang sukses; lihat [bukti DOC-01](docs/DOC-01_CHECKS.md). Lanjutkan query/filter dan inspector graph **#18–19**, Markdown/PDF **#20–21**, dan penghapusan **#23**. History list/detail **#22** dan graph tersimpan **#17** sudah tersedia untuk record nyata; pipeline lengkap tetap menunggu #16.
+1. Consumer sembilan tahap, progres, retry, dan publikasi atomik tersedia pada **ANA-07 #16**; lihat [bukti serta batas pengujian](docs/ANA-07_CHECKS.md). Gate oracle formal tim tetap mengikuti #4/#11/#14.
+2. Canonical CKG dan persistensi owner/lease-scoped tersedia sebagai handler internal **ANA-06 #14**; lihat [bukti dan batas acceptance](docs/ANA-06_CHECKS.md). Model dan halaman dokumen **DOC-01 #15** tersedia untuk hasil tersimpan yang sukses; lihat [bukti DOC-01](docs/DOC-01_CHECKS.md). Lanjutkan query/filter dan inspector graph **#18–19**, Markdown/PDF **#20–21**, dan penghapusan **#23**. History list/detail **#22** dan graph tersimpan **#17** sudah tersedia untuk record nyata; pipeline tersedia melalui worker ANA-07.
 3. Frontend Figma **UI-02 #59** dan **UI-03 #60** telah diuji pada lima viewport; rute pratinjau memakai fixture. Bukti visual, interaksi dan batas pengujian ada di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md). Integrasi hasil produk tetap Sprint 2.
 4. Ikuti bukti dan batas per issue: [GH-02](docs/GH-02_CHECKS.md), [REP-01](docs/REP-01_CHECKS.md), [REP-02](docs/REP-02_CHECKS.md), [ANA-02](docs/ANA-02_CHECKS.md), serta [test plan](docs/TEST_PLAN.md). Tutup acceptance produk setelah alur lengkap diperiksa.

@@ -63,6 +63,7 @@ RUN npx --no-install playwright install --with-deps --only-shell chromium && chm
 COPY --from=build /app/apps/worker /app/apps/worker
 COPY --from=build /app/packages /app/packages
 COPY --from=build /app/scripts /app/scripts
+COPY --from=build /app/config /app/config
 COPY --from=build /app/tests/fixtures /app/tests/fixtures
 COPY --from=build /app/apps/web/app/graph-preview/fixture-data.ts /app/apps/web/app/graph-preview/fixture-data.ts
 COPY --from=build /app/apps/web/components/graph-foundation/graph-foundation.module.css /app/apps/web/components/graph-foundation/graph-foundation.module.css

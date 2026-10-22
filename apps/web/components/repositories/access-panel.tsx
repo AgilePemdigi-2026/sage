@@ -9,6 +9,7 @@ type Page<T> = { items: T[]; nextPage: number | null };
 type Branch = { name: string; commitSha: string };
 type ValidatedTarget = { repository: Repository; branch: string; commitSha: string; branchHeadSha: string };
 type AccountIdentity = { accountKey: string; login: string };
+type EnqueuedAnalysis = { analysisId: string };
 
 class AccountChangedError extends Error {
   constructor() { super("Akun GitHub berubah. Memuat ulang sesi…"); }
@@ -44,6 +45,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
   const [scopeError, setScopeError] = useState("");
   const generation = useRef(0);
   const reloadStarted = useRef(false);
+  const submissionKey = useRef<{ target: string; key: string } | null>(null);
 
   function reloadForSessionChange() {
     if (reloadStarted.current) return;
@@ -88,6 +90,31 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
     let payload: { data?: T; error?: { message?: string } };
     try { payload = await response.json(); }
     catch { throw new Error("Layanan belum tersedia. Coba lagi."); }
+    if (new URL(path, window.location.href).pathname !== "/api/auth/session") {
+      // The account cookie can change while any repository action is in flight.
+      // Check the active server identity after consuming its body, before exposing
+      // either returned data or an API error to the page scoped to this account.
+      let identityResponse: Response;
+      try {
+        identityResponse = await fetch("/api/auth/session", {
+          headers: { "X-SAGE-Account": accountKey }, cache: "no-store", credentials: "same-origin",
+        });
+      } catch {
+        throw new Error("Sesi belum dapat diperiksa. Coba lagi.");
+      }
+      if (identityResponse.status === 401) {
+        if (generation.current === scopeGeneration) reloadForSessionChange();
+        throw new AccountChangedError();
+      }
+      if (!identityResponse.ok) throw new Error("Sesi belum dapat diperiksa. Coba lagi.");
+      let identity: AccountIdentity | undefined;
+      try { identity = (await identityResponse.json() as { data?: AccountIdentity }).data; }
+      catch { throw new Error("Sesi belum dapat diperiksa. Coba lagi."); }
+      if (identity?.accountKey !== accountKey) {
+        if (generation.current === scopeGeneration) reloadForSessionChange();
+        throw new AccountChangedError();
+      }
+    }
     if (!response.ok) throw new Error(payload.error?.message || "Layanan belum tersedia. Coba lagi.");
     return payload.data as T;
   }
@@ -227,6 +254,62 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
     } catch (cause) { if (generation.current === requestGeneration && !(cause instanceof AccountChangedError)) setError(cause instanceof Error ? cause.message : "Target tidak valid."); }
     finally { if (generation.current === requestGeneration) setBusy(false); }
   }
+  async function startAnalysis() {
+    if (!target || busy) return;
+    const requestGeneration = generation.current;
+    const targetKey = `${target.repository.id}:${target.branch}:${target.commitSha}`;
+    if (submissionKey.current?.target !== targetKey) submissionKey.current = { target: targetKey, key: `target-${crypto.randomUUID()}` };
+    setBusy(true); setError(""); setReauthRequired(false);
+    try {
+      let response: Response | null = null;
+      let payload: { data?: EnqueuedAnalysis; error?: { message?: string } } | null = null;
+      let requestError: unknown = null;
+      try {
+        response = await fetch("/api/analyses", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Idempotency-Key": submissionKey.current.key,
+            "X-SAGE-Account": accountKey,
+          },
+          body: JSON.stringify({ repository: target.repository.fullName, branch: target.branch, commit: target.commitSha }),
+          cache: "no-store",
+          credentials: "same-origin",
+        });
+        try { payload = await response.json(); } catch { /* Verify the session before reporting a response parse error. */ }
+      } catch (cause) {
+        requestError = cause;
+      }
+      if (generation.current !== requestGeneration) return;
+      // Read the POST body first, then check the active server session before using
+      // either an error message or a successful result from the response.
+      const identity = await request<AccountIdentity>("/api/auth/session");
+      if (generation.current !== requestGeneration) return;
+      if (identity.accountKey !== accountKey) { reloadForSessionChange(); return; }
+      if (!response) throw requestError instanceof Error ? requestError : new Error("Analisis belum dapat dimulai. Coba lagi dengan target yang sama.");
+      if (!response.ok) {
+        if (response.status === 401) setReauthRequired(true);
+        throw new Error(response.status === 401
+          ? "Akun SAGE masih aktif, tetapi akses GitHub perlu diperbarui. Keluar lalu masuk kembali untuk menyambungkan akun GitHub."
+          : payload?.error?.message || "Analisis belum dapat dimulai. Coba lagi dengan target yang sama.");
+      }
+      if (typeof payload?.data?.analysisId !== "string" || !/^[A-Za-z0-9_-]{8,64}$/.test(payload.data.analysisId)) {
+        throw new Error("Analisis sudah dikirim, tetapi progresnya belum dapat dibuka. Buka riwayat untuk memeriksa statusnya.");
+      }
+      // Force a fresh server session check; avoid reusing an App Router RSC cache
+      // entry from before the post-response account verification.
+      // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+      window.location.assign(`/analyses/${encodeURIComponent(payload.data.analysisId)}`);
+    } catch (cause) {
+      if (generation.current === requestGeneration && !(cause instanceof AccountChangedError)) {
+        if (cause instanceof Error && cause.message === "Sesi belum dapat diperiksa. Coba lagi.") {
+          setError("Sesi belum dapat diperiksa. Coba lagi sebelum menggunakan hasil permintaan.");
+        } else {
+          setError(cause instanceof Error ? cause.message : "Analisis belum dapat dimulai. Coba lagi dengan target yang sama.");
+        }
+      }
+    } finally { if (generation.current === requestGeneration) setBusy(false); }
+  }
   function repoCard(item: Repository) {
     return <li key={item.id} className={`${design.repositoryCard} break-words`}>
       <strong>{item.fullName}</strong><span className="ml-2 text-xs">{item.private ? "Private · berizin" : "Public"}</span>
@@ -291,8 +374,8 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
         <p className="text-sm">Commit harus berada dalam riwayat branch yang dipilih. Branch dan izin diperiksa kembali saat memeriksa target.</p>
         <button disabled={busy || !branch} className="rounded bg-ink px-4 py-2 text-white disabled:opacity-50">Periksa target</button>
       </form>
-      {target ? <div role="status" className="mt-5 rounded border border-green-700 p-4"><strong>Target tervalidasi</strong><p className="mt-2 break-all font-mono text-sm">{target.repository.fullName} · {target.branch}<br />{target.commitSha}</p><p className="mt-2 text-sm">Belum ada job analisis yang dibuat.</p></div> : null}
+      {target ? <div role="status" className="mt-5 rounded border border-green-700 p-4"><strong>Target tervalidasi</strong><p className="mt-2 break-all font-mono text-sm">{target.repository.fullName} · {target.branch}<br />{target.commitSha}</p><p className="mt-2 text-sm">Analisis akan disimpan untuk full SHA ini.</p><button type="button" disabled={busy || !scopeVerified} onClick={() => void startAnalysis()} className="mt-4 rounded bg-ink px-4 py-2 text-white disabled:opacity-50">{busy ? "Mengantrekan analisis…" : "Mulai analisis"}</button></div> : null}
     </section> : <section aria-label="Target analisis"><h2>Target analisis</h2><p>Pilih repository untuk memuat branch dan memeriksa commit yang akan digunakan.</p></section>}
-    <p className="text-sm text-ink/70">Pemeriksaan akses belum menjalankan job analisis.</p>
+    <p className="text-sm text-ink/70">Pemeriksaan akses tidak menjalankan job. Job dibuat setelah target tervalidasi dan tombol Mulai analisis dipilih.</p>
   </div>;
 }

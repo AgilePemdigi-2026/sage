@@ -1,6 +1,6 @@
 # Spesifikasi analisis
 
-Status per 21 Oktober 2026: kontrak CCM `schemaVersion = 1`, canonical CKG `sage-ckg-v1` dan ADD `sage-add-v1` memiliki bukti komponen serta integrasi per issue. Consumer pipeline produk dan gate oracle formal tetap terbuka. Perubahan kontrak harus memperbarui API, data model, fixture, dan traceability.
+Status per 22 Oktober 2026: kontrak CCM `schemaVersion = 1`, canonical CKG `sage-ckg-v1` dan ADD `sage-add-v1` memiliki bukti komponen serta integrasi per issue. Consumer pipeline produk tersedia pada ANA-07; gate oracle formal tim tetap terbuka. Perubahan kontrak harus memperbarui API, data model, fixture, dan traceability.
 
 ## Prinsip
 
@@ -106,7 +106,7 @@ Tidak ada file didukung yang berhasil, snapshot invalid, pelanggaran resource li
 
 Implementasi worker memakai policy `sage-source-policy-v1`, input dari snapshot full SHA tersimpan dan maksimum 1 MiB per source. File individual yang melampaui batas dikecualikan dengan alasan `SOURCE_FILE_TOO_LARGE`; batas seluruh archive/snapshot tetap fatal. Ekstensi JS/TS/PHP, directory dependency/build, source map, nama minified, binary/UTF-8 invalid, dan submodule dilaporkan secara deterministik. Script, konfigurasi, dependency, serta URL submodule target tidak dieksekusi atau diunduh.
 
-Tidak ada source eligible menghasilkan `NO_SUPPORTED_SOURCE`; semua source eligible gagal parse menghasilkan `PARSE_FAILED`. Source valid tetap dianalisis ketika ada sibling gagal, dengan hasil parsial dan limitation. Handler LANGUAGE_DETECTION dan STATIC_ANALYSIS dapat dipanggil runner; consumer otomatis, persistensi hasil produk dan tahap lanjutan tetap memerlukan ANA-07. Kontrak dan bukti rinci: [ANA-02_CHECKS.md](ANA-02_CHECKS.md).
+Tidak ada source eligible menghasilkan `NO_SUPPORTED_SOURCE`; semua source eligible gagal parse menghasilkan `PARSE_FAILED`. Source valid tetap dianalisis ketika ada sibling gagal, dengan hasil parsial dan limitation. Handler LANGUAGE_DETECTION dan STATIC_ANALYSIS dipanggil consumer ANA-07 sebelum pembentukan graph dan ADD. Kontrak dan bukti rinci: [ANA-02_CHECKS.md](ANA-02_CHECKS.md).
 
 ## Pembentukan dokumen
 
@@ -138,4 +138,4 @@ Interface Catalog mencatat deklarasi source non-Module beserta signature nullabl
 
 Stage 6–8 menghasilkan artefak terpisah dengan identitas CKG/document dan context yang sama; stage 9 memverifikasi ulang ketiganya lalu menyimpan seluruh dokumen dalam satu transaksi. Penulisan dibatasi owner, attempt/token, lease berdasarkan jam database, tahap aktif, target immutable dan GraphBundle yang cocok. Replay identik boleh diterima; isi berbeda tidak menimpa hasil. Reader hasil hanya mengembalikan dokumen canonical milik akun untuk analisis sukses.
 
-Atomicity DOC-01 berarti ketiga artefak dokumen tersedia bersama dalam satu baris internal. Publikasi GraphBundle + dokumen + resultHash dan status Analysis/Job terminal berhasil merupakan ANA-07 #16. Sampai publikasi tersebut tersedia, stage selesai tidak otomatis mengubah analisis menjadi Completed. Halaman dan API dokumen DOC-01 membaca model canonical hanya setelah status sukses. Diagram dirender Mermaid lokal dengan guard DOC-02 dan SVG diperiksa sebelum ditampilkan sebagai gambar Blob. Batas/kegagalan render terlihat tanpa memotong fakta atau menyatakan diagram sukses. Download Markdown/PDF tetap mengikuti #20/#21.
+Atomicity DOC-01 berarti ketiga artefak dokumen tersedia bersama dalam satu baris internal. Publikasi GraphBundle + dokumen + resultHash dan status Analysis/Job terminal berhasil merupakan ANA-07 #16. Consumer ANA-07 menjalankan publikasi setelah sembilan tahap selesai; penyelesaian tahap saja tidak mengubah status terminal. Halaman dan API dokumen DOC-01 membaca model canonical hanya setelah status sukses. Diagram dirender Mermaid lokal dengan guard DOC-02 dan SVG diperiksa sebelum ditampilkan sebagai gambar Blob. Batas/kegagalan render terlihat tanpa memotong fakta atau menyatakan diagram sukses. Download Markdown/PDF tetap mengikuti #20/#21.
