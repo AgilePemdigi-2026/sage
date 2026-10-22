@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { statusLabel, statusTone, formatDateTime } from "../apps/web/components/history/format.ts";
 import { applyHistoryPatch, createHistoryData } from "../apps/web/components/history/history-data.ts";
 import type { HistoryDataPatch, HistoryFetch, HistoryItem, HistoryPatchTarget } from "../apps/web/components/history/history-data.ts";
-import { createDetailPoller } from "../apps/web/components/history/detail-data.ts";
+import { createDetailPoller, shouldPollAnalysisDetail } from "../apps/web/components/history/detail-data.ts";
 import type { AnalysisDetailView } from "../apps/web/lib/analyses/presenters.ts";
 import { ANALYSIS_STAGE_DEFINITIONS } from "@sage/contracts";
 
@@ -352,4 +352,43 @@ test("poll detail: respons instance lama dibuang setelah stop dan recreate effec
   assert.equal(state.detail?.stages[0]?.status, "COMPLETED", "respons instance yang sudah di stop dibuang");
   assert.equal(state.fetchError, false);
   instanceB.poller.stop();
+});
+
+test("detail polling is limited to non-terminal analyses", () => {
+  assert.equal(shouldPollAnalysisDetail("QUEUED"), true);
+  assert.equal(shouldPollAnalysisDetail("RUNNING"), true);
+  for (const status of ["COMPLETED", "COMPLETED_WITH_LIMITATIONS", "FAILED", "UNKNOWN"]) {
+    assert.equal(shouldPollAnalysisDetail(status), false);
+  }
+});
+
+test("poll detail reads the body then verifies the active account before applying it", async () => {
+  const current = detailView({ stateVersion: 1000, firstStage: "RUNNING" });
+  const received = detailView({ stateVersion: 2000, firstStage: "COMPLETED" });
+  const state: DetailState = { detail: current, fetchError: false };
+  const events: string[] = [];
+  let ticker: (() => void) | null = null;
+  function fire(): void { ticker?.(); }
+  const poller = createDetailPoller({
+    analysisId: "hist-detail-0001x", accountKey: "acc-1", intervalMs: 3000,
+    fetch: async () => ({
+      ok: true,
+      json: async () => { events.push("body"); return { data: received }; },
+    }),
+    scheduleInterval: callback => { ticker = callback; return 1; },
+    cancelInterval: () => { ticker = null; },
+    touchSequence: () => 1,
+    isLatestSequence: () => true,
+    setFetchError: value => { state.fetchError = value; },
+    setDetail: updater => { state.detail = updater(state.detail); },
+    verifySession: async () => { events.push("session"); return false; },
+    onAccountMismatch: () => { events.push("reload"); },
+  });
+  poller.start();
+  fire();
+  await drain();
+  assert.deepEqual(events, ["body", "session", "reload"]);
+  assert.equal(state.detail, current, "a response from the previous account is never published");
+  assert.equal(state.fetchError, false);
+  poller.stop();
 });

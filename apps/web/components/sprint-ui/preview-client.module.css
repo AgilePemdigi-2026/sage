@@ -66,6 +66,10 @@
 .loadingRows span:nth-child(2) { width: min(120px, 20%); }
 .loadingRows span:last-child { width: min(160px, 25%); margin-left: auto; }
 .historyFootnote { margin-top: 12px !important; color: #63738a; font-size: 11px; line-height: 17px; }
+.historyRetry { margin-top: 12px; }
+.historyRetry .secondaryAction { margin-left: 0; cursor: pointer; }
+.historyRetry .secondaryAction:disabled { cursor: wait; opacity: .65; }
+.historyRetryError { margin-top: 8px !important; color: #812839; font-size: 12px; line-height: 18px; }
 .textAction { min-height: 32px; padding: 4px 0; border: 0; color: #0b6d62; background: transparent; font-size: 12px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .graphSummary { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; margin: 0 0 18px; }
 .graphSummary > div { display: grid; gap: 5px; min-width: 0; padding: 13px 14px; border: 1px solid #dce5ec; border-radius: 7px; background: #fff; }

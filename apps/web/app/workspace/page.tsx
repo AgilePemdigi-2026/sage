@@ -45,7 +45,7 @@ export default async function WorkspacePage({ searchParams }: WorkspacePageProps
         <Panel title="Akses repository GitHub" className="mt-8 max-w-3xl">
           <p className="mt-2 text-sm leading-6 text-ink/65">
             Periksa repository public atau instalasi App yang dapat diakses oleh akunmu.
-            Pembuatan job analisis belum tersedia.
+            Setelah target branch dan commit divalidasi, kamu dapat memulai analisis dan mengikuti progresnya.
           </p>
           <Link href="/workspace/repositories" className="mt-4 inline-flex min-h-10 items-center rounded-md bg-[#2ac6ae] px-4 py-2 text-sm font-semibold text-[#061e42]">Buka repository</Link>
           <p className="mt-4 text-xs text-ink/50">Sesi berakhir {sessionExpiry} WIB.</p>

@@ -42,6 +42,7 @@ export { createSession, hashSessionToken, resolveSession, revokeSession } from "
 export { completeGitHubLogin, consumeGitHubOAuthAttempt, createGitHubOAuthAttempt } from "./oauth.ts";
 export {
   AnalysisIdempotencyConflictError,
+  AnalysisRetryConflictError,
   AnalysisQueueInvariantError,
   claimAnalysisJob,
   enqueueAnalysis,
@@ -87,5 +88,8 @@ export type {
   HistoryStatusFilter,
 } from "./history.ts";
 export type { ResolvedSession } from "./session.ts";
+
+export { AnalysisRetryNotAllowedError, AnalysisRetryNotFoundError, enqueueAnalysisRetry, getAnalysisRetryTargetForUser } from "./retry.ts";
+export type { AnalysisRetryTarget } from "./retry.ts";
 
 export { CanonicalDocumentIntegrityError, persistCanonicalDocument, readCanonicalDocumentForUser } from "./documents.ts";
