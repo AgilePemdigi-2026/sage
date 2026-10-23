@@ -186,6 +186,10 @@ Delapan suite memeriksa landing, login/workspace, pemilihan repository, isolasi 
 
 Pengujian fixture tidak membuktikan pipeline produk, ekspor PDF, history atau penghapusan yang belum tersedia.
 
+## Acceptance Cucumber BDD Sprint 1
+
+Suite Gherkin memeriksa contoh browser dengan API terkendali dan kontrak domain untuk source, antrean, serta runner. `npm run test:bdd:dry` memeriksa feature tanpa menjalankan perilaku; run langsung perlu Node 24, database PostgreSQL disposable, dan server lokal. Untuk run terisolasi dengan Docker gunakan `npm run test:bdd:docker`. Laporan per run disimpan di `artifacts/bdd/`; batas dan matriks traceability ada di [BDD Sprint 1](docs/BDD_SPRINT1.md). Suite ini tidak membuktikan GitHub live atau penerimaan pipeline produk penuh.
+
 ## Stack teknologi
 
 | Area | Teknologi |
@@ -228,6 +232,7 @@ Logo disimpan lokal; sumber dan lisensinya tersedia di [aset teknologi](docs/ass
 | [Alokasi sprint](docs/SPRINT_ALLOCATION.md) | Deliverable tiap anggota dan bukti kontribusi |
 | [Definition of Done](docs/DEFINITION_OF_DONE.md) | Syarat deliverable dan MVP dinyatakan selesai |
 | [Test plan](docs/TEST_PLAN.md) | Fixture, integrasi GitHub, dan verifikasi ekspor |
+| [BDD Sprint 1](docs/BDD_SPRINT1.md) | Skenario Cucumber, batas pengujian, dan pemetaan ke user story/requirement/issue |
 | [Keputusan dan risiko](docs/DECISIONS.md) | Keputusan, rancangan awal, TBD, dan risiko |
 | [Sumber](docs/SOURCES.md) | PDF, Figma, referensi teknis, dan urutan acuan |
 | [Kontribusi](CONTRIBUTING.md) | Pembagian modul, issue, branch, PR, commit, dan alur merge |
