@@ -27,7 +27,7 @@ COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/analyzer-php/package.json packages/analyzer-php/package.json
 COPY packages/documents/package.json packages/documents/package.json
 RUN npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache /root/.npm
-COPY tsconfig.json eslint.config.mjs ./
+COPY tsconfig.json eslint.config.mjs cucumber.mjs ./
 COPY apps ./apps
 COPY packages ./packages
 COPY scripts ./scripts
@@ -35,6 +35,15 @@ COPY tests ./tests
 COPY config ./config
 RUN composer install --working-dir=packages/analyzer-php --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist && composer clear-cache
 RUN npm run db:generate && npm run check && npm run build
+
+# Disposable acceptance-test image; not part of the product runtime.
+FROM build AS bdd
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+RUN npx --no-install playwright install --with-deps --only-shell chromium \
+    && mkdir -p apps/web/.next/standalone/apps/web/.next/static apps/web/.next/standalone/apps/web/public artifacts/bdd \
+    && cp -R apps/web/.next/static/. apps/web/.next/standalone/apps/web/.next/static/ \
+    && cp -R apps/web/public/. apps/web/.next/standalone/apps/web/public/
+CMD ["npm", "run", "test:bdd"]
 
 FROM node-base AS worker-dependencies
 COPY package.json package-lock.json .npmrc ./

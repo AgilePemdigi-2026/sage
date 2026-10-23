@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:17-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
+    environment:
+      POSTGRES_USER: sage
+      POSTGRES_DB: sage_bdd_sprint1
+      POSTGRES_HOST_AUTH_METHOD: trust
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sage -d sage_bdd_sprint1"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    mem_limit: 256m
+    cpus: 0.5
+  bdd:
+    build:
+      context: .
+      target: bdd
+    environment:
+      DATABASE_URL: postgresql://sage@db:5432/sage_bdd_sprint1
+      SAGE_BDD_TESTS: "1"
+      SAGE_BDD_MANAGED_SERVER: "1"
+      SAGE_BDD_APP_COMMIT: ${SAGE_BDD_APP_COMMIT:-unknown}
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      NEXT_TELEMETRY_DISABLED: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./artifacts/bdd:/app/artifacts/bdd
+    init: true
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    shm_size: 256m
+    mem_limit: 2g
+    cpus: 1
+    command: ["npm", "run", "test:bdd"]
