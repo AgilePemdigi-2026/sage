@@ -214,10 +214,15 @@ Given("source snapshot berisi konfigurasi Composer dengan canary filesystem", fu
   const state = stateFor(this);
   const canaryPath = join(tmpdir(), `sage-bdd-canary-${randomUUID()}`);
   state.canaryPath = canaryPath;
-  state.files = [snapshotFile(
-    "composer.json",
-    `<?php file_put_contents(${JSON.stringify(canaryPath)}, "executed"); throw new RuntimeException("must not run");`,
-  )];
+  const postInstallCommand = `@php -r 'file_put_contents(${JSON.stringify(canaryPath)}, "executed");'`;
+  const composerJson = JSON.stringify({
+    name: "sage/bdd-canary",
+    scripts: { "post-install-cmd": [postInstallCommand] },
+  });
+  const manifest = JSON.parse(composerJson) as { name: string; scripts: { "post-install-cmd": string[] } };
+  assert.equal(manifest.name, "sage/bdd-canary");
+  assert.deepEqual(manifest.scripts["post-install-cmd"], [postInstallCommand]);
+  state.files = [snapshotFile("composer.json", composerJson)];
 });
 
 When("analyzer source statis dijalankan pada snapshot tersebut", async function (this: SageWorld) {
@@ -279,6 +284,10 @@ Then("tidak ada source yang didukung dan canary Composer tidak pernah dibuat", a
   const state = stateFor(this);
   assert.equal(state.sourceResult?.errorCode, "NO_SUPPORTED_SOURCE");
   assert.equal(state.sourceResult?.ccm, null);
+  const composerFile = state.files.find((file) => file.relativePath === "composer.json");
+  assert.ok(composerFile);
+  const manifest = JSON.parse(new TextDecoder().decode(composerFile.bytes)) as { scripts?: { "post-install-cmd"?: unknown } };
+  assert.ok(manifest.scripts?.["post-install-cmd"], "the fixture must be a valid Composer manifest with a real install hook");
   const canaryPath = state.canaryPath;
   assert.ok(canaryPath);
   try {

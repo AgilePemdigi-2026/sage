@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { createServer } from "node:net";
 
 const dryRun = process.argv.includes("--dry-run");
 const args = process.argv.slice(2).filter(argument => argument !== "--dry-run");
@@ -39,6 +40,13 @@ try {
       throw new Error("BDD requires SAGE_BDD_TESTS=1 and the disposable sage_bdd_sprint1 database.");
     }
     if (process.env.SAGE_BDD_MANAGED_SERVER === "1") {
+      // Fail before migration/startup if another app owns the fixed test port.
+      const probe = createServer();
+      await new Promise<void>((done, reject) => {
+        probe.once("error", () => reject(new Error("Owned BDD server requires unused loopback port 3000.")));
+        probe.listen({ host: "127.0.0.1", port: 3000, exclusive: true }, () => probe.close(error => error ? reject(error) : done()));
+      });
+      if (signalExit) throw new Error("BDD run interrupted before server startup.");
       process.env.AUTH_BASE_URL = "http://127.0.0.1:3000";
       process.env.SAGE_BDD_BASE_URL = process.env.AUTH_BASE_URL;
       process.env.CREDENTIAL_ENCRYPTION_KEY = randomBytes(32).toString("base64");
@@ -57,7 +65,8 @@ try {
       for (let attempt = 0; attempt < 60 && !stopping && !signalExit; attempt++) {
         try {
           const health = await fetch(`${process.env.AUTH_BASE_URL}/api/health`, { signal: AbortSignal.timeout(1_000) });
-          ready = health.ok && (await health.json() as { database?: string }).database === "ok";
+          ready = health.ok && (await health.json() as { database?: string }).database === "ok"
+            && !stopping && server.exitCode === null && server.signalCode === null;
           if (ready) break;
         } catch { /* Wait for the owned server only. */ }
         await new Promise(done => setTimeout(done, 500));
@@ -66,6 +75,7 @@ try {
     }
   }
   let exitCode = await run(process.execPath, ["--import", "tsx", "node_modules/@cucumber/cucumber/bin/cucumber.js", ...(dryRun ? ["--dry-run"] : []), ...args]);
+  if (server && (stopping || server.exitCode !== null || server.signalCode !== null)) exitCode = exitCode || 1;
   const features = JSON.parse(await readFile(resolve(reportDirectory, "cucumber.json"), "utf8")) as Array<{ elements?: Array<{ type?: string; steps?: Array<{ result?: { status?: string } }> }> }>;
   const scenarioCount = features.reduce((total, feature) => total + (feature.elements ?? []).filter(element => element.type === "scenario").length, 0);
   if (scenarioCount === 0) throw new Error("No BDD scenarios selected; an empty run is not acceptance evidence.");
