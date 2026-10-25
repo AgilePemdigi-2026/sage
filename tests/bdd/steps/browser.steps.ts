@@ -221,17 +221,17 @@ async function selectOwnedPublicRepository(world: SageWorld): Promise<void> {
   await page.getByRole("button", { name: `Pilih ${repository.fullName}`, exact: true }).click();
 }
 
-Given("saya berada pada halaman utama SAGE", async function (this: SageWorld) {
+Given("I am on the SAGE landing page", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.goto(this.baseUrl.toString(), { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: /Pahami arsitektur/ }).waitFor();
 });
 
-When("saya memilih tautan Hubungkan GitHub", async function (this: SageWorld) {
+When("I select the Connect with GitHub link", async function (this: SageWorld) {
   await this.requirePage().getByRole("link", { name: "Hubungkan GitHub", exact: true }).click();
 });
 
-Then("form login tampil tanpa memulai permintaan otorisasi", async function (this: SageWorld) {
+Then("the sign-in form appears without starting an authorization request", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.getByRole("heading", { name: "Masuk dengan GitHub", exact: true }).waitFor();
   const retry = page.getByRole("button", { name: "Masuk dengan GitHub", exact: true });
@@ -241,11 +241,11 @@ Then("form login tampil tanpa memulai permintaan otorisasi", async function (thi
   assert.equal(this.blockedExternalRequests, 0);
 });
 
-When("callback GitHub terkendali ditolak", async function (this: SageWorld) {
+When("the controlled GitHub denial callback is returned", async function (this: SageWorld) {
   await this.visitControlledOAuthDenial();
 });
 
-Then("UI menampilkan pesan penolakan yang aman dan menyediakan retry", async function (this: SageWorld) {
+Then("the UI shows a safe denial message and offers a retry action", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.waitForURL(url => url.pathname === "/login" && url.searchParams.get("error") === "denied");
   await page.getByRole("alert").getByText(
@@ -262,46 +262,46 @@ Then("UI menampilkan pesan penolakan yang aman dan menyediakan retry", async fun
   assert.equal(this.blockedExternalRequests, 0);
 });
 
-Given("browser tidak memiliki cookie sesi SAGE", async function (this: SageWorld) {
+Given("the browser has no SAGE session cookie", async function (this: SageWorld) {
   await this.requireContext().clearCookies();
 });
 
-When("saya membuka halaman workspace", async function (this: SageWorld) {
+When("I open the workspace page", async function (this: SageWorld) {
   await this.requirePage().goto(new URL("/workspace", this.baseUrl).toString(), { waitUntil: "domcontentloaded" });
 });
 
-Then("saya diarahkan ke login dengan pesan sesi yang aman", async function (this: SageWorld) {
+Then("I am redirected to sign-in with a safe session message", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.waitForURL(url => url.pathname === "/login" && url.searchParams.get("error") === "session");
   await page.getByRole("alert").getByText("Sesi SAGE berakhir. Masuk lagi dengan GitHub.", { exact: true }).waitFor();
   assert.equal(this.blockedExternalRequests, 0);
 });
 
-Given("API repository dikendalikan untuk skenario browser", function (this: SageWorld) {
+Given("repository APIs are controlled for the browser scenario", function (this: SageWorld) {
   controlFor(this);
 });
 
-Given("API daftar repository public gagal pada permintaan pertama", function (this: SageWorld) {
+Given("the public repository list API fails on the first request", function (this: SageWorld) {
   controlFor(this).publicFailuresRemaining = 1;
 });
 
-Given("API branch gagal pada permintaan pertama", function (this: SageWorld) {
+Given("the branch API fails on the first request", function (this: SageWorld) {
   controlFor(this).branchFailuresRemaining = 1;
 });
 
-Given("API branch mengembalikan daftar kosong pada permintaan pertama", function (this: SageWorld) {
+Given("the branch API returns an empty list on the first request", function (this: SageWorld) {
   controlFor(this).emptyBranchResponsesRemaining = 1;
 });
 
-Given("API validasi target gagal pada permintaan pertama", function (this: SageWorld) {
+Given("the target validation API fails on the first request", function (this: SageWorld) {
   controlFor(this).targetFailuresRemaining = 1;
 });
 
-When("saya membuka repository sebagai akun sintetis {string}", async function (this: SageWorld, alias: string) {
+When("I open the repositories page as synthetic account {string}", async function (this: SageWorld, alias: string) {
   await openRepositoryPage(this, alias);
 });
 
-Then("saya melihat repository public milik akun dan repository private berizin", async function (this: SageWorld) {
+Then("I see the account's public repository and its authorized private repository", async function (this: SageWorld) {
   const page = this.requirePage();
   const account = controlFor(this).activeAccount;
   assert.ok(account);
@@ -312,11 +312,11 @@ Then("saya melihat repository public milik akun dan repository private berizin",
   assert.ok((await page.locator("body").innerText()).includes("Private · berizin"));
 });
 
-When("saya mencari repository yang tidak ada dalam halaman yang dimuat", async function (this: SageWorld) {
+When("I search for a repository that is not in the loaded page", async function (this: SageWorld) {
   await this.requirePage().getByLabel("Cari pada repository App yang sudah dimuat", { exact: true }).fill("tidak-ada-di-halaman");
 });
 
-Then("hasil pencarian kosong tanpa menghapus daftar repository tersimpan", async function (this: SageWorld) {
+Then("the search result is empty without clearing the stored repository list", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.getByText("Tidak ada hasil pencarian pada halaman yang dimuat.", { exact: true }).waitFor();
   const privateRepository = activeFixtures(this).privateRepository;
@@ -324,20 +324,20 @@ Then("hasil pencarian kosong tanpa menghapus daftar repository tersimpan", async
   await page.getByRole("button", { name: `Pilih ${privateRepository.fullName}`, exact: true }).waitFor();
 });
 
-When("saya memilih repository public akun pada branch {string}", async function (this: SageWorld, branchName: string) {
+When("I select the account's public repository on branch {string}", async function (this: SageWorld, branchName: string) {
   await selectOwnedPublicRepository(this);
   await this.requirePage().getByLabel("Branch", { exact: true }).locator(`option[value="${branchName}"]`).waitFor({ state: "attached" });
   await this.requirePage().getByLabel("Branch", { exact: true }).selectOption(branchName);
 });
 
-When("saya memeriksa target dengan commit kosong", async function (this: SageWorld) {
+When("I check the target without specifying a commit", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.getByLabel("Commit (opsional)", { exact: true }).fill("");
   await page.getByRole("button", { name: "Periksa target", exact: true }).click();
   await page.getByRole("status").filter({ hasText: FULL_SHA }).waitFor();
 });
 
-Then("target kosong memakai full SHA branch", function (this: SageWorld) {
+Then("an empty commit uses the branch's full SHA", function (this: SageWorld) {
   const control = controlFor(this);
   assert.deepEqual(control.targetRequests.at(-1), {
     repository: activeFixtures(this).publicRepository.fullName,
@@ -348,14 +348,14 @@ Then("target kosong memakai full SHA branch", function (this: SageWorld) {
   assert.equal(control.unexpectedApiRequests, 0);
 });
 
-When("saya memeriksa target dengan full SHA tersebut", async function (this: SageWorld) {
+When("I check the target with a specific full SHA", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.getByLabel("Commit (opsional)", { exact: true }).fill(FULL_SHA);
   await page.getByRole("button", { name: "Periksa target", exact: true }).click();
   await page.getByRole("status").filter({ hasText: FULL_SHA }).waitFor();
 });
 
-Then("request validasi menyertakan full SHA yang dipilih", function (this: SageWorld) {
+Then("the validation request includes the selected full SHA", function (this: SageWorld) {
   const control = controlFor(this);
   assert.deepEqual(control.targetRequests.at(-1), {
     repository: activeFixtures(this).publicRepository.fullName,
@@ -366,65 +366,65 @@ Then("request validasi menyertakan full SHA yang dipilih", function (this: SageW
   assert.equal(control.unexpectedApiRequests, 0);
 });
 
-When("saya memilih repository public akun", async function (this: SageWorld) {
+When("I select the account's public repository", async function (this: SageWorld) {
   await selectOwnedPublicRepository(this);
 });
 
-Then("UI menampilkan error branch terkendali dengan opsi retry", async function (this: SageWorld) {
+Then("the UI shows a controlled branch error with a retry action", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.getByRole("alert").getByText("Branch dari GitHub belum dapat dimuat. Coba lagi.", { exact: true }).waitFor();
   await page.getByRole("button", { name: "Muat ulang branch", exact: true }).waitFor();
 });
 
-When("saya mencoba ulang pemuatan branch", async function (this: SageWorld) {
+When("I retry branch loading", async function (this: SageWorld) {
   await this.requirePage().getByRole("button", { name: "Muat ulang branch", exact: true }).click();
   await this.requirePage().getByLabel("Branch", { exact: true }).locator('option[value="main"]').waitFor({ state: "attached" });
 });
 
-When("saya mengirim validasi target", async function (this: SageWorld) {
+When("I submit target validation", async function (this: SageWorld) {
   await this.requirePage().getByRole("button", { name: "Periksa target", exact: true }).click();
 });
 
-Then("UI menampilkan error target terkendali tanpa kehilangan pilihan", async function (this: SageWorld) {
+Then("the UI shows a controlled target error without losing the selection", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.getByRole("alert").getByText("Target belum dapat divalidasi. Coba lagi.", { exact: true }).waitFor();
   assert.equal(await page.getByLabel("Branch", { exact: true }).inputValue(), "main");
 });
 
-When("saya mengulangi validasi target", async function (this: SageWorld) {
+When("I retry target validation", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.getByRole("button", { name: "Periksa target", exact: true }).click();
   await page.getByRole("status").filter({ hasText: "Target tervalidasi" }).waitFor();
 });
 
-Then("target berhasil tervalidasi setelah retry", function (this: SageWorld) {
+Then("target validation succeeds after the retry", function (this: SageWorld) {
   const control = controlFor(this);
   assert.equal(control.targetRequests.length, 2);
   assert.equal(control.analysisRequests, 0);
   assert.equal(control.unexpectedApiRequests, 0);
 });
 
-Then("daftar repository public menampilkan error dan tindakan retry", async function (this: SageWorld) {
+Then("the public repository list shows an error and a retry action", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.getByRole("alert").filter({ hasText: "Daftar repository public belum tersedia. Coba lagi." }).waitFor();
   await page.getByRole("button", { name: "Coba lagi", exact: true }).waitFor();
 });
 
-When("saya mencoba ulang daftar repository public", async function (this: SageWorld) {
+When("I retry loading the public repository list", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.getByRole("button", { name: "Coba lagi", exact: true }).click();
   const fixtures = activeFixtures(this);
   await page.getByRole("button", { name: `Pilih ${fixtures.publicRepository.fullName}`, exact: true }).waitFor();
 });
 
-Then("daftar repository public pulih setelah retry", function (this: SageWorld) {
+Then("the public repository list recovers after the retry", function (this: SageWorld) {
   const control = controlFor(this);
   assert.equal(control.publicFailuresRemaining, 0);
   assert.equal(control.unexpectedApiRequests, 0);
   assert.equal(control.analysisRequests, 0);
 });
 
-Then("branch kosong mencegah pemeriksaan target dan dapat dimuat ulang", async function (this: SageWorld) {
+Then("an empty branch list prevents target validation and can be reloaded", async function (this: SageWorld) {
   const page = this.requirePage();
   await page.getByText("Repository ini belum memiliki branch. Tambahkan commit di GitHub sebelum memilih target.", { exact: true }).waitFor();
   assert.equal(await page.getByRole("button", { name: "Periksa target", exact: true }).isDisabled(), true);
@@ -434,7 +434,7 @@ Then("branch kosong mencegah pemeriksaan target dan dapat dimuat ulang", async f
   assert.equal(controlFor(this).unexpectedApiRequests, 0);
 });
 
-When("session browser berganti ke akun sintetis {string}", async function (this: SageWorld, alias: string) {
+When("the browser session switches to synthetic account {string}", async function (this: SageWorld, alias: string) {
   const account = await this.createSyntheticAccount(alias);
   const control = controlFor(this);
   control.activeAccount = account;
@@ -447,24 +447,24 @@ When("session browser berganti ke akun sintetis {string}", async function (this:
   await page.getByRole("heading", { name: `Repository public milik @${account.connectionLogin}`, exact: true }).waitFor();
 });
 
-Then("repository yang terlihat hanya berasal dari akun baru", async function (this: SageWorld) {
+Then("only the new account's repositories are visible", async function (this: SageWorld) {
   const control = controlFor(this);
   const account = control.activeAccount;
   assert.ok(account);
   const fixtures = activeFixtures(this);
-  const previousFixtures = control.fixtures.get("utama");
+  const previousFixtures = control.fixtures.get("primary");
   assert.ok(previousFixtures);
   const page = this.requirePage();
   await page.getByRole("button", { name: `Pilih ${fixtures.publicRepository.fullName}`, exact: true }).waitFor();
   assert.equal(await page.getByRole("button", { name: `Pilih ${fixtures.publicRepository.fullName}`, exact: true }).count(), 1);
   assert.equal(await page.getByRole("button", { name: `Pilih ${previousFixtures.publicRepository.fullName}`, exact: true }).count(), 0);
-  assert.ok(control.mismatchedAccountHeaders.includes(this.account("utama").githubUserId));
+  assert.ok(control.mismatchedAccountHeaders.includes(this.account("primary").githubUserId));
   assert.ok(control.accountHeaders.includes(account.githubUserId));
   assert.equal(control.unexpectedApiRequests, 0);
   assert.equal(control.analysisRequests, 0);
 });
 
-Then("UI tidak mengalami error JavaScript atau request API di luar skenario", function (this: SageWorld) {
+Then("the UI has no JavaScript errors or API requests outside the scenario", function (this: SageWorld) {
   const control = controlFor(this);
   assert.equal(control.pageErrors, 0);
   assert.equal(control.unexpectedApiRequests, 0);
