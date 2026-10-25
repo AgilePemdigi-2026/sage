@@ -16,7 +16,7 @@ Feature: Analysis stage runner persistence (Sprint 1)
     Then the runner fails at that stage, stores a safe error code, and leaves downstream stages pending
 
   @sprint1 @US_QueueLeaseSafety @SAGE_FR_ANA_11 @APP_11 @issue_35 @database @controlled
-  Scenario: Supporting SRS B.7.3 — Analysis fails (expired-lease recovery subset) — [SAGE-FR-ANA-11] Analysis Progress Update
+  Scenario: [SAGE-FR-ANA-11] Analysis Progress Update — Supporting local runner lease guard: an expired claim prevents stage execution
     Given a disposable PostgreSQL database, two owners, and one test repository are available
     When the first owner's claim lease expires before the runner starts a stage
     Then the stale runner invokes no handler, recovery moves the claim, and the old token cannot affect the slot
