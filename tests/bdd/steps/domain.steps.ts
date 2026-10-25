@@ -268,24 +268,24 @@ Then("generated files, metadata, and excluded dependencies remain recorded with 
   assert.ok(!result.ccm.nodes.some((node) => ["Legacy", "Generated", "AppMap"].includes(node.name)));
 });
 
-Then("the supported source remains analyzed when an unsupported-language source is present, and the result is partial when a sibling has a syntax error", function (this: SageWorld) {
+Then('the supported source remains analyzed with unsupported source {string} excluded for reason {string}, and the result has status {string} when a sibling has a syntax error', function (this: SageWorld, unsupportedPath: string, exclusionReason: string, expectedStatus: string) {
   const state = stateFor(this);
   const result = state.sourceResult;
   assert.ok(result?.ccm);
-  assert.equal(result.status, "partial");
+  assert.equal(result.status, expectedStatus);
   assert.equal(result.errorCode, null);
   assert.equal(result.report.counts.processed, 1);
   assert.equal(result.report.counts.failed, 1);
   assert.ok(result.diagnostics.some((diagnostic) => diagnostic.path === "src/bad.ts"));
   assert.ok(result.ccm.nodes.some((node) => node.name === "good"));
   assert.equal(result.ccm.files.find((file) => file.path === "src/bad.ts")?.status, "failed");
-  assert.equal(state.scanReport?.files.find((file) => file.path === "src/unsupported.rb")?.reason, "UNSUPPORTED_EXTENSION");
-  assert.equal(result.ccm.files.find((file) => file.path === "src/unsupported.rb")?.status, "excluded");
+  assert.equal(state.scanReport?.files.find((file) => file.path === unsupportedPath)?.reason, exclusionReason);
+  assert.equal(result.ccm.files.find((file) => file.path === unsupportedPath)?.status, "excluded");
 });
 
-Then("no supported source is found and the Composer canary is never created", async function (this: SageWorld) {
+Then('no supported source is found with diagnostic {string}, and the Composer canary is never created', async function (this: SageWorld, diagnostic: string) {
   const state = stateFor(this);
-  assert.equal(state.sourceResult?.errorCode, "NO_SUPPORTED_SOURCE");
+  assert.equal(state.sourceResult?.errorCode, diagnostic);
   assert.equal(state.sourceResult?.ccm, null);
   const composerFile = state.files.find((file) => file.relativePath === "composer.json");
   assert.ok(composerFile);
@@ -424,7 +424,7 @@ When("the runner executes nine test handlers in sequence for the first owner's a
   state.runnerResult = await runAnalysisStages(db, claim, handlers);
 });
 
-When("the STATIC_ANALYSIS handler throws an internal error while the runner executes the claim", async function (this: SageWorld) {
+When('the {string} handler throws an internal error while the runner executes the claim', async function (this: SageWorld, handlerKey: string) {
   const { db, state, owners, repositoryId } = requirePreparedDatabase(this);
   const enqueued = await enqueueFor(state, db, { ownerUserId: owners[0], repositoryId, commitSha: "9".repeat(40) });
   const claim = await claimAnalysisJob(db);
@@ -433,33 +433,34 @@ When("the STATIC_ANALYSIS handler throws an internal error while the runner exec
   assert.equal(claim.analysisId, enqueued.analysisId);
   state.runnerResult = await runAnalysisStages(db, claim, controlledHandlers((key) => {
     state.calledStages.push(key);
-    if (key === "STATIC_ANALYSIS") throw new Error("private source detail must not be persisted");
+    if (key === handlerKey) throw new Error("private source detail must not be persisted");
     return { stage: key, controlledTestStub: true };
   }));
 });
 
-Then("the runner fails at that stage, stores a safe error code, and leaves downstream stages pending", async function (this: SageWorld) {
+Then('the runner fails at stage {string} with status {string}, stores safe error code {string}, and leaves downstream stages {string}', async function (this: SageWorld, failedStage: string, failedStatus: string, errorCode: string, pendingStatus: string) {
   const { db, state, owners } = requirePreparedDatabase(this);
   const result = state.runnerResult;
   const claim = state.claims.at(-1);
   assert.ok(result && claim);
   const expectedKeys = ANALYSIS_STAGE_DEFINITIONS.map(({ key }) => key);
+  const failedStageIndex = expectedKeys.findIndex((key) => key === failedStage);
+  assert.notEqual(failedStageIndex, -1, `unknown failing stage: ${failedStage}`);
   assert.equal(result.stagesFinished, false);
-  assert.deepEqual(state.calledStages, ["SNAPSHOT", "LANGUAGE_DETECTION", "STATIC_ANALYSIS"]);
-  assert.deepEqual(result.stages.map(({ key, status, errorCode }) => [key, status, errorCode]), [
-    [expectedKeys[0], "COMPLETED", null],
-    [expectedKeys[1], "COMPLETED", null],
-    [expectedKeys[2], "FAILED", "STAGE_HANDLER_FAILED"],
-    ...expectedKeys.slice(3).map((key) => [key, "PENDING", null]),
-  ]);
+  assert.deepEqual(state.calledStages, expectedKeys.slice(0, failedStageIndex + 1));
+  assert.deepEqual(result.stages.map(({ key, status, errorCode: stageErrorCode }) => [key, status, stageErrorCode]), expectedKeys.map((key, index) => [
+    key,
+    index < failedStageIndex ? "COMPLETED" : index === failedStageIndex ? failedStatus : pendingStatus,
+    index === failedStageIndex ? errorCode : null,
+  ]));
   assert.equal(JSON.stringify(result).includes("private source detail"), false);
   assert.equal(JSON.stringify(await getOwnerAnalysisProgress(db, owners[0], claim.analysisId)).includes("private source detail"), false);
   assert.equal(await getOwnerAnalysisProgress(db, owners[1], claim.analysisId), null);
   const analysis = await db.analysis.findUniqueOrThrow({ where: { id: claim.analysisId }, select: { status: true, errorCode: true } });
-  assert.deepEqual(analysis, { status: "FAILED", errorCode: "STAGE_HANDLER_FAILED" });
+  assert.deepEqual(analysis, { status: failedStatus, errorCode });
 });
 
-Then("all nine stage statuses are completed in contract order, with no terminal product result published", async function (this: SageWorld) {
+Then('all nine stage statuses are {string} in contract order, with no terminal product result published', async function (this: SageWorld, completedStatus: string) {
   const { db, state, owners } = requirePreparedDatabase(this);
   const result = state.runnerResult;
   const claim = state.claims.at(-1);
@@ -468,7 +469,7 @@ Then("all nine stage statuses are completed in contract order, with no terminal 
   assert.equal(result.stagesFinished, true);
   assert.deepEqual(state.calledStages, expectedKeys);
   assert.equal(state.maxConcurrentHandlers, 1);
-  assert.deepEqual(result.stages.map(({ key, status }) => [key, status]), expectedKeys.map((key) => [key, "COMPLETED"]));
+  assert.deepEqual(result.stages.map(({ key, status }) => [key, status]), expectedKeys.map((key) => [key, completedStatus]));
   const progress = await getOwnerAnalysisProgress(db, owners[0], claim.analysisId);
   assert.deepEqual(progress?.stages.map(({ key }) => key), expectedKeys);
   assert.equal(progress?.status, "RUNNING");

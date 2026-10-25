@@ -6,8 +6,15 @@ Feature: GitHub connection denial and retry
 
   @US_GH_01 @SAGE_FR_GH_08 @SAGE_FR_GH_10
   Scenario: [SRS B.7.1 | SAGE-FR-GH-08 Permission Denial Handling + SAGE-FR-GH-10 Retry Connection] The developer denies GitHub access permission (controlled)
-    Given I am on the SAGE landing page
-    When I select the Connect with GitHub link
-    Then the sign-in form appears without starting an authorization request
+    Given I am on "/"
+    When I press "Hubungkan GitHub"
+    Then I should be on "/login"
+    And I should see "Masuk dengan GitHub"
+    And the button "Masuk dengan GitHub" is enabled
+    And no OAuth authorization request or external request was started
     When the controlled GitHub denial callback is returned
-    Then the UI shows a safe denial message and offers a retry action
+    Then I should be on "/login?error=denied"
+    And I should see "Permintaan akses GitHub dibatalkan. Kamu bisa memulai login lagi kapan saja."
+    And I should see "Masuk dengan GitHub"
+    And the button "Masuk dengan GitHub" is enabled
+    And the denial response exposes no OAuth state and starts no authorization request

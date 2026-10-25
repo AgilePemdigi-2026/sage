@@ -34,10 +34,10 @@ Feature: Static source analysis (Sprint 1)
       | src/bad.ts             | export class {            |
       | src/unsupported.rb     | class Unsupported; end    |
     When the static source analyzer runs on that snapshot
-    Then the supported source remains analyzed when an unsupported-language source is present, and the result is partial when a sibling has a syntax error
+    Then the supported source remains analyzed with unsupported source "src/unsupported.rb" excluded for reason "UNSUPPORTED_EXTENSION", and the result has status "partial" when a sibling has a syntax error
 
   @sprint1 @US_SafeSourceAnalysis @NFR_04 @issue_10 @domain @controlled
   Scenario: [NFR-04] Original source remains unchanged and target code is not executed — supporting local source-safety check: Composer hook non-execution
     Given a source snapshot contains a Composer configuration with a filesystem canary
     When the static source analyzer runs on that snapshot
-    Then no supported source is found and the Composer canary is never created
+    Then no supported source is found with diagnostic "NO_SUPPORTED_SOURCE", and the Composer canary is never created
