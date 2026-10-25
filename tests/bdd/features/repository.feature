@@ -1,67 +1,90 @@
-# language:id
+# language: en
 
 @sprint1 @controlled @browser @issue_7 @issue_66
-Fitur: Pemilihan repository dan validasi target di browser
+Feature: Select a repository and validate the analysis target
+  Browser coverage for SRS section 4.2 uses controlled API responses. The scenarios check selected normal and alternative flows, not full acceptance of every mapped requirement.
 
-  @US_REP_01 @SAGE_FR_REP_01 @SAGE_FR_REP_02 @SAGE_FR_REP_13 @SAGE_FR_GH_05 @SAGE_FR_GH_06
-  Skenario: daftar public dan private terotorisasi dapat dicari
-    Dengan API repository dikendalikan untuk skenario browser
-    Ketika saya membuka repository sebagai akun sintetis "utama"
-    Maka saya melihat repository public milik akun dan repository private berizin
-    Ketika saya mencari repository yang tidak ada dalam halaman yang dimuat
-    Maka hasil pencarian kosong tanpa menghapus daftar repository tersimpan
-    Maka UI tidak mengalami error JavaScript atau request API di luar skenario
+  @US_REP_01 @SAGE_FR_REP_01
+  Scenario: [Supporting check | SRS 4.2 | SAGE-FR-REP-01 Authorized Repository List] Authorized repositories are listed for a synthetic account
+    # Supporting check for the authorized repository list using controlled API fixtures.
+    Given repository APIs are controlled for the browser scenario
+    When I open the repositories page as synthetic account "primary"
+    Then I see the account's public repository and its authorized private repository
+    And the UI has no JavaScript errors or API requests outside the scenario
 
-  @US_REP_02 @SAGE_FR_REP_05 @SAGE_FR_REP_06 @SAGE_FR_REP_07 @SAGE_FR_REP_08 @SAGE_FR_REP_09
-  Skenario: branch terpilih memakai full SHA saat commit kosong atau ditentukan
-    Dengan API repository dikendalikan untuk skenario browser
-    Ketika saya membuka repository sebagai akun sintetis "utama"
-    Dan saya memilih repository public akun pada branch "feature/sprint-one"
-    Ketika saya memeriksa target dengan commit kosong
-    Maka target kosong memakai full SHA branch
-    Ketika saya memeriksa target dengan full SHA tersebut
-    Maka request validasi menyertakan full SHA yang dipilih
-    Dan UI tidak mengalami error JavaScript atau request API di luar skenario
+  @US_REP_01 @SAGE_FR_REP_13
+  Scenario: [SRS B.7.2 | SAGE-FR-REP-13 Repository Search Empty Result] Repository not found (controlled)
+    # SRS 4.2, Alternative Flow 1; the authorized list is retained while the empty search result is shown.
+    Given repository APIs are controlled for the browser scenario
+    When I open the repositories page as synthetic account "primary"
+    Then I see the account's public repository and its authorized private repository
+    When I search for a repository that is not in the loaded page
+    Then the search result is empty without clearing the stored repository list
+    And the UI has no JavaScript errors or API requests outside the scenario
 
-  @US_REP_02 @SAGE_FR_REP_05 @SAGE_FR_REP_09
-  Skenario: error branch dan validasi target dapat dicoba ulang
-    Dengan API repository dikendalikan untuk skenario browser
-    Dan API branch gagal pada permintaan pertama
-    Dan API validasi target gagal pada permintaan pertama
-    Ketika saya membuka repository sebagai akun sintetis "utama"
-    Dan saya memilih repository public akun
-    Maka UI menampilkan error branch terkendali dengan opsi retry
-    Ketika saya mencoba ulang pemuatan branch
-    Dan saya mengirim validasi target
-    Maka UI menampilkan error target terkendali tanpa kehilangan pilihan
-    Ketika saya mengulangi validasi target
-    Maka target berhasil tervalidasi setelah retry
-    Dan UI tidak mengalami error JavaScript atau request API di luar skenario
+  @US_REP_02 @SAGE_FR_REP_08
+  Scenario: [SRS B.7.2 | SAGE-FR-REP-08 Latest Commit Fallback] Successfully select a repository and branch without a commit (controlled)
+    # SRS 4.2 normal flow, steps 5-10; target checks use controlled API responses.
+    Given repository APIs are controlled for the browser scenario
+    When I open the repositories page as synthetic account "primary"
+    And I select the account's public repository on branch "feature/sprint-one"
+    When I check the target without specifying a commit
+    Then an empty commit uses the branch's full SHA
+    And the UI has no JavaScript errors or API requests outside the scenario
 
-  @US_REP_01 @SAGE_FR_REP_01 @SAGE_FR_GH_05
-  Skenario: kegagalan daftar repository public dapat dicoba ulang
-    Dengan API repository dikendalikan untuk skenario browser
-    Dan API daftar repository public gagal pada permintaan pertama
-    Ketika saya membuka repository sebagai akun sintetis "utama"
-    Maka daftar repository public menampilkan error dan tindakan retry
-    Ketika saya mencoba ulang daftar repository public
-    Maka daftar repository public pulih setelah retry
-    Dan UI tidak mengalami error JavaScript atau request API di luar skenario
+  @US_REP_02 @SAGE_FR_REP_07
+  Scenario: [SRS B.7.2 | SAGE-FR-REP-07 Optional Commit Selection] Successfully select a repository with a specific commit (controlled)
+    # SRS 4.2 normal flow, steps 5-9; the selected full SHA is checked against a controlled API fixture.
+    Given repository APIs are controlled for the browser scenario
+    When I open the repositories page as synthetic account "primary"
+    And I select the account's public repository on branch "feature/sprint-one"
+    When I check the target with a specific full SHA
+    Then the validation request includes the selected full SHA
+    And the UI has no JavaScript errors or API requests outside the scenario
 
   @US_REP_02 @SAGE_FR_REP_05 @SAGE_FR_REP_09
-  Skenario: repository tanpa branch menahan validasi sampai branch dimuat ulang
-    Dengan API repository dikendalikan untuk skenario browser
-    Dan API branch mengembalikan daftar kosong pada permintaan pertama
-    Ketika saya membuka repository sebagai akun sintetis "utama"
-    Dan saya memilih repository public akun
-    Maka branch kosong mencegah pemeriksaan target dan dapat dimuat ulang
-    Dan UI tidak mengalami error JavaScript atau request API di luar skenario
+  Scenario: [Supporting check | SRS 4.2 | SAGE-FR-REP-05 Branch Retrieval + SAGE-FR-REP-09 Analysis Target Validation] Controlled branch and target failures can be retried
+    # Supporting check for controlled branch retrieval and target validation failures and retries.
+    Given repository APIs are controlled for the browser scenario
+    And the branch API fails on the first request
+    And the target validation API fails on the first request
+    When I open the repositories page as synthetic account "primary"
+    And I select the account's public repository
+    Then the UI shows a controlled branch error with a retry action
+    When I retry branch loading
+    And I submit target validation
+    Then the UI shows a controlled target error without losing the selection
+    When I retry target validation
+    Then target validation succeeds after the retry
+    And the UI has no JavaScript errors or API requests outside the scenario
 
-  @US_REP_01 @SAGE_FR_GH_05 @SAGE_FR_REP_01
-  Skenario: pergantian session membersihkan daftar milik akun sebelumnya
-    Dengan API repository dikendalikan untuk skenario browser
-    Ketika saya membuka repository sebagai akun sintetis "utama"
-    Maka saya melihat repository public milik akun dan repository private berizin
-    Ketika session browser berganti ke akun sintetis "kedua"
-    Maka repository yang terlihat hanya berasal dari akun baru
-    Dan UI tidak mengalami error JavaScript atau request API di luar skenario
+  @US_REP_01 @SAGE_FR_REP_01
+  Scenario: [Supporting check | SRS 4.2 | SAGE-FR-REP-01 Authorized Repository List] A controlled public repository list failure can be retried
+    # Supporting check for the authorized list using a controlled failure and retry.
+    Given repository APIs are controlled for the browser scenario
+    And the public repository list API fails on the first request
+    When I open the repositories page as synthetic account "primary"
+    Then the public repository list shows an error and a retry action
+    When I retry loading the public repository list
+    Then the public repository list recovers after the retry
+    And the UI has no JavaScript errors or API requests outside the scenario
+
+  @US_REP_02 @SAGE_FR_REP_05 @SAGE_FR_REP_09
+  Scenario: [Supporting check | SRS 4.2 | SAGE-FR-REP-05 Branch Retrieval + SAGE-FR-REP-09 Analysis Target Validation] An empty branch list blocks target validation until reloaded
+    # Supporting check for the empty-branch guard with controlled API responses.
+    Given repository APIs are controlled for the browser scenario
+    And the branch API returns an empty list on the first request
+    When I open the repositories page as synthetic account "primary"
+    And I select the account's public repository
+    Then an empty branch list prevents target validation and can be reloaded
+    And the UI has no JavaScript errors or API requests outside the scenario
+
+  @US_REP_01 @SAGE_FR_GH_06
+  Scenario: [Supporting check | SRS 4.1 / 5.3 | SAGE-FR-GH-06 Repository Access Restriction] Switching accounts isolates the visible repositories
+    # Supporting check for repository access restriction and SRS 5.3 user access isolation; synthetic accounts and controlled APIs do not represent live provider authorization.
+    Given repository APIs are controlled for the browser scenario
+    When I open the repositories page as synthetic account "primary"
+    Then I see the account's public repository and its authorized private repository
+    When the browser session switches to synthetic account "secondary"
+    Then only the new account's repositories are visible
+    And the UI has no JavaScript errors or API requests outside the scenario

@@ -1,12 +1,13 @@
-# language:id
+# language: en
 
 @sprint1 @controlled @browser @issue_5
-Fitur: Aksi menghubungkan akun GitHub dari halaman utama
+Feature: GitHub connection denial and retry
+  SRS section 4.1, Alternative Flow 1. This browser scenario uses a controlled denial callback; it does not verify live GitHub OAuth or full requirement acceptance.
 
-  @US_GH_01 @SAGE_FR_GH_01 @SAGE_FR_GH_03 @SAGE_FR_GH_08 @SAGE_FR_GH_10
-  Skenario: callback penolakan menampilkan pesan aman dan login dapat dicoba lagi
-    Dengan saya berada pada halaman utama SAGE
-    Ketika saya memilih tautan Hubungkan GitHub
-    Maka form login tampil tanpa memulai permintaan otorisasi
-    Ketika callback GitHub terkendali ditolak
-    Maka UI menampilkan pesan penolakan yang aman dan menyediakan retry
+  @US_GH_01 @SAGE_FR_GH_08 @SAGE_FR_GH_10
+  Scenario: [SRS B.7.1 | SAGE-FR-GH-08 Permission Denial Handling + SAGE-FR-GH-10 Retry Connection] The developer denies GitHub access permission (controlled)
+    Given I am on the SAGE landing page
+    When I select the Connect with GitHub link
+    Then the sign-in form appears without starting an authorization request
+    When the controlled GitHub denial callback is returned
+    Then the UI shows a safe denial message and offers a retry action

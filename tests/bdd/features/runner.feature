@@ -1,22 +1,22 @@
-# language: id
-Fitur: Persistensi runner tahap analysis Sprint 1
-  Handler pada skenario ini adalah stub tepercaya khusus BDD untuk memeriksa kontrak runner.
-  Status sembilan tahap selesai tidak berarti consumer repository, hasil graph, atau dokumen produk telah diterima.
+# language: en
+Feature: Analysis stage runner persistence (Sprint 1)
+  Handlers in these scenarios are trusted BDD-only stubs used to verify the runner contract.
+  Completing nine stages does not constitute acceptance of the repository consumer, graph results, or product documents.
 
-  @sprint1 @US_TrackAnalysisProgress @SAGE_FR_REP_12 @SAGE_FR_ANA_11 @issue_35 @database @controlled
-  Skenario: Runner mempersistenkan sembilan tahap secara berurutan
-    Dengan database PostgreSQL disposable, dua pemilik, dan satu repository uji tersedia
-    Ketika runner mengeksekusi sembilan handler uji berurutan untuk analysis pemilik pertama
-    Maka sembilan status tahap selesai sesuai urutan kontrak dan tidak menerbitkan hasil produk terminal
+  @sprint1 @US_TrackAnalysisProgress @SAGE_FR_ANA_11 @issue_35 @database @controlled
+  Scenario: Supporting SRS B.7.3 — Repository analysis completes successfully: stage persistence only — [SAGE-FR-ANA-11] Analysis Progress Update
+    Given a disposable PostgreSQL database, two owners, and one test repository are available
+    When the runner executes nine test handlers in sequence for the first owner's analysis
+    Then all nine stage statuses are completed in contract order, with no terminal product result published
 
-  @sprint1 @US_TrackAnalysisProgress @SAGE_FR_REP_12 @SAGE_FR_ANA_11 @SAGE_FR_ANA_13 @issue_35 @database @controlled
-  Skenario: Kegagalan handler menghentikan tahap downstream
-    Dengan database PostgreSQL disposable, dua pemilik, dan satu repository uji tersedia
-    Ketika handler STATIC_ANALYSIS melempar error internal saat runner menjalankan claim
-    Maka runner gagal pada tahap tersebut, kode error aman disimpan, dan tahap downstream tetap pending
+  @sprint1 @US_TrackAnalysisProgress @SAGE_FR_ANA_11 @APP_11 @issue_35 @database @controlled
+  Scenario: Supporting SRS B.7.3 — Analysis fails (trusted-handler subset) — [SAGE-FR-ANA-11] Analysis Progress Update
+    Given a disposable PostgreSQL database, two owners, and one test repository are available
+    When the STATIC_ANALYSIS handler throws an internal error while the runner executes the claim
+    Then the runner fails at that stage, stores a safe error code, and leaves downstream stages pending
 
-  @sprint1 @US_QueueLeaseSafety @SAGE_FR_REP_12 @SAGE_FR_ANA_11 @issue_35 @database @controlled
-  Skenario: Runner tidak menjalankan handler setelah lease claim kedaluwarsa
-    Dengan database PostgreSQL disposable, dua pemilik, dan satu repository uji tersedia
-    Ketika lease claim pemilik pertama kedaluwarsa sebelum runner memulai tahap
-    Maka runner usang tidak memanggil handler, recovery memindahkan claim, dan token lama tidak dapat menyentuh slot
+  @sprint1 @US_QueueLeaseSafety @SAGE_FR_ANA_11 @APP_11 @issue_35 @database @controlled
+  Scenario: [SAGE-FR-ANA-11] Analysis Progress Update — Supporting local runner lease guard: an expired claim prevents stage execution
+    Given a disposable PostgreSQL database, two owners, and one test repository are available
+    When the first owner's claim lease expires before the runner starts a stage
+    Then the stale runner invokes no handler, recovery moves the claim, and the old token cannot affect the slot

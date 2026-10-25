@@ -143,7 +143,7 @@ async function prepareDatabaseFixture(world: SageWorld): Promise<{ db: PrismaCli
 function requirePreparedDatabase(world: SageWorld): { db: PrismaClient; state: DomainState; owners: [string, string]; repositoryId: string; repositoryFullName: string } {
   const state = stateFor(world);
   if (!state.db || !state.owners || !state.repositoryId || !state.repositoryFullName) {
-    throw new Error("PostgreSQL fixture belum disiapkan oleh Given.");
+    throw new Error("The PostgreSQL fixture has not been prepared by the Given step.");
   }
   return {
     db: state.db,
@@ -203,14 +203,14 @@ function controlledHandlers(onStage: (key: string) => Promise<unknown> | unknown
   return handlers;
 }
 
-Given("snapshot immutable berisi source berikut:", function (this: SageWorld, table: DataTable) {
+Given("an immutable snapshot contains the following source files:", function (this: SageWorld, table: DataTable) {
   const state = stateFor(this);
   state.files = table.hashes().map((row) => snapshotFile(row.path!, row.source!));
   state.sourceResult = null;
   state.scanReport = null;
 });
 
-Given("source snapshot berisi konfigurasi Composer dengan canary filesystem", function (this: SageWorld) {
+Given("a source snapshot contains a Composer configuration with a filesystem canary", function (this: SageWorld) {
   const state = stateFor(this);
   const canaryPath = join(tmpdir(), `sage-bdd-canary-${randomUUID()}`);
   state.canaryPath = canaryPath;
@@ -225,16 +225,16 @@ Given("source snapshot berisi konfigurasi Composer dengan canary filesystem", fu
   state.files = [snapshotFile("composer.json", composerJson)];
 });
 
-When("analyzer source statis dijalankan pada snapshot tersebut", async function (this: SageWorld) {
+When("the static source analyzer runs on that snapshot", async function (this: SageWorld) {
   const state = stateFor(this);
   const files = state.files;
   state.scanReport = scanSnapshotSources(files);
   state.sourceResult = await analyzeSnapshotSources({ snapshot: testSnapshot, files });
 });
 
-Then("CCM mengandung deklarasi JavaScript dan PHP yang valid terhadap byte sumber", function (this: SageWorld) {
+Then("the CCM contains JavaScript and PHP declarations validated against the source bytes", function (this: SageWorld) {
   const result = stateFor(this).sourceResult;
-  assert.ok(result?.ccm, "adapter harus menghasilkan CCM");
+  assert.ok(result?.ccm, "the adapter must produce a CCM");
   assert.equal(result.status, "complete");
   assert.ok(result.ccm.nodes.some((node) => node.language === "javascript" && node.name === "App"));
   assert.ok(result.ccm.nodes.some((node) => node.language === "php" && node.name === "Contract"));
@@ -249,7 +249,7 @@ Then("CCM mengandung deklarasi JavaScript dan PHP yang valid terhadap byte sumbe
   }
 });
 
-Then("file generated, metadata, dan dependency yang dikecualikan tetap tercatat dengan alasan policy", function (this: SageWorld) {
+Then("generated files, metadata, and excluded dependencies remain recorded with policy reasons", function (this: SageWorld) {
   const state = stateFor(this);
   const result = state.sourceResult;
   const report = state.scanReport;
@@ -268,8 +268,9 @@ Then("file generated, metadata, dan dependency yang dikecualikan tetap tercatat 
   assert.ok(!result.ccm.nodes.some((node) => ["Legacy", "Generated", "AppMap"].includes(node.name)));
 });
 
-Then("file valid tetap dianalisis ketika sibling gagal syntax dan hasil ditandai parsial", function (this: SageWorld) {
-  const result = stateFor(this).sourceResult;
+Then("the supported source remains analyzed when an unsupported-language source is present, and the result is partial when a sibling has a syntax error", function (this: SageWorld) {
+  const state = stateFor(this);
+  const result = state.sourceResult;
   assert.ok(result?.ccm);
   assert.equal(result.status, "partial");
   assert.equal(result.errorCode, null);
@@ -278,9 +279,11 @@ Then("file valid tetap dianalisis ketika sibling gagal syntax dan hasil ditandai
   assert.ok(result.diagnostics.some((diagnostic) => diagnostic.path === "src/bad.ts"));
   assert.ok(result.ccm.nodes.some((node) => node.name === "good"));
   assert.equal(result.ccm.files.find((file) => file.path === "src/bad.ts")?.status, "failed");
+  assert.equal(state.scanReport?.files.find((file) => file.path === "src/unsupported.rb")?.reason, "UNSUPPORTED_EXTENSION");
+  assert.equal(result.ccm.files.find((file) => file.path === "src/unsupported.rb")?.status, "excluded");
 });
 
-Then("tidak ada source yang didukung dan canary Composer tidak pernah dibuat", async function (this: SageWorld) {
+Then("no supported source is found and the Composer canary is never created", async function (this: SageWorld) {
   const state = stateFor(this);
   assert.equal(state.sourceResult?.errorCode, "NO_SUPPORTED_SOURCE");
   assert.equal(state.sourceResult?.ccm, null);
@@ -297,21 +300,21 @@ Then("tidak ada source yang didukung dan canary Composer tidak pernah dibuat", a
   }
 });
 
-Given("database PostgreSQL disposable, dua pemilik, dan satu repository uji tersedia", async function (this: SageWorld) {
+Given("a disposable PostgreSQL database, two owners, and one test repository are available", async function (this: SageWorld) {
   await prepareDatabaseFixture(this);
 });
 
-When("pemilik pertama mengantrekan commit {string}", async function (this: SageWorld, commitSha: string) {
+When("the first owner enqueues commit {string}", async function (this: SageWorld, commitSha: string) {
   const { db, state, owners, repositoryId } = requirePreparedDatabase(this);
   await enqueueFor(state, db, { ownerUserId: owners[0], repositoryId, commitSha });
 });
 
-When("pemilik kedua mengantrekan commit {string}", async function (this: SageWorld, commitSha: string) {
+When("the second owner enqueues commit {string}", async function (this: SageWorld, commitSha: string) {
   const { db, state, owners, repositoryId } = requirePreparedDatabase(this);
   await enqueueFor(state, db, { ownerUserId: owners[1], repositoryId, commitSha });
 });
 
-Then("hanya satu claim global aktif, FIFO memberi pemilik pertama giliran, dan owner lain tidak dapat membaca analisisnya", async function (this: SageWorld) {
+Then("only one global claim is active; FIFO gives the first owner priority, and another owner cannot read the first owner's analysis", async function (this: SageWorld) {
   const { db, state, owners } = requirePreparedDatabase(this);
   const first = state.enqueued[0];
   const second = state.enqueued[1];
@@ -320,7 +323,7 @@ Then("hanya satu claim global aktif, FIFO memberi pemilik pertama giliran, dan o
   assert.ok(claim);
   state.claims.push(claim);
   assert.equal(claim.analysisId, first.analysisId);
-  assert.equal(await claimAnalysisJob(db), null, "fixed global slot must reject a second active claim");
+  assert.equal(await claimAnalysisJob(db), null, "the fixed global slot must reject a second active claim");
   const rows = await db.analysis.findMany({
     where: { id: { in: [first.analysisId, second.analysisId] } },
     select: { id: true, ownerUserId: true, status: true, commitSha: true },
@@ -335,7 +338,7 @@ Then("hanya satu claim global aktif, FIFO memberi pemilik pertama giliran, dan o
   assert.equal((await getOwnerAnalysisProgress(db, owners[1], second.analysisId))?.status, "QUEUED");
 });
 
-When("pemilik pertama mengantrekan key {string} payload {string} dan commit {string}", async function (this: SageWorld, key: string, payload: string, commitSha: string) {
+When("the first owner enqueues key {string} with payload {string} and commit {string}", async function (this: SageWorld, key: string, payload: string, commitSha: string) {
   const { db, state, owners, repositoryId } = requirePreparedDatabase(this);
   await enqueueFor(state, db, {
     ownerUserId: owners[0], repositoryId, commitSha,
@@ -343,7 +346,7 @@ When("pemilik pertama mengantrekan key {string} payload {string} dan commit {str
   });
 });
 
-When("pemilik kedua mengirim key {string} payload {string} dan commit {string}", async function (this: SageWorld, key: string, payload: string, commitSha: string) {
+When("the second owner submits key {string} with payload {string} and commit {string}", async function (this: SageWorld, key: string, payload: string, commitSha: string) {
   const { db, state, owners, repositoryId } = requirePreparedDatabase(this);
   await enqueueFor(state, db, {
     ownerUserId: owners[1], repositoryId, commitSha,
@@ -351,7 +354,7 @@ When("pemilik kedua mengirim key {string} payload {string} dan commit {string}",
   });
 });
 
-Then("replay pemilik pertama mempertahankan full SHA awal sedangkan key yang sama membuat analysis terpisah untuk pemilik kedua", async function (this: SageWorld) {
+Then("the first owner's replay retains the original full SHA, while the same key creates a separate analysis for the second owner", async function (this: SageWorld) {
   const { db, state, owners } = requirePreparedDatabase(this);
   const first = state.enqueued[0];
   const replay = state.enqueued[1];
@@ -369,7 +372,7 @@ Then("replay pemilik pertama mempertahankan full SHA awal sedangkan key yang sam
   assert.equal(await db.analysis.count({ where: { ownerUserId: owners[1] } }), 1);
 });
 
-When("dua pemilik mengantre lalu claim pertama kedaluwarsa dan worker baru mengklaim antrean", async function (this: SageWorld) {
+When("two owners enqueue jobs, the first claim expires, and a new worker claims the next job", async function (this: SageWorld) {
   const { db, state, owners, repositoryId } = requirePreparedDatabase(this);
   await enqueueFor(state, db, { ownerUserId: owners[0], repositoryId, commitSha: "d".repeat(40) });
   await enqueueFor(state, db, { ownerUserId: owners[1], repositoryId, commitSha: "e".repeat(40) });
@@ -384,7 +387,7 @@ When("dua pemilik mengantre lalu claim pertama kedaluwarsa dan worker baru mengk
   assert.equal(nextClaim.analysisId, state.enqueued[1]?.analysisId);
 });
 
-Then("token lease lama tidak dapat memperbarui atau menggagalkan job baru yang sedang berjalan", async function (this: SageWorld) {
+Then("the old lease token cannot renew or fail the new running job", async function (this: SageWorld) {
   const { db, state } = requirePreparedDatabase(this);
   const oldClaim = state.claims.at(-2);
   const currentClaim = state.claims.at(-1);
@@ -397,7 +400,7 @@ Then("token lease lama tidak dapat memperbarui atau menggagalkan job baru yang s
   assert.deepEqual(interrupted, { status: "FAILED", errorCode: "WORKER_INTERRUPTED" });
 });
 
-When("runner mengeksekusi sembilan handler uji berurutan untuk analysis pemilik pertama", async function (this: SageWorld) {
+When("the runner executes nine test handlers in sequence for the first owner's analysis", async function (this: SageWorld) {
   const { db, state, owners, repositoryId } = requirePreparedDatabase(this);
   const enqueued = await enqueueFor(state, db, { ownerUserId: owners[0], repositoryId, commitSha: "f".repeat(40) });
   const claim = await claimAnalysisJob(db);
@@ -421,7 +424,7 @@ When("runner mengeksekusi sembilan handler uji berurutan untuk analysis pemilik 
   state.runnerResult = await runAnalysisStages(db, claim, handlers);
 });
 
-When("handler STATIC_ANALYSIS melempar error internal saat runner menjalankan claim", async function (this: SageWorld) {
+When("the STATIC_ANALYSIS handler throws an internal error while the runner executes the claim", async function (this: SageWorld) {
   const { db, state, owners, repositoryId } = requirePreparedDatabase(this);
   const enqueued = await enqueueFor(state, db, { ownerUserId: owners[0], repositoryId, commitSha: "9".repeat(40) });
   const claim = await claimAnalysisJob(db);
@@ -435,7 +438,7 @@ When("handler STATIC_ANALYSIS melempar error internal saat runner menjalankan cl
   }));
 });
 
-Then("runner gagal pada tahap tersebut, kode error aman disimpan, dan tahap downstream tetap pending", async function (this: SageWorld) {
+Then("the runner fails at that stage, stores a safe error code, and leaves downstream stages pending", async function (this: SageWorld) {
   const { db, state, owners } = requirePreparedDatabase(this);
   const result = state.runnerResult;
   const claim = state.claims.at(-1);
@@ -456,7 +459,7 @@ Then("runner gagal pada tahap tersebut, kode error aman disimpan, dan tahap down
   assert.deepEqual(analysis, { status: "FAILED", errorCode: "STAGE_HANDLER_FAILED" });
 });
 
-Then("sembilan status tahap selesai sesuai urutan kontrak dan tidak menerbitkan hasil produk terminal", async function (this: SageWorld) {
+Then("all nine stage statuses are completed in contract order, with no terminal product result published", async function (this: SageWorld) {
   const { db, state, owners } = requirePreparedDatabase(this);
   const result = state.runnerResult;
   const claim = state.claims.at(-1);
@@ -476,7 +479,7 @@ Then("sembilan status tahap selesai sesuai urutan kontrak dan tidak menerbitkan 
   assert.deepEqual(current, { status: "RUNNING", graphBundle: null, architectureDocument: null });
 });
 
-When("lease claim pemilik pertama kedaluwarsa sebelum runner memulai tahap", async function (this: SageWorld) {
+When("the first owner's claim lease expires before the runner starts a stage", async function (this: SageWorld) {
   const { db, state, owners, repositoryId } = requirePreparedDatabase(this);
   await enqueueFor(state, db, { ownerUserId: owners[0], repositoryId, commitSha: "1".repeat(40) });
   await enqueueFor(state, db, { ownerUserId: owners[1], repositoryId, commitSha: "2".repeat(40) });
@@ -493,7 +496,7 @@ When("lease claim pemilik pertama kedaluwarsa sebelum runner memulai tahap", asy
   state.calledStages.push(`expired-runner-handler-calls:${handlerCalls}`);
 });
 
-Then("runner usang tidak memanggil handler, recovery memindahkan claim, dan token lama tidak dapat menyentuh slot", async function (this: SageWorld) {
+Then("the stale runner invokes no handler, recovery moves the claim, and the old token cannot affect the slot", async function (this: SageWorld) {
   const { db, state } = requirePreparedDatabase(this);
   const oldClaim = state.claims.at(-1);
   assert.ok(oldClaim);
