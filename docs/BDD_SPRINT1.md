@@ -12,7 +12,7 @@ Suite ini memberi bukti parsial pada beberapa bagian kontrak. Tidak ada skenario
 
 ## Status revisi dan bukti historis
 
-Revisi feature Inggris saat ini: **PASS — 20 skenario, 120 langkah**, run `2026-10-25T07-16-57-387Z` pada commit tes `01be063`. Lint pada berkas BDD dan typecheck lulus. Run menggunakan PostgreSQL disposable baru dan memasang berkas tes Inggris saat ini pada production image teruji dari 23 Oktober; source aplikasi tidak berubah pada revisi ini, sehingga image aplikasi tidak dibangun ulang. Semua container/network uji dibersihkan setelah eksekusi. Manifest, JSON, dan HTML pada `artifacts/bdd/2026-10-25T07-16-57-387Z/` mencatat bukti eksekusi tersebut. Dry-run mengenali seluruh 20 skenario/120 langkah tanpa step undefined.
+Revisi parameter petik dua saat ini: **PASS — 20 skenario, 156 langkah**, run `2026-10-25T09-11-51-985Z` pada commit tes `9095ef4`. Lint berkas BDD dan typecheck lulus. Run menggunakan PostgreSQL disposable baru dan memasang berkas tes saat ini pada production image teruji dari 23 Oktober; source aplikasi tidak berubah sehingga image aplikasi tidak dibangun ulang. Semua container/network uji dibersihkan setelah eksekusi. Manifest, JSON, dan HTML tersedia di `artifacts/bdd/2026-10-25T09-11-51-985Z/`. Dry-run mengenali seluruh 20 skenario/156 langkah tanpa step undefined. Kontrol negatif dengan diagnostic petik dua yang sengaja salah menghasilkan exit 1 pada assertion, membuktikan nilai parameter dipakai; laporan kontrol `negative-quoted-value-1792919398775676000` merupakan kegagalan yang diharapkan, bukan hasil suite utama.
 
 Bukti berikut berasal dari **revisi sebelumnya**, bukan feature berbahasa Inggris; catatan run 23 Oktober awalnya dibuat untuk [issue #82](https://github.com/AgilePemdigi-2026/sage/issues/82):
 
@@ -22,6 +22,18 @@ Bukti berikut berasal dari **revisi sebelumnya**, bukan feature berbahasa Inggri
 - Pada revisi lama, lint, typecheck, 292 tes utama, dan 8 tes data lulus. Guard menolak database selain sage_bdd_sprint1 sebelum akses data dan menolak pemilihan tag tanpa skenario. Kontrol negatif menolak port 3000 yang sudah dipakai sebelum migrasi; kontrol positif Composer menulis canary hanya ketika hook sengaja dijalankan di container terpisah.
 
 Laporan historis tersimpan di `artifacts/bdd/<run-id>/` dan direktori itu diabaikan Git. Angka dan status di atas tidak berlaku untuk revisi sekarang.
+
+## Gaya parameter petik dua sesuai SRS
+
+Langkah memakai pola konkret seperti lampiran B.7: URL, label kontrol, pesan, nilai input, status, dan kode error yang menjadi parameter ditulis dalam petik dua. Kalimat Gherkin tetap berbahasa Inggris; teks UI di dalam petik dua mengikuti aplikasi.
+
+```gherkin
+Given I am on "/"
+When I press "Hubungkan GitHub"
+Then I should see "Masuk dengan GitHub"
+```
+
+Parameter diikat dengan Cucumber Expression `{string}` dan benar-benar dipakai untuk navigasi, interaksi, atau assertion. Contohnya `I fill in {string} with {string}` menerima label field serta nilainya; nilai kosong ditulis `""`. `{string}` sudah mencakup petik pembungkus, sehingga step definition tidak menambahkan petik lagi di sekitar placeholder. URL browser dibatasi ke path lokal pada origin tes. Alias fixture yang ditulis dalam petik dua tetap merupakan alias, bukan nama repository GitHub nyata. Seluruh kalimat langkah tidak dibungkus petik; DataTable source tetap memakai format tabel dan byte fixture aslinya.
 
 ## Menjalankan
 

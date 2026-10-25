@@ -188,7 +188,7 @@ Pengujian fixture tidak membuktikan pipeline produk, ekspor PDF, history atau pe
 
 ## Acceptance Cucumber BDD Sprint 1
 
-Feature, scenario, dan step Cucumber menggunakan Gherkin berbahasa Inggris. Suite ini berisi 10 skenario browser dengan API terkendali dan 10 pemeriksaan pendukung domain untuk source, antrean, serta runner. `npm run test:bdd:dry` memvalidasi sintaks dan resolusi step tanpa menjalankan assertion perilaku; run langsung perlu Node 24, database PostgreSQL disposable, dan server lokal. Untuk run terisolasi dengan Docker gunakan `npm run test:bdd:docker`. Laporan per run disimpan di `artifacts/bdd/`. [BDD Sprint 1](docs/BDD_SPRINT1.md) memetakan setiap tes aktual ke katalog sepuluh skenario sumber SRS B.7.1–B.7.3, termasuk batas cakupan dan pemeriksaan lokal yang bukan skenario SRS. Browser terkendali tidak membuktikan GitHub live atau penerimaan pipeline produk penuh.
+Feature, scenario, dan step Cucumber menggunakan Gherkin berbahasa Inggris dengan parameter URL, label, pesan, dan input dalam petik dua sesuai gaya SRS. Suite ini berisi 10 skenario browser dengan API terkendali dan 10 pemeriksaan pendukung domain untuk source, antrean, serta runner. `npm run test:bdd:dry` memvalidasi sintaks dan resolusi step tanpa menjalankan assertion perilaku; run langsung perlu Node 24, database PostgreSQL disposable, dan server lokal. Untuk run terisolasi dengan Docker gunakan `npm run test:bdd:docker`. Laporan per run disimpan di `artifacts/bdd/`. [BDD Sprint 1](docs/BDD_SPRINT1.md) memetakan setiap tes aktual ke katalog sepuluh skenario sumber SRS B.7.1–B.7.3, termasuk batas cakupan dan pemeriksaan lokal yang bukan skenario SRS. Browser terkendali tidak membuktikan GitHub live atau penerimaan pipeline produk penuh.
 
 ## Stack teknologi
 

@@ -194,7 +194,16 @@ async function routeControlledApi(route: Route, control: ApiControl): Promise<vo
   await route.abort("failed");
 }
 
-async function openRepositoryPage(world: SageWorld, alias: string): Promise<void> {
+function sameOriginLocalUrl(world: SageWorld, path: string): URL {
+  assert.ok(path.startsWith("/") && !path.startsWith("//"), "Browser navigation must use a same-origin local path.");
+  assert.ok(!path.includes("\\") && !/[\u0000-\u001f\u007f]/.test(path), "Browser navigation path contains an invalid character.");
+  const baseUrl = new URL(world.baseUrl);
+  const url = new URL(path, baseUrl);
+  assert.equal(url.origin, baseUrl.origin, "Browser navigation must stay on the configured local origin.");
+  return url;
+}
+
+async function openRepositoryPage(world: SageWorld, path: string, alias: string): Promise<void> {
   const account = await world.createSyntheticAccount(alias);
   const control = controlFor(world);
   control.activeAccount = account;
@@ -203,40 +212,108 @@ async function openRepositoryPage(world: SageWorld, alias: string): Promise<void
   page.on("pageerror", () => { control.pageErrors += 1; });
   await world.activateSyntheticAccount(alias);
   await page.route("**/api/**", route => routeControlledApi(route, control));
-  await page.goto(new URL("/workspace/repositories", world.baseUrl).toString(), { waitUntil: "domcontentloaded" });
+  await page.goto(sameOriginLocalUrl(world, path).toString(), { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: `Repository public milik @${account.connectionLogin}`, exact: true }).waitFor();
 }
 
-function activeFixtures(world: SageWorld): AccountFixtures {
-  const account = controlFor(world).activeAccount;
-  if (!account) throw new Error("Akun aktif untuk skenario browser belum tersedia.");
-  const fixtures = controlFor(world).fixtures.get(account.alias);
+function fixturesForAlias(world: SageWorld, alias: string): AccountFixtures {
+  const fixtures = controlFor(world).fixtures.get(alias);
   if (!fixtures) throw new Error("Fixture API repository belum tersedia.");
   return fixtures;
 }
 
-async function selectOwnedPublicRepository(world: SageWorld): Promise<void> {
-  const page = world.requirePage();
-  const repository = activeFixtures(world).publicRepository;
-  await page.getByRole("button", { name: `Pilih ${repository.fullName}`, exact: true }).click();
+function requireActiveAlias(world: SageWorld, alias: string): SyntheticAccount {
+  const account = controlFor(world).activeAccount;
+  assert.ok(account, "Akun aktif untuk skenario browser belum tersedia.");
+  assert.equal(account.alias, alias, "Akun aktif tidak sesuai dengan alias fixture pada skenario.");
+  return account;
 }
 
-Given("I am on the SAGE landing page", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.goto(this.baseUrl.toString(), { waitUntil: "domcontentloaded" });
-  await page.getByRole("heading", { name: /Pahami arsitektur/ }).waitFor();
+function fixtureRepository(world: SageWorld, kind: string, alias: string): Repository {
+  const fixtures = fixturesForAlias(world, alias);
+  if (kind === "public") return fixtures.publicRepository;
+  if (kind === "private") return fixtures.privateRepository;
+  throw new Error(`Jenis repository fixture tidak didukung: ${kind}`);
+}
+
+async function waitForFixtureRepository(world: SageWorld, kind: string, alias: string): Promise<void> {
+  const page = world.requirePage();
+  requireActiveAlias(world, alias);
+  const repository = fixtureRepository(world, kind, alias);
+  const action = page.getByRole("button", { name: `Pilih ${repository.fullName}`, exact: true });
+  await action.waitFor();
+  assert.equal(await action.count(), 1);
+}
+
+async function clickLocalAction(world: SageWorld, label: string): Promise<void> {
+  const page = world.requirePage();
+  const button = page.getByRole("button", { name: label, exact: true });
+  const link = page.getByRole("link", { name: label, exact: true });
+  await button.or(link).waitFor({ state: "visible" });
+  const [buttonCount, linkCount] = await Promise.all([button.count(), link.count()]);
+  assert.equal(buttonCount + linkCount, 1, `Expected one visible action named ${JSON.stringify(label)}.`);
+  const action = buttonCount === 1 ? button : link;
+  if (linkCount === 1) {
+    const href = await link.getAttribute("href");
+    assert.ok(href, `Link ${JSON.stringify(label)} must have a local destination.`);
+    sameOriginLocalUrl(world, href);
+  } else {
+    const destination = await button.evaluate(element => {
+      const explicit = element.getAttribute("formaction");
+      if (explicit !== null) return explicit;
+      return element.closest("form")?.getAttribute("action") ?? null;
+    });
+    if (destination) sameOriginLocalUrl(world, destination);
+  }
+  await action.click();
+}
+
+Given("I am on {string}", async function (this: SageWorld, path: string) {
+  const destination = sameOriginLocalUrl(this, path);
+  await this.requirePage().goto(destination.toString(), { waitUntil: "domcontentloaded" });
+  assert.equal(new URL(this.requirePage().url()).origin, destination.origin);
 });
 
-When("I select the Connect with GitHub link", async function (this: SageWorld) {
-  await this.requirePage().getByRole("link", { name: "Hubungkan GitHub", exact: true }).click();
+When("I open {string} as synthetic account {string}", async function (this: SageWorld, path: string, alias: string) {
+  await openRepositoryPage(this, path, alias);
 });
 
-Then("the sign-in form appears without starting an authorization request", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.getByRole("heading", { name: "Masuk dengan GitHub", exact: true }).waitFor();
-  const retry = page.getByRole("button", { name: "Masuk dengan GitHub", exact: true });
-  assert.equal(await retry.count(), 1);
-  assert.equal(await retry.isEnabled(), true);
+When("I open {string}", async function (this: SageWorld, path: string) {
+  const destination = sameOriginLocalUrl(this, path);
+  await this.requirePage().goto(destination.toString(), { waitUntil: "domcontentloaded" });
+  assert.equal(new URL(this.requirePage().url()).origin, destination.origin);
+});
+
+When("I press {string}", async function (this: SageWorld, label: string) {
+  await clickLocalAction(this, label);
+});
+
+When("I fill in {string} with {string}", async function (this: SageWorld, label: string, value: string) {
+  const field = this.requirePage().getByLabel(label, { exact: true });
+  await field.fill(value);
+  assert.equal(await field.inputValue(), value, `Field ${JSON.stringify(label)} did not retain its input.`);
+});
+
+When("I select {string} from {string}", async function (this: SageWorld, value: string, label: string) {
+  const field = this.requirePage().getByLabel(label, { exact: true });
+  await field.selectOption(value);
+  assert.equal(await field.inputValue(), value, `Field ${JSON.stringify(label)} did not select ${JSON.stringify(value)}.`);
+});
+
+Then("I should see {string}", async function (this: SageWorld, text: string) {
+  assert.notEqual(text, "", "The expected visible text cannot be empty.");
+  await this.requirePage().waitForFunction(expected => document.body?.innerText.includes(expected), text);
+});
+
+Then("I should be on {string}", async function (this: SageWorld, path: string) {
+  const expected = sameOriginLocalUrl(this, path);
+  await this.requirePage().waitForURL(actual => actual.origin === expected.origin
+    && actual.pathname === expected.pathname
+    && actual.search === expected.search
+    && actual.hash === expected.hash);
+});
+
+Then("no OAuth authorization request or external request was started", function (this: SageWorld) {
   assert.equal(this.oauthStartPostRequests, 0);
   assert.equal(this.blockedExternalRequests, 0);
 });
@@ -245,16 +322,8 @@ When("the controlled GitHub denial callback is returned", async function (this: 
   await this.visitControlledOAuthDenial();
 });
 
-Then("the UI shows a safe denial message and offers a retry action", async function (this: SageWorld) {
+Then("the denial response exposes no OAuth state and starts no authorization request", async function (this: SageWorld) {
   const page = this.requirePage();
-  await page.waitForURL(url => url.pathname === "/login" && url.searchParams.get("error") === "denied");
-  await page.getByRole("alert").getByText(
-    "Permintaan akses GitHub dibatalkan. Kamu bisa memulai login lagi kapan saja.",
-    { exact: true },
-  ).waitFor();
-  const retry = page.getByRole("button", { name: "Masuk dengan GitHub", exact: true });
-  assert.equal(await retry.count(), 1);
-  assert.equal(await retry.isEnabled(), true);
   assert.equal((await this.requireContext().cookies(new URL(this.baseUrl).origin)).some(cookie => cookie.name === "sage_session"), false);
   assert.equal(page.url().includes("state="), false);
   assert.equal(page.url().includes("access_denied"), false);
@@ -266,14 +335,7 @@ Given("the browser has no SAGE session cookie", async function (this: SageWorld)
   await this.requireContext().clearCookies();
 });
 
-When("I open the workspace page", async function (this: SageWorld) {
-  await this.requirePage().goto(new URL("/workspace", this.baseUrl).toString(), { waitUntil: "domcontentloaded" });
-});
-
-Then("I am redirected to sign-in with a safe session message", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.waitForURL(url => url.pathname === "/login" && url.searchParams.get("error") === "session");
-  await page.getByRole("alert").getByText("Sesi SAGE berakhir. Masuk lagi dengan GitHub.", { exact: true }).waitFor();
+Then("no external request was made", function (this: SageWorld) {
   assert.equal(this.blockedExternalRequests, 0);
 });
 
@@ -297,141 +359,75 @@ Given("the target validation API fails on the first request", function (this: Sa
   controlFor(this).targetFailuresRemaining = 1;
 });
 
-When("I open the repositories page as synthetic account {string}", async function (this: SageWorld, alias: string) {
-  await openRepositoryPage(this, alias);
-});
-
-Then("I see the account's public repository and its authorized private repository", async function (this: SageWorld) {
+When("I select the public repository for synthetic account {string}", async function (this: SageWorld, alias: string) {
   const page = this.requirePage();
-  const account = controlFor(this).activeAccount;
-  assert.ok(account);
-  const fixtures = activeFixtures(this);
-  await page.getByRole("button", { name: `Pilih ${fixtures.publicRepository.fullName}`, exact: true }).waitFor();
-  await page.getByRole("button", { name: `org-${account.alias}`, exact: true }).click();
-  await page.getByRole("button", { name: `Pilih ${fixtures.privateRepository.fullName}`, exact: true }).waitFor();
-  assert.ok((await page.locator("body").innerText()).includes("Private · berizin"));
+  requireActiveAlias(this, alias);
+  const repository = fixtureRepository(this, "public", alias);
+  await page.getByRole("button", { name: `Pilih ${repository.fullName}`, exact: true }).click();
 });
 
-When("I search for a repository that is not in the loaded page", async function (this: SageWorld) {
-  await this.requirePage().getByLabel("Cari pada repository App yang sudah dimuat", { exact: true }).fill("tidak-ada-di-halaman");
+Then("I should see the public repository for synthetic account {string}", async function (this: SageWorld, alias: string) {
+  await waitForFixtureRepository(this, "public", alias);
 });
 
-Then("the search result is empty without clearing the stored repository list", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.getByText("Tidak ada hasil pencarian pada halaman yang dimuat.", { exact: true }).waitFor();
-  const privateRepository = activeFixtures(this).privateRepository;
-  await page.getByLabel("Cari pada repository App yang sudah dimuat", { exact: true }).fill(privateRepository.fullName);
-  await page.getByRole("button", { name: `Pilih ${privateRepository.fullName}`, exact: true }).waitFor();
+Then("I should see the authorized private repository for synthetic account {string}", async function (this: SageWorld, alias: string) {
+  await waitForFixtureRepository(this, "private", alias);
 });
 
-When("I select the account's public repository on branch {string}", async function (this: SageWorld, branchName: string) {
-  await selectOwnedPublicRepository(this);
-  await this.requirePage().getByLabel("Branch", { exact: true }).locator(`option[value="${branchName}"]`).waitFor({ state: "attached" });
-  await this.requirePage().getByLabel("Branch", { exact: true }).selectOption(branchName);
-});
-
-When("I check the target without specifying a commit", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.getByLabel("Commit (opsional)", { exact: true }).fill("");
-  await page.getByRole("button", { name: "Periksa target", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: FULL_SHA }).waitFor();
-});
-
-Then("an empty commit uses the branch's full SHA", function (this: SageWorld) {
+Then("the target request for repository {string} of synthetic account {string} uses branch {string} and commit {string}", function (
+  this: SageWorld,
+  kind: string,
+  alias: string,
+  branch: string,
+  commit: string,
+) {
   const control = controlFor(this);
-  assert.deepEqual(control.targetRequests.at(-1), {
-    repository: activeFixtures(this).publicRepository.fullName,
-    branch: "feature/sprint-one",
-    commit: null,
-  });
+  requireActiveAlias(this, alias);
+  const request: TargetRequest = { repository: fixtureRepository(this, kind, alias).fullName, branch, commit: commit || null };
+  assert.deepEqual(control.targetRequests.at(-1), request);
+  assert.equal(control.unexpectedApiRequests, 0);
+});
+
+Then("no analysis request was made", function (this: SageWorld) {
+  assert.equal(controlFor(this).analysisRequests, 0);
+});
+
+Then("{string} should be set to {string}", async function (this: SageWorld, label: string, value: string) {
+  const field = this.requirePage().getByLabel(label, { exact: true });
+  await field.getByRole("option", { name: value, exact: true }).waitFor({ state: "attached" });
+  assert.equal(await field.inputValue(), value);
+});
+
+Then("there were {string} target validation requests", function (this: SageWorld, count: string) {
+  const control = controlFor(this);
+  const expected = Number(count);
+  assert.ok(Number.isSafeInteger(expected) && expected >= 0);
+  assert.equal(control.targetRequests.length, expected);
   assert.equal(control.analysisRequests, 0);
   assert.equal(control.unexpectedApiRequests, 0);
 });
 
-When("I check the target with a specific full SHA", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.getByLabel("Commit (opsional)", { exact: true }).fill(FULL_SHA);
-  await page.getByRole("button", { name: "Periksa target", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: FULL_SHA }).waitFor();
-});
-
-Then("the validation request includes the selected full SHA", function (this: SageWorld) {
-  const control = controlFor(this);
-  assert.deepEqual(control.targetRequests.at(-1), {
-    repository: activeFixtures(this).publicRepository.fullName,
-    branch: "feature/sprint-one",
-    commit: FULL_SHA,
-  });
-  assert.equal(control.analysisRequests, 0);
-  assert.equal(control.unexpectedApiRequests, 0);
-});
-
-When("I select the account's public repository", async function (this: SageWorld) {
-  await selectOwnedPublicRepository(this);
-});
-
-Then("the UI shows a controlled branch error with a retry action", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.getByRole("alert").getByText("Branch dari GitHub belum dapat dimuat. Coba lagi.", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Muat ulang branch", exact: true }).waitFor();
-});
-
-When("I retry branch loading", async function (this: SageWorld) {
-  await this.requirePage().getByRole("button", { name: "Muat ulang branch", exact: true }).click();
-  await this.requirePage().getByLabel("Branch", { exact: true }).locator('option[value="main"]').waitFor({ state: "attached" });
-});
-
-When("I submit target validation", async function (this: SageWorld) {
-  await this.requirePage().getByRole("button", { name: "Periksa target", exact: true }).click();
-});
-
-Then("the UI shows a controlled target error without losing the selection", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.getByRole("alert").getByText("Target belum dapat divalidasi. Coba lagi.", { exact: true }).waitFor();
-  assert.equal(await page.getByLabel("Branch", { exact: true }).inputValue(), "main");
-});
-
-When("I retry target validation", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.getByRole("button", { name: "Periksa target", exact: true }).click();
-  await page.getByRole("status").filter({ hasText: "Target tervalidasi" }).waitFor();
-});
-
-Then("target validation succeeds after the retry", function (this: SageWorld) {
-  const control = controlFor(this);
-  assert.equal(control.targetRequests.length, 2);
-  assert.equal(control.analysisRequests, 0);
-  assert.equal(control.unexpectedApiRequests, 0);
-});
-
-Then("the public repository list shows an error and a retry action", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.getByRole("alert").filter({ hasText: "Daftar repository public belum tersedia. Coba lagi." }).waitFor();
-  await page.getByRole("button", { name: "Coba lagi", exact: true }).waitFor();
-});
-
-When("I retry loading the public repository list", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.getByRole("button", { name: "Coba lagi", exact: true }).click();
-  const fixtures = activeFixtures(this);
-  await page.getByRole("button", { name: `Pilih ${fixtures.publicRepository.fullName}`, exact: true }).waitFor();
-});
-
-Then("the public repository list recovers after the retry", function (this: SageWorld) {
+Then("the public repository list recovered after its retry", function (this: SageWorld) {
   const control = controlFor(this);
   assert.equal(control.publicFailuresRemaining, 0);
   assert.equal(control.unexpectedApiRequests, 0);
   assert.equal(control.analysisRequests, 0);
 });
 
-Then("an empty branch list prevents target validation and can be reloaded", async function (this: SageWorld) {
-  const page = this.requirePage();
-  await page.getByText("Repository ini belum memiliki branch. Tambahkan commit di GitHub sebelum memilih target.", { exact: true }).waitFor();
-  assert.equal(await page.getByRole("button", { name: "Periksa target", exact: true }).isDisabled(), true);
-  await page.getByRole("button", { name: "Muat ulang branch", exact: true }).click();
-  await page.getByLabel("Branch", { exact: true }).locator('option[value="main"]').waitFor({ state: "attached" });
-  assert.equal(controlFor(this).analysisRequests, 0);
-  assert.equal(controlFor(this).unexpectedApiRequests, 0);
+Then("the button {string} is disabled", async function (this: SageWorld, label: string) {
+  const button = this.requirePage().getByRole("button", { name: label, exact: true });
+  assert.equal(await button.count(), 1);
+  assert.equal(await button.isDisabled(), true);
+});
+
+Then("the button {string} is enabled", async function (this: SageWorld, label: string) {
+  const button = this.requirePage().getByRole("button", { name: label, exact: true });
+  assert.equal(await button.count(), 1);
+  assert.equal(await button.isEnabled(), true);
+});
+
+Then("no target validation request was made", function (this: SageWorld) {
+  assert.equal(controlFor(this).targetRequests.length, 0);
 });
 
 When("the browser session switches to synthetic account {string}", async function (this: SageWorld, alias: string) {
@@ -447,18 +443,24 @@ When("the browser session switches to synthetic account {string}", async functio
   await page.getByRole("heading", { name: `Repository public milik @${account.connectionLogin}`, exact: true }).waitFor();
 });
 
-Then("only the new account's repositories are visible", async function (this: SageWorld) {
+Then("only the repositories for synthetic account {string} are visible instead of those for {string}", async function (
+  this: SageWorld,
+  alias: string,
+  previousAlias: string,
+) {
   const control = controlFor(this);
-  const account = control.activeAccount;
-  assert.ok(account);
-  const fixtures = activeFixtures(this);
-  const previousFixtures = control.fixtures.get("primary");
-  assert.ok(previousFixtures);
+  const account = requireActiveAlias(this, alias);
+  const fixtures = fixturesForAlias(this, alias);
+  const previousFixtures = fixturesForAlias(this, previousAlias);
   const page = this.requirePage();
   await page.getByRole("button", { name: `Pilih ${fixtures.publicRepository.fullName}`, exact: true }).waitFor();
+  await page.getByRole("button", { name: `org-${alias}`, exact: true }).click();
+  await page.getByRole("button", { name: `Pilih ${fixtures.privateRepository.fullName}`, exact: true }).waitFor();
   assert.equal(await page.getByRole("button", { name: `Pilih ${fixtures.publicRepository.fullName}`, exact: true }).count(), 1);
   assert.equal(await page.getByRole("button", { name: `Pilih ${previousFixtures.publicRepository.fullName}`, exact: true }).count(), 0);
-  assert.ok(control.mismatchedAccountHeaders.includes(this.account("primary").githubUserId));
+  assert.equal(await page.getByRole("button", { name: `Pilih ${fixtures.privateRepository.fullName}`, exact: true }).count(), 1);
+  assert.equal(await page.getByRole("button", { name: `Pilih ${previousFixtures.privateRepository.fullName}`, exact: true }).count(), 0);
+  assert.ok(control.mismatchedAccountHeaders.includes(this.account(previousAlias).githubUserId));
   assert.ok(control.accountHeaders.includes(account.githubUserId));
   assert.equal(control.unexpectedApiRequests, 0);
   assert.equal(control.analysisRequests, 0);
