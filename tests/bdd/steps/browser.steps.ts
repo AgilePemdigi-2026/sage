@@ -249,6 +249,7 @@ async function clickLocalAction(world: SageWorld, label: string): Promise<void> 
   const page = world.requirePage();
   const button = page.getByRole("button", { name: label, exact: true });
   const link = page.getByRole("link", { name: label, exact: true });
+  await button.or(link).waitFor({ state: "visible" });
   const [buttonCount, linkCount] = await Promise.all([button.count(), link.count()]);
   assert.equal(buttonCount + linkCount, 1, `Expected one visible action named ${JSON.stringify(label)}.`);
   const action = buttonCount === 1 ? button : link;
