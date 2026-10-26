@@ -41,7 +41,7 @@ function stableJson(value: unknown): string {
 }
 
 function evidenceLine(span: EvidenceSpan, indent: string): string {
-  return `${indent}- Evidence: ${inline(span.role)} in ${inline(span.filePath)}; SHA-256 ${inline(span.fileSha256)}; bytes [${inline(span.startByte)}, ${inline(span.endByte)}); lines [${inline(span.startLine)}, ${inline(span.endLine)}] (1-based, inclusive); columns [${inline(span.startColumn)}, ${inline(span.endColumn)}) (1-based Unicode code points).`;
+  return `${indent}- Evidence: ${inline(span.role)} in ${inline(span.filePath)}; SHA-256 ${inline(span.fileSha256)}; bytes [${inline(span.startByte)}, ${inline(span.endByte)}); positions [${inline(`${span.startLine}:${span.startColumn}`)}, ${inline(`${span.endLine}:${span.endColumn}`)}) (1-based line:Unicode-code-point column; end exclusive).`;
 }
 
 function evidenceLines(spans: readonly EvidenceSpan[], indent: string): string[] {

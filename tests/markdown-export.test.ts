@@ -73,6 +73,10 @@ test("Markdown export is deterministic and includes every architecture artifact 
     ...document.umlClassDiagram.edges.flatMap(edge => edge.evidence),
   ];
   assert.ok(evidence.length > 0, "the actual analyzer fixture supplies source evidence");
+  const firstSpan = evidence[0]!;
+  assert.ok(markdown.includes(`positions [\`\`${firstSpan.startLine}:${firstSpan.startColumn}\`\`, \`\`${firstSpan.endLine}:${firstSpan.endColumn}\`\`)`));
+  assert.ok(markdown.includes("end exclusive"));
+  assert.doesNotMatch(markdown, /1-based, inclusive/);
   for (const span of evidence) {
     for (const value of [span.filePath, span.fileSha256, String(span.startByte), String(span.endByte),
       String(span.startLine), String(span.endLine), String(span.startColumn), String(span.endColumn), span.role]) {
