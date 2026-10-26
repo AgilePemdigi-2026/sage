@@ -267,6 +267,14 @@ function noSensitiveErrorData(bodyText: string, secrets: readonly string[]): voi
   assert.doesNotMatch(bodyText, /snapshot-[A-Za-z0-9]{6}\/archive\.tar\.gz|sage-graph17-source|RESOLVER_TS_FIXTURE_MUST_NOT_EXECUTE/i);
 }
 
+function assertPrivateAccountResponse(response: APIResponse): void {
+  const headers = response.headers();
+  assert.match(headers["cache-control"] ?? "", /private,\s*no-store/i);
+  assert.match(headers["vary"] ?? "", /Cookie/i);
+  assert.match(headers["vary"] ?? "", /X-SAGE-Account/i);
+  assert.equal(headers["x-content-type-options"], "nosniff");
+}
+
 async function graphApiResponse(
   api: APIRequestContext,
   basePath: string,
@@ -651,6 +659,7 @@ async function runLiveGraphRegression(): Promise<void> {
     const nodeDetailPath = nodeDetailUrl(base, ready.analysisId, endpointNode.id);
     const nodeDetailResponse = await api.get(nodeDetailPath, { headers: cookieHeader(owner) });
     assert.equal(nodeDetailResponse.status(), 200);
+    assertPrivateAccountResponse(nodeDetailResponse);
     const nodeDetailBody = await nodeDetailResponse.json() as { data: NodeDetailData };
     const nodeDetail = nodeDetailBody.data;
     assert.equal(nodeDetail.analysisId, ready.analysisId);
@@ -696,6 +705,7 @@ async function runLiveGraphRegression(): Promise<void> {
       const totalLines = lineCount(originalText);
       const sourceResponse: APIResponse = await api.get(sourceUrl(base, ready.analysisId, file.id, 1, totalLines), { headers: cookieHeader(owner) });
       assert.equal(sourceResponse.status(), 200, `${path} snapshot source should be available to its owner`);
+      assertPrivateAccountResponse(sourceResponse);
       const sourceBody = await sourceResponse.json() as { data: SourceData };
       const source = sourceBody.data;
       assert.equal(source.analysisId, ready.analysisId);
@@ -1539,7 +1549,9 @@ async function runLiveGraphRegression(): Promise<void> {
         canonicalCounts: ready.canonical.value.counts,
       } : null,
       seedScope: "Direct test database seed of canonical GraphBundle and SOURCE_ARCHIVE; this is not the actual nine-stage pipeline or worker publication.",
-      controlledCase: "The first 360px request receives one intercepted 503; a separate controlled response body abort checks stale-error handling; all replacement requests read the genuine Next/Postgres API.",
+      controlledCase: "The first 360px graph request receives one intercepted 503; independent node-detail and source-detail requests each receive a controlled 503 before their retry reaches the genuine Next/Postgres API; a separate delayed error body checks stale-error handling.",
+      inspectorSourceCase: "Node details and source line ranges are checked against the canonical CKG and immutable archive. Browser coverage uses the focus picker at 390px, a canvas click at 1440px, delayed node-selection responses, Escape focus restoration, unresolved-node no-source behavior, and account-switch clearing.",
+      screenshots: ["graph-inspector-390.png", "graph-source-390.png", "graph-inspector-1440.png", "graph-source-1440.png"],
       delayedIdentityCase: "A genuine owner-A graph API response is held in Playwright while the genuine session endpoint rejects cookie B with the stale A account binding; A's delayed response is then released and must not restore graph data.",
       storageRoot: "Dedicated private temporary fixture root; only script-created snapshot-* folders are removed.",
       ...(reportError ? { error: reportError } : {}),
