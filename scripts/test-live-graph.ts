@@ -805,6 +805,13 @@ async function runLiveGraphRegression(): Promise<void> {
         const noResultChoiceIds = await focusPicker.locator("option").evaluateAll(options => options
           .map(option => (option as HTMLOptionElement).value).filter(Boolean).sort());
         assert.deepEqual(noResultChoiceIds, [], "no-result state must offer no focus node choices");
+        assert.equal(await zoomPercent(page), 100, "empty filtered graph displays the default zoom percentage");
+        const zoomIn = page.getByRole("button", { name: "Perbesar", exact: true });
+        const zoomOut = page.getByRole("button", { name: "Perkecil", exact: true });
+        const fitGraph = page.getByRole("button", { name: "Sesuaikan tampilan", exact: true });
+        assert.equal(await zoomIn.isDisabled(), true, "zoom in is disabled when filtering produces no graph nodes");
+        assert.equal(await zoomOut.isDisabled(), true, "zoom out is disabled when filtering produces no graph nodes");
+        assert.equal(await fitGraph.isDisabled(), true, "fit is disabled when filtering produces no graph nodes");
         await takeScreenshot(page, "graph-filter-empty-390.png");
 
         const resetButton = page.getByRole("button", { name: "Atur ulang filter", exact: true });
@@ -819,6 +826,9 @@ async function runLiveGraphRegression(): Promise<void> {
           options.map(option => (option as HTMLOptionElement).value).filter(Boolean).sort());
         assert.deepEqual(resetChoiceIds, data.graph.nodes.map(node => node.id).sort(), "reset restores every canonical focus choice");
         assert.equal(await page.getByTestId("canonical-counts").innerText(), canonicalCounts, "reset leaves canonical counts unchanged");
+        assert.equal(await zoomIn.isEnabled(), true, "zoom in is enabled again after reset restores graph nodes");
+        assert.equal(await zoomOut.isEnabled(), true, "zoom out is enabled again after reset restores graph nodes");
+        assert.equal(await fitGraph.isEnabled(), true, "fit is enabled again after reset restores graph nodes");
         assert.equal(pageGraphRequests.length, graphRequestsBeforeFilter, "query, kind filtering, no-result, and reset stay client-side");
 
         const unchangedGraph = await readFixtureGraph(api, base, ready.analysisId, owner);
