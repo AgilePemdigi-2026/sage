@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { NODE_KINDS } from "@sage/contracts";
+import type { NodeKind } from "@sage/contracts";
 import type { GraphPayload } from "../../lib/graphs/types.ts";
 import { GraphCanvas } from "../graph-foundation/knowledge-graph.tsx";
 import type { GraphMode } from "./graph-modes.ts";
 import { projectGraphMode } from "./graph-modes.ts";
+import { filterGraph } from "./graph-filters.ts";
 import { parseLiveGraphPayload } from "./graph-data.ts";
 import styles from "../graph-foundation/graph-foundation.module.css";
 import ui from "../ui-foundation/ui-foundation.module.css";
@@ -33,6 +36,8 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
   const [error, setError] = useState<RequestError | null>(null);
   const [mode, setMode] = useState<GraphMode>("overview");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
+  const [selectedKinds, setSelectedKinds] = useState<NodeKind[]>([]);
   const generation = useRef(0);
   const graphController = useRef<AbortController | null>(null);
   const sessionController = useRef<AbortController | null>(null);
@@ -228,12 +233,43 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
     // The server-rendered identity defines the scope of this client page.
   }, [analysisId, accountKey]);
 
-  const projection = useMemo(() => payload ? projectGraphMode(payload.graph, mode, selectedId) : null, [payload, mode, selectedId]);
+  const filterResult = useMemo(() => payload ? filterGraph(payload.graph, query, selectedKinds) : null, [payload, query, selectedKinds]);
+  const projection = useMemo(() => {
+    if (!filterResult) return null;
+    const focusId = selectedId && filterResult.graph.nodes.some((node) => node.id === selectedId) ? selectedId : null;
+    return projectGraphMode(filterResult.graph, mode, focusId);
+  }, [filterResult, mode, selectedId]);
   const canonicalCounts = payload?.canonicalCounts ?? null;
+  const availableKinds = useMemo(() => {
+    if (!payload) return [];
+    const presentKinds = new Set(payload.graph.nodes.map((node) => node.kind));
+    return NODE_KINDS.filter((kind) => presentKinds.has(kind));
+  }, [payload]);
 
   function chooseNode(id: string) {
     setSelectedId(id || null);
     setMode("focus");
+  }
+
+  function retainSelectedMatch(nextQuery: string, nextKinds: readonly NodeKind[]) {
+    if (!selectedId || !payload) return;
+    if (!filterGraph(payload.graph, nextQuery, nextKinds).graph.nodes.some((node) => node.id === selectedId)) setSelectedId(null);
+  }
+
+  function updateQuery(nextQuery: string) {
+    retainSelectedMatch(nextQuery, selectedKinds);
+    setQuery(nextQuery);
+  }
+
+  function toggleKind(kind: NodeKind) {
+    const nextKinds = selectedKinds.includes(kind) ? selectedKinds.filter((value) => value !== kind) : [...selectedKinds, kind];
+    retainSelectedMatch(query, nextKinds);
+    setSelectedKinds(nextKinds);
+  }
+
+  function resetFilters() {
+    setQuery("");
+    setSelectedKinds([]);
   }
 
   function errorContent() {
@@ -254,7 +290,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
     {busy && !payload ? <p className={ui.loading} role="status">Memeriksa akun dan memuat knowledge graph…</p> : null}
     {errorContent()}
 
-    {payload && projection && canonicalCounts ? <>
+    {payload && filterResult && projection && canonicalCounts ? <>
       <section className={styles.graphCard} aria-label="Knowledge graph analisis">
         <div className={styles.graphCardHeader}>
           <div>
@@ -282,6 +318,23 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           </div>
         </div>
 
+        <section className={styles.filterControls} aria-label="Pencarian dan filter node">
+          <label className={styles.searchLabel} htmlFor="graph-node-query">Cari node
+            <input id="graph-node-query" className={styles.searchInput} type="search" value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="Nama, jenis, nama lengkap, atau berkas" aria-describedby="graph-node-query-help" />
+          </label>
+          <p id="graph-node-query-help" className={styles.filterHelp}>Pencarian cocok dengan teks di nama, jenis node, nama lengkap, atau path berkas.</p>
+          <fieldset className={styles.kindFilters}>
+            <legend>Jenis node AST</legend>
+            {availableKinds.length ? availableKinds.map((kind) => <label key={kind}>
+              <input type="checkbox" checked={selectedKinds.includes(kind)} onChange={() => toggleKind(kind)} />
+              {kind}
+            </label>) : <p className={styles.filterHelp}>Graph tidak memiliki jenis node untuk difilter.</p>}
+          </fieldset>
+          <div>
+            <button type="button" className={styles.graphControl} onClick={resetFilters} disabled={!query && selectedKinds.length === 0}>Atur ulang filter</button>
+          </div>
+        </section>
+
         <section className={styles.modeControls} aria-label="Mode graph">
           <div className={styles.modeButtons}>
             {modes.map((item) => <button key={item.id} type="button" className={styles.modeButton} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}>{item.label}</button>)}
@@ -289,7 +342,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           <label className={styles.nodePickerLabel}>Pilih node fokus
             <select className={styles.nodePicker} aria-label="Pilih node fokus" value={projection.anchorId ?? ""} onChange={(event) => chooseNode(event.target.value)}>
               {!projection.anchorId ? <option value="">Graph tidak memiliki node</option> : null}
-              {[...payload.graph.nodes].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)).map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
+              {[...filterResult.graph.nodes].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)).map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
             </select>
           </label>
         </section>
@@ -298,6 +351,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           <h3>Jumlah node dan relasi</h3>
           <p data-testid="canonical-counts">Kanonik: {canonicalCounts.nodes} node · {canonicalCounts.edges} relasi</p>
           <p className={styles.countDetails}>CONTAINS {canonicalCounts.containmentEdges} · Referensi {canonicalCounts.referenceEdges} · Exact {canonicalCounts.exactEdges} · Unresolved {canonicalCounts.unresolvedEdges}</p>
+          <p data-testid="query-filter-counts" aria-live="polite">Hasil pencarian dan jenis node: {filterResult.counts.nodes} node · {filterResult.counts.edges} relasi</p>
           <p data-testid="filtered-counts">Hasil mode: {projection.filteredCounts.nodes} node · {projection.filteredCounts.edges} relasi</p>
           <p className={styles.countDetails}>Hasil mode · CONTAINS {projection.filteredCounts.containmentEdges} · Referensi {projection.filteredCounts.referenceEdges} · Exact {projection.filteredCounts.exactEdges} · Unresolved {projection.filteredCounts.unresolvedEdges}</p>
           <p data-testid="visible-counts">Tampilan: {projection.visibleCounts.nodes} node · {projection.visibleCounts.edges} relasi</p>
@@ -306,7 +360,9 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         </section>
 
         {busy ? <p className={ui.loading} role="status">Memeriksa akun sebelum memuat ulang graph…</p> : null}
-        {projection.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Mode ini tidak memiliki node untuk ditampilkan.</p> : null}
+        {payload.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Graph tidak memiliki node untuk ditampilkan.</p> : null}
+        {payload.graph.nodes.length > 0 && filterResult.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Tidak ada node yang sesuai dengan kueri dan jenis node yang dipilih.</p> : null}
+        {filterResult.graph.nodes.length > 0 && projection.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Mode ini tidak memiliki node untuk ditampilkan.</p> : null}
         <GraphCanvas graph={projection.graph} selectedId={projection.anchorId} onSelect={setSelectedId} moduleParentByNodeId={projection.moduleParentByNodeId} />
         <p className={styles.modeDescription} aria-live="polite">
           {mode === "overview" ? "Ikhtisar menampilkan node kanonik dan mengelompokkan node di bawah Module yang tercatat." : null}
