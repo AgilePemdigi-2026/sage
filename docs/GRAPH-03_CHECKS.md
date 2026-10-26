@@ -23,6 +23,12 @@ Laporan lokal final: `artifacts/graph-19/2026-10-27-run3/report.json`; screensho
 
 Dua run browser awal berhenti setelah 15 kelompok pada asumsi koordinat/sinkronisasi klik canvas desktop. Visual QA juga menemukan nomor baris tertutup CSS reset; styling diperbaiki, kemudian run final memakai posisi render Cytoscape dan klik mouse nyata setelah layout stabil. Akses `_cyreg.cy` hanya untuk membaca posisi dalam tes, terikat versi dependency; pemilihan tidak dipicu secara programatis. Riwayat run gagal tetap disimpan, dan assertion klik tidak dilewati.
 
+## Command dan lingkungan
+
+Command build yang benar-benar dijalankan dalam image QA: `npm run db:generate`, `npm run check`, `npm run build`. Rebuild CSS menjalankan `npm run lint` dan `npm run build`. Runner final menjalankan `eslint scripts/test-live-graph.ts`, `tsc --noEmit`, `npm run db:migrate`, server standalone production dan `node --import tsx scripts/test-live-graph.ts` (alias repository: `npm run test:graph:live`). Lingkungan memakai Node 24.22, Next 16.4.2 dan PostgreSQL 17.11; dependency mengikuti lockfile.
+
+Untuk mengulang integrasi, gunakan database dan storage fixture khusus, server production yang memakai database/storage tersebut, `DATABASE_URL`, `STORAGE_ROOT`, `CREDENTIAL_ENCRYPTION_KEY` privat serta `SAGE_GRAPH_BASE_URL` yang menunjuk server itu. Jangan arahkan skrip seed ke database pengguna. Build QA memakai dependency image lokal yang sudah tersedia; Dockerfile/runner sementara berada di luar repository, sehingga laporan ini tidak mengklaim clean install dari nol. Diff dan daftar file lengkap tersedia pada [PR #89](https://github.com/AgilePemdigi-2026/sage/pull/89).
+
 ## Batas bukti
 
 Fixture browser dibuat oleh adapter TypeScript nyata dan disimpan langsung sebagai canonical bundle serta archive pada PostgreSQL sementara. Ini menguji pembacaan hasil tersimpan, ownership, inspector dan source; bukan OAuth GitHub nyata atau run baru pipeline sembilan tahap. Kasus kegagalan/respons tertunda yang dikendalikan browser harus ditandai terpisah dari pembacaan API sukses. Signoff formal tim terhadap oracle analyzer tetap mengikuti QA-01 #4.
