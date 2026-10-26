@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 import { analyzeReferences } from "@sage/analyzer-js";
 import { canonicalizeCkg, type CcmV1, type CcmSnapshot } from "@sage/contracts";
 import { createSession, database, storeGitHubCredential } from "@sage/database";
-import { chromium, request, type APIRequestContext, type APIResponse, type BrowserContext, type Page } from "playwright";
+import { chromium, request, type APIRequestContext, type APIResponse, type BrowserContext, type Locator, type Page } from "playwright";
 import { pack, type Header } from "tar-stream";
 import { gzipSync } from "node:zlib";
 import { projectCcmForGraph } from "../apps/web/components/graph-foundation/graph-projection.ts";
@@ -90,6 +90,16 @@ type SourceData = {
   endLine: number;
   totalLines: number;
   text: string;
+};
+
+type CanvasClickDiagnostics = {
+  expectedNodeId: string;
+  viewport: { width: number; height: number; scrollX: number; scrollY: number };
+  region: { x: number; y: number; width: number; height: number };
+  center: { x: number; y: number; element: string | null };
+  cytoscapeAvailable: boolean;
+  nodes: { id: string; position: { x: number; y: number }; renderedPosition: { x: number; y: number }; clientPosition: { x: number; y: number }; elementAtPosition: string | null }[];
+  target: { id: string; position: { x: number; y: number }; renderedPosition: { x: number; y: number }; clientPosition: { x: number; y: number }; elementAtPosition: string | null } | null;
 };
 
 const viewports = [360, 390, 768, 1024, 1440] as const;
@@ -306,7 +316,7 @@ function sourceFileId(path: string, fileSha256: string): string {
 }
 
 function lineCount(text: string): number {
-  return text.split(/\r\n|\r|\n/).length;
+  return text.split("\n").length;
 }
 
 function canonicalFileMetadata(ccm: CcmV1, path: string): SourceFileMetadata {
@@ -366,25 +376,88 @@ async function assertDisplayedGraphCounts(
   assert.equal(Number(counts[2]), expectedEdges, `${testId} edge count should match; received: ${text}`);
 }
 
-async function clickCanvasNode(page: Page): Promise<string> {
+async function clickFittedCanvasNode(
+  page: Page,
+  expectedNodeId: string,
+  screenshotPath: string,
+  captureDiagnostics: (diagnostics: CanvasClickDiagnostics) => void,
+): Promise<string> {
   const canvas = page.getByRole("region", { name: "Kanvas knowledge graph", exact: true });
+  await page.getByRole("button", { name: "Sesuaikan tampilan", exact: true }).click();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await canvas.scrollIntoViewIfNeeded();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await page.screenshot({ path: screenshotPath, fullPage: false });
   const bounds = await canvas.boundingBox();
   assert.ok(bounds, "knowledge graph canvas must have a visible hit area");
   const inspector = page.getByTestId("node-inspector");
   assert.equal(await inspector.count(), 0, "close the inspector before testing a new explicit canvas pick");
-  const xFractions = [0.18, 0.34, 0.5, 0.66, 0.82];
-  const yFractions = [0.12, 0.25, 0.38, 0.5, 0.62, 0.75, 0.88];
-  for (const yFraction of yFractions) {
-    for (const xFraction of xFractions) {
-      await page.mouse.click(bounds.x + bounds.width * xFraction, bounds.y + bounds.height * yFraction);
-      try {
-        await page.waitForFunction(() => Boolean(document.querySelector('[data-testid="node-inspector"]')?.getAttribute("data-node-id")), undefined, { timeout: 200 });
-        const selectedId = await inspector.getAttribute("data-node-id");
-        if (selectedId) return selectedId;
-      } catch { /* This point did not hit a rendered graph node. */ }
-    }
-  }
-  throw new Error("Could not select a rendered graph node by clicking the canvas.");
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+  const diagnostics = await page.evaluate(({ expectedNodeId: targetId, center }) => {
+    type CytoscapeNode = {
+      id(): string;
+      position(): { x: number; y: number };
+      renderedPosition(): { x: number; y: number };
+    };
+    type CytoscapeCore = { nodes(): { map<T>(mapper: (node: CytoscapeNode) => T): T[] } };
+    type CanvasHost = HTMLElement & { _cyreg?: { cy?: unknown } };
+    const host = document.querySelector('[aria-label="Kanvas knowledge graph"]') as CanvasHost | null;
+    const rectangle = host?.getBoundingClientRect();
+    const cy = host?._cyreg?.cy as CytoscapeCore | undefined;
+    const centerElement = document.elementFromPoint(center.x, center.y);
+    const centerClasses = centerElement && typeof centerElement.className === "string" && centerElement.className
+      ? `.${centerElement.className.trim().replace(/\s+/g, ".")}` : "";
+    const centerDescription = centerElement
+      ? `${centerElement.tagName.toLowerCase()}${centerElement.id ? `#${centerElement.id}` : ""}${centerClasses}` : null;
+    const nodes = cy && rectangle ? cy.nodes().map(node => {
+      const position = node.position();
+      const renderedPosition = node.renderedPosition();
+      const clientPosition = { x: rectangle.x + renderedPosition.x, y: rectangle.y + renderedPosition.y };
+      const element = document.elementFromPoint(clientPosition.x, clientPosition.y);
+      const classes = element && typeof element.className === "string" && element.className
+        ? `.${element.className.trim().replace(/\s+/g, ".")}` : "";
+      const elementAtPosition = element
+        ? `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ""}${classes}` : null;
+      return { id: node.id(), position, renderedPosition, clientPosition, elementAtPosition };
+    }) : [];
+    const target = nodes.find(node => node.id === targetId) ?? null;
+    return {
+      viewport: { width: window.innerWidth, height: window.innerHeight, scrollX: window.scrollX, scrollY: window.scrollY },
+      region: rectangle ? { x: rectangle.x, y: rectangle.y, width: rectangle.width, height: rectangle.height } : { x: 0, y: 0, width: 0, height: 0 },
+      center: { ...center, element: centerDescription },
+      cytoscapeAvailable: Boolean(cy),
+      nodes,
+      target,
+      expectedNodeId: targetId,
+    };
+  }, { expectedNodeId, center: { x: centerX, y: centerY } });
+  captureDiagnostics(diagnostics);
+  const targetNode = diagnostics.target;
+  assert.ok(targetNode, `expected node ${expectedNodeId} must appear in the visible Cytoscape registry; diagnostics=${JSON.stringify(diagnostics)}`);
+  assert.ok(targetNode.clientPosition.x >= bounds.x && targetNode.clientPosition.x <= bounds.x + bounds.width &&
+    targetNode.clientPosition.y >= bounds.y && targetNode.clientPosition.y <= bounds.y + bounds.height,
+  `expected node ${expectedNodeId} rendered position must lie inside its canvas; diagnostics=${JSON.stringify(diagnostics)}`);
+  await page.mouse.click(targetNode.clientPosition.x, targetNode.clientPosition.y);
+  await page.waitForFunction(() => Boolean(document.querySelector('[data-testid="node-inspector"]')?.getAttribute("data-node-id")), undefined, { timeout: 5_000 });
+  const selectedId = await inspector.getAttribute("data-node-id");
+  assert.ok(selectedId, "fitted canvas click must explicitly select one canonical node");
+  assert.equal(selectedId, expectedNodeId, "the real mouse click must select the node whose rendered position was targeted");
+  return selectedId;
+}
+
+async function assertRenderedSourceRange(dialog: Locator): Promise<void> {
+  const sourceLines = dialog.locator('ol[aria-label^="Baris source"]');
+  const rangeLabel = await sourceLines.getAttribute("aria-label");
+  const range = rangeLabel?.match(/Baris source (\d+) sampai (\d+)/);
+  assert.ok(range, `source list must expose its actual inclusive range; received: ${rangeLabel}`);
+  const numbers = await sourceLines.locator("li[data-source-line]").evaluateAll(items => items.map(item => Number(item.getAttribute("data-source-line"))));
+  const start = Number(range[1]);
+  const end = Number(range[2]);
+  assert.equal(numbers[0], start, "first source line marker must match the returned start line");
+  assert.equal(numbers[numbers.length - 1], end, "last source line marker must match the returned end line");
+  assert.deepEqual(numbers, Array.from({ length: end - start + 1 }, (_, index) => start + index), "source line markers must cover the returned range without gaps");
+  assert.equal(await sourceLines.evaluate(element => getComputedStyle(element).listStyleType), "decimal", "source line numbers must remain visible after the global list reset");
 }
 
 async function readFixtureGraph(api: APIRequestContext, base: string, analysisId: string, owner: DisposableAccount) {
@@ -507,6 +580,7 @@ async function runLiveGraphRegression(): Promise<void> {
   const failures: string[] = [];
   const pageErrors: string[] = [];
   const providerRequests: string[] = [];
+  let canvasClickDiagnostics: CanvasClickDiagnostics | null = null;
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let api: Awaited<ReturnType<typeof request.newContext>> | undefined;
   let repositoryId = "";
@@ -1127,6 +1201,7 @@ async function runLiveGraphRegression(): Promise<void> {
         assert.ok(sourceDialogText.includes(endpointFile.path), "source dialog identifies its repository-relative path");
         assert.ok(sourceDialogText.includes(endpointFile.sha256), "source dialog identifies the exact canonical file hash");
         assert.ok(sourceDialogText.includes("export class Endpoint extends Base implements Payload"), "source dialog renders the snapshot declaration");
+        await assertRenderedSourceRange(sourceDialog);
         const sourceEvidenceLine = sourceDialog.locator(`[data-source-line="${endpointNode.location.startLine}"]`);
         assert.ok((await sourceEvidenceLine.innerText()).includes("export class Endpoint extends Base implements Payload"), "source dialog labels and highlights the canonical AST evidence line");
         assert.ok(await sourceEvidenceLine.getAttribute("class"), "source evidence line has its highlight class");
@@ -1202,6 +1277,7 @@ async function runLiveGraphRegression(): Promise<void> {
         const desktopSourceDialog = page.getByTestId("node-source-dialog");
         await desktopSourceDialog.waitFor();
         await desktopSourceDialog.getByText("export class Endpoint extends Base implements Payload", { exact: false }).waitFor();
+        await assertRenderedSourceRange(desktopSourceDialog);
         await takeScreenshot(page, "graph-source-1440.png");
         await page.keyboard.press("Escape");
         await desktopSourceDialog.waitFor({ state: "hidden" });
@@ -1210,8 +1286,24 @@ async function runLiveGraphRegression(): Promise<void> {
 
         await page.getByTestId("node-inspector-close").click();
         await desktopInspector.waitFor({ state: "detached" });
-        const canvasSelectedId = await clickCanvasNode(page);
-        assert.ok(canonicalCcm.nodes.some(node => node.id === canvasSelectedId), "desktop canvas click selects a canonical node");
+        await page.getByLabel("Cari node", { exact: true }).fill("Endpoint");
+        await page.getByLabel("Class", { exact: true }).check();
+        const oneClassMatch = expectedGraphFilter(data.graph, "Endpoint", ["Class"]);
+        assert.deepEqual(oneClassMatch.nodes.map(node => node.id), [endpointNode.id], "desktop canvas fixture filter leaves only the Endpoint class");
+        await assertDisplayedGraphCounts(page, "query-filter-counts", oneClassMatch);
+        await assertDisplayedGraphCounts(page, "filtered-counts", oneClassMatch);
+        await page.getByRole("button", { name: "Ikhtisar", exact: true }).click();
+        await assertDisplayedGraphCounts(page, "visible-counts", oneClassMatch);
+        const singleCanvasChoiceIds = await page.getByTestId("graph-node-picker").locator("option").evaluateAll(options => options
+          .map(option => (option as HTMLOptionElement).value).filter(Boolean));
+        assert.deepEqual(singleCanvasChoiceIds, [endpointNode.id], "desktop graph canvas should contain one known selectable source node");
+        const canvasSelectedId = await clickFittedCanvasNode(
+          page,
+          endpointNode.id,
+          join(resultDir, "graph-canvas-click-1440.png"),
+          diagnostics => { canvasClickDiagnostics = diagnostics; },
+        );
+        assert.equal(canvasSelectedId, endpointNode.id, "desktop mouse click at the fitted canvas center explicitly selects Endpoint");
         assert.equal(await page.getByTestId("node-inspector").getAttribute("data-node-id"), canvasSelectedId);
         checks.push("1440px: focus-picker opens source-backed inspector/source screenshots and a direct canvas click opens a canonical node inspector");
       }
@@ -1542,6 +1634,7 @@ async function runLiveGraphRegression(): Promise<void> {
       browserPageErrors: pageErrors,
       providerRequests: providerRequests.length,
       viewports: [...viewports],
+      canvasClickDiagnostics,
       sourceFixture: "tests/fixtures/resolver/typescript/src/model.ts + endpoint.ts via @sage/analyzer-js analyzeReferences",
       fixtureEvidence: ready ? {
         snapshot: ready.snapshot,
@@ -1551,7 +1644,7 @@ async function runLiveGraphRegression(): Promise<void> {
       seedScope: "Direct test database seed of canonical GraphBundle and SOURCE_ARCHIVE; this is not the actual nine-stage pipeline or worker publication.",
       controlledCase: "The first 360px graph request receives one intercepted 503; independent node-detail and source-detail requests each receive a controlled 503 before their retry reaches the genuine Next/Postgres API; a separate delayed error body checks stale-error handling.",
       inspectorSourceCase: "Node details and source line ranges are checked against the canonical CKG and immutable archive. Browser coverage uses the focus picker at 390px, a canvas click at 1440px, delayed node-selection responses, Escape focus restoration, unresolved-node no-source behavior, and account-switch clearing.",
-      screenshots: ["graph-inspector-390.png", "graph-source-390.png", "graph-inspector-1440.png", "graph-source-1440.png"],
+      screenshots: ["graph-inspector-390.png", "graph-source-390.png", "graph-inspector-1440.png", "graph-source-1440.png", "graph-canvas-click-1440.png"],
       delayedIdentityCase: "A genuine owner-A graph API response is held in Playwright while the genuine session endpoint rejects cookie B with the stale A account binding; A's delayed response is then released and must not restore graph data.",
       storageRoot: "Dedicated private temporary fixture root; only script-created snapshot-* folders are removed.",
       ...(reportError ? { error: reportError } : {}),
