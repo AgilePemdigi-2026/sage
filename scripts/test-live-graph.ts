@@ -7,13 +7,13 @@ import { fileURLToPath } from "node:url";
 import { analyzeReferences } from "@sage/analyzer-js";
 import { canonicalizeCkg, type CcmV1, type CcmSnapshot } from "@sage/contracts";
 import { createSession, database, storeGitHubCredential } from "@sage/database";
-import { chromium, request, type APIRequestContext, type APIResponse, type BrowserContext, type Page } from "playwright";
+import { chromium, request, type APIRequestContext, type APIResponse, type BrowserContext, type Locator, type Page } from "playwright";
 import { pack, type Header } from "tar-stream";
 import { gzipSync } from "node:zlib";
 import { projectCcmForGraph } from "../apps/web/components/graph-foundation/graph-projection.ts";
 
 /**
- * Destructive integration regression for the issue 17 live graph path.
+ * Destructive integration regression for the live graph, filter, inspector, and source paths.
  *
  * Run only against the dedicated database and private temporary STORAGE_ROOT,
  * with a real Next server using that same STORAGE_ROOT:
@@ -21,10 +21,10 @@ import { projectCcmForGraph } from "../apps/web/components/graph-foundation/grap
  *   STORAGE_ROOT=/tmp/sage-graph17-storage SAGE_GRAPH_BASE_URL=http://127.0.0.1:3000 \
  *   npx tsx scripts/test-live-graph.ts
  *
- * The fixture uses real Postgres rows, session cookies, the graph HTTP route,
- * and the browser UI. It directly seeds terminal CKG/archive rows for a stable
- * page test; that does not exercise the nine-stage worker pipeline or worker
- * publication. No OAuth connection or provider token is created.
+ * The fixture uses real Postgres rows, session cookies, graph/inspector/source
+ * HTTP routes, and the browser UI. It directly seeds terminal CKG/archive rows
+ * for stable page tests; that does not exercise the nine-stage worker pipeline
+ * or worker publication. No OAuth connection or provider token is created.
  */
 
 const enabled = process.env.SAGE_GRAPH_TESTS === "1";
@@ -56,6 +56,50 @@ type SeededGraph = {
 type ApiErrorBody = {
   error?: { code?: string; message?: string };
   requestId?: string;
+};
+
+type SourceFileMetadata = {
+  id: string;
+  path: string;
+  sha256: string;
+  sizeBytes: number;
+};
+
+type InspectorNode = Omit<CcmV1["nodes"][number], "attributes">;
+
+type NodeDetailData = {
+  analysisId: string;
+  accountKey: string;
+  ckgSha256: string;
+  configurationHash: string;
+  snapshot: CcmSnapshot;
+  node: InspectorNode;
+  incoming: { edge: CcmV1["edges"][number]; peer: InspectorNode }[];
+  outgoing: { edge: CcmV1["edges"][number]; peer: InspectorNode }[];
+  files: SourceFileMetadata[];
+};
+
+type SourceData = {
+  analysisId: string;
+  accountKey: string;
+  ckgSha256: string;
+  configurationHash: string;
+  snapshot: CcmSnapshot;
+  file: SourceFileMetadata;
+  startLine: number;
+  endLine: number;
+  totalLines: number;
+  text: string;
+};
+
+type CanvasClickDiagnostics = {
+  expectedNodeId: string;
+  viewport: { width: number; height: number; scrollX: number; scrollY: number };
+  region: { x: number; y: number; width: number; height: number };
+  center: { x: number; y: number; element: string | null };
+  cytoscapeAvailable: boolean;
+  nodes: { id: string; position: { x: number; y: number }; renderedPosition: { x: number; y: number }; clientPosition: { x: number; y: number }; elementAtPosition: string | null }[];
+  target: { id: string; position: { x: number; y: number }; renderedPosition: { x: number; y: number }; clientPosition: { x: number; y: number }; elementAtPosition: string | null } | null;
 };
 
 const viewports = [360, 390, 768, 1024, 1440] as const;
@@ -98,7 +142,7 @@ async function preparePrivateStorageRoot(): Promise<string> {
     throw new Error("STORAGE_ROOT must have private permissions (0700).");
   }
   const existing = await readdir(requested);
-  if (existing.length > 0) throw new Error("STORAGE_ROOT must be an empty issue 17 fixture directory.");
+  if (existing.length > 0) throw new Error("STORAGE_ROOT must be an empty private live-graph fixture directory.");
   return requested;
 }
 
@@ -233,6 +277,14 @@ function noSensitiveErrorData(bodyText: string, secrets: readonly string[]): voi
   assert.doesNotMatch(bodyText, /snapshot-[A-Za-z0-9]{6}\/archive\.tar\.gz|sage-graph17-source|RESOLVER_TS_FIXTURE_MUST_NOT_EXECUTE/i);
 }
 
+function assertPrivateAccountResponse(response: APIResponse): void {
+  const headers = response.headers();
+  assert.match(headers["cache-control"] ?? "", /private,\s*no-store/i);
+  assert.match(headers["vary"] ?? "", /Cookie/i);
+  assert.match(headers["vary"] ?? "", /X-SAGE-Account/i);
+  assert.equal(headers["x-content-type-options"], "nosniff");
+}
+
 async function graphApiResponse(
   api: APIRequestContext,
   basePath: string,
@@ -248,6 +300,45 @@ function graphUrl(base: string, analysisId: string): string {
 
 function graphPageUrl(base: string, analysisId: string): string {
   return `${base}/analyses/${analysisId}/graph`;
+}
+
+function nodeDetailUrl(base: string, analysisId: string, nodeId: string): string {
+  return `${base}/api/analyses/${encodeURIComponent(analysisId)}/nodes/${encodeURIComponent(nodeId)}`;
+}
+
+function sourceUrl(base: string, analysisId: string, fileId: string, startLine: number, endLine: number): string {
+  const query = new URLSearchParams({ startLine: String(startLine), endLine: String(endLine) });
+  return `${base}/api/analyses/${encodeURIComponent(analysisId)}/files/${encodeURIComponent(fileId)}/source?${query}`;
+}
+
+function sourceFileId(path: string, fileSha256: string): string {
+  return `file-${digest(`${path}\0${fileSha256}`)}`;
+}
+
+function lineCount(text: string): number {
+  return text.split("\n").length;
+}
+
+function canonicalFileMetadata(ccm: CcmV1, path: string): SourceFileMetadata {
+  const file = ccm.files.find(candidate => candidate.path === path);
+  assert.ok(file, `canonical CKG must include processed source ${path}`);
+  assert.equal(file.status, "processed", `source access is limited to processed canonical file ${path}`);
+  return {
+    id: sourceFileId(file.path, file.sha256),
+    path: file.path,
+    sha256: file.sha256,
+    sizeBytes: file.sizeBytes,
+  };
+}
+
+function compareByEdgeId<T extends { edge: { id: string } }>(left: T, right: T): number {
+  return left.edge.id.localeCompare(right.edge.id);
+}
+
+function inspectorNode(node: CcmV1["nodes"][number]): InspectorNode {
+  const { attributes, ...safeNode } = node;
+  void attributes;
+  return safeNode;
 }
 
 function expectedGraphFilter(
@@ -283,6 +374,90 @@ async function assertDisplayedGraphCounts(
   assert.ok(counts, `${testId} should show a node and edge count pair; received: ${text}`);
   assert.equal(Number(counts[1]), expectedNodes, `${testId} node count should match; received: ${text}`);
   assert.equal(Number(counts[2]), expectedEdges, `${testId} edge count should match; received: ${text}`);
+}
+
+async function clickFittedCanvasNode(
+  page: Page,
+  expectedNodeId: string,
+  screenshotPath: string,
+  captureDiagnostics: (diagnostics: CanvasClickDiagnostics) => void,
+): Promise<string> {
+  const canvas = page.getByRole("region", { name: "Kanvas knowledge graph", exact: true });
+  await page.getByRole("button", { name: "Sesuaikan tampilan", exact: true }).click();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await canvas.scrollIntoViewIfNeeded();
+  await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await page.screenshot({ path: screenshotPath, fullPage: false });
+  const bounds = await canvas.boundingBox();
+  assert.ok(bounds, "knowledge graph canvas must have a visible hit area");
+  const inspector = page.getByTestId("node-inspector");
+  assert.equal(await inspector.count(), 0, "close the inspector before testing a new explicit canvas pick");
+  const centerX = bounds.x + bounds.width / 2;
+  const centerY = bounds.y + bounds.height / 2;
+  const diagnostics = await page.evaluate(({ expectedNodeId: targetId, center }) => {
+    type CytoscapeNode = {
+      id(): string;
+      position(): { x: number; y: number };
+      renderedPosition(): { x: number; y: number };
+    };
+    type CytoscapeCore = { nodes(): { map<T>(mapper: (node: CytoscapeNode) => T): T[] } };
+    type CanvasHost = HTMLElement & { _cyreg?: { cy?: unknown } };
+    const host = document.querySelector('[aria-label="Kanvas knowledge graph"]') as CanvasHost | null;
+    const rectangle = host?.getBoundingClientRect();
+    const cy = host?._cyreg?.cy as CytoscapeCore | undefined;
+    const centerElement = document.elementFromPoint(center.x, center.y);
+    const centerClasses = centerElement && typeof centerElement.className === "string" && centerElement.className
+      ? `.${centerElement.className.trim().replace(/\s+/g, ".")}` : "";
+    const centerDescription = centerElement
+      ? `${centerElement.tagName.toLowerCase()}${centerElement.id ? `#${centerElement.id}` : ""}${centerClasses}` : null;
+    const nodes = cy && rectangle ? cy.nodes().map(node => {
+      const position = node.position();
+      const renderedPosition = node.renderedPosition();
+      const clientPosition = { x: rectangle.x + renderedPosition.x, y: rectangle.y + renderedPosition.y };
+      const element = document.elementFromPoint(clientPosition.x, clientPosition.y);
+      const classes = element && typeof element.className === "string" && element.className
+        ? `.${element.className.trim().replace(/\s+/g, ".")}` : "";
+      const elementAtPosition = element
+        ? `${element.tagName.toLowerCase()}${element.id ? `#${element.id}` : ""}${classes}` : null;
+      return { id: node.id(), position, renderedPosition, clientPosition, elementAtPosition };
+    }) : [];
+    const target = nodes.find(node => node.id === targetId) ?? null;
+    return {
+      viewport: { width: window.innerWidth, height: window.innerHeight, scrollX: window.scrollX, scrollY: window.scrollY },
+      region: rectangle ? { x: rectangle.x, y: rectangle.y, width: rectangle.width, height: rectangle.height } : { x: 0, y: 0, width: 0, height: 0 },
+      center: { ...center, element: centerDescription },
+      cytoscapeAvailable: Boolean(cy),
+      nodes,
+      target,
+      expectedNodeId: targetId,
+    };
+  }, { expectedNodeId, center: { x: centerX, y: centerY } });
+  captureDiagnostics(diagnostics);
+  const targetNode = diagnostics.target;
+  assert.ok(targetNode, `expected node ${expectedNodeId} must appear in the visible Cytoscape registry; diagnostics=${JSON.stringify(diagnostics)}`);
+  assert.ok(targetNode.clientPosition.x >= bounds.x && targetNode.clientPosition.x <= bounds.x + bounds.width &&
+    targetNode.clientPosition.y >= bounds.y && targetNode.clientPosition.y <= bounds.y + bounds.height,
+  `expected node ${expectedNodeId} rendered position must lie inside its canvas; diagnostics=${JSON.stringify(diagnostics)}`);
+  await page.mouse.click(targetNode.clientPosition.x, targetNode.clientPosition.y);
+  await page.waitForFunction(() => Boolean(document.querySelector('[data-testid="node-inspector"]')?.getAttribute("data-node-id")), undefined, { timeout: 5_000 });
+  const selectedId = await inspector.getAttribute("data-node-id");
+  assert.ok(selectedId, "fitted canvas click must explicitly select one canonical node");
+  assert.equal(selectedId, expectedNodeId, "the real mouse click must select the node whose rendered position was targeted");
+  return selectedId;
+}
+
+async function assertRenderedSourceRange(dialog: Locator): Promise<void> {
+  const sourceLines = dialog.locator('ol[aria-label^="Baris source"]');
+  const rangeLabel = await sourceLines.getAttribute("aria-label");
+  const range = rangeLabel?.match(/Baris source (\d+) sampai (\d+)/);
+  assert.ok(range, `source list must expose its actual inclusive range; received: ${rangeLabel}`);
+  const numbers = await sourceLines.locator("li[data-source-line]").evaluateAll(items => items.map(item => Number(item.getAttribute("data-source-line"))));
+  const start = Number(range[1]);
+  const end = Number(range[2]);
+  assert.equal(numbers[0], start, "first source line marker must match the returned start line");
+  assert.equal(numbers[numbers.length - 1], end, "last source line marker must match the returned end line");
+  assert.deepEqual(numbers, Array.from({ length: end - start + 1 }, (_, index) => start + index), "source line markers must cover the returned range without gaps");
+  assert.equal(await sourceLines.evaluate(element => getComputedStyle(element).listStyleType), "decimal", "source line numbers must remain visible after the global list reset");
 }
 
 async function readFixtureGraph(api: APIRequestContext, base: string, analysisId: string, owner: DisposableAccount) {
@@ -405,6 +580,7 @@ async function runLiveGraphRegression(): Promise<void> {
   const failures: string[] = [];
   const pageErrors: string[] = [];
   const providerRequests: string[] = [];
+  let canvasClickDiagnostics: CanvasClickDiagnostics | null = null;
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
   let api: Awaited<ReturnType<typeof request.newContext>> | undefined;
   let repositoryId = "";
@@ -551,6 +727,80 @@ async function runLiveGraphRegression(): Promise<void> {
     assert.ok(!successText.includes(ready.archive.storageKey) && !successText.includes(storageRoot));
     checks.push("real API: owner gets canonical CKG, snapshot/hash/count mirrors, seven analyzer-produced node kinds, and no source/archive/session-token leak");
 
+    const canonicalCcm = ready.canonical.value.ccm;
+    const endpointNode = canonicalCcm.nodes.find(node => node.kind === "Class" && node.name === "Endpoint");
+    assert.ok(endpointNode?.location, "fixture Endpoint class must have an exact declaration location");
+    const nodeDetailPath = nodeDetailUrl(base, ready.analysisId, endpointNode.id);
+    const nodeDetailResponse = await api.get(nodeDetailPath, { headers: cookieHeader(owner) });
+    assert.equal(nodeDetailResponse.status(), 200);
+    assertPrivateAccountResponse(nodeDetailResponse);
+    const nodeDetailBody = await nodeDetailResponse.json() as { data: NodeDetailData };
+    const nodeDetail = nodeDetailBody.data;
+    assert.equal(nodeDetail.analysisId, ready.analysisId);
+    assert.equal(nodeDetail.accountKey, owner.accountKey);
+    assert.equal(nodeDetail.ckgSha256, ready.canonical.sha256);
+    assert.equal(nodeDetail.configurationHash, configurationHash);
+    assert.deepEqual(nodeDetail.snapshot, fixture.snapshot);
+    assert.deepEqual(nodeDetail.node, inspectorNode(endpointNode), "inspector must return the exact canonical node fields and evidence location without internal attributes");
+    const canonicalNodes = new Map(canonicalCcm.nodes.map(node => [node.id, node]));
+    const expectedIncoming = canonicalCcm.edges
+      .filter(edge => edge.targetId === endpointNode.id)
+      .map(edge => ({ edge, peer: inspectorNode(canonicalNodes.get(edge.sourceId)!) }))
+      .sort(compareByEdgeId);
+    const expectedOutgoing = canonicalCcm.edges
+      .filter(edge => edge.sourceId === endpointNode.id)
+      .map(edge => ({ edge, peer: inspectorNode(canonicalNodes.get(edge.targetId)!) }))
+      .sort(compareByEdgeId);
+    assert.ok(expectedIncoming.length > 0 && expectedOutgoing.length > 0, "Endpoint fixture must exercise canonical incoming and outgoing edges");
+    assert.ok([...expectedIncoming, ...expectedOutgoing].some(item => item.edge.evidence.length > 0), "fixture relations must carry evidence spans");
+    assert.deepEqual([...nodeDetail.incoming].sort(compareByEdgeId), expectedIncoming, "inspector incoming relations preserve full canonical evidence and peer nodes");
+    assert.deepEqual([...nodeDetail.outgoing].sort(compareByEdgeId), expectedOutgoing, "inspector outgoing relations preserve full canonical evidence and peer nodes");
+    const relevantPaths = new Set([
+      endpointNode.location.filePath,
+      ...[...expectedIncoming, ...expectedOutgoing].flatMap(item => item.edge.evidence.map(span => span.filePath)),
+    ]);
+    const expectedNodeFiles = [...relevantPaths]
+      .sort()
+      .map(path => canonicalFileMetadata(canonicalCcm, path));
+    assert.deepEqual([...nodeDetail.files].sort((left, right) => left.path.localeCompare(right.path)), expectedNodeFiles,
+      "inspector source actions are limited to canonical processed files that back this node and its direct relations");
+    assert.doesNotMatch(JSON.stringify(nodeDetailBody), /RESOLVER_TS_FIXTURE_MUST_NOT_EXECUTE/);
+    checks.push("real API: node inspector returns exact canonical declaration location/hash, in/out peers, relation evidence, and only directly evidenced source files");
+
+    const sourcePath = endpointNode.location.filePath;
+    const endpointFile = canonicalFileMetadata(canonicalCcm, sourcePath);
+    assert.match(endpointFile.id, /^file-[0-9a-f]{64}$/);
+    const exactSourceReads: string[] = [];
+    for (const [path, bytes] of Object.entries(ready.sourceBytes)) {
+      const file = canonicalFileMetadata(canonicalCcm, path);
+      const originalText = Buffer.from(bytes).toString("utf8");
+      assert.equal(file.sha256, digest(bytes), `${path} canonical SHA-256 must match the archived snapshot bytes`);
+      assert.equal(file.sizeBytes, bytes.byteLength, `${path} canonical byte length must match the archived snapshot bytes`);
+      const totalLines = lineCount(originalText);
+      const sourceResponse: APIResponse = await api.get(sourceUrl(base, ready.analysisId, file.id, 1, totalLines), { headers: cookieHeader(owner) });
+      assert.equal(sourceResponse.status(), 200, `${path} snapshot source should be available to its owner`);
+      assertPrivateAccountResponse(sourceResponse);
+      const sourceBody = await sourceResponse.json() as { data: SourceData };
+      const source = sourceBody.data;
+      assert.equal(source.analysisId, ready.analysisId);
+      assert.equal(source.accountKey, owner.accountKey);
+      assert.equal(source.ckgSha256, ready.canonical.sha256);
+      assert.equal(source.configurationHash, configurationHash);
+      assert.deepEqual(source.snapshot, fixture.snapshot);
+      assert.deepEqual(source.file, file, `${path} source metadata must use the opaque canonical file ID and original hash`);
+      assert.equal(source.startLine, 1);
+      assert.equal(source.endLine, totalLines);
+      assert.equal(source.totalLines, totalLines);
+      assert.equal(source.text, originalText, `${path} source must be the exact UTF-8 snapshot text, including original line endings`);
+      assert.equal(digest(Buffer.from(source.text, "utf8")), file.sha256, `${path} returned text hash must verify against canonical CKG`);
+      exactSourceReads.push(path);
+    }
+    const endpointText = Buffer.from(ready.sourceBytes[sourcePath]!).toString("utf8");
+    assert.equal(endpointText.charCodeAt(0), 0xfeff, "fixture source proves the BOM is preserved");
+    assert.match(endpointText, /\r\n/, "fixture source proves CRLF is preserved");
+    assert.match(endpointText, /café/, "fixture source proves Unicode is preserved");
+    checks.push(`real API: safe source file IDs and exact line/hash/text verified against both immutable snapshot files (${exactSourceReads.join(", ")})`);
+
     const anonymous = await api.get(baseGraphPath);
     assert.equal(anonymous.status(), 401);
     assert.equal((await anonymous.json() as ApiErrorBody).error?.code, "AUTH_REQUIRED");
@@ -579,7 +829,75 @@ async function runLiveGraphRegression(): Promise<void> {
     const unsupportedMode = await api.get(`${baseGraphPath}?mode=server`, { headers: cookieHeader(owner) });
     assert.equal(unsupportedMode.status(), 400);
     assert.equal((await unsupportedMode.json() as ApiErrorBody).error?.code, "INVALID_INPUT");
-    checks.push("real API: anonymous/stale-account 401, foreign/missing 404, RUNNING 409, terminal result without archive/CKG 503, and invalid query 400");
+
+    const endpointSourceText = Buffer.from(ready.sourceBytes[sourcePath]!).toString("utf8");
+    const endpointTotalLines = lineCount(endpointSourceText);
+    const endpointSourcePath = sourceUrl(base, ready.analysisId, endpointFile.id, 1, endpointTotalLines);
+    for (const [label, path] of [["node inspector", nodeDetailPath], ["source", endpointSourcePath]] as const) {
+      const anonymousDetail: APIResponse = await api.get(path);
+      assert.equal(anonymousDetail.status(), 401, `${label} requires an authenticated session`);
+      assert.equal((await anonymousDetail.json() as ApiErrorBody).error?.code, "AUTH_REQUIRED");
+      const staleDetail: APIResponse = await api.get(path, {
+        headers: { Cookie: `sage_session=${owner.token}`, "X-SAGE-Account": other.accountKey },
+      });
+      assert.equal(staleDetail.status(), 401, `${label} rejects a stale account binding`);
+      assert.equal((await staleDetail.json() as ApiErrorBody).error?.code, "AUTH_REQUIRED");
+      const foreignDetail: APIResponse = await api.get(path, { headers: cookieHeader(other) });
+      assert.equal(foreignDetail.status(), 404, `${label} hides an owner's private snapshot from another account`);
+      assert.equal((await foreignDetail.json() as ApiErrorBody).error?.code, "ANALYSIS_NOT_FOUND");
+    }
+    const missingNode = await api.get(nodeDetailUrl(base, ready.analysisId, `node_${"0".repeat(64)}`), { headers: cookieHeader(owner) });
+    assert.equal(missingNode.status(), 404);
+    assert.equal((await missingNode.json() as ApiErrorBody).error?.code, "NODE_NOT_FOUND");
+    const malformedNode = await api.get(nodeDetailUrl(base, ready.analysisId, "bad-node-id"), { headers: cookieHeader(owner) });
+    assert.equal(malformedNode.status(), 400);
+    assert.equal((await malformedNode.json() as ApiErrorBody).error?.code, "INVALID_INPUT");
+    const unknownNodeQuery = await api.get(`${nodeDetailPath}?unexpected=1`, { headers: cookieHeader(owner) });
+    assert.equal(unknownNodeQuery.status(), 400);
+    assert.equal((await unknownNodeQuery.json() as ApiErrorBody).error?.code, "INVALID_INPUT");
+    const missingFile = await api.get(sourceUrl(base, ready.analysisId, `file-${"0".repeat(64)}`, 1, 1), { headers: cookieHeader(owner) });
+    assert.equal(missingFile.status(), 404);
+    assert.equal((await missingFile.json() as ApiErrorBody).error?.code, "FILE_NOT_FOUND");
+    const malformedFile = await api.get(sourceUrl(base, ready.analysisId, "bad-file-id", 1, 1), { headers: cookieHeader(owner) });
+    assert.equal(malformedFile.status(), 400);
+    assert.equal((await malformedFile.json() as ApiErrorBody).error?.code, "INVALID_INPUT");
+    for (const query of ["startLine=0&endLine=1", "startLine=1&endLine=201", "startLine=1&endLine=1&unexpected=1"]) {
+      const invalidSourceQuery: APIResponse = await api.get(`${base}/api/analyses/${ready.analysisId}/files/${endpointFile.id}/source?${query}`, { headers: cookieHeader(owner) });
+      assert.equal(invalidSourceQuery.status(), 400, `invalid source query should be rejected: ${query}`);
+      assert.equal((await invalidSourceQuery.json() as ApiErrorBody).error?.code, "INVALID_INPUT");
+    }
+    const missingNodeAnalysis = await api.get(nodeDetailUrl(base, "missing-graph-17", endpointNode.id), { headers: cookieHeader(owner) });
+    assert.equal(missingNodeAnalysis.status(), 404);
+    assert.equal((await missingNodeAnalysis.json() as ApiErrorBody).error?.code, "ANALYSIS_NOT_FOUND");
+    const missingFileAnalysis = await api.get(sourceUrl(base, "missing-graph-17", endpointFile.id, 1, 1), { headers: cookieHeader(owner) });
+    assert.equal(missingFileAnalysis.status(), 404);
+    assert.equal((await missingFileAnalysis.json() as ApiErrorBody).error?.code, "ANALYSIS_NOT_FOUND");
+    const runningNode = await api.get(nodeDetailUrl(base, runningId, endpointNode.id), { headers: cookieHeader(other) });
+    assert.equal(runningNode.status(), 409);
+    assert.equal((await runningNode.json() as ApiErrorBody).error?.code, "RESULT_NOT_READY");
+    const runningSource = await api.get(sourceUrl(base, runningId, endpointFile.id, 1, 1), { headers: cookieHeader(other) });
+    assert.equal(runningSource.status(), 409);
+    assert.equal((await runningSource.json() as ApiErrorBody).error?.code, "RESULT_NOT_READY");
+    for (const [label, path, code] of [
+      ["node inspector", nodeDetailUrl(base, noBundleId, endpointNode.id), "NODE_INSPECTOR_UNAVAILABLE"],
+      ["source", sourceUrl(base, noBundleId, endpointFile.id, 1, 1), "SOURCE_UNAVAILABLE"],
+    ] as const) {
+      const unavailable: APIResponse = await api.get(path, { headers: cookieHeader(owner) });
+      assert.equal(unavailable.status(), 503, `${label} without its canonical graph/archive is unavailable`);
+      const body = await unavailable.text();
+      assert.match(body, new RegExp(code));
+      noSensitiveErrorData(body, [owner.token, other.token, owner.syntheticProviderToken, other.syntheticProviderToken, endpointSourceText, storageRoot]);
+    }
+    checks.push("real API: inspector/source enforce 401 stale/anonymous, foreign/missing 404, RUNNING 409, unavailable 503, malformed/unknown query 400, and missing node/file 404");
+
+    const invalidNode = canonicalCcm.nodes.find(node => node.origin === "unresolved");
+    assert.ok(invalidNode, "fixture must contain an unresolved placeholder for source authorization checks");
+    const unresolvedDetailResponse = await api.get(nodeDetailUrl(base, ready.analysisId, invalidNode.id), { headers: cookieHeader(owner) });
+    assert.equal(unresolvedDetailResponse.status(), 200);
+    const unresolvedDetail = (await unresolvedDetailResponse.json() as { data: NodeDetailData }).data;
+    assert.equal(unresolvedDetail.node.location, null, "unresolved placeholders have no declaration location");
+    assert.equal(unresolvedDetail.node.filePath, null, "unresolved placeholders do not claim a source file");
+    checks.push("real API: unresolved placeholder has no declaration source location");
 
     const emptyResponse = await readFixtureGraph(api, base, empty.analysisId, owner);
     assert.equal(emptyResponse.response.status(), 200);
@@ -628,11 +946,23 @@ async function runLiveGraphRegression(): Promise<void> {
       assert.match(text, /GRAPH_UNAVAILABLE/);
       assert.match(text, /Graph belum dapat dibaca\. Coba lagi\./);
       noSensitiveErrorData(text, [owner.token, other.token, owner.syntheticProviderToken, other.syntheticProviderToken, "RESOLVER_TS_FIXTURE_MUST_NOT_EXECUTE", ready.archive.storageKey, storageRoot]);
+      const unavailableNode = await api.get(nodeDetailPath, { headers: cookieHeader(owner) });
+      assert.equal(unavailableNode.status(), 503);
+      const unavailableNodeText = await unavailableNode.text();
+      assert.match(unavailableNodeText, /NODE_INSPECTOR_UNAVAILABLE/);
+      noSensitiveErrorData(unavailableNodeText, [owner.token, other.token, owner.syntheticProviderToken, other.syntheticProviderToken, endpointSourceText, ready.archive.storageKey, storageRoot]);
+      const unavailableSource = await api.get(endpointSourcePath, { headers: cookieHeader(owner) });
+      assert.equal(unavailableSource.status(), 503);
+      const unavailableSourceText = await unavailableSource.text();
+      assert.match(unavailableSourceText, /SOURCE_UNAVAILABLE/);
+      noSensitiveErrorData(unavailableSourceText, [owner.token, other.token, owner.syntheticProviderToken, other.syntheticProviderToken, endpointSourceText, ready.archive.storageKey, storageRoot]);
     } finally {
       await writeFile(ready.archive.archivePath, ready.archive.bytes, { mode: 0o600 });
     }
     assert.equal((await api.get(baseGraphPath, { headers: cookieHeader(owner) })).status(), 200, "restored source archive must recover");
-    checks.push("real API: corrupt immutable source archive becomes safe 503, leaks no source/storage/session secret, and recovers after restoration");
+    assert.equal((await api.get(nodeDetailPath, { headers: cookieHeader(owner) })).status(), 200, "restored archive recovers node details");
+    assert.equal((await api.get(endpointSourcePath, { headers: cookieHeader(owner) })).status(), 200, "restored archive recovers source slices");
+    checks.push("real API: corrupt immutable source archive makes graph/node/source safe 503 without leaks and recovers after restoration");
 
     let controlled503Used = false;
     for (const width of viewports) {
@@ -647,10 +977,14 @@ async function runLiveGraphRegression(): Promise<void> {
       const page = await context.newPage();
       page.setDefaultTimeout(20_000);
       const pageGraphRequests: string[] = [];
+      const pageNodeRequests: string[] = [];
+      const pageSourceRequests: string[] = [];
       page.on("pageerror", error => pageErrors.push(`${width}px: ${error.message}`));
       page.on("request", req => {
         const url = new URL(req.url());
         if (url.pathname === `/api/analyses/${ready!.analysisId}/graph`) pageGraphRequests.push(url.pathname + url.search);
+        if (url.pathname.startsWith(`/api/analyses/${ready!.analysisId}/nodes/`)) pageNodeRequests.push(url.pathname + url.search);
+        if (url.pathname.startsWith(`/api/analyses/${ready!.analysisId}/files/`) && url.pathname.endsWith("/source")) pageSourceRequests.push(url.pathname + url.search);
         if (url.hostname === "github.com" || url.hostname === "api.github.com" || url.pathname.startsWith("/api/github/")) providerRequests.push(req.url());
       });
 
@@ -723,6 +1057,10 @@ async function runLiveGraphRegression(): Promise<void> {
       await page.keyboard.press("ArrowDown");
       await page.keyboard.press("Enter");
       assert.notEqual(await picker.inputValue(), selectableValues[0], "keyboard navigation selects a different graph node");
+      const keyboardSelectedId = await picker.inputValue();
+      await page.waitForFunction(id => document.querySelector('[data-testid="node-inspector"]')?.getAttribute("data-node-id") === id, keyboardSelectedId);
+      assert.equal(await page.getByTestId("node-inspector").getAttribute("data-node-id"), keyboardSelectedId,
+        "keyboard selection through the existing focus picker opens the matching node inspector");
 
       await takeScreenshot(page, `graph-focus-${width}.png`);
       await page.getByRole("button", { name: "Semua referensi", exact: true }).click();
@@ -836,6 +1174,62 @@ async function runLiveGraphRegression(): Promise<void> {
         assert.deepEqual(unchangedGraph.body.data, success.body.data, "filtering leaves the immutable original API result unchanged");
         checks.push("390px: keyboard query AND AST kind filter, consistent counts/focus choices, no-result and reset, unchanged canonical API result");
 
+        const uiPicker = page.getByTestId("graph-node-picker");
+        await uiPicker.selectOption(endpointNode.id);
+        const inspector = page.getByTestId("node-inspector");
+        await page.waitForFunction(id => document.querySelector('[data-testid="node-inspector"]')?.getAttribute("data-node-id") === id, endpointNode.id);
+        await page.getByTestId("node-inspector-source").first().waitFor();
+        assert.equal(await inspector.getAttribute("data-node-id"), endpointNode.id);
+        assert.equal((await page.getByTestId("node-inspector-title").innerText()).trim(), endpointNode.name);
+        const inspectorText = await inspector.innerText();
+        assert.ok(inspectorText.includes(endpointNode.location.filePath), "inspector displays the canonical source path");
+        for (const relation of expectedIncoming) assert.ok((await page.getByTestId("node-inspector-incoming").innerText()).includes(relation.peer.name));
+        for (const relation of expectedOutgoing) assert.ok((await page.getByTestId("node-inspector-outgoing").innerText()).includes(relation.peer.name));
+        await takeScreenshot(page, "graph-inspector-390.png");
+
+        const sourceTrigger = page.getByTestId("node-inspector-source").first();
+        await sourceTrigger.focus();
+        const sourceResponse = page.waitForResponse(response => {
+          const url = new URL(response.url());
+          return url.pathname.endsWith(`/files/${endpointFile.id}/source`) && response.status() === 200;
+        });
+        await page.keyboard.press("Enter");
+        await sourceResponse;
+        const sourceDialog = page.getByTestId("node-source-dialog");
+        await sourceDialog.waitFor();
+        const sourceDialogText = await sourceDialog.innerText();
+        assert.ok(sourceDialogText.includes(endpointFile.path), "source dialog identifies its repository-relative path");
+        assert.ok(sourceDialogText.includes(endpointFile.sha256), "source dialog identifies the exact canonical file hash");
+        assert.ok(sourceDialogText.includes("export class Endpoint extends Base implements Payload"), "source dialog renders the snapshot declaration");
+        await assertRenderedSourceRange(sourceDialog);
+        const sourceEvidenceLine = sourceDialog.locator(`[data-source-line="${endpointNode.location.startLine}"]`);
+        assert.ok((await sourceEvidenceLine.innerText()).includes("export class Endpoint extends Base implements Payload"), "source dialog labels and highlights the canonical AST evidence line");
+        assert.ok(await sourceEvidenceLine.getAttribute("class"), "source evidence line has its highlight class");
+        await takeScreenshot(page, "graph-source-390.png");
+        await page.keyboard.press("Escape");
+        await sourceDialog.waitFor({ state: "hidden" });
+        await page.waitForFunction(() => document.activeElement?.getAttribute("data-testid") === "node-inspector-source");
+        assert.equal(await sourceTrigger.evaluate(element => document.activeElement === element), true, "Escape returns focus to the source evidence trigger");
+
+        const sourceRequestsBeforeUnresolved = pageSourceRequests.length;
+        const unresolvedNodeResponse = page.waitForResponse(response => {
+          const url = new URL(response.url());
+          return url.pathname === `/api/analyses/${ready!.analysisId}/nodes/${invalidNode.id}` && response.status() === 200;
+        });
+        await uiPicker.selectOption(invalidNode.id);
+        await unresolvedNodeResponse;
+        await page.waitForFunction(id => document.querySelector('[data-testid="node-inspector"]')?.getAttribute("data-node-id") === id, invalidNode.id);
+        assert.equal(await page.getByTestId("node-inspector-source").count(), 0, "unresolved placeholder has no declaration source action");
+        assert.equal(pageSourceRequests.length, sourceRequestsBeforeUnresolved, "selecting an unresolved placeholder does not request source text");
+
+        await uiPicker.selectOption(endpointNode.id);
+        await page.waitForFunction(id => document.querySelector('[data-testid="node-inspector"]')?.getAttribute("data-node-id") === id, endpointNode.id);
+        const restoredSourceTrigger = page.getByTestId("node-inspector-source").first();
+        await restoredSourceTrigger.click();
+        const restoredDialog = page.getByTestId("node-source-dialog");
+        await restoredDialog.waitFor();
+        await restoredDialog.getByText("export class Endpoint extends Base implements Payload", { exact: false }).waitFor();
+
         const oldNames = fixture.ccm.nodes.map(node => node.name).filter(Boolean);
         const switched404 = page.waitForResponse(response => {
           const url = new URL(response.url());
@@ -853,14 +1247,206 @@ async function runLiveGraphRegression(): Promise<void> {
         await page.getByRole("alert").filter({ hasText: "Analisis tidak ditemukan." }).waitFor();
         assert.equal(await canvas.count(), 0, "account switch clears the old owner's canvas");
         assert.equal(await page.getByTestId("canonical-counts").count(), 0, "account switch clears old canonical totals");
+        assert.equal(await page.getByTestId("node-inspector").count(), 0, "account switch removes the old inspector");
+        assert.equal(await page.getByTestId("node-source-dialog").isVisible(), false, "account switch closes the old source dialog");
         const visibleBody = await page.locator("body").innerText();
         for (const oldName of oldNames) assert.ok(!visibleBody.includes(oldName), `account switch must clear old node ${oldName}`);
+        assert.ok(!visibleBody.includes("export class Endpoint extends Base implements Payload"), "account switch removes old snapshot source text");
+        assert.ok(pageNodeRequests.some(path => path.endsWith(`/nodes/${endpointNode.id}`)), "focus-picker selection must fetch node details");
+        assert.ok(pageSourceRequests.some(path => path.includes(`/files/${endpointFile.id}/source?`)), "opening source evidence must fetch the selected snapshot file");
+        checks.push("390px: focus-picker node selection opens canonical inspector, source dialog preserves snapshot text and Escape focus, unresolved selection makes no source request, and account switch clears inspector/source");
+      }
+
+      if (width === 1440) {
+        const uiPicker = page.getByTestId("graph-node-picker");
+        await uiPicker.selectOption(endpointNode.id);
+        await page.waitForFunction(id => document.querySelector('[data-testid="node-inspector"]')?.getAttribute("data-node-id") === id, endpointNode.id);
+        const desktopInspector = page.getByTestId("node-inspector");
+        await page.getByTestId("node-inspector-source").first().waitFor();
+        assert.equal(await desktopInspector.getAttribute("data-node-id"), endpointNode.id);
+        await takeScreenshot(page, "graph-inspector-1440.png");
+
+        const desktopSourceTrigger = page.getByTestId("node-inspector-source").first();
+        await desktopSourceTrigger.focus();
+        const desktopSourceResponse = page.waitForResponse(response => {
+          const url = new URL(response.url());
+          return url.pathname.endsWith(`/files/${endpointFile.id}/source`) && response.status() === 200;
+        });
+        await page.keyboard.press("Enter");
+        await desktopSourceResponse;
+        const desktopSourceDialog = page.getByTestId("node-source-dialog");
+        await desktopSourceDialog.waitFor();
+        await desktopSourceDialog.getByText("export class Endpoint extends Base implements Payload", { exact: false }).waitFor();
+        await assertRenderedSourceRange(desktopSourceDialog);
+        await takeScreenshot(page, "graph-source-1440.png");
+        await page.keyboard.press("Escape");
+        await desktopSourceDialog.waitFor({ state: "hidden" });
+        await page.waitForFunction(() => document.activeElement?.getAttribute("data-testid") === "node-inspector-source");
+        assert.equal(await desktopSourceTrigger.evaluate(element => document.activeElement === element), true, "desktop Escape returns focus to the source evidence trigger");
+
+        await page.getByTestId("node-inspector-close").click();
+        await desktopInspector.waitFor({ state: "detached" });
+        await page.getByLabel("Cari node", { exact: true }).fill("Endpoint");
+        await page.getByLabel("Class", { exact: true }).check();
+        const oneClassMatch = expectedGraphFilter(data.graph, "Endpoint", ["Class"]);
+        assert.deepEqual(oneClassMatch.nodes.map(node => node.id), [endpointNode.id], "desktop canvas fixture filter leaves only the Endpoint class");
+        await assertDisplayedGraphCounts(page, "query-filter-counts", oneClassMatch);
+        await assertDisplayedGraphCounts(page, "filtered-counts", oneClassMatch);
+        await page.getByRole("button", { name: "Ikhtisar", exact: true }).click();
+        await assertDisplayedGraphCounts(page, "visible-counts", oneClassMatch);
+        const singleCanvasChoiceIds = await page.getByTestId("graph-node-picker").locator("option").evaluateAll(options => options
+          .map(option => (option as HTMLOptionElement).value).filter(Boolean));
+        assert.deepEqual(singleCanvasChoiceIds, [endpointNode.id], "desktop graph canvas should contain one known selectable source node");
+        const canvasSelectedId = await clickFittedCanvasNode(
+          page,
+          endpointNode.id,
+          join(resultDir, "graph-canvas-click-1440.png"),
+          diagnostics => { canvasClickDiagnostics = diagnostics; },
+        );
+        assert.equal(canvasSelectedId, endpointNode.id, "desktop mouse click at the fitted canvas center explicitly selects Endpoint");
+        assert.equal(await page.getByTestId("node-inspector").getAttribute("data-node-id"), canvasSelectedId);
+        checks.push("1440px: focus-picker opens source-backed inspector/source screenshots and a direct canvas click opens a canonical node inspector");
       }
 
       assert.deepEqual(pageErrors, [], `${width}px graph route should not throw browser errors`);
       checks.push(`${width}px: real owner graph, modes and count semantics, keyboard node selection, unresolved legend, zoom/fit, screenshot, and no horizontal overflow/page errors`);
       await context.close();
     }
+
+    const nodeRetryContext = await browser.newContext({ viewport: { width: 390, height: 1000 }, reducedMotion: "reduce" });
+    await nodeRetryContext.addCookies([{
+      name: "sage_session", value: owner.token, url: base, httpOnly: true, sameSite: "Lax",
+    }]);
+    const nodeRetryPage = await nodeRetryContext.newPage();
+    nodeRetryPage.setDefaultTimeout(20_000);
+    nodeRetryPage.on("pageerror", error => pageErrors.push(`inspector/source retry: ${error.message}`));
+    let firstNode503 = true;
+    await nodeRetryPage.route(`**/api/analyses/${ready.analysisId}/nodes/${endpointNode.id}`, async route => {
+      if (!firstNode503) return route.continue();
+      firstNode503 = false;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        headers: { "Cache-Control": "private, no-store" },
+        body: JSON.stringify({
+          error: { code: "NODE_INSPECTOR_UNAVAILABLE", message: "Detail node sementara tidak dapat dibaca. Coba lagi.", details: {} },
+          requestId: randomUUID(),
+        }),
+      });
+    });
+    await nodeRetryPage.goto(graphPageUrl(base, ready.analysisId), { waitUntil: "networkidle" });
+    const retryPicker = nodeRetryPage.getByTestId("graph-node-picker");
+    const firstNodeError = nodeRetryPage.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === `/api/analyses/${ready!.analysisId}/nodes/${endpointNode.id}` && response.status() === 503;
+    });
+    await retryPicker.selectOption(endpointNode.id);
+    await firstNodeError;
+    await nodeRetryPage.getByTestId("node-inspector").getByRole("status").waitFor();
+    const retryNodeButton = nodeRetryPage.getByTestId("node-inspector-retry");
+    await retryNodeButton.waitFor();
+    const successfulNodeRetry = nodeRetryPage.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === `/api/analyses/${ready!.analysisId}/nodes/${endpointNode.id}` && response.status() === 200;
+    });
+    await retryNodeButton.click();
+    await successfulNodeRetry;
+    await nodeRetryPage.getByTestId("node-inspector-source").first().waitFor();
+
+    let firstSource503 = true;
+    await nodeRetryPage.route(`**/api/analyses/${ready.analysisId}/files/${endpointFile.id}/source*`, async route => {
+      if (!firstSource503) return route.continue();
+      firstSource503 = false;
+      await route.fulfill({
+        status: 503,
+        contentType: "application/json",
+        headers: { "Cache-Control": "private, no-store" },
+        body: JSON.stringify({
+          error: { code: "SOURCE_UNAVAILABLE", message: "Source snapshot sementara tidak dapat dibaca. Coba lagi.", details: {} },
+          requestId: randomUUID(),
+        }),
+      });
+    });
+    const firstSourceError = nodeRetryPage.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === `/api/analyses/${ready!.analysisId}/files/${endpointFile.id}/source` && response.status() === 503;
+    });
+    await nodeRetryPage.getByTestId("node-inspector-source").first().click();
+    await firstSourceError;
+    const sourceRetryDialog = nodeRetryPage.getByTestId("node-source-dialog");
+    await sourceRetryDialog.getByRole("status").waitFor();
+    const retrySourceButton = nodeRetryPage.getByTestId("node-source-retry");
+    await retrySourceButton.waitFor();
+    const successfulSourceRetry = nodeRetryPage.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === `/api/analyses/${ready!.analysisId}/files/${endpointFile.id}/source` && response.status() === 200;
+    });
+    await retrySourceButton.click();
+    await successfulSourceRetry;
+    await sourceRetryDialog.getByText("export class Endpoint extends Base implements Payload", { exact: false }).waitFor();
+    await nodeRetryContext.close();
+    checks.push("390px controlled API faults: one inspector 503 and one source 503 each show a retry action and recover through the real Next/Postgres endpoint");
+
+    const baseNode = canonicalCcm.nodes.find(node => node.kind === "Class" && node.name === "Base");
+    assert.ok(baseNode?.location, "fixture Base class must have a declaration location for the stale inspector race");
+    const inspectorRaceContext = await browser.newContext({ viewport: { width: 390, height: 1000 }, reducedMotion: "reduce" });
+    await inspectorRaceContext.addCookies([{
+      name: "sage_session", value: owner.token, url: base, httpOnly: true, sameSite: "Lax",
+    }]);
+    const inspectorRacePage = await inspectorRaceContext.newPage();
+    inspectorRacePage.setDefaultTimeout(20_000);
+    inspectorRacePage.on("pageerror", error => pageErrors.push(`stale node inspector response: ${error.message}`));
+    let releaseDelayedNodeResponse = () => {};
+    let finishDelayedNodeRoute = () => {};
+    let signalDelayedNodeRequest = () => {};
+    let signalDelayedNodeResponseReady = () => {};
+    const delayedNodeResponseGate = new Promise<void>(resolve => { releaseDelayedNodeResponse = resolve; });
+    const delayedNodeRouteFinished = new Promise<void>(resolve => { finishDelayedNodeRoute = resolve; });
+    const delayedNodeRequestStarted = new Promise<void>(resolve => { signalDelayedNodeRequest = resolve; });
+    const delayedNodeResponseReady = new Promise<void>(resolve => { signalDelayedNodeResponseReady = resolve; });
+    let holdEndpointDetails = true;
+    let delayedNodeStatus = 0;
+    await inspectorRacePage.route(`**/api/analyses/${ready.analysisId}/nodes/${endpointNode.id}`, async route => {
+      if (!holdEndpointDetails) return route.continue();
+      holdEndpointDetails = false;
+      signalDelayedNodeRequest();
+      try {
+        const actual = await route.fetch();
+        delayedNodeStatus = actual.status();
+        signalDelayedNodeResponseReady();
+        await delayedNodeResponseGate;
+        try { await route.fulfill({ response: actual }); }
+        catch { /* A newer node selection may abort this obsolete detail request. */ }
+      } finally {
+        finishDelayedNodeRoute();
+      }
+    });
+    await inspectorRacePage.goto(graphPageUrl(base, ready.analysisId), { waitUntil: "networkidle" });
+    const racePicker = inspectorRacePage.getByTestId("graph-node-picker");
+    const endpointDetailsWaiter = delayedNodeRequestStarted;
+    await racePicker.selectOption(endpointNode.id);
+    await endpointDetailsWaiter;
+    await delayedNodeResponseReady;
+    assert.equal(delayedNodeStatus, 200, "stale inspector response is held only after a genuine API success");
+    await inspectorRacePage.getByTestId("node-inspector").getByRole("status").waitFor();
+    const baseDetailsResponse = inspectorRacePage.waitForResponse(response => {
+      const url = new URL(response.url());
+      return url.pathname === `/api/analyses/${ready!.analysisId}/nodes/${baseNode.id}` && response.status() === 200;
+    });
+    await racePicker.selectOption(baseNode.id);
+    await baseDetailsResponse;
+    await inspectorRacePage.getByTestId("node-inspector-source").first().waitFor();
+    assert.equal(await inspectorRacePage.getByTestId("node-inspector").getAttribute("data-node-id"), baseNode.id);
+    assert.equal((await inspectorRacePage.getByTestId("node-inspector-title").innerText()).trim(), baseNode.name);
+    releaseDelayedNodeResponse();
+    await delayedNodeRouteFinished;
+    await inspectorRacePage.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    assert.equal(await inspectorRacePage.getByTestId("node-inspector").getAttribute("data-node-id"), baseNode.id,
+      "late Endpoint detail must not replace the more recent Base selection");
+    assert.equal((await inspectorRacePage.getByTestId("node-inspector-title").innerText()).trim(), baseNode.name);
+    await inspectorRaceContext.close();
+    checks.push("390px delayed inspector response: selection B completes while real selection A is held; releasing A cannot replace B");
+
     assert.equal(controlled503Used, true, "first browser load must consume the marked one-off controlled 503 and retry through the real API");
     assert.deepEqual(providerRequests, [], "graph page makes no GitHub/provider requests");
     checks.push("browser-only controlled case: one intercepted 503 exposes retry and then recovers from the real database-backed API");
@@ -1048,6 +1634,7 @@ async function runLiveGraphRegression(): Promise<void> {
       browserPageErrors: pageErrors,
       providerRequests: providerRequests.length,
       viewports: [...viewports],
+      canvasClickDiagnostics,
       sourceFixture: "tests/fixtures/resolver/typescript/src/model.ts + endpoint.ts via @sage/analyzer-js analyzeReferences",
       fixtureEvidence: ready ? {
         snapshot: ready.snapshot,
@@ -1055,7 +1642,9 @@ async function runLiveGraphRegression(): Promise<void> {
         canonicalCounts: ready.canonical.value.counts,
       } : null,
       seedScope: "Direct test database seed of canonical GraphBundle and SOURCE_ARCHIVE; this is not the actual nine-stage pipeline or worker publication.",
-      controlledCase: "The first 360px request receives one intercepted 503; a separate controlled response body abort checks stale-error handling; all replacement requests read the genuine Next/Postgres API.",
+      controlledCase: "The first 360px graph request receives one intercepted 503; independent node-detail and source-detail requests each receive a controlled 503 before their retry reaches the genuine Next/Postgres API; a separate delayed error body checks stale-error handling.",
+      inspectorSourceCase: "Node details and source line ranges are checked against the canonical CKG and immutable archive. Browser coverage uses the focus picker at 390px, a canvas click at 1440px, delayed node-selection responses, Escape focus restoration, unresolved-node no-source behavior, and account-switch clearing.",
+      screenshots: ["graph-inspector-390.png", "graph-source-390.png", "graph-inspector-1440.png", "graph-source-1440.png", "graph-canvas-click-1440.png"],
       delayedIdentityCase: "A genuine owner-A graph API response is held in Playwright while the genuine session endpoint rejects cookie B with the stale A account binding; A's delayed response is then released and must not restore graph data.",
       storageRoot: "Dedicated private temporary fixture root; only script-created snapshot-* folders are removed.",
       ...(reportError ? { error: reportError } : {}),

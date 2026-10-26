@@ -1,0 +1,51 @@
+{
+  "verifiedContentCommit": "b704958ffed46272dcccdd9d5d356e0ef4b8324f",
+  "date": "2026-10-27",
+  "status": "PASS",
+  "unitTests": 311,
+  "dataTests": 8,
+  "browserApiGroups": 25,
+  "failures": [],
+  "browserPageErrors": [],
+  "providerRequests": 0,
+  "viewports": [
+    360,
+    390,
+    768,
+    1024,
+    1440
+  ],
+  "finalImage": "sha256:d36ef503b951491741017229861a90d50a42160356e06a8ac8893ffa5af78b20",
+  "reportPath": "artifacts/graph-19/2026-10-27-run3/report.json",
+  "reportSha256": "4a664a40a78f4f528f667e52ad943ed6b73a8d0d51695b7bbb76b10b215ca74a",
+  "ckgSha256": "40ba440a49e3c7344527612dd7c550ca9bf6b006a2d904fa61af4c807bae5891",
+  "scope": "Direct test database seed of canonical GraphBundle and SOURCE_ARCHIVE; this is not the actual nine-stage pipeline or worker publication.",
+  "controlledCases": "The first 360px graph request receives one intercepted 503; independent node-detail and source-detail requests each receive a controlled 503 before their retry reaches the genuine Next/Postgres API; a separate delayed error body checks stale-error handling.",
+  "sourceLimits": {
+    "maxLines": 200,
+    "maxUtf8Bytes": 131072
+  },
+  "verificationSequence": [
+    "Full lint, root/web typecheck, 311 main tests, 8 data tests and production build passed.",
+    "CSS line-number correction followed by lint and production rebuild.",
+    "Final browser script passed lint/root typecheck and all 25 groups against final image."
+  ],
+  "earlierBrowserRuns": "Runs 1 and 2 stopped after 15 groups on desktop canvas click; line-number CSS fixed and click synchronized using read-only rendered positions before real mouse event.",
+  "fileSha256": {
+    "apps/web/app/api/analyses/[analysisId]/files/[fileId]/source/route.ts": "5e06008d7b0848989ca556dc16f40d7a5fb9ab57f00fa60edd7d2bc7e81b5275",
+    "apps/web/app/api/analyses/[analysisId]/nodes/[nodeId]/route.ts": "ecabad23e8b44ef23a0a33f7570388088c36299c032d816f0d237853a328c941",
+    "apps/web/components/graph-foundation/graph-foundation.module.css": "52ed10d9c1542a88e527f0ca627b47a1f54536ae62199159f2085f4bcb87675b",
+    "apps/web/components/live-graph/inspector-data.ts": "b4217ed8135e38fbde601b104321eef29c426c4c2ab68f59b9861238762641f7",
+    "apps/web/components/live-graph/live-graph-client.tsx": "b91aa39dac5986a6c59e28c3d0bd01596153fbb56e423f15274628c10fd1843d",
+    "apps/web/components/live-graph/node-inspector.tsx": "5261d23b56c6bbd1bf2080bd615142372a8d493291ae19f4621e19b1ea571c01",
+    "apps/web/lib/graphs/inspector-handlers.ts": "316f9af6b60680505e9193f83e0fd4e3bf6cc47dbb0c0bc064dcfb1b34591838",
+    "apps/web/lib/graphs/inspector-types.ts": "8cbbc761e29285b7a8271a79097c85ec2ebd5575be026b11f8d5e659abbfed82",
+    "apps/web/lib/graphs/reader.ts": "5eadc24a1e8c6556bfa2e4577ddff8a0bb22194072cb9a5d791456267d9210f1",
+    "apps/web/lib/graphs/server-handlers.ts": "ca70e7291538ca656e35d2120a9d7dea709956713e95c172465f9a3e2491dada",
+    "package.json": "9c7bba7cdc078c6746f053824b08e196c39599831ad25841f02efd3bc64187b4",
+    "scripts/test-live-graph.ts": "ede5f72a5c77cd028912f95ce7274aac50a5218f04dabf011bebda67a49414a5",
+    "tests/inspector-data.test.ts": "1f576a7abdccf1e45d026daa6b7b24e87ea59c27b30d15637e7f5de24acd53f4",
+    "tests/node-inspector-handlers.test.ts": "927561cfb1e1a6b5f2b0fb46213dce01eacdb32a34df7f999565842ea6518e33",
+    "tests/node-inspector-reader.test.ts": "9f6a024ac992579c5788bcfbf0c53586e8cd1d4afa2b39162dca1b75003f5257"
+  }
+}
