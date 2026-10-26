@@ -4,6 +4,19 @@
 .pageHeading h1 { margin: 0; font-size: 28px; font-weight: 600; letter-spacing: -.55px; line-height: 36px; }
 .pageHeading > p:last-child,.muted { color: #52637b; }
 .snapshotCard,.contentCard,.notice { min-width: 0; padding: 16px; border: 1px solid #dce5ec; border-radius: 8px; background: #fff; box-shadow: 0 1px 2px rgb(6 30 66 / 3%); }
+.exportCard { display: grid; gap: 16px; min-width: 0; padding: 16px; border: 1px solid #c9dcd7; border-radius: 8px; background: #f8fcfb; }
+.exportCopy { min-width: 0; }
+.exportCopy h2 { margin: 0; color: #183b39; font-size: 17px; font-weight: 600; line-height: 24px; }
+.exportCopy p { margin: 6px 0 0; color: #52637b; font-size: 12px; line-height: 19px; }
+.exportCopy code { overflow-wrap: anywhere; color: #173655; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+.exportStatus,.exportFailure { padding: 9px 10px; border-radius: 5px; }
+.exportStatus { color: #315b53 !important; background: #eaf7f3; }
+.exportFailure { color: #802937 !important; background: #fcedef; }
+.exportActions { display: flex; flex-wrap: wrap; gap: 8px; }
+.exportButton { min-height: 42px; padding: 8px 13px; border: 1px solid #08796e; border-radius: 5px; color: #fff; background: #08796e; font: inherit; font-size: 12px; font-weight: 600; cursor: pointer; }
+.exportButton:hover:not(:disabled) { border-color: #075b52; background: #075b52; }
+.exportButton:focus-visible { outline: 3px solid #08796e; outline-offset: 3px; }
+.exportButton:disabled { border-color: #b8c6d3; color: #738196; background: #edf1f4; cursor: not-allowed; }
 .snapshotHeading,.sectionHeading { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 8px 16px; margin-bottom: 14px; }
 .snapshotHeading h2,.sectionHeading h2 { margin: 0; font-size: 18px; font-weight: 600; line-height: 26px; }
 .metadataGrid { display: grid; gap: 12px; margin: 0; }
@@ -66,18 +79,21 @@
 .footerLink { margin-top: 2px; color: #075f55; font-size: 12px; }
 .footerLink a { color: inherit; text-underline-offset: 3px; }
 @media (min-width: 680px) {
-  .snapshotCard,.contentCard,.notice { padding: 20px; }
+  .snapshotCard,.contentCard,.notice,.exportCard { padding: 20px; }
   .metadataGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 24px; }
   .sectionLayout { grid-template-columns: minmax(195px, 260px) minmax(0, 1fr); align-items: start; gap: 18px; }
   .sectionNav { display: grid; position: sticky; top: 12px; }
   .sectionButton { width: 100%; }
   .catalogTable th,.relationTable th,.mappingTable th,.fileTable th { font-size: 12px; }
+  .exportCard { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .exportActions { justify-content: flex-end; }
 }
 @media (max-width: 560px) {
   .documentPage { gap: 17px; }
-  .snapshotCard,.contentCard { padding: 14px; }
+  .snapshotCard,.contentCard,.exportCard { padding: 14px; }
   .sectionHeading { flex-direction: column; }
   .sectionButton { flex: 1 1 100%; }
+  .exportButton { width: 100%; }
   .catalogTable,.catalogTable tbody,.catalogTable tr,.catalogTable td,
   .relationTable,.relationTable tbody,.relationTable tr,.relationTable td,
   .mappingTable,.mappingTable tbody,.mappingTable tr,.mappingTable td,
