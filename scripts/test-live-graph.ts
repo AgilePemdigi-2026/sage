@@ -250,6 +250,41 @@ function graphPageUrl(base: string, analysisId: string): string {
   return `${base}/analyses/${analysisId}/graph`;
 }
 
+function expectedGraphFilter(
+  graph: ReturnType<typeof projectCcmForGraph>,
+  query: string,
+  selectedKinds: readonly string[] = [],
+): { nodes: typeof graph.nodes; edges: typeof graph.edges } {
+  const normalizedQuery = query.trim().toLowerCase();
+  const allowedKinds = new Set(selectedKinds);
+  const nodes = graph.nodes.filter(node =>
+    (allowedKinds.size === 0 || allowedKinds.has(node.kind)) &&
+    (!normalizedQuery || [node.name, node.kind, node.qualifiedName, node.filePath ?? ""]
+      .some(value => value.toLowerCase().includes(normalizedQuery))));
+  const nodeIds = new Set(nodes.map(node => node.id));
+  const edges = graph.edges.filter(edge => nodeIds.has(edge.source) && nodeIds.has(edge.target));
+  return { nodes, edges };
+}
+
+async function assertDisplayedGraphCounts(
+  page: Page,
+  testId: string,
+  expected: { nodes: readonly unknown[]; edges: readonly unknown[] },
+): Promise<void> {
+  const expectedNodes = expected.nodes.length;
+  const expectedEdges = expected.edges.length;
+  await page.waitForFunction(({ id, nodes, edges }) => {
+    const text = document.querySelector(`[data-testid="${id}"]`)?.textContent ?? "";
+    const counts = text.match(/(\d+)\s+node\s*·\s*(\d+)\s+relasi/);
+    return !!counts && Number(counts[1]) === nodes && Number(counts[2]) === edges;
+  }, { id: testId, nodes: expectedNodes, edges: expectedEdges }, { timeout: 5_000 });
+  const text = await page.getByTestId(testId).innerText();
+  const counts = text.match(/(\d+)\s+node\s*·\s*(\d+)\s+relasi/);
+  assert.ok(counts, `${testId} should show a node and edge count pair; received: ${text}`);
+  assert.equal(Number(counts[1]), expectedNodes, `${testId} node count should match; received: ${text}`);
+  assert.equal(Number(counts[2]), expectedEdges, `${testId} edge count should match; received: ${text}`);
+}
+
 async function readFixtureGraph(api: APIRequestContext, base: string, analysisId: string, owner: DisposableAccount) {
   return graphApiResponse(api, graphUrl(base, analysisId), owner);
 }
@@ -611,9 +646,11 @@ async function runLiveGraphRegression(): Promise<void> {
       }]);
       const page = await context.newPage();
       page.setDefaultTimeout(20_000);
+      const pageGraphRequests: string[] = [];
       page.on("pageerror", error => pageErrors.push(`${width}px: ${error.message}`));
       page.on("request", req => {
         const url = new URL(req.url());
+        if (url.pathname === `/api/analyses/${ready!.analysisId}/graph`) pageGraphRequests.push(url.pathname + url.search);
         if (url.hostname === "github.com" || url.hostname === "api.github.com" || url.pathname.startsWith("/api/github/")) providerRequests.push(req.url());
       });
 
@@ -713,6 +750,82 @@ async function runLiveGraphRegression(): Promise<void> {
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${width}px page must not overflow horizontally`);
 
       if (width === 390) {
+        const kinds = [...new Set(data.graph.nodes.map(node => node.kind))].sort();
+        const kindGroup = page.getByRole("group", { name: "Jenis node AST", exact: true });
+        const renderedKinds = await kindGroup.locator('input[type="checkbox"]').evaluateAll(inputs => inputs
+          .map(input => (input as HTMLInputElement).labels?.[0]?.textContent?.trim() ?? "")
+          .filter(Boolean)
+          .sort());
+        assert.deepEqual(renderedKinds, kinds, "AST kind choices must reflect the kinds present in this canonical graph");
+
+        await page.getByRole("button", { name: "Ikhtisar", exact: true }).click();
+        const graphRequestsBeforeFilter = pageGraphRequests.length;
+        const queryInput = page.getByLabel("Cari node", { exact: true });
+        await queryInput.focus();
+        await page.keyboard.type("Endpoint");
+        assert.equal(await queryInput.inputValue(), "Endpoint", "the mobile-width query field accepts keyboard input");
+        const queryMatches = expectedGraphFilter(data.graph, "Endpoint");
+        assert.ok(queryMatches.nodes.some(node => node.kind === "Class"), "fixture query should match its Endpoint class");
+        assert.ok(queryMatches.nodes.some(node => node.kind !== "Class"), "fixture query should also match a non-Class node before the kind filter");
+        await assertDisplayedGraphCounts(page, "query-filter-counts", queryMatches);
+        await assertDisplayedGraphCounts(page, "filtered-counts", queryMatches);
+        await assertDisplayedGraphCounts(page, "visible-counts", queryMatches);
+
+        const focusPicker = page.getByLabel("Pilih node fokus", { exact: true });
+        const queryChoiceIds = await focusPicker.locator("option").evaluateAll(options => options
+          .map(option => (option as HTMLOptionElement).value).filter(Boolean).sort());
+        assert.deepEqual(queryChoiceIds, queryMatches.nodes.map(node => node.id).sort(), "focus choices should match the query result");
+
+        const classCheckbox = page.getByLabel("Class", { exact: true });
+        await classCheckbox.focus();
+        await page.keyboard.press("Space");
+        assert.equal(await classCheckbox.isChecked(), true, "the AST kind filter can be enabled from the keyboard");
+        const combinedMatches = expectedGraphFilter(data.graph, "Endpoint", ["Class"]);
+        assert.ok(combinedMatches.nodes.length < queryMatches.nodes.length, "the AST kind filter must narrow the query result");
+        assert.ok(combinedMatches.nodes.every(node => node.kind === "Class"));
+        await assertDisplayedGraphCounts(page, "query-filter-counts", combinedMatches);
+        await assertDisplayedGraphCounts(page, "filtered-counts", combinedMatches);
+        await assertDisplayedGraphCounts(page, "visible-counts", combinedMatches);
+        const combinedChoiceIds = await focusPicker.locator("option").evaluateAll(options => options
+          .map(option => (option as HTMLOptionElement).value).filter(Boolean).sort());
+        assert.deepEqual(combinedChoiceIds, combinedMatches.nodes.map(node => node.id).sort(), "focus choices should match the combined query and kind result");
+        assert.equal(await page.getByTestId("canonical-counts").innerText(), canonicalCounts, "query and kind filters cannot change canonical counts");
+        await takeScreenshot(page, "graph-filter-390.png");
+
+        const noResultQuery = `__issue18-no-match-${randomUUID()}__`;
+        await queryInput.fill("");
+        await queryInput.focus();
+        await page.keyboard.type(noResultQuery);
+        assert.equal(await queryInput.inputValue(), noResultQuery);
+        const noMatches = expectedGraphFilter(data.graph, noResultQuery, ["Class"]);
+        await page.getByRole("status").filter({ hasText: "Tidak ada node yang sesuai dengan kueri dan jenis node yang dipilih." }).waitFor();
+        await assertDisplayedGraphCounts(page, "query-filter-counts", noMatches);
+        await assertDisplayedGraphCounts(page, "filtered-counts", noMatches);
+        await assertDisplayedGraphCounts(page, "visible-counts", noMatches);
+        const noResultChoiceIds = await focusPicker.locator("option").evaluateAll(options => options
+          .map(option => (option as HTMLOptionElement).value).filter(Boolean).sort());
+        assert.deepEqual(noResultChoiceIds, [], "no-result state must offer no focus node choices");
+        await takeScreenshot(page, "graph-filter-empty-390.png");
+
+        const resetButton = page.getByRole("button", { name: "Atur ulang filter", exact: true });
+        await resetButton.focus();
+        await page.keyboard.press("Enter");
+        assert.equal(await queryInput.inputValue(), "", "keyboard reset clears the query");
+        assert.equal(await classCheckbox.isChecked(), false, "keyboard reset clears selected kinds");
+        await assertDisplayedGraphCounts(page, "query-filter-counts", { nodes: data.graph.nodes, edges: data.graph.edges });
+        await assertDisplayedGraphCounts(page, "filtered-counts", { nodes: data.graph.nodes, edges: data.graph.edges });
+        await assertDisplayedGraphCounts(page, "visible-counts", { nodes: data.graph.nodes, edges: data.graph.edges });
+        const resetChoiceIds = await focusPicker.locator("option").evaluateAll(options =>
+          options.map(option => (option as HTMLOptionElement).value).filter(Boolean).sort());
+        assert.deepEqual(resetChoiceIds, data.graph.nodes.map(node => node.id).sort(), "reset restores every canonical focus choice");
+        assert.equal(await page.getByTestId("canonical-counts").innerText(), canonicalCounts, "reset leaves canonical counts unchanged");
+        assert.equal(pageGraphRequests.length, graphRequestsBeforeFilter, "query, kind filtering, no-result, and reset stay client-side");
+
+        const unchangedGraph = await readFixtureGraph(api, base, ready.analysisId, owner);
+        assert.equal(unchangedGraph.response.status(), 200);
+        assert.deepEqual(unchangedGraph.body.data, success.body.data, "filtering leaves the immutable original API result unchanged");
+        checks.push("390px: keyboard query AND AST kind filter, consistent counts/focus choices, no-result and reset, unchanged canonical API result");
+
         const oldNames = fixture.ccm.nodes.map(node => node.name).filter(Boolean);
         const switched404 = page.waitForResponse(response => {
           const url = new URL(response.url());
