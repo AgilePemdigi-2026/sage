@@ -55,7 +55,7 @@ ID di bawah adalah kontrak acceptance alur produk lengkap. Check per issue dapat
 | T-ANA-06 | Matikan worker aktif lalu retry | Percobaan lama failed/interrupted; percobaan baru memakai SHA/config yang sama dan izin diperiksa ulang |
 | T-GRAPH-01 | Buka context, focus/overview/all references, zoom/fit | Graph sesuai analisis; canonical dan subset counts jelas; unresolved tetap terbedakan |
 | T-GRAPH-02 | Cari node, combine kategori, no result, reset | Query AND kategori; edge sesuai endpoint; canonical result tidak berubah; 5 unit filter dan 18 kelompok regresi browser PASS, interaksi filter 390 px (GRAPH-02_CHECKS) |
-| T-GRAPH-03 | Pilih node, incoming/outgoing, buka/tutup source preview, unavailable | Location/bounds/evidence benar dan dari snapshot; loading/error/focus kembali sesuai |
+| T-GRAPH-03 | Pilih node, incoming/outgoing, buka/tutup source preview, unavailable | Lulus: canonical bounds/relasi/source hash, retry, Escape/focus, akun berubah dan respons terlambat; 25 kelompok browser/API dengan fixture TypeScript, lihat GRAPH-03_CHECKS |
 | T-DOC-01 | Bandingkan tiga artefak dengan CKG/source | Contract/signature/dependency terbukti; unresolved dan provenance terpelihara; tidak ada fakta tambahan |
 | T-EXP-01 | Ekspor dan buka Markdown pada viewer bersih | Tiga artefak, diagram source, evidence, context, limitation lengkap; tidak bergantung path lokal |
 | T-EXP-02 | Ekspor dan buka PDF, ekstrak teks, render seluruh halaman | File valid, teks sesuai, diagram terbaca, tidak terpotong, font dan evidence sesuai |

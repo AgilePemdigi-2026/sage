@@ -50,7 +50,7 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | ANA-07 | Pipeline sembilan tahap, progress, failure/retry, atomic result | 1-2 | P0 / XL | Rizqy | ANA-01, ANA-02, ANA-06, DOC-01, ANA-07-S1 | - | Planned | [#16](https://github.com/AgilePemdigi-2026/sage/issues/16) |
 | GRAPH-01 | Graph canvas, mode, legend, zoom, dan counts | 1-2 | P1 / L | Valentina | ANA-06, UI-01, GRAPH-01-S1 | - | Implemented; verification recorded in GRAPH-01_CHECKS | [#17](https://github.com/AgilePemdigi-2026/sage/issues/17) |
 | GRAPH-02 | Node Query dan filter kategori gabungan | 2 | P1 / M | Valentina | GRAPH-01 | - | Implemented; query/filter dan regresi browser teruji (GRAPH-02_CHECKS) | [#18](https://github.com/AgilePemdigi-2026/sage/issues/18) |
-| GRAPH-03 | Inspector, incoming/outgoing, evidence, source preview | 2 | P0 / L | Valentina | GRAPH-01, REP-02 | - | Planned | [#19](https://github.com/AgilePemdigi-2026/sage/issues/19) |
+| GRAPH-03 | Inspector, incoming/outgoing, evidence, source preview | 2 | P0 / L | Valentina | GRAPH-01, REP-02 | - | Implemented; [bukti](GRAPH-03_CHECKS.md) | [#19](https://github.com/AgilePemdigi-2026/sage/issues/19) |
 | EXP-01 | Markdown mandiri beserta failure/retry | 2 | P0 / L | Zarra | DOC-01 | - | Planned | [#20](https://github.com/AgilePemdigi-2026/sage/issues/20) |
 | EXP-02 | PDF, print layout, diagram, dan download | 2 | P0 / L | Valentina | DOC-01, ENV-01 | - | Planned | [#21](https://github.com/AgilePemdigi-2026/sage/issues/21) |
 | HIST-01 | History per user, search, empty/error, navigasi | 2 | P1 / M | Rizqy | DATA-01, ANA-01 | - | Planned | [#22](https://github.com/AgilePemdigi-2026/sage/issues/22) |
