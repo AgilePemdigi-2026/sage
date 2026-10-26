@@ -48,9 +48,9 @@ Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Ri
 | SAGE-FR-ANA-15 | Analysis Result Access | 33 | Progres / Graph | ANA-07, GRAPH-01 | T-GRAPH-01 | 2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
 | SAGE-FR-GRAPH-01 | Analysis Context Display | 35 | Graph | GRAPH-01 | T-GRAPH-01 | 2 | Graph CKG tersimpan dan publikasi pipeline teruji dengan provider terkontrol (GRAPH-01_CHECKS, ANA-07_CHECKS) |
 | SAGE-FR-GRAPH-02 | Code Knowledge Graph Display | 35 | Graph | GRAPH-01 | T-GRAPH-01 | 2 | Graph CKG tersimpan dan publikasi pipeline teruji dengan provider terkontrol (GRAPH-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-GRAPH-03 | Node Query | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Planned |
-| SAGE-FR-GRAPH-04 | AST Category Filter | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Planned |
-| SAGE-FR-GRAPH-05 | Graph Filtering Result | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Planned |
+| SAGE-FR-GRAPH-03 | Node Query | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Query AND kategori canonical, reset/no-result dan immutability teruji (GRAPH-02_CHECKS) |
+| SAGE-FR-GRAPH-04 | AST Category Filter | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Query AND kategori canonical, reset/no-result dan immutability teruji (GRAPH-02_CHECKS) |
+| SAGE-FR-GRAPH-05 | Graph Filtering Result | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Query AND kategori canonical, reset/no-result dan immutability teruji (GRAPH-02_CHECKS) |
 | SAGE-FR-GRAPH-06 | Node Selection | 35 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Planned |
 | SAGE-FR-GRAPH-07 | Node Inspector | 35 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Planned |
 | SAGE-FR-GRAPH-08 | Location and AST Bounds Display | 35 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Planned |

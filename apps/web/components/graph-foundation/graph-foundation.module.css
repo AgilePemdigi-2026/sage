@@ -50,6 +50,16 @@
 .graphIdentity dd { min-width: 0; margin: 2px 0 0; }
 .graphIdentity code { color: #344b68; font-family: "JetBrains Mono", monospace; font-size: 10px; overflow-wrap: anywhere; }
 .modeControls { display: grid; gap: 12px; padding: 14px 0; }
+.filterControls { display: grid; gap: 8px; padding: 14px 0; border-bottom: 1px solid #e8edf2; }
+.searchLabel { display: grid; gap: 6px; color: #344b68; font-size: 11px; font-weight: 600; }
+.searchInput { width: 100%; min-height: 42px; padding: 8px 10px; border: 1px solid #b8c6d3; border-radius: 6px; background: #fff; color: #061e42; font: inherit; font-size: 12px; }
+.searchInput:focus-visible, .kindFilters input:focus-visible { outline: 3px solid #096c67; outline-offset: 2px; }
+.filterHelp { color: var(--graph-muted); font-size: 10px; line-height: 1.6; }
+.kindFilters { display: flex; flex-wrap: wrap; gap: 8px 14px; margin: 0; padding: 10px; border: 1px solid #dce5eb; border-radius: 6px; }
+.kindFilters legend { padding: 0 4px; color: #344b68; font-size: 11px; font-weight: 600; }
+.kindFilters label { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; color: #253d58; font-size: 11px; cursor: pointer; }
+.kindFilters input { width: 16px; height: 16px; margin: 0; accent-color: #096c67; }
+.graphControl:disabled { border-color: #dce3eb; background: #f7f9fb; color: #718096; cursor: not-allowed; }
 .modeButtons { display: flex; flex-wrap: wrap; gap: 8px; }
 .modeButton { min-height: 40px; padding: 8px 11px; border: 1px solid #7c8ba1; border-radius: 6px; background: #fff; color: #061e42; font: inherit; font-size: 11px; font-weight: 600; cursor: pointer; }
 .modeButton:hover { background: #f1f5f8; }

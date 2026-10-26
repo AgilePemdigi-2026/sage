@@ -71,7 +71,8 @@ function canvasElements(graph: GraphViewModel, moduleParentByNodeId?: Readonly<R
 }
 
 function zoomPercent(core: Core | null): number {
-  return core ? Math.round(core.zoom() * 100) : 100;
+  const value = core?.zoom();
+  return typeof value === "number" && Number.isFinite(value) && value > 0 ? Math.round(value * 100) : 100;
 }
 
 export function GraphCanvas({ graph, selectedId, onSelect, moduleParentByNodeId }: {
@@ -87,7 +88,7 @@ export function GraphCanvas({ graph, selectedId, onSelect, moduleParentByNodeId 
 
   useEffect(() => {
     const host = hostRef.current;
-    if (!host) return;
+    if (!host || !graph.nodes.length) return;
 
     const core = cytoscape({
       container: host,
@@ -101,7 +102,11 @@ export function GraphCanvas({ graph, selectedId, onSelect, moduleParentByNodeId 
       autoungrabify: false,
     });
     coreRef.current = core;
-    const updateZoom = () => setZoom(zoomPercent(core));
+    const updateZoom = () => {
+      if (core.destroyed()) return;
+      const nextZoom = zoomPercent(core);
+      setZoom((current) => current === nextZoom ? current : nextZoom);
+    };
     const selectNode = (event: cytoscape.EventObject) => onSelect(event.target.id());
     core.on("zoom", updateZoom);
     core.on("tap", "node", selectNode);
@@ -110,12 +115,12 @@ export function GraphCanvas({ graph, selectedId, onSelect, moduleParentByNodeId 
     const resizeObserver = new ResizeObserver(() => {
       if (core.destroyed()) return;
       core.resize();
-      core.fit(undefined, 32);
+      if (core.nodes().length > 0) core.fit(undefined, 32);
       updateZoom();
     });
     resizeObserver.observe(host);
     core.ready(() => {
-      core.fit(undefined, 32);
+      if (core.nodes().length > 0) core.fit(undefined, 32);
       updateZoom();
     });
 
@@ -127,7 +132,7 @@ export function GraphCanvas({ graph, selectedId, onSelect, moduleParentByNodeId 
       core.destroy();
       if (coreRef.current === core) coreRef.current = null;
     };
-  }, [elements, onSelect]);
+  }, [elements, graph.nodes.length, onSelect]);
 
   useEffect(() => {
     const core = coreRef.current;
@@ -140,26 +145,29 @@ export function GraphCanvas({ graph, selectedId, onSelect, moduleParentByNodeId 
 
   function scaleBy(factor: number) {
     const core = coreRef.current;
-    if (!core || core.destroyed()) return;
-    core.zoom({ level: core.zoom() * factor, renderedPosition: { x: hostRef.current!.clientWidth / 2, y: hostRef.current!.clientHeight / 2 } });
+    const host = hostRef.current;
+    if (!core || core.destroyed() || core.nodes().empty() || !host || host.clientWidth <= 0 || host.clientHeight <= 0) return;
+    core.zoom({ level: core.zoom() * factor, renderedPosition: { x: host.clientWidth / 2, y: host.clientHeight / 2 } });
     setZoom(zoomPercent(core));
   }
 
   function fitGraph() {
     const core = coreRef.current;
-    if (!core || core.destroyed()) return;
+    if (!core || core.destroyed() || core.nodes().empty()) return;
     core.fit(undefined, 32);
     setZoom(zoomPercent(core));
   }
 
+  const displayedZoom = graph.nodes.length > 0 ? zoom : 100;
+
   return <div className={styles.canvasArea}>
     <div className={styles.canvasToolbar} aria-label="Kontrol kanvas">
       <div className={styles.canvasActions}>
-        <button type="button" className={styles.graphControl} onClick={() => scaleBy(1.2)} aria-label="Perbesar">Perbesar</button>
-        <button type="button" className={styles.graphControl} onClick={() => scaleBy(1 / 1.2)} aria-label="Perkecil">Perkecil</button>
-        <button type="button" className={styles.graphControl} onClick={fitGraph} aria-label="Sesuaikan tampilan">Sesuaikan tampilan</button>
+        <button type="button" className={styles.graphControl} onClick={() => scaleBy(1.2)} aria-label="Perbesar" disabled={!graph.nodes.length}>Perbesar</button>
+        <button type="button" className={styles.graphControl} onClick={() => scaleBy(1 / 1.2)} aria-label="Perkecil" disabled={!graph.nodes.length}>Perkecil</button>
+        <button type="button" className={styles.graphControl} onClick={fitGraph} aria-label="Sesuaikan tampilan" disabled={!graph.nodes.length}>Sesuaikan tampilan</button>
       </div>
-      <output className={styles.zoomOutput} aria-live="polite" aria-label="Tingkat zoom">{zoom}%</output>
+      <output className={styles.zoomOutput} aria-live="polite" aria-label="Tingkat zoom">{displayedZoom}%</output>
     </div>
     <div className={styles.canvasFrame}>
       <div ref={hostRef} role="region" aria-label="Kanvas knowledge graph" aria-describedby="graph-canvas-help" className={styles.canvas} />

@@ -1,0 +1,63 @@
+{
+  "issue": 18,
+  "base": "0a2f76769d0e46da48da5c2ce37f703c4ed633e3",
+  "verifiedContentCommit": "331e1909b196173d14cd8ef0f7c691b3b516b721",
+  "status": "PASS",
+  "checks": {
+    "lint": "PASS",
+    "typecheckRootAndWeb": "PASS",
+    "mainTests": {
+      "passed": 297,
+      "failed": 0
+    },
+    "dataTests": {
+      "passed": 8,
+      "failed": 0
+    },
+    "productionBuild": "PASS",
+    "latestMountedFilterTests": {
+      "passed": 5,
+      "failed": 0
+    },
+    "playwrightGroups": 18,
+    "pageErrors": 0,
+    "providerRequests": 0,
+    "viewports": [
+      360,
+      390,
+      768,
+      1024,
+      1440
+    ]
+  },
+  "ckgSha256": "40ba440a49e3c7344527612dd7c550ca9bf6b006a2d904fa61af4c807bae5891",
+  "fileSha256": {
+    "apps/web/components/live-graph/graph-filters.ts": "a453c32e54647250233b36439ef19ad40defb3ceaf2e89ed929941204aa66b03",
+    "apps/web/components/live-graph/live-graph-client.tsx": "d694e241ec257aa231d47d65ea9be088b440c6ddd59496b741a59f7e8def47e8",
+    "apps/web/components/graph-foundation/knowledge-graph.tsx": "4170d06f5d9afaad1af3bf15c63178c320f29aaea0f43a24d21c973ffbef9d12",
+    "apps/web/components/graph-foundation/graph-foundation.module.css": "b2b8eeef9b9330bec3c48238cb9b9ce0bb2d529098a99f01007b3ad551a16d1e",
+    "tests/graph-filters.test.ts": "1d9094ec7ac13a2ba898a7e0a28a4a72dc8a7dbdc113d2e2342bbdad2f1926b5",
+    "scripts/test-live-graph.ts": "f0a37356326c9b57fb52332e53050136395c50f5c3ec48d9f40d5b3a41c1231c"
+  },
+  "reportSha256": "5bd58acfbbf035f06609f627c9fd1f3cf7a4e9910ff805a51d90772697f17633",
+  "localReport": "artifacts/graph-18/2026-10-26-run2/report.json",
+  "imageId": "sha256:8dc0e543e6718a472f2e507e088fb445e7a43cc461fef67b10668583c2732a26",
+  "runtime": {
+    "node": "24.22.0",
+    "next": "16.4.2",
+    "postgres": "17.11",
+    "runnerCpu": 1,
+    "runnerMemory": "2GiB",
+    "databaseCpu": 0.5,
+    "databaseMemory": "256MiB"
+  },
+  "verificationMethod": "Fresh current-source check and production build on cached dependency image; latest test files mounted read-only for lint, targeted tests, and Playwright against dedicated temporary PostgreSQL. No host ports.",
+  "initialFailure": "Run1 revealed React error 185 and lost input while typing a long zero-match query. GraphCanvas now skips Cytoscape for empty graphs; the unchanged keyboard sequence passed in run2.",
+  "limitations": [
+    "Direct test database seed of canonical GraphBundle and SOURCE_ARCHIVE; this is not the actual nine-stage pipeline or worker publication.",
+    "The first 360px request receives one intercepted 503; a separate controlled response body abort checks stale-error handling; all replacement requests read the genuine Next/Postgres API.",
+    "A genuine owner-A graph API response is held in Playwright while the genuine session endpoint rejects cookie B with the stale A account binding; A's delayed response is then released and must not restore graph data.",
+    "Filter interaction verified at 390px; mode/layout regression verified at all five viewports.",
+    "No fresh live GitHub OAuth or nine-stage pipeline run in this issue."
+  ]
+}
