@@ -10,7 +10,6 @@ import { canonicalizeCkg } from "@sage/contracts";
 import { projectArchitectureDocument } from "@sage/documents/model";
 import { MARKDOWN_RENDERER_VERSION } from "../packages/documents/src/markdown.ts";
 import {
-  claimAnalysisJob,
   claimExportJob,
   database,
   disconnectDatabase,

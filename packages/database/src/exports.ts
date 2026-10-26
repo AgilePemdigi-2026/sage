@@ -324,8 +324,8 @@ export async function findMarkdownExportForUser(
   return row ? toSnapshot(row) : null;
 }
 
-export interface ClaimExportJobOptions extends ExportLeaseOptions {}
-export interface RenewExportLeaseOptions extends ExportLeaseOptions {}
+export type ClaimExportJobOptions = ExportLeaseOptions;
+export type RenewExportLeaseOptions = ExportLeaseOptions;
 
 async function recoverExpiredExport(tx: Prisma.TransactionClient, slot: OccupiedExportSlotRow & {
   jobId: string; ownerUserId: string; leaseTokenHash: string; jobExportId: string; jobAnalysisId: string; jobAttempt: number;
