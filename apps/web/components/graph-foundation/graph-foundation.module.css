@@ -116,7 +116,7 @@
 .sourceContext > div { display: grid; gap: 3px; min-width: 0; }
 .sourcePreviewHeader { display: grid; gap: 4px; color: #52637b; font-size: 10px; line-height: 1.6; }
 .sourcePreview { max-height: 48vh; overflow: auto; border: 1px solid #dce5eb; border-radius: 6px; background: #fbfcfe; }
-.sourceLines { min-width: max-content; margin: 0; padding: 8px 8px 8px 48px; color: #253d58; font: 11px/1.75 "JetBrains Mono", monospace; tab-size: 2; }
+.sourceLines { list-style: decimal; min-width: max-content; margin: 0; padding: 8px 8px 8px 48px; color: #253d58; font: 11px/1.75 "JetBrains Mono", monospace; tab-size: 2; }
 .sourceLines li { padding: 0 9px; white-space: pre; }
 .sourceLines li::marker { color: #77869a; font-size: 10px; }
 .sourceLines code { font: inherit; }
