@@ -355,6 +355,7 @@ model Export {
   architectureDocumentId String
   storageObjectId        String?
   format                 ExportFormat
+  documentHash           String               @db.VarChar(64)
   rendererVersion        String
   status                 ExportStatus         @default(QUEUED)
   contentHash            String?
@@ -371,6 +372,7 @@ model Export {
   @@unique([id, ownerUserId])
   @@index([ownerUserId, status, createdAt])
   @@index([analysisId, ownerUserId])
+  @@unique([ownerUserId, analysisId, format, documentHash, rendererVersion], map: "Export_owner_analysis_format_documentHash_rendererVersion_key")
 }
 
 model StorageObject {

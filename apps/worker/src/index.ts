@@ -3,10 +3,12 @@ import { setTimeout as delay } from "node:timers/promises";
 import { hostname } from "node:os";
 import {
   claimAnalysisJob,
+  claimExportJob,
   database,
   disconnectDatabase,
 } from "@sage/database";
 import { createAnalysisPipeline } from "./pipeline.ts";
+import { createExportWorker } from "./export-handlers.ts";
 
 const WORKER_HEARTBEAT_INTERVAL_MS = 5_000;
 const QUEUE_POLL_INTERVAL_MS = 1_000;
@@ -41,6 +43,7 @@ async function main(): Promise<void> {
     db,
     storageRoot: process.env.STORAGE_ROOT ?? "/app/storage",
   });
+  const exportWorker = createExportWorker({ db, storageRoot: process.env.STORAGE_ROOT ?? "/app/storage" });
   console.log(JSON.stringify({ event: "worker_started", mode: "durable_queue" }));
   const heartbeatLoop = async () => {
     while (!controller.signal.aborted) {
@@ -61,7 +64,19 @@ async function main(): Promise<void> {
     }
   };
 
-  const tasks = [heartbeatLoop(), consumerLoop()];
+  const exportConsumerLoop = async () => {
+    while (!controller.signal.aborted) {
+      const claim = await claimExportJob(db, { leaseDurationMs: 120_000 });
+      if (controller.signal.aborted) return;
+      if (claim) {
+        await exportWorker.process(claim, controller.signal);
+      } else {
+        await wait(QUEUE_POLL_INTERVAL_MS, controller.signal);
+      }
+    }
+  };
+
+  const tasks = [heartbeatLoop(), consumerLoop(), exportConsumerLoop()];
   try {
     await Promise.race(tasks.map(task => task.then(() => {
       if (!controller.signal.aborted) throw new Error("Worker service loop stopped unexpectedly.");
