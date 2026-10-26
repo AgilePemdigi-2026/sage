@@ -210,6 +210,7 @@ export function NodeInspector({
 
   useEffect(() => {
     if (!sourceTarget || !sourceRequestKey) return;
+    const target = sourceTarget;
     const requestKey = sourceRequestKey;
     const requestId = ++sourceGeneration.current;
     sourceController.current?.abort();
@@ -220,10 +221,10 @@ export function NodeInspector({
     async function loadSource() {
       try {
         const query = new URLSearchParams({
-          startLine: String(sourceTarget.requested.startLine),
-          endLine: String(sourceTarget.requested.endLine),
+          startLine: String(target.requested.startLine),
+          endLine: String(target.requested.endLine),
         });
-        const response = await fetch(`/api/analyses/${encodeURIComponent(analysisId)}/files/${encodeURIComponent(sourceTarget.file.id)}/source?${query}`, {
+        const response = await fetch(`/api/analyses/${encodeURIComponent(analysisId)}/files/${encodeURIComponent(target.file.id)}/source?${query}`, {
           headers: { "X-SAGE-Account": accountKey },
           cache: "no-store",
           credentials: "same-origin",
@@ -245,7 +246,7 @@ export function NodeInspector({
           return;
         }
         if (!isRecord(body) || !("data" in body)) throw new Error("Respons source tidak valid.");
-        const value = parseSourcePayload(body.data, { ...identity, file: sourceTarget.file, ...sourceTarget.requested });
+        const value = parseSourcePayload(body.data, { ...identity, file: target.file, ...target.requested });
         if (!current()) return;
         setSourceState({ key: requestKey, kind: "ready", value });
       } catch (cause) {
