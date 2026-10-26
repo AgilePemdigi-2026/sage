@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NODE_KINDS } from "@sage/contracts";
 import type { NodeKind } from "@sage/contracts";
 import type { GraphPayload } from "../../lib/graphs/types.ts";
@@ -10,6 +10,7 @@ import type { GraphMode } from "./graph-modes.ts";
 import { projectGraphMode } from "./graph-modes.ts";
 import { filterGraph } from "./graph-filters.ts";
 import { parseLiveGraphPayload } from "./graph-data.ts";
+import { NodeInspector } from "./node-inspector.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
 import ui from "../ui-foundation/ui-foundation.module.css";
 
@@ -38,6 +39,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selectedKinds, setSelectedKinds] = useState<NodeKind[]>([]);
+  const nodePickerRef = useRef<HTMLSelectElement>(null);
   const generation = useRef(0);
   const graphController = useRef<AbortController | null>(null);
   const sessionController = useRef<AbortController | null>(null);
@@ -59,6 +61,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       generation.current += 1;
       abortCurrentRequests();
       setPayload(null);
+      setSelectedId(null);
       window.location.replace(`${window.location.pathname}${window.location.search}`);
     }
 
@@ -68,6 +71,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       generation.current += 1;
       abortCurrentRequests();
       setPayload(null);
+      setSelectedId(null);
       window.location.replace("/login?error=session");
     }
 
@@ -123,6 +127,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         if (!isCurrent(requestGeneration)) return;
         if (response.status === 401) {
           setPayload(null);
+          setSelectedId(null);
           const identity = await checkSession(requestGeneration);
           if (identity && isCurrent(requestGeneration)) {
             redirectToLogin();
@@ -134,6 +139,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           try { message = responseMessage(await response.json()); } catch { /* Keep the status-specific message. */ }
           if (!isCurrent(requestGeneration)) return;
           setPayload(null);
+          setSelectedId(null);
           setError({ status: response.status, message: message ?? "Graph belum dapat dimuat. Coba lagi." });
           return;
         }
@@ -146,6 +152,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       } catch (cause) {
         if (!isCurrent(requestGeneration) || (cause instanceof DOMException && cause.name === "AbortError")) return;
         setPayload(null);
+        setSelectedId(null);
         setError({ status: null, message: cause instanceof Error ? cause.message : "Graph belum dapat dimuat. Coba lagi." });
       } finally {
         if (isCurrent(requestGeneration)) setBusy(false);
@@ -159,6 +166,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       const requestGeneration = ++generation.current;
       abortCurrentRequests();
       setPayload(null);
+      setSelectedId(null);
       setError(null);
       setBusy(true);
       try {
@@ -167,6 +175,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       } catch (cause) {
         if (isCurrent(requestGeneration) && !(cause instanceof DOMException && cause.name === "AbortError")) {
           setPayload(null);
+          setSelectedId(null);
           setError({ status: null, message: cause instanceof Error ? cause.message : "Sesi belum dapat diperiksa. Coba lagi." });
         }
       } finally {
@@ -191,6 +200,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         if (!isCurrent(requestGeneration)) return;
         if (response.status === 401) {
           setPayload(null);
+          setSelectedId(null);
           reloadCurrentPage();
           return;
         }
@@ -199,11 +209,13 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         if (!isCurrent(requestGeneration)) return;
         if (body.data?.accountKey !== accountKey) {
           setPayload(null);
+          setSelectedId(null);
           reloadCurrentPage();
         }
       } catch (cause) {
         if (!isCurrent(requestGeneration) || (cause instanceof DOMException && cause.name === "AbortError")) return;
         setPayload(null);
+        setSelectedId(null);
         setError({ status: null, message: cause instanceof Error ? cause.message : "Sesi belum dapat diperiksa. Coba lagi." });
       } finally {
         periodicCheckRunning = false;
@@ -233,23 +245,39 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
     // The server-rendered identity defines the scope of this client page.
   }, [analysisId, accountKey]);
 
-  const filterResult = useMemo(() => payload ? filterGraph(payload.graph, query, selectedKinds) : null, [payload, query, selectedKinds]);
+  const visiblePayload = payload?.analysisId === analysisId && payload.accountKey === accountKey ? payload : null;
+  const filterResult = useMemo(() => visiblePayload ? filterGraph(visiblePayload.graph, query, selectedKinds) : null, [visiblePayload, query, selectedKinds]);
   const projection = useMemo(() => {
     if (!filterResult) return null;
     const focusId = selectedId && filterResult.graph.nodes.some((node) => node.id === selectedId) ? selectedId : null;
     return projectGraphMode(filterResult.graph, mode, focusId);
   }, [filterResult, mode, selectedId]);
-  const canonicalCounts = payload?.canonicalCounts ?? null;
+  const canonicalCounts = visiblePayload?.canonicalCounts ?? null;
   const availableKinds = useMemo(() => {
-    if (!payload) return [];
-    const presentKinds = new Set(payload.graph.nodes.map((node) => node.kind));
+    if (!visiblePayload) return [];
+    const presentKinds = new Set(visiblePayload.graph.nodes.map((node) => node.kind));
     return NODE_KINDS.filter((kind) => presentKinds.has(kind));
-  }, [payload]);
+  }, [visiblePayload]);
 
   function chooseNode(id: string) {
     setSelectedId(id || null);
     setMode("focus");
   }
+
+  function openProjectionAnchor() {
+    if (projection?.anchorId) setSelectedId(projection.anchorId);
+  }
+
+  function closeInspector() {
+    setSelectedId(null);
+    requestAnimationFrame(() => nodePickerRef.current?.focus());
+  }
+
+  const handleInspectorIdentityFailure = useCallback(() => {
+    setPayload(null);
+    setSelectedId(null);
+    refreshRef.current?.();
+  }, []);
 
   function retainSelectedMatch(nextQuery: string, nextKinds: readonly NodeKind[]) {
     if (!selectedId || !payload) return;
@@ -287,22 +315,22 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       <p className={ui.muted}>Graph lengkap dari snapshot analisis, dengan konteks hash dan jumlah kanonik.</p>
     </div>
 
-    {busy && !payload ? <p className={ui.loading} role="status">Memeriksa akun dan memuat knowledge graph…</p> : null}
+    {!visiblePayload && (busy || payload) ? <p className={ui.loading} role="status">Memeriksa akun dan memuat knowledge graph…</p> : null}
     {errorContent()}
 
-    {payload && filterResult && projection && canonicalCounts ? <>
+    {visiblePayload && filterResult && projection && canonicalCounts ? <>
       <section className={styles.graphCard} aria-label="Knowledge graph analisis">
         <div className={styles.graphCardHeader}>
           <div>
             <h2>Snapshot analisis</h2>
-            <p className={styles.repositoryPath}>{payload.graph.repository}<span aria-hidden="true"> · </span>{payload.graph.branch ?? "branch tidak diketahui"}</p>
+            <p className={styles.repositoryPath}>{visiblePayload.graph.repository}<span aria-hidden="true"> · </span>{visiblePayload.graph.branch ?? "branch tidak diketahui"}</p>
           </div>
-          <p className={styles.snapshotLabel}>Commit snapshot<code>{payload.graph.commitSha}</code></p>
+          <p className={styles.snapshotLabel}>Commit snapshot<code>{visiblePayload.graph.commitSha}</code></p>
         </div>
 
         <dl className={styles.graphIdentity}>
-          <div><dt>Hash CKG</dt><dd><code>{payload.ckgSha256}</code></dd></div>
-          <div><dt>Konfigurasi</dt><dd><code>{payload.configurationHash}</code></dd></div>
+          <div><dt>Hash CKG</dt><dd><code>{visiblePayload.ckgSha256}</code></dd></div>
+          <div><dt>Konfigurasi</dt><dd><code>{visiblePayload.configurationHash}</code></dd></div>
         </dl>
 
         <div className={styles.legend} aria-label="Kategori node dan jenis relasi">
@@ -339,12 +367,15 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           <div className={styles.modeButtons}>
             {modes.map((item) => <button key={item.id} type="button" className={styles.modeButton} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}>{item.label}</button>)}
           </div>
-          <label className={styles.nodePickerLabel}>Pilih node fokus
-            <select className={styles.nodePicker} aria-label="Pilih node fokus" value={projection.anchorId ?? ""} onChange={(event) => chooseNode(event.target.value)}>
-              {!projection.anchorId ? <option value="">Graph tidak memiliki node</option> : null}
-              {[...filterResult.graph.nodes].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)).map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
-            </select>
-          </label>
+          <div className={styles.nodePickerControls}>
+            <label className={styles.nodePickerLabel}>Pilih node fokus
+              <select ref={nodePickerRef} className={styles.nodePicker} aria-label="Pilih node fokus" data-testid="graph-node-picker" value={projection.anchorId ?? ""} onChange={(event) => chooseNode(event.target.value)}>
+                {!projection.anchorId ? <option value="">Graph tidak memiliki node</option> : null}
+                {[...filterResult.graph.nodes].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)).map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
+              </select>
+            </label>
+            <button type="button" className={styles.graphControl} data-testid="open-node-inspector" onClick={openProjectionAnchor} disabled={!projection.anchorId} aria-expanded={selectedId === projection.anchorId}>Buka inspector node</button>
+          </div>
         </section>
 
         <section className={styles.graphCounts} role="group" aria-label="Ringkasan jumlah graph">
@@ -360,10 +391,21 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         </section>
 
         {busy ? <p className={ui.loading} role="status">Memeriksa akun sebelum memuat ulang graph…</p> : null}
-        {payload.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Graph tidak memiliki node untuk ditampilkan.</p> : null}
-        {payload.graph.nodes.length > 0 && filterResult.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Tidak ada node yang sesuai dengan kueri dan jenis node yang dipilih.</p> : null}
+        {visiblePayload.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Graph tidak memiliki node untuk ditampilkan.</p> : null}
+        {visiblePayload.graph.nodes.length > 0 && filterResult.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Tidak ada node yang sesuai dengan kueri dan jenis node yang dipilih.</p> : null}
         {filterResult.graph.nodes.length > 0 && projection.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Mode ini tidak memiliki node untuk ditampilkan.</p> : null}
         <GraphCanvas graph={projection.graph} selectedId={projection.anchorId} onSelect={setSelectedId} moduleParentByNodeId={projection.moduleParentByNodeId} />
+        {visiblePayload && selectedId && filterResult.graph.nodes.some((node) => node.id === selectedId) ? <NodeInspector
+          key={`${analysisId}:${accountKey}:${visiblePayload.ckgSha256}:${visiblePayload.configurationHash}:${visiblePayload.snapshot.repository}:${visiblePayload.snapshot.branch ?? ""}:${visiblePayload.snapshot.commitSha}:${selectedId}`}
+          analysisId={analysisId}
+          accountKey={accountKey}
+          ckgSha256={visiblePayload.ckgSha256}
+          configurationHash={visiblePayload.configurationHash}
+          snapshot={visiblePayload.snapshot}
+          nodeId={selectedId}
+          onClose={closeInspector}
+          onIdentityFailure={handleInspectorIdentityFailure}
+        /> : null}
         <p className={styles.modeDescription} aria-live="polite">
           {mode === "overview" ? "Ikhtisar menampilkan node kanonik dan mengelompokkan node di bawah Module yang tercatat." : null}
           {mode === "focus" ? "Fokus menampilkan node terpilih, tetangga langsung, dan relasi yang bersentuhan dengan node terpilih." : null}
