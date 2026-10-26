@@ -68,6 +68,7 @@ export function parseMarkdownExportPayload(value: unknown, expected: MarkdownExp
       exported.format !== "MARKDOWN" || !["QUEUED", "GENERATING", "READY", "FAILED"].includes(String(exported.status)) ||
       !sha256(exported.documentHash) || !nonEmptyText(exported.rendererVersion) ||
       !(exported.contentHash === null || sha256(exported.contentHash)) ||
+      (exported.status === "READY" && !sha256(exported.contentHash)) ||
       !nullableText(exported.errorCode)) {
     throw new MarkdownExportPayloadError();
   }

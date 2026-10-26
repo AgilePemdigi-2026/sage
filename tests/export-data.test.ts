@@ -46,6 +46,9 @@ test("Markdown export parser rejects incomplete or malformed export metadata", (
   assert.throws(() => parseMarkdownExportPayload({
     ...payload("READY"), export: { ...payload("READY").export, contentHash: "not-a-hash" },
   }, expected), MarkdownExportPayloadError);
+  assert.throws(() => parseMarkdownExportPayload({
+    ...payload("READY"), export: { ...payload("READY").export, contentHash: null },
+  }, expected), MarkdownExportPayloadError);
 });
 
 test("download filenames are reduced to safe Markdown basenames", () => {
