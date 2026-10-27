@@ -1,8 +1,7 @@
 import { execFile } from "node:child_process";
 import { createHash, randomUUID } from "node:crypto";
-import { copyFile, link, lstat, mkdir, mkdtemp, readFile, rename, rm, unlink, writeFile } from "node:fs/promises";
-import { dirname, join, relative, resolve, sep } from "node:path";
-import { tmpdir } from "node:os";
+import { link, mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
 
@@ -154,37 +153,6 @@ async function docker(args, timeout = 30_000) {
   return exec("docker", args, { timeout, maxBuffer: 4 * 1024 * 1024 });
 }
 
-function sourcePathAllowed(path) {
-  const parts = path.split("/");
-  if (parts.some(part => ["node_modules", ".git", ".next", ".turbo", "coverage", "dist", "artifacts", "storage"].includes(part))) return false;
-  return !parts.some(part => /^\.env(?:\.|$)/i.test(part));
-}
-
-/** Build a dependency-free, data-free snapshot of tracked worktree sources for the read-only /benchmark mount. */
-async function createSourceProjection() {
-  const { stdout } = await exec("git", ["-C", project, "ls-files", "-z", "--cached", "--others", "--exclude-standard"], { maxBuffer: 8 * 1024 * 1024 });
-  const files = stdout.split("\0").filter(path => path && sourcePathAllowed(path));
-  const root = await mkdtemp(join(tmpdir(), "sage-resource-benchmark-source-"));
-  try {
-    for (const path of files) {
-      const source = resolve(project, path);
-      const relativePath = relative(project, source);
-      if (!relativePath || relativePath === ".." || relativePath.startsWith(`..${sep}`)) continue;
-      const info = await lstat(source).catch(() => null);
-      if (!info?.isFile() || info.isSymbolicLink()) continue;
-      const destination = resolve(root, path);
-      const fromRoot = relative(root, destination);
-      if (!fromRoot || fromRoot === ".." || fromRoot.startsWith(`..${sep}`)) continue;
-      await mkdir(dirname(destination), { recursive: true });
-      await copyFile(source, destination);
-    }
-    return root;
-  } catch (error) {
-    await rm(root, { recursive: true, force: true });
-    throw error;
-  }
-}
-
 async function fileFingerprint(path) {
   const bytes = await readFile(path);
   return digest(bytes);
@@ -233,7 +201,7 @@ function classifyExecError(error, fallback) {
 }
 
 /** One fresh offline cgroup per sample; docker rm --force runs after every attempted create. */
-async function measure(options, projectionPath, corpus, iteration, runtimeImageId, preflightFailure = null) {
+async function measure(options, corpus, iteration, runtimeImageId, preflightFailure = null) {
   const name = `sage-resource-${randomUUID()}`;
   const record = {
     corpus: corpus.id,
@@ -254,7 +222,6 @@ async function measure(options, projectionPath, corpus, iteration, runtimeImageI
   const args = ["create", "--name", name, "--network", "none", "--cpus", "1", "--memory", "2g", "--memory-swap", "2g",
     "--pids-limit", "256", "--shm-size", "256m", "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev,size=256m"];
   for (const [src, dst] of [
-    [projectionPath, "/benchmark"],
     [workloadScript, "/app/scripts/benchmark-resource-workload.ts"],
     [sharedBenchmarkScript, "/app/scripts/benchmark-repository.ts"],
     [corpus.rootPath, "/input"],
@@ -363,7 +330,6 @@ function initialReport(options) {
       scriptFingerprintsSha256: null,
       limits: { cpus: 1, memoryBytes, swapBytes: 0, pids: 256, shmBytes: 256 * 1024 ** 2, tmpfsBytes: 256 * 1024 ** 2,
         network: "none", rootFilesystem: "read-only", freshContainerPerSample: true, externalDeadlineMs: deadlineMs },
-      worktreeSourceMount: "read-only filtered source projection; excludes host dependencies, generated output, and prepared corpus storage",
     },
     plan: { cases: options.cases, iterationsPerCase: options.iterations, caseMode: options.cases.some(id => id.startsWith("reference-")) ? "includes full-reference boundary probes" : "small plus deterministic partial-corpus workloads" },
     corpora: [],
@@ -429,7 +395,6 @@ async function main(argv) {
     return;
   }
 
-  let projectionPath = null;
   let preflightFailure = null;
   let runtimeImageId = null;
   const metadataById = new Map();
@@ -467,10 +432,6 @@ async function main(argv) {
         preflightFailure = classifyExecError(error, "BENCHMARK_IMAGE_UNAVAILABLE");
       }
     }
-    if (!preflightFailure) {
-      try { projectionPath = await createSourceProjection(); }
-      catch (error) { preflightFailure = safeErrorCode(error, "BENCHMARK_SOURCE_PROJECTION_FAILED"); }
-    }
     await writeReportAtomically(outputPath, report);
 
     for (const id of options.cases) {
@@ -483,7 +444,7 @@ async function main(argv) {
           manifestSha256: corpus?.manifestSha256 ?? null, fixtureSetSha256: corpus?.fixtureSetSha256 ?? null,
           inputFileCount: corpus?.inputFileCount ?? null, declaredInputBytes: corpus?.declaredInputBytes ?? null,
           wallElapsedMs: null, containerExitCode: null, oomKilled: false, result: null, failureCode: failure, cleanupFailure: false,
-        } : await measure(options, projectionPath, corpus, iteration, runtimeImageId);
+        } : await measure(options, corpus, iteration, runtimeImageId);
         report.samples.push(record);
         report.failureCodes = [...new Set(report.samples.map(sample => sample.failureCode).filter(Boolean))].sort();
         report.status = report.samples.some(sample => sample.failureCode) ? "RUNNING_WITH_FAILURES" : "RUNNING";
@@ -503,8 +464,6 @@ async function main(argv) {
     try { await writeReportAtomically(outputPath, report); } catch { /* Keep the last valid atomic report. */ }
     process.stderr.write(`${report.runnerFailureCode}\n`);
     process.exitCode = 1;
-  } finally {
-    if (projectionPath) await rm(projectionPath, { recursive: true, force: true }).catch(() => undefined);
   }
 }
 
