@@ -29,6 +29,23 @@ export type HistoryDeletionAction = {
   errorCode: string | null;
 };
 
+export type HistoryDeletionControls = {
+  pending: boolean;
+  failed: boolean;
+  deleteDisabled: boolean;
+};
+
+/** Server status wins over a pending action left by a poll that has already settled. */
+export function historyDeletionControls(item: HistoryItem, action: HistoryDeletionAction | undefined, requestActive: boolean): HistoryDeletionControls {
+  const deletionStatus = item.deletion?.status;
+  const analysisActive = item.status === "QUEUED" || item.status === "RUNNING";
+  const pendingFromServer = deletionStatus === "QUEUED" || deletionStatus === "RUNNING";
+  const pendingFromAction = action?.phase === "submitting" || (action?.phase === "pending" && requestActive);
+  const pending = pendingFromServer || pendingFromAction;
+  const failed = deletionStatus === "FAILED" || action?.phase === "failed";
+  return { pending, failed, deleteDisabled: analysisActive || pending };
+}
+
 /** Profil fetch yang dipakai klien riwayat: cukup `ok`, `status`, dan `json()` agar test bisa memalsukan respons. */
 export type HistoryFetch = (input: string, init: RequestInit) => Promise<{ ok: boolean; status: number; json: () => Promise<unknown> }>;
 
@@ -184,6 +201,9 @@ export function createHistoryData(options: HistoryDataOptions) {
     isAccountActive(accountKey: string): boolean {
       return activeAccountKey === accountKey;
     },
+    isDeletionActive(analysisId: string): boolean {
+      return deletionRequests.has(analysisId);
+    },
     reload(accountKey: string, query: string, status: string, signal: AbortSignal): void {
       if (activeAccountKey !== accountKey) {
         const switchedFromAccount = activeAccountKey !== null;
@@ -209,6 +229,11 @@ export function createHistoryData(options: HistoryDataOptions) {
           if (!response.ok) { options.apply({ error: true }); return; }
           const body = (await response.json()) as HistoryPageBody;
           if (current !== generation) return;
+          for (const item of body.data.analyses) {
+            if (item.deletion?.status === "FAILED" && !deletionRequests.has(item.id)) {
+              options.apply({ deletionAction: { analysisId: item.id, value: null } });
+            }
+          }
           options.apply({
             error: false,
             items: body.data.analyses.filter(item => item.deletion?.status !== "COMPLETED"),

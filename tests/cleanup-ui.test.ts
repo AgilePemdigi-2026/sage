@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { applyHistoryPatch, createHistoryData } from "../apps/web/components/history/history-data.ts";
+import { applyHistoryPatch, createHistoryData, historyDeletionControls } from "../apps/web/components/history/history-data.ts";
 import type { HistoryDataPatch, HistoryDeletion, HistoryDeletionAction, HistoryFetch, HistoryItem, HistoryPatchTarget } from "../apps/web/components/history/history-data.ts";
 import { presentHistoryList } from "../apps/web/lib/analyses/presenters.ts";
 import type { HistoryListResult } from "@sage/database";
@@ -181,4 +181,67 @@ test("a FAILED poll stays in history after reload and can retry the same analysi
   await drain();
   assert.deepEqual(harness.state.items?.map(entry => entry.id), [neighbor.id], "completion removes only the selected row");
   assert.equal(harness.deletedCount, 1);
+});
+
+test("timed-out deletion reconciles FAILED status on reload and enables retry", async () => {
+  const harness = historyHarness({ maxDeletionPolls: 0, waitForDeletionPoll: async () => undefined });
+  const item = historyItem("analysis-timeout-123");
+  await loadHistory(harness, "account-a", item);
+
+  harness.data.deleteAnalysis("account-a", item.id);
+  await drain();
+  harness.resolve(1, 202, cleanupEnvelope(item.id, "cleanup-timeout-123", "QUEUED"));
+  await drain();
+  assert.equal(harness.state.actions[item.id]?.phase, "pending");
+  assert.equal(harness.data.isDeletionActive(item.id), false, "the bounded poll has settled");
+
+  harness.data.reload("account-a", "", "", new AbortController().signal);
+  await drain();
+  harness.resolve(2, 200, { data: { analyses: [historyItem(item.id, {
+    jobId: "cleanup-timeout-123", analysisId: item.id, status: "FAILED", errorCode: "CLEANUP_FAILED",
+  })], nextCursor: null } });
+  await drain();
+
+  assert.equal(harness.state.actions[item.id], undefined, "reload clears a settled stale pending action");
+  const refreshed = harness.state.items?.[0];
+  assert.ok(refreshed);
+  assert.deepEqual(historyDeletionControls(refreshed, harness.state.actions[item.id], harness.data.isDeletionActive(item.id)), {
+    pending: false, failed: true, deleteDisabled: false,
+  });
+
+  harness.data.deleteAnalysis("account-a", item.id);
+  await drain();
+  assert.equal(harness.requests[3]?.input, `/api/analyses/${item.id}`, "retry can start after reconciliation");
+  harness.resolve(3, 204);
+  await drain();
+  assert.deepEqual(listedIds(harness), []);
+});
+
+test("reload does not clear an active cleanup poll before it reports FAILED", async () => {
+  const harness = historyHarness({ maxDeletionPolls: 1, waitForDeletionPoll: async () => undefined });
+  const item = historyItem("analysis-active-poll-123");
+  await loadHistory(harness, "account-a", item);
+
+  harness.data.deleteAnalysis("account-a", item.id);
+  await drain();
+  harness.resolve(1, 202, cleanupEnvelope(item.id, "cleanup-active-123", "QUEUED"));
+  await drain();
+  assert.equal(harness.requests[2]?.input, "/api/jobs/cleanup-active-123");
+  assert.equal(harness.data.isDeletionActive(item.id), true);
+
+  harness.data.reload("account-a", "", "", new AbortController().signal);
+  await drain();
+  harness.resolve(3, 200, { data: { analyses: [historyItem(item.id, {
+    jobId: "cleanup-active-123", analysisId: item.id, status: "FAILED", errorCode: "CLEANUP_FAILED",
+  })], nextCursor: null } });
+  await drain();
+  assert.equal(harness.state.actions[item.id]?.phase, "pending", "active polling state survives the list refresh");
+  const refreshed = harness.state.items?.[0];
+  assert.ok(refreshed);
+  assert.equal(historyDeletionControls(refreshed, harness.state.actions[item.id], harness.data.isDeletionActive(item.id)).deleteDisabled, true);
+
+  harness.resolve(2, 200, cleanupEnvelope(item.id, "cleanup-active-123", "FAILED", "CLEANUP_FAILED"));
+  await drain();
+  assert.equal(harness.state.actions[item.id]?.phase, "failed");
+  assert.equal(historyDeletionControls(refreshed, harness.state.actions[item.id], harness.data.isDeletionActive(item.id)).deleteDisabled, false);
 });

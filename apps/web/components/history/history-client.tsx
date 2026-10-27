@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AssetIcon, Badge, DesignFrame, Panel } from "../design-system/ui.tsx";
 import { formatDateTime, statusLabel, statusTone } from "./format.ts";
-import { applyHistoryPatch, createHistoryData } from "./history-data.ts";
+import { applyHistoryPatch, createHistoryData, historyDeletionControls } from "./history-data.ts";
 import type { HistoryDeletionAction, HistoryItem, HistoryPatchTarget } from "./history-data.ts";
 import styles from "../sprint-ui/preview-client.module.css";
 import deletionStyles from "./history-delete.module.css";
@@ -88,10 +88,8 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
   const renderRow = (item: HistoryItem) => {
     const action = deletionActions[item.id];
     const deletionStatus = item.deletion?.status;
-    const deleting = deletionStatus === "QUEUED" || deletionStatus === "RUNNING" || action?.phase === "submitting" || action?.phase === "pending";
-    const deleteDisabled = item.status === "QUEUED" || item.status === "RUNNING" || deleting;
-    const failed = deletionStatus === "FAILED" || action?.phase === "failed";
-    const failureMessage = action?.message ?? (item.deletion?.errorCode
+    const deletionControls = historyDeletionControls(item, action, data.isDeletionActive(item.id));
+    const failureMessage = (action?.phase === "failed" ? action.message : null) ?? (item.deletion?.errorCode
       ? `Pembersihan sebelumnya gagal (${item.deletion.errorCode}). Coba lagi untuk menghapus analisis.`
       : "Pembersihan sebelumnya gagal. Coba lagi untuk menghapus analisis.");
     return <div className={styles.historyRow} key={item.id}>
@@ -100,19 +98,19 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
       <Badge tone={statusTone(item.status) ?? "neutral"}>{statusLabel(item.status) ?? item.status}</Badge>
       <div className={deletionStyles.rowActions}>
         {!item.deletion ? <Link href={`/analyses/${item.id}`}>Buka</Link> : null}
-        {deleting ? <span className={deletionStyles.pending} role="status">
+        {deletionControls.pending ? <span className={deletionStyles.pending} role="status">
           <span className={deletionStyles.spinner} aria-hidden="true" />
           {action?.message ?? (deletionStatus === "RUNNING" ? "Penghapusan sedang berjalan" : "Penghapusan sedang menunggu")}
         </span> : null}
-        {failed ? <span className={deletionStyles.failure} role="alert">{failureMessage}</span> : null}
+        {deletionControls.failed ? <span className={deletionStyles.failure} role="alert">{failureMessage}</span> : null}
         <button
           type="button"
           className={deletionStyles.deleteAction}
-          disabled={deleteDisabled}
-          aria-label={`${failed ? "Coba hapus lagi" : "Hapus"} analisis ${item.repository.fullName}`}
+          disabled={deletionControls.deleteDisabled}
+          aria-label={`${deletionControls.failed ? "Coba hapus lagi" : "Hapus"} analisis ${item.repository.fullName}`}
           title={item.status === "QUEUED" || item.status === "RUNNING" ? "Analisis yang masih aktif tidak dapat dihapus." : undefined}
           onClick={() => setConfirming({ item, accountKey })}
-        >{failed ? "Coba hapus lagi" : "Hapus"}</button>
+        >{deletionControls.failed ? "Coba hapus lagi" : "Hapus"}</button>
       </div>
     </div>;
   };

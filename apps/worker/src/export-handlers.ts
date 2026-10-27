@@ -43,8 +43,10 @@ async function writePrivateExportFile(storageRoot: string, body: Uint8Array, for
   const finalPath = join(folder, filename);
   try {
     assertActive(signal);
-    if (!await reserve(storageKey) || !await reserve(`${storageKey}.pending`)) throw new ExportProcessingError("EXPORT_FAILED");
+    // Create the empty directory before reservation: a stale writer must not recreate
+    // a directory that cleanup already removed after seeing its reserved paths.
     await mkdir(folder, { mode: 0o700 });
+    if (!await reserve(storageKey) || !await reserve(`${storageKey}.pending`)) throw new ExportProcessingError("EXPORT_FAILED");
     const handle = await open(pendingPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
     try {
       await handle.writeFile(body);
