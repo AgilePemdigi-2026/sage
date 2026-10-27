@@ -270,6 +270,10 @@ Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Con
 
 `npm test` mencakup unit cleanup. `npm run test:cleanup:integration` dan `npm run test:cleanup:live` bersifat destruktif dan hanya menerima database disposable bernama `sage_cleanup23` dengan `SAGE_CLEANUP_TESTS=1`. Jangan arahkan ke database aplikasi. Tes browser memerlukan build Next, worker, session fixture, serta storage sementara yang sama; lihat [DATA-02 checks](docs/DATA-02_CHECKS.md).
 
+### Persiapan Coolify
+
+Gunakan file **compose.coolify.yaml** terpisah untuk server bersama: image prebuilt ber-digest, migrasi, health check, batas resource dan volume privat. Domain diarahkan hanya ke web port internal 3000. `npm run deployment:check -- --env-file /path/private.env` memvalidasi tanpa start; `npm run deployment:smoke -- --project <project> --compose <file>` memeriksa stack yang disebutkan secara read-only. [Panduan Coolify](docs/COOLIFY.md) menjelaskan environment, image x86_64, backup dan rollback; [bukti DEP-01](docs/DEP-01_CHECKS.md) membedakan uji lokal dari deployment yang belum dilakukan. Perintah Docker lokal tetap memakai compose.yaml.
+
 ### Benchmark resource lokal
 
 `npm run benchmark:prepare` menyiapkan source publik yang dipin, lalu `npm run benchmark:resources -- --output artifacts/resources/run-unique.json` mengukur adapter, canonical CKG/ADD, Markdown dan PDF dalam container offline baru per sampel. Laporan memisahkan waktu fase, CPU container, peak charged memory serta ukuran artefak; kegagalan PDF/OOM/timeout tetap dicatat. Output harus baru agar bukti tidak tertimpa. [PERF-02](docs/PERF-02_CHECKS.md) menjelaskan corpus, hasil aktual dan batasnya. PDF fixture kecil berhasil, tetapi kedua corpus menengah masih ditolak batas diagram; tindak lanjut [EXP-03 #101](https://github.com/AgilePemdigi-2026/sage/issues/101). Ini bukan benchmark database/queue, login GitHub atau kapasitas Coolify bersama; quota produksi tetap perlu verifikasi operator.
