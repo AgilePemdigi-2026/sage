@@ -1,0 +1,108 @@
+x-common: &common
+  init: true
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  pids_limit: 256
+
+x-database-environment: &database-environment
+  DATABASE_URL: postgresql://sage:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the operator environment or private env file}@db:5432/sage
+
+services:
+  db:
+    image: postgres:17-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
+    environment:
+      POSTGRES_USER: sage
+      POSTGRES_DB: sage
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the operator environment or private env file}
+    volumes:
+      - type: volume
+        source: database
+        target: /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U sage -d sage"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    mem_limit: 1g
+    cpus: 0.5
+    pids_limit: 256
+    restart: unless-stopped
+
+  migrate:
+    image: ${SAGE_WORKER_IMAGE:?Set SAGE_WORKER_IMAGE to an immutable worker image digest}
+    environment: *database-environment
+    command: ["npm", "run", "db:migrate"]
+    depends_on:
+      db:
+        condition: service_healthy
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: ["ALL"]
+    restart: "no"
+    mem_limit: 512m
+    cpus: 0.5
+    pids_limit: 128
+
+  web:
+    <<: *common
+    image: ${SAGE_WEB_IMAGE:?Set SAGE_WEB_IMAGE to an immutable web image digest}
+    environment:
+      <<: *database-environment
+      NEXT_TELEMETRY_DISABLED: "1"
+      STORAGE_ROOT: /app/storage
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?Set CREDENTIAL_ENCRYPTION_KEY in the operator environment or private env file}
+      AUTH_BASE_URL: ${AUTH_BASE_URL:?Set AUTH_BASE_URL to the public HTTPS origin}
+      GITHUB_APP_CLIENT_ID: ${GITHUB_APP_CLIENT_ID:?Set GITHUB_APP_CLIENT_ID}
+      GITHUB_APP_CLIENT_SECRET: ${GITHUB_APP_CLIENT_SECRET:?Set GITHUB_APP_CLIENT_SECRET}
+      GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+    expose:
+      - "3000"
+    volumes:
+      - type: volume
+        source: storage
+        target: /app/storage
+        read_only: true
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 20s
+    mem_limit: 768m
+    cpus: 0.75
+
+  worker:
+    <<: *common
+    image: ${SAGE_WORKER_IMAGE:?Set SAGE_WORKER_IMAGE to an immutable worker image digest}
+    environment:
+      <<: *database-environment
+      PLAYWRIGHT_BROWSERS_PATH: /ms-playwright
+      STORAGE_ROOT: /app/storage
+      AUTH_BASE_URL: ${AUTH_BASE_URL:?Set AUTH_BASE_URL to the public HTTPS origin}
+      CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?Set CREDENTIAL_ENCRYPTION_KEY in the operator environment or private env file}
+    volumes:
+      - type: volume
+        source: storage
+        target: /app/storage
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "node", "--import", "tsx", "apps/worker/src/health.ts"]
+      interval: 10s
+      timeout: 8s
+      retries: 12
+      start_period: 20s
+    mem_limit: 2g
+    cpus: 1.5
+    pids_limit: 512
+    shm_size: 256m
+
+volumes:
+  database: {}
+  storage: {}
