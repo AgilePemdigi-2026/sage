@@ -270,6 +270,10 @@ Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Con
 
 `npm test` mencakup unit cleanup. `npm run test:cleanup:integration` dan `npm run test:cleanup:live` bersifat destruktif dan hanya menerima database disposable bernama `sage_cleanup23` dengan `SAGE_CLEANUP_TESTS=1`. Jangan arahkan ke database aplikasi. Tes browser memerlukan build Next, worker, session fixture, serta storage sementara yang sama; lihat [DATA-02 checks](docs/DATA-02_CHECKS.md).
 
+### Benchmark resource lokal
+
+`npm run benchmark:prepare` menyiapkan source publik yang dipin, lalu `npm run benchmark:resources -- --output artifacts/resources/run-unique.json` mengukur adapter, canonical CKG/ADD, Markdown dan PDF dalam container offline baru per sampel. Laporan memisahkan waktu fase, CPU container, peak charged memory serta ukuran artefak; kegagalan PDF/OOM/timeout tetap dicatat. Output harus baru agar bukti tidak tertimpa. [PERF-02](docs/PERF-02_CHECKS.md) menjelaskan corpus, hasil aktual dan batasnya. PDF fixture kecil berhasil, tetapi kedua corpus menengah masih ditolak batas diagram; tindak lanjut [EXP-03 #101](https://github.com/AgilePemdigi-2026/sage/issues/101). Ini bukan benchmark database/queue, login GitHub atau kapasitas Coolify bersama; quota produksi tetap perlu verifikasi operator.
+
 ### Isi database dan penyimpanan hasil
 
 PostgreSQL menyimpan identitas pengguna, hash sesi, kredensial GitHub terenkripsi, metadata repository/analisis, stage/job, metadata source/storage, canonical CKG/ADD dan metadata ekspor. Archive source serta file Markdown/PDF berada di volume storage. Hasil tetap disimpan sampai pemilik menghapus analisis; tidak ada TTL otomatis.
@@ -278,7 +282,7 @@ Hasil baru memakai `storageLayoutVersion: 2`: canonical graph/dokumen disimpan s
 
 ## Langkah berikutnya
 
-1. Sebelum deployment Coolify pada server bersama, tetapkan kuota aplikasi, kapasitas disk dan strategi backup bersama operator. Penyimpanan graph/dokumen memakai canonical tunggal melalui **PERF-01 #96**; lihat [hasil pengukuran dan batas](docs/PERF-01_CHECKS.md). Penghematan payload bukan bukti performa server bersama.
+1. Sebelum deployment Coolify pada server bersama, tetapkan kuota aplikasi, kapasitas disk dan strategi backup bersama operator. Penyimpanan graph/dokumen memakai canonical tunggal melalui **PERF-01 #96**; benchmark core tersedia pada **PERF-02 #98**. lihat [hasil pengukuran dan batas](docs/PERF-01_CHECKS.md). Penghematan payload bukan bukti performa server bersama.
 2. Consumer sembilan tahap, progres, retry, dan publikasi atomik tersedia pada **ANA-07 #16**; lihat [bukti serta batas pengujian](docs/ANA-07_CHECKS.md). Gate oracle formal tim tetap mengikuti #4/#11/#14.
 3. Canonical CKG dan persistensi owner/lease-scoped tersedia sebagai handler internal **ANA-06 #14**; lihat [bukti dan batas acceptance](docs/ANA-06_CHECKS.md). Model dan halaman dokumen **DOC-01 #15** tersedia untuk hasil tersimpan yang sukses; lihat [bukti DOC-01](docs/DOC-01_CHECKS.md). Query/filter dan inspector graph **#18–19**, Markdown/PDF **#20–21**, serta penghapusan **#23** tersedia dengan bukti masing-masing. History list/detail **#22** dan graph tersimpan **#17** sudah tersedia untuk record nyata; pipeline tersedia melalui worker ANA-07.
 4. Frontend Figma **UI-02 #59** dan **UI-03 #60** telah diuji pada lima viewport; rute pratinjau memakai fixture. Bukti visual, interaksi dan batas pengujian ada di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md). Hasil produk tersedia melalui rute analisis nyata dan diuji terpisah dari preview.

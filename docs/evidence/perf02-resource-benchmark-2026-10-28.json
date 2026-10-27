@@ -1,0 +1,1142 @@
+{
+  "status": "MEASURED_WITH_LIMITATIONS",
+  "assessedLocalDate": "2026-10-28",
+  "rawRunStatus": "FAILED",
+  "rawReportSha256": "63b99a49f28783aefe73e9df36788f6f64b95b7dbdf87bbf502f1211178afc4c",
+  "rawReportPath": "artifacts/resources/perf02-local-run3.json",
+  "measuredAt": "2026-10-27T17:39:07.853Z",
+  "environment": {
+    "image": "sage-worker:local",
+    "imageId": "sha256:1cd4ca458b18a1f1dfa0835a752ebf57b5ac32c98287271368b0cf6bcc6cc1ce",
+    "architecture": "arm64",
+    "gitHead": "df6ac37e5c17c677cdc391e84e80b4820a7cfe14",
+    "scriptFingerprintsSha256": {
+      "runner": "55590db2623891f108920793b6a14bf64c6ce16af1a950def64731c2a6ed53fc",
+      "workload": "423579411b8ff91ea696edd5f73c4fb7889d2b78eefa3bbdddf754e9ce8566e5",
+      "benchmarkInputLoader": "d1b4e65b9dd1e72d835e981fbab564586f7048eeeb05f59db835fe41f2fd91b1"
+    },
+    "limits": {
+      "cpus": 1,
+      "memoryBytes": 2147483648,
+      "swapBytes": 0,
+      "pids": 256,
+      "shmBytes": 268435456,
+      "tmpfsBytes": 268435456,
+      "network": "none",
+      "rootFilesystem": "read-only",
+      "freshContainerPerSample": true,
+      "externalDeadlineMs": 180000
+    }
+  },
+  "scope": "Fresh-container local benchmark of direct analyzer adapters, canonical CCM/CKG generation, architecture document projection, Markdown rendering, and sequential offline PDF rendering. It excludes analyzeSnapshotSources scanning/merge, database, queue, network fetch, persistence, and UI stages.",
+  "summary": [
+    {
+      "corpus": "small-ts",
+      "iterations": 3,
+      "successes": 3,
+      "failureCodes": [],
+      "canonicalAndMarkdownReplay": true,
+      "coreSecondsRange": [
+        2.466,
+        6.22
+      ],
+      "cpuSecondsRange": [
+        1.957,
+        3.381
+      ],
+      "peakChargedMiBRange": [
+        478.29,
+        654.86
+      ],
+      "inputFileCount": 1,
+      "inputBytes": 23,
+      "nodes": 2,
+      "edges": 1,
+      "canonicalDocumentBytes": 8518
+    },
+    {
+      "corpus": "small-php",
+      "iterations": 3,
+      "successes": 3,
+      "failureCodes": [],
+      "canonicalAndMarkdownReplay": true,
+      "coreSecondsRange": [
+        1.906,
+        2.437
+      ],
+      "cpuSecondsRange": [
+        1.821,
+        2.016
+      ],
+      "peakChargedMiBRange": [
+        429.97,
+        462.21
+      ],
+      "inputFileCount": 2,
+      "inputBytes": 448,
+      "nodes": 14,
+      "edges": 7,
+      "canonicalDocumentBytes": 49285
+    },
+    {
+      "corpus": "medium-ts",
+      "iterations": 3,
+      "successes": 0,
+      "failureCodes": [
+        "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED"
+      ],
+      "canonicalAndMarkdownReplay": true,
+      "coreSecondsRange": [
+        0.764,
+        0.985
+      ],
+      "cpuSecondsRange": [
+        0.726,
+        0.944
+      ],
+      "peakChargedMiBRange": [
+        314.32,
+        321.48
+      ],
+      "inputFileCount": 12,
+      "inputBytes": 53099,
+      "nodes": 799,
+      "edges": 982,
+      "canonicalDocumentBytes": 3314811
+    },
+    {
+      "corpus": "medium-php",
+      "iterations": 3,
+      "successes": 0,
+      "failureCodes": [
+        "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED"
+      ],
+      "canonicalAndMarkdownReplay": true,
+      "coreSecondsRange": [
+        0.781,
+        1.004
+      ],
+      "cpuSecondsRange": [
+        0.739,
+        0.916
+      ],
+      "peakChargedMiBRange": [
+        277.39,
+        280.2
+      ],
+      "inputFileCount": 24,
+      "inputBytes": 43704,
+      "nodes": 352,
+      "edges": 448,
+      "canonicalDocumentBytes": 1885316
+    }
+  ],
+  "samples": [
+    {
+      "corpus": "small-ts",
+      "manifestId": "resource-small-ts",
+      "iteration": 1,
+      "manifestSha256": "853d4a7cac0a055db8eca126a821f9f0c4149ffd8ddc3bdceaa4cc96db4d31ec",
+      "fixtureSetSha256": "5b2574ce3236df36d2cf176fc0e60502571b6775ec21868a0f720707a5725f15",
+      "inputFileCount": 1,
+      "declaredInputBytes": 23,
+      "wallElapsedMs": 12297.9085,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-small-ts",
+        "language": "javascript",
+        "stageTimingsMs": {
+          "loadInput": 136.741165,
+          "adapter": 13.014949,
+          "canonicalCcm": 0.209895,
+          "canonicalCkg": 0.487118,
+          "documentProjection": 1.402151,
+          "markdownRender": 1.193339,
+          "pdfRender": 6033.463335
+        },
+        "coreElapsedMs": 6186.511952000001,
+        "nodePeakRssBytes": 329859072,
+        "cgroupPeakChargedBytes": 686669824,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 2193580,
+          "user_usec": 1247984,
+          "system_usec": 945595,
+          "nr_periods": 52,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 5195531,
+          "user_usec": 2723730,
+          "system_usec": 2471801,
+          "nr_periods": 114,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 3001951,
+          "user_usec": 1475746,
+          "system_usec": 1526206,
+          "nr_periods": 62,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "9aaba8daeaa305be9561c8c9b1d29269978b60d7715f6ed6bc541bb622c135be",
+          "inputFileCount": 1,
+          "inputBytes": 23,
+          "adapterStatus": "complete",
+          "ccmContentSha256": "24f87b953f4776371788c3709861936751a04ac1a19ad956e4a4710b30339d34",
+          "ccmBytes": 2293,
+          "ckgContentSha256": "5d4fe2057f1495b8a123481be0351ca31b2fdcc3a14d80575d86bc216e968d32",
+          "ckgBytes": 2524,
+          "documentSha256": "f4a25ea677fcb446ec0dfe9c1cfc2210f89ef5fc583d9241704564379d99fd38",
+          "documentBytes": 8518,
+          "markdownSha256": "f6f5509e6515ab1397c010c0406630366253a10a856c62359f87bf045968c221",
+          "markdownBytes": 10366,
+          "pdfSha256": "70e3f28b55b3070e40b589746fe290905d20928842597e84ce88b9c28402cb27",
+          "pdfBytes": 42881,
+          "nodeCount": 2,
+          "edgeCount": 1,
+          "limitationCount": 0
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "small-ts",
+      "manifestId": "resource-small-ts",
+      "iteration": 2,
+      "manifestSha256": "853d4a7cac0a055db8eca126a821f9f0c4149ffd8ddc3bdceaa4cc96db4d31ec",
+      "fixtureSetSha256": "5b2574ce3236df36d2cf176fc0e60502571b6775ec21868a0f720707a5725f15",
+      "inputFileCount": 1,
+      "declaredInputBytes": 23,
+      "wallElapsedMs": 8934.492083000001,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-small-ts",
+        "language": "javascript",
+        "stageTimingsMs": {
+          "loadInput": 99.657196,
+          "adapter": 8.715193,
+          "canonicalCcm": 0.265881,
+          "canonicalCkg": 0.619666,
+          "documentProjection": 1.260913,
+          "markdownRender": 0.932832,
+          "pdfRender": 6108.328479
+        },
+        "coreElapsedMs": 6219.780159999999,
+        "nodePeakRssBytes": 328278016,
+        "cgroupPeakChargedBytes": 520691712,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1377165,
+          "user_usec": 1001755,
+          "system_usec": 375409,
+          "nr_periods": 22,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 4758431,
+          "user_usec": 2614929,
+          "system_usec": 2143502,
+          "nr_periods": 84,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 3381266,
+          "user_usec": 1613174,
+          "system_usec": 1768093,
+          "nr_periods": 62,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "9aaba8daeaa305be9561c8c9b1d29269978b60d7715f6ed6bc541bb622c135be",
+          "inputFileCount": 1,
+          "inputBytes": 23,
+          "adapterStatus": "complete",
+          "ccmContentSha256": "24f87b953f4776371788c3709861936751a04ac1a19ad956e4a4710b30339d34",
+          "ccmBytes": 2293,
+          "ckgContentSha256": "5d4fe2057f1495b8a123481be0351ca31b2fdcc3a14d80575d86bc216e968d32",
+          "ckgBytes": 2524,
+          "documentSha256": "f4a25ea677fcb446ec0dfe9c1cfc2210f89ef5fc583d9241704564379d99fd38",
+          "documentBytes": 8518,
+          "markdownSha256": "f6f5509e6515ab1397c010c0406630366253a10a856c62359f87bf045968c221",
+          "markdownBytes": 10366,
+          "pdfSha256": "a91cbfda1172468a82007ad7dad60231ebb14dc8b97ea6aca7e46fc1fab9587a",
+          "pdfBytes": 42893,
+          "nodeCount": 2,
+          "edgeCount": 1,
+          "limitationCount": 0
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "small-ts",
+      "manifestId": "resource-small-ts",
+      "iteration": 3,
+      "manifestSha256": "853d4a7cac0a055db8eca126a821f9f0c4149ffd8ddc3bdceaa4cc96db4d31ec",
+      "fixtureSetSha256": "5b2574ce3236df36d2cf176fc0e60502571b6775ec21868a0f720707a5725f15",
+      "inputFileCount": 1,
+      "declaredInputBytes": 23,
+      "wallElapsedMs": 6316.218667000001,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-small-ts",
+        "language": "javascript",
+        "stageTimingsMs": {
+          "loadInput": 87.539159,
+          "adapter": 11.743369,
+          "canonicalCcm": 0.243002,
+          "canonicalCkg": 0.296785,
+          "documentProjection": 7.184074,
+          "markdownRender": 2.166521,
+          "pdfRender": 2356.751139
+        },
+        "coreElapsedMs": 2465.924049,
+        "nodePeakRssBytes": 327798784,
+        "cgroupPeakChargedBytes": 501518336,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1677567,
+          "user_usec": 1180203,
+          "system_usec": 497364,
+          "nr_periods": 29,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 3634563,
+          "user_usec": 2355925,
+          "system_usec": 1278638,
+          "nr_periods": 54,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 1956996,
+          "user_usec": 1175722,
+          "system_usec": 781274,
+          "nr_periods": 25,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "9aaba8daeaa305be9561c8c9b1d29269978b60d7715f6ed6bc541bb622c135be",
+          "inputFileCount": 1,
+          "inputBytes": 23,
+          "adapterStatus": "complete",
+          "ccmContentSha256": "24f87b953f4776371788c3709861936751a04ac1a19ad956e4a4710b30339d34",
+          "ccmBytes": 2293,
+          "ckgContentSha256": "5d4fe2057f1495b8a123481be0351ca31b2fdcc3a14d80575d86bc216e968d32",
+          "ckgBytes": 2524,
+          "documentSha256": "f4a25ea677fcb446ec0dfe9c1cfc2210f89ef5fc583d9241704564379d99fd38",
+          "documentBytes": 8518,
+          "markdownSha256": "f6f5509e6515ab1397c010c0406630366253a10a856c62359f87bf045968c221",
+          "markdownBytes": 10366,
+          "pdfSha256": "cfd479a873a97b476897f843259ced87e67efe401be38c9dc4b19ec159081d00",
+          "pdfBytes": 42888,
+          "nodeCount": 2,
+          "edgeCount": 1,
+          "limitationCount": 0
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "small-php",
+      "manifestId": "resource-small-php",
+      "iteration": 1,
+      "manifestSha256": "de1ef3687cfbbcf40adfb95b5a7d2f1b6edba2cea7fc34bc5c16ff3edc11c21e",
+      "fixtureSetSha256": "0f352dbcbdd074dd67133ab61a50eb40152ca1a24daccb8708a08a90b2a45ee7",
+      "inputFileCount": 2,
+      "declaredInputBytes": 448,
+      "wallElapsedMs": 4641.257000000001,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-small-php",
+        "language": "php",
+        "stageTimingsMs": {
+          "loadInput": 76.518427,
+          "adapter": 243.723321,
+          "canonicalCcm": 1.322895,
+          "canonicalCkg": 0.55582,
+          "documentProjection": 3.102253,
+          "markdownRender": 3.80813,
+          "pdfRender": 2108.207516
+        },
+        "coreElapsedMs": 2437.238362,
+        "nodePeakRssBytes": 327450624,
+        "cgroupPeakChargedBytes": 484667392,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1216698,
+          "user_usec": 1001927,
+          "system_usec": 214770,
+          "nr_periods": 18,
+          "nr_throttled": 1,
+          "throttled_usec": 9222
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 3232956,
+          "user_usec": 2362622,
+          "system_usec": 870333,
+          "nr_periods": 42,
+          "nr_throttled": 3,
+          "throttled_usec": 20720
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 2016258,
+          "user_usec": 1360695,
+          "system_usec": 655563,
+          "nr_periods": 24,
+          "nr_throttled": 2,
+          "throttled_usec": 11498
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "dd50ae6dcfb663a6af9ce895d8f692d5bb21f9d546a9bb4083a480075da0709f",
+          "inputFileCount": 2,
+          "inputBytes": 448,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "c8dee0110f7c78e0fa93aa8b1b970356b1d326f5ab590eaf4c0a0fe51fb63e04",
+          "ccmBytes": 12261,
+          "ckgContentSha256": "d7e1e3de9583939a7b69e4fdd4e3600e546b9ba2032320ba34acbaddb6ff21d1",
+          "ckgBytes": 12493,
+          "documentSha256": "3527391d6e9efdf82c100d5347edda615cbbfb7d41ea6c9bd3a01cec6db77cc9",
+          "documentBytes": 49285,
+          "markdownSha256": "6dc4770e2728fec3afeb95cc1cacf54291bad171b30ce83fa0f6ffe4d59de934",
+          "markdownBytes": 54538,
+          "pdfSha256": "814f2d8c0d4111bba8e81d8f353489bc986303a4a37508d66aa9e84bc71ee475",
+          "pdfBytes": 60188,
+          "nodeCount": 14,
+          "edgeCount": 7,
+          "limitationCount": 0
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "small-php",
+      "manifestId": "resource-small-php",
+      "iteration": 2,
+      "manifestSha256": "de1ef3687cfbbcf40adfb95b5a7d2f1b6edba2cea7fc34bc5c16ff3edc11c21e",
+      "fixtureSetSha256": "0f352dbcbdd074dd67133ab61a50eb40152ca1a24daccb8708a08a90b2a45ee7",
+      "inputFileCount": 2,
+      "declaredInputBytes": 448,
+      "wallElapsedMs": 3820.843458999996,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-small-php",
+        "language": "php",
+        "stageTimingsMs": {
+          "loadInput": 9.033245,
+          "adapter": 144.439399,
+          "canonicalCcm": 0.626554,
+          "canonicalCkg": 0.611223,
+          "documentProjection": 4.614917,
+          "markdownRender": 4.724647,
+          "pdfRender": 1999.591477
+        },
+        "coreElapsedMs": 2163.641462,
+        "nodePeakRssBytes": 317079552,
+        "cgroupPeakChargedBytes": 450854912,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1184334,
+          "user_usec": 978011,
+          "system_usec": 206323,
+          "nr_periods": 14,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 3110495,
+          "user_usec": 2319103,
+          "system_usec": 791391,
+          "nr_periods": 35,
+          "nr_throttled": 5,
+          "throttled_usec": 105670
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 1926161,
+          "user_usec": 1341092,
+          "system_usec": 585068,
+          "nr_periods": 21,
+          "nr_throttled": 5,
+          "throttled_usec": 105670
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "dd50ae6dcfb663a6af9ce895d8f692d5bb21f9d546a9bb4083a480075da0709f",
+          "inputFileCount": 2,
+          "inputBytes": 448,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "c8dee0110f7c78e0fa93aa8b1b970356b1d326f5ab590eaf4c0a0fe51fb63e04",
+          "ccmBytes": 12261,
+          "ckgContentSha256": "d7e1e3de9583939a7b69e4fdd4e3600e546b9ba2032320ba34acbaddb6ff21d1",
+          "ckgBytes": 12493,
+          "documentSha256": "3527391d6e9efdf82c100d5347edda615cbbfb7d41ea6c9bd3a01cec6db77cc9",
+          "documentBytes": 49285,
+          "markdownSha256": "6dc4770e2728fec3afeb95cc1cacf54291bad171b30ce83fa0f6ffe4d59de934",
+          "markdownBytes": 54538,
+          "pdfSha256": "0b7c3a68218784d5aa323a6eef138a5dca3bf07e20617c8a379caf8029870705",
+          "pdfBytes": 60201,
+          "nodeCount": 14,
+          "edgeCount": 7,
+          "limitationCount": 0
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "small-php",
+      "manifestId": "resource-small-php",
+      "iteration": 3,
+      "manifestSha256": "de1ef3687cfbbcf40adfb95b5a7d2f1b6edba2cea7fc34bc5c16ff3edc11c21e",
+      "fixtureSetSha256": "0f352dbcbdd074dd67133ab61a50eb40152ca1a24daccb8708a08a90b2a45ee7",
+      "inputFileCount": 2,
+      "declaredInputBytes": 448,
+      "wallElapsedMs": 4265.773415999996,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-small-php",
+        "language": "php",
+        "stageTimingsMs": {
+          "loadInput": 63.517192,
+          "adapter": 155.537157,
+          "canonicalCcm": 0.671039,
+          "canonicalCkg": 0.545522,
+          "documentProjection": 5.096577,
+          "markdownRender": 2.277861,
+          "pdfRender": 1678.288004
+        },
+        "coreElapsedMs": 1905.933352,
+        "nodePeakRssBytes": 326348800,
+        "cgroupPeakChargedBytes": 461090816,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1278155,
+          "user_usec": 1047736,
+          "system_usec": 230419,
+          "nr_periods": 19,
+          "nr_throttled": 1,
+          "throttled_usec": 2976
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 3099354,
+          "user_usec": 2265265,
+          "system_usec": 834089,
+          "nr_periods": 38,
+          "nr_throttled": 4,
+          "throttled_usec": 16204
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 1821199,
+          "user_usec": 1217529,
+          "system_usec": 603670,
+          "nr_periods": 19,
+          "nr_throttled": 3,
+          "throttled_usec": 13228
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "dd50ae6dcfb663a6af9ce895d8f692d5bb21f9d546a9bb4083a480075da0709f",
+          "inputFileCount": 2,
+          "inputBytes": 448,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "c8dee0110f7c78e0fa93aa8b1b970356b1d326f5ab590eaf4c0a0fe51fb63e04",
+          "ccmBytes": 12261,
+          "ckgContentSha256": "d7e1e3de9583939a7b69e4fdd4e3600e546b9ba2032320ba34acbaddb6ff21d1",
+          "ckgBytes": 12493,
+          "documentSha256": "3527391d6e9efdf82c100d5347edda615cbbfb7d41ea6c9bd3a01cec6db77cc9",
+          "documentBytes": 49285,
+          "markdownSha256": "6dc4770e2728fec3afeb95cc1cacf54291bad171b30ce83fa0f6ffe4d59de934",
+          "markdownBytes": 54538,
+          "pdfSha256": "87c0d13447bcbcfaeccf6167f16a6f4148d36f4d8fadae09cb59daa9a19adab8",
+          "pdfBytes": 60194,
+          "nodeCount": 14,
+          "edgeCount": 7,
+          "limitationCount": 0
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-ts",
+      "manifestId": "resource-medium-ts",
+      "iteration": 1,
+      "manifestSha256": "1ef9b6240d0b38670761c78bf06b4ca23dfb3342bf98a462547d1b66f2270b3f",
+      "fixtureSetSha256": "936612830396b1d28cda1887004e2a03f12e31a2f83d183bc0279612396b9e36",
+      "inputFileCount": 12,
+      "declaredInputBytes": 53099,
+      "wallElapsedMs": 2687.4846670000043,
+      "containerExitCode": 1,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "FAILED",
+        "manifestId": "resource-medium-ts",
+        "language": "javascript",
+        "stageTimingsMs": {
+          "loadInput": 72.797993,
+          "adapter": 334.206413,
+          "canonicalCcm": 212.609593,
+          "canonicalCkg": 66.24722,
+          "documentProjection": 189.121445,
+          "markdownRender": 109.174552,
+          "pdfRender": 1.105785
+        },
+        "coreElapsedMs": 985.263001,
+        "nodePeakRssBytes": 369520640,
+        "cgroupPeakChargedBytes": 331657216,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1204288,
+          "user_usec": 1020244,
+          "system_usec": 184044,
+          "nr_periods": 14,
+          "nr_throttled": 3,
+          "throttled_usec": 1281
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 2148578,
+          "user_usec": 1895500,
+          "system_usec": 253077,
+          "nr_periods": 23,
+          "nr_throttled": 3,
+          "throttled_usec": 1281
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 944290,
+          "user_usec": 875256,
+          "system_usec": 69033,
+          "nr_periods": 9,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "df90bfce8e5c4b06392a461502456555c81f0729352dde91db2e3da230be6a4a",
+          "inputFileCount": 12,
+          "inputBytes": 53099,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "1b0e30378c4cfbf38c1c88dbf3c79c65ecd91a4e5fa46ccbb7d3d88c7081a82d",
+          "ccmBytes": 944765,
+          "ckgContentSha256": "166c7f84ce327f0e9f4894ef1e92c91b36d2f8e762bdb4916d840fd5785bd5ec",
+          "ckgBytes": 945008,
+          "documentSha256": "27553438610f17e7f5c59a048e01356c0d826f704a57bd0311e00430b9621632",
+          "documentBytes": 3314811,
+          "markdownSha256": "e094a98e6236df0be63453afe29039d1aa5a6e627fc8c7cf364d6c8472a86558",
+          "markdownBytes": 3503221,
+          "pdfSha256": null,
+          "pdfBytes": null,
+          "nodeCount": 799,
+          "edgeCount": 982,
+          "limitationCount": 40
+        },
+        "failureStage": "pdfRender",
+        "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED"
+      },
+      "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED",
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-ts",
+      "manifestId": "resource-medium-ts",
+      "iteration": 2,
+      "manifestSha256": "1ef9b6240d0b38670761c78bf06b4ca23dfb3342bf98a462547d1b66f2270b3f",
+      "fixtureSetSha256": "936612830396b1d28cda1887004e2a03f12e31a2f83d183bc0279612396b9e36",
+      "inputFileCount": 12,
+      "declaredInputBytes": 53099,
+      "wallElapsedMs": 2497.346666000005,
+      "containerExitCode": 1,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "FAILED",
+        "manifestId": "resource-medium-ts",
+        "language": "javascript",
+        "stageTimingsMs": {
+          "loadInput": 62.344295,
+          "adapter": 403.978385,
+          "canonicalCcm": 40.882383,
+          "canonicalCkg": 37.282428,
+          "documentProjection": 184.971091,
+          "markdownRender": 89.236,
+          "pdfRender": 0.577303
+        },
+        "coreElapsedMs": 819.271885,
+        "nodePeakRssBytes": 367464448,
+        "cgroupPeakChargedBytes": 329584640,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1168636,
+          "user_usec": 972543,
+          "system_usec": 196093,
+          "nr_periods": 14,
+          "nr_throttled": 1,
+          "throttled_usec": 7132
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 1917676,
+          "user_usec": 1650140,
+          "system_usec": 267536,
+          "nr_periods": 22,
+          "nr_throttled": 1,
+          "throttled_usec": 7132
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 749040,
+          "user_usec": 677597,
+          "system_usec": 71443,
+          "nr_periods": 8,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "df90bfce8e5c4b06392a461502456555c81f0729352dde91db2e3da230be6a4a",
+          "inputFileCount": 12,
+          "inputBytes": 53099,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "1b0e30378c4cfbf38c1c88dbf3c79c65ecd91a4e5fa46ccbb7d3d88c7081a82d",
+          "ccmBytes": 944765,
+          "ckgContentSha256": "166c7f84ce327f0e9f4894ef1e92c91b36d2f8e762bdb4916d840fd5785bd5ec",
+          "ckgBytes": 945008,
+          "documentSha256": "27553438610f17e7f5c59a048e01356c0d826f704a57bd0311e00430b9621632",
+          "documentBytes": 3314811,
+          "markdownSha256": "e094a98e6236df0be63453afe29039d1aa5a6e627fc8c7cf364d6c8472a86558",
+          "markdownBytes": 3503221,
+          "pdfSha256": null,
+          "pdfBytes": null,
+          "nodeCount": 799,
+          "edgeCount": 982,
+          "limitationCount": 40
+        },
+        "failureStage": "pdfRender",
+        "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED"
+      },
+      "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED",
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-ts",
+      "manifestId": "resource-medium-ts",
+      "iteration": 3,
+      "manifestSha256": "1ef9b6240d0b38670761c78bf06b4ca23dfb3342bf98a462547d1b66f2270b3f",
+      "fixtureSetSha256": "936612830396b1d28cda1887004e2a03f12e31a2f83d183bc0279612396b9e36",
+      "inputFileCount": 12,
+      "declaredInputBytes": 53099,
+      "wallElapsedMs": 2770.9159999999974,
+      "containerExitCode": 1,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "FAILED",
+        "manifestId": "resource-medium-ts",
+        "language": "javascript",
+        "stageTimingsMs": {
+          "loadInput": 79.179203,
+          "adapter": 379.546757,
+          "canonicalCcm": 42.473231,
+          "canonicalCkg": 49.339688,
+          "documentProjection": 128.225285,
+          "markdownRender": 84.730965,
+          "pdfRender": 0.624417
+        },
+        "coreElapsedMs": 764.1195459999999,
+        "nodePeakRssBytes": 374992896,
+        "cgroupPeakChargedBytes": 337100800,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1359725,
+          "user_usec": 1106501,
+          "system_usec": 253224,
+          "nr_periods": 17,
+          "nr_throttled": 3,
+          "throttled_usec": 12577
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 2085639,
+          "user_usec": 1782310,
+          "system_usec": 303329,
+          "nr_periods": 25,
+          "nr_throttled": 5,
+          "throttled_usec": 28596
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 725914,
+          "user_usec": 675809,
+          "system_usec": 50105,
+          "nr_periods": 8,
+          "nr_throttled": 2,
+          "throttled_usec": 16019
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "df90bfce8e5c4b06392a461502456555c81f0729352dde91db2e3da230be6a4a",
+          "inputFileCount": 12,
+          "inputBytes": 53099,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "1b0e30378c4cfbf38c1c88dbf3c79c65ecd91a4e5fa46ccbb7d3d88c7081a82d",
+          "ccmBytes": 944765,
+          "ckgContentSha256": "166c7f84ce327f0e9f4894ef1e92c91b36d2f8e762bdb4916d840fd5785bd5ec",
+          "ckgBytes": 945008,
+          "documentSha256": "27553438610f17e7f5c59a048e01356c0d826f704a57bd0311e00430b9621632",
+          "documentBytes": 3314811,
+          "markdownSha256": "e094a98e6236df0be63453afe29039d1aa5a6e627fc8c7cf364d6c8472a86558",
+          "markdownBytes": 3503221,
+          "pdfSha256": null,
+          "pdfBytes": null,
+          "nodeCount": 799,
+          "edgeCount": 982,
+          "limitationCount": 40
+        },
+        "failureStage": "pdfRender",
+        "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED"
+      },
+      "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED",
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-php",
+      "manifestId": "resource-medium-php",
+      "iteration": 1,
+      "manifestSha256": "60832c5d2ab74f012b641136500781108a35b8563becc987230a184fb5afbc31",
+      "fixtureSetSha256": "3d6406e68b45843550bf6bd1857e86ae28c4f87966ccf69315ebd330a7d0e737",
+      "inputFileCount": 24,
+      "declaredInputBytes": 43704,
+      "wallElapsedMs": 2705.325874999995,
+      "containerExitCode": 1,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "FAILED",
+        "manifestId": "resource-medium-php",
+        "language": "php",
+        "stageTimingsMs": {
+          "loadInput": 83.693267,
+          "adapter": 763.055635,
+          "canonicalCcm": 15.155836,
+          "canonicalCkg": 18.134855,
+          "documentProjection": 60.707991,
+          "markdownRender": 41.971592,
+          "pdfRender": 0.665531
+        },
+        "coreElapsedMs": 983.384707,
+        "nodePeakRssBytes": 329211904,
+        "cgroupPeakChargedBytes": 291581952,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1409005,
+          "user_usec": 1161972,
+          "system_usec": 247033,
+          "nr_periods": 16,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 2271486,
+          "user_usec": 1772843,
+          "system_usec": 498643,
+          "nr_periods": 26,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 862481,
+          "user_usec": 610871,
+          "system_usec": 251610,
+          "nr_periods": 10,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "6d429f9c76fd12cfb12ba0827d0c59e18d0dd516ca65a0d2157a8d76a7daf3f9",
+          "inputFileCount": 24,
+          "inputBytes": 43704,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "fd0c5737e9da825f6fbd68287c07601f47ee559f6f98292a9150f21a91427c1a",
+          "ccmBytes": 465688,
+          "ckgContentSha256": "2649ac6c32d3be6652f8245fd9f22528fd76a5aa6c57418bac399bcafb77f29d",
+          "ckgBytes": 465929,
+          "documentSha256": "f3a7e0caae76374e771e743dcb97201b822b9c7ee74ee7a292ce8e9f4ffc0ce2",
+          "documentBytes": 1885316,
+          "markdownSha256": "bc7c98030a8aa0071f0703a349f6148e64298a98b547cc4ad48f276f220c429d",
+          "markdownBytes": 2006937,
+          "pdfSha256": null,
+          "pdfBytes": null,
+          "nodeCount": 352,
+          "edgeCount": 448,
+          "limitationCount": 4
+        },
+        "failureStage": "pdfRender",
+        "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED"
+      },
+      "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED",
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-php",
+      "manifestId": "resource-medium-php",
+      "iteration": 2,
+      "manifestSha256": "60832c5d2ab74f012b641136500781108a35b8563becc987230a184fb5afbc31",
+      "fixtureSetSha256": "3d6406e68b45843550bf6bd1857e86ae28c4f87966ccf69315ebd330a7d0e737",
+      "inputFileCount": 24,
+      "declaredInputBytes": 43704,
+      "wallElapsedMs": 1995.9302499999976,
+      "containerExitCode": 1,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "FAILED",
+        "manifestId": "resource-medium-php",
+        "language": "php",
+        "stageTimingsMs": {
+          "loadInput": 80.975398,
+          "adapter": 577.093602,
+          "canonicalCcm": 14.821532,
+          "canonicalCkg": 13.568207,
+          "documentProjection": 55.780436,
+          "markdownRender": 38.106157,
+          "pdfRender": 0.533849
+        },
+        "coreElapsedMs": 780.8791810000002,
+        "nodePeakRssBytes": 331661312,
+        "cgroupPeakChargedBytes": 293806080,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1010656,
+          "user_usec": 872976,
+          "system_usec": 137680,
+          "nr_periods": 10,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 1749749,
+          "user_usec": 1436900,
+          "system_usec": 312849,
+          "nr_periods": 18,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 739093,
+          "user_usec": 563924,
+          "system_usec": 175169,
+          "nr_periods": 8,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "6d429f9c76fd12cfb12ba0827d0c59e18d0dd516ca65a0d2157a8d76a7daf3f9",
+          "inputFileCount": 24,
+          "inputBytes": 43704,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "fd0c5737e9da825f6fbd68287c07601f47ee559f6f98292a9150f21a91427c1a",
+          "ccmBytes": 465688,
+          "ckgContentSha256": "2649ac6c32d3be6652f8245fd9f22528fd76a5aa6c57418bac399bcafb77f29d",
+          "ckgBytes": 465929,
+          "documentSha256": "f3a7e0caae76374e771e743dcb97201b822b9c7ee74ee7a292ce8e9f4ffc0ce2",
+          "documentBytes": 1885316,
+          "markdownSha256": "bc7c98030a8aa0071f0703a349f6148e64298a98b547cc4ad48f276f220c429d",
+          "markdownBytes": 2006937,
+          "pdfSha256": null,
+          "pdfBytes": null,
+          "nodeCount": 352,
+          "edgeCount": 448,
+          "limitationCount": 4
+        },
+        "failureStage": "pdfRender",
+        "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED"
+      },
+      "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED",
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-php",
+      "manifestId": "resource-medium-php",
+      "iteration": 3,
+      "manifestSha256": "60832c5d2ab74f012b641136500781108a35b8563becc987230a184fb5afbc31",
+      "fixtureSetSha256": "3d6406e68b45843550bf6bd1857e86ae28c4f87966ccf69315ebd330a7d0e737",
+      "inputFileCount": 24,
+      "declaredInputBytes": 43704,
+      "wallElapsedMs": 2424.7686659999963,
+      "containerExitCode": 1,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "FAILED",
+        "manifestId": "resource-medium-php",
+        "language": "php",
+        "stageTimingsMs": {
+          "loadInput": 77.339146,
+          "adapter": 736.132124,
+          "canonicalCcm": 15.475207,
+          "canonicalCkg": 16.277458,
+          "documentProjection": 104.797268,
+          "markdownRender": 51.536813,
+          "pdfRender": 2.849159
+        },
+        "coreElapsedMs": 1004.407175,
+        "nodePeakRssBytes": 328765440,
+        "cgroupPeakChargedBytes": 290865152,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1161054,
+          "user_usec": 997765,
+          "system_usec": 163288,
+          "nr_periods": 13,
+          "nr_throttled": 1,
+          "throttled_usec": 1854
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 2077519,
+          "user_usec": 1644577,
+          "system_usec": 432941,
+          "nr_periods": 23,
+          "nr_throttled": 3,
+          "throttled_usec": 6571
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 916465,
+          "user_usec": 646812,
+          "system_usec": 269653,
+          "nr_periods": 10,
+          "nr_throttled": 2,
+          "throttled_usec": 4717
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "6d429f9c76fd12cfb12ba0827d0c59e18d0dd516ca65a0d2157a8d76a7daf3f9",
+          "inputFileCount": 24,
+          "inputBytes": 43704,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "fd0c5737e9da825f6fbd68287c07601f47ee559f6f98292a9150f21a91427c1a",
+          "ccmBytes": 465688,
+          "ckgContentSha256": "2649ac6c32d3be6652f8245fd9f22528fd76a5aa6c57418bac399bcafb77f29d",
+          "ckgBytes": 465929,
+          "documentSha256": "f3a7e0caae76374e771e743dcb97201b822b9c7ee74ee7a292ce8e9f4ffc0ce2",
+          "documentBytes": 1885316,
+          "markdownSha256": "bc7c98030a8aa0071f0703a349f6148e64298a98b547cc4ad48f276f220c429d",
+          "markdownBytes": 2006937,
+          "pdfSha256": null,
+          "pdfBytes": null,
+          "nodeCount": 352,
+          "edgeCount": 448,
+          "limitationCount": 4
+        },
+        "failureStage": "pdfRender",
+        "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED"
+      },
+      "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED",
+      "cleanupFailure": false
+    }
+  ],
+  "wholeWorkloadReplayChecks": [
+    {
+      "corpus": "small-ts",
+      "status": "PASS",
+      "successfulIterations": 3,
+      "expectedIterations": 3
+    },
+    {
+      "corpus": "small-php",
+      "status": "PASS",
+      "successfulIterations": 3,
+      "expectedIterations": 3
+    },
+    {
+      "corpus": "medium-ts",
+      "status": "INCOMPLETE",
+      "successfulIterations": 0,
+      "expectedIterations": 3
+    },
+    {
+      "corpus": "medium-php",
+      "status": "INCOMPLETE",
+      "successfulIterations": 0,
+      "expectedIterations": 3
+    }
+  ],
+  "observations": {
+    "allCanonicalAndMarkdownHashesStable": true,
+    "oomCount": 0,
+    "pdfSuccessfulSamples": 6,
+    "pdfRejectedSamples": 6,
+    "followUpIssue": 101
+  },
+  "verification": {
+    "node24LintTypecheckUnitPass": true,
+    "unitTests": 361,
+    "benchmarkUnitTests": 6,
+    "databaseOrProductStorageConnected": false,
+    "liveGitHubOAuth": false,
+    "coolifyDeployment": false
+  },
+  "limitations": [
+    "CPU delta starts after module imports; memory peak and Docker wall include startup.",
+    "Direct adapter core and sequential exports only: excludes production scan/merge, repeated stage replay, database, queue and concurrent analysis/export.",
+    "ARM64 local Docker measurements do not prove x86_64 shared-host capacity.",
+    "Other local application/test containers and warm filesystem caches were present; timings are local observations, not controlled server latency benchmarks.",
+    "Whole workload is FAILED for both medium corpora because PDF guards reject; canonical/Markdown stages pass. No capacity guarantee or lower runtime quotas inferred."
+  ],
+  "earlierAttempts": [
+    {
+      "run": "perf02-local-run1.json",
+      "outcome": "12 container-create failures caused by unnecessary temporary-host source projection mount; retained locally and fixed."
+    },
+    {
+      "run": "perf02-local-run2.json",
+      "outcome": "6 small PDF passes, 6 medium PDF guard failures; summary code masked by attach nonzero exit, fixed and rerun as run3."
+    }
+  ]
+}

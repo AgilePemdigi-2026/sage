@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "id": "resource-medium-ts",
+  "repository": "AgilePemdigi-2026/sage",
+  "commitSha": "04b97c6a1be4c6ff3d378a04f3fa812788879bc4",
+  "language": "javascript",
+  "selection": "Deterministic spread sample of 12 lexicographically path-sorted files (round(i*(N-1)/(12-1)), i=0..11) from the existing pinned sage-js corpus; partial-corpus workload, max 100000 source bytes.",
+  "files": [
+    {
+      "path": "apps/web/app/analyses/[analysisId]/page.tsx",
+      "sha256": "26fb5f3026687e46d080b3181f1c5c03435ba116b4b49cf40e5d7a7394b162cc",
+      "sizeBytes": 1783
+    },
+    {
+      "path": "apps/web/app/api/repositories/resolve/route.ts",
+      "sha256": "a9ea86a21450eb9b15a766752839e04f2d364d2bcc87dc3e160bcb27763dc100",
+      "sizeBytes": 201
+    },
+    {
+      "path": "apps/web/app/page.tsx",
+      "sha256": "45f00fd4840275dd879fa697c13a20491075365c650d78687905b6382cd1db2b",
+      "sizeBytes": 3408
+    },
+    {
+      "path": "apps/web/app/workspace/history/page.tsx",
+      "sha256": "3a38289851556d5b2124d0e6b48b20eabc5bf07214c705a707b9b454ae22e34f",
+      "sizeBytes": 575
+    },
+    {
+      "path": "apps/web/components/history/format.ts",
+      "sha256": "7cba8085dde3efa33e621d75b6249dd28677f19282b14e210284203709bf5e57",
+      "sizeBytes": 1180
+    },
+    {
+      "path": "apps/web/components/ui-foundation/primitives.tsx",
+      "sha256": "ccb2567988bab9bd0967fd3b7d07ba8135a98577178ec1e221618fc1babda4c7",
+      "sizeBytes": 1882
+    },
+    {
+      "path": "apps/web/lib/auth/config.ts",
+      "sha256": "e9c0247441eb41e76ba858336f2fe159b043a9d37101e04954fcc849bfbd4c51",
+      "sizeBytes": 2990
+    },
+    {
+      "path": "apps/web/lib/github/target-handlers.ts",
+      "sha256": "ba541a2c035da67e8d9fa42168c0c9ffee9ea2b00e0a4c17e394885364aac3e3",
+      "sizeBytes": 4025
+    },
+    {
+      "path": "apps/worker/src/snapshot/storage.ts",
+      "sha256": "6cda8e4ee234fbd30c85e29f37556b4852cb00d7709801e3341a3a51330c586d",
+      "sizeBytes": 2994
+    },
+    {
+      "path": "packages/analyzer-php/src/probe.ts",
+      "sha256": "d0501b944fd0308ad40722a069feda3f6067147a44109c09e57a5a1e8ffb5500",
+      "sizeBytes": 774
+    },
+    {
+      "path": "packages/database/src/history.ts",
+      "sha256": "89eaa5c23e954ca3b4df8b8655377d9ef8910d4d212a86e549c41f9ad8f0e27e",
+      "sizeBytes": 7846
+    },
+    {
+      "path": "packages/github/client.ts",
+      "sha256": "ac60548e27d6644060ab56cec26033efb4e5ddd6516c8673c52911d9e7dcff87",
+      "sizeBytes": 25441
+    }
+  ]
+}
