@@ -93,3 +93,19 @@ export { AnalysisRetryNotAllowedError, AnalysisRetryNotFoundError, enqueueAnalys
 export type { AnalysisRetryTarget } from "./retry.ts";
 
 export { CanonicalDocumentIntegrityError, persistCanonicalDocument, readCanonicalDocumentForUser } from "./documents.ts";
+export {
+  completeExportJob,
+  claimExportJob,
+  enqueueMarkdownExport,
+  failExportJob,
+  findMarkdownExportForUser,
+  renewExportLease,
+  retryMarkdownExport,
+  snapshotExportJobClaim,
+  ExportAnalysisNotFoundError,
+  ExportDocumentChangedError,
+  ExportQueueInvariantError,
+  ExportResultNotReadyError,
+  ExportRetryConflictError,
+} from "./exports.ts";
+export type { ExportJobClaim, ExportLeaseOptions, ExportSnapshot } from "./exports.ts";
