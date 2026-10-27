@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import test from "node:test";
 import { loadBenchmarkInput } from "../scripts/benchmark-repository.ts";
+import type { ResourceWorkloadResult } from "../scripts/benchmark-resource-workload.ts";
 import { parseArguments, RESOURCE_CASES, validateWorkloadPayload } from "../scripts/run-resource-benchmarks.mjs";
 
 const project = resolve(new URL("../", import.meta.url).pathname);
@@ -12,7 +13,7 @@ const hashes = {
   documentSha256: "4".repeat(64), markdownSha256: "5".repeat(64), pdfSha256: "6".repeat(64),
 };
 
-function completePayload() {
+function completePayload(): ResourceWorkloadResult {
   const timings = {
     loadInput: 1, adapter: 2, canonicalCcm: 3, canonicalCkg: 4,
     documentProjection: 5, markdownRender: 6, pdfRender: 7,
@@ -118,6 +119,6 @@ test("expected stage failures remain valid failed-sample evidence", () => {
   assert.equal(checked.result?.metrics.documentSha256, hashes.documentSha256);
 
   const invalidFailure = { ...failure, stageTimingsMs: { ...failure.stageTimingsMs, markdownRender: null } };
-  invalidFailure.coreElapsedMs = Object.values(invalidFailure.stageTimingsMs).reduce((sum, value) => sum + (value ?? 0), 0);
+  invalidFailure.coreElapsedMs = Object.values(invalidFailure.stageTimingsMs).reduce<number>((sum, value) => sum + (value ?? 0), 0);
   assert.equal(validateWorkloadPayload(invalidFailure, "resource-small-ts", "javascript").failureCode, "BENCHMARK_FAILURE_EVIDENCE_INVALID");
 });
