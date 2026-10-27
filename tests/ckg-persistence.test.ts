@@ -41,7 +41,7 @@ test("published graph reads require owner and terminal analysis status and accep
   } as unknown as PrismaClient;
   assert.equal(await readCanonicalGraphForUser(db, "owner-1", "analysis-1", {}), null);
   assert.deepEqual(calls[0], {
-    where: { id: "analysis-1", ownerUserId: "owner-1", status: { in: ["COMPLETED", "COMPLETED_WITH_LIMITATIONS"] } },
+    where: { id: "analysis-1", ownerUserId: "owner-1", deletionRequestedAt: null, status: { in: ["COMPLETED", "COMPLETED_WITH_LIMITATIONS"] } },
     select: {
       configurationHash: true,
       repositoryFullNameSnapshot: true,

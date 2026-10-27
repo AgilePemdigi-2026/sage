@@ -11,7 +11,12 @@ test("snapshot storage is owner-scoped, hash-checked and removes partial writes"
   const storageRoot = await mkdtemp(join(tmpdir(), "sage-storage-test-"));
   const archive = Buffer.from("archive fixture"); const sha256 = createHash("sha256").update(archive).digest("hex");
   let row: Record<string, unknown> | null = null;
-  const tx = { $queryRaw: async () => [{ active: true }], storageObject: {
+  const tx = { $queryRaw: async (query: TemplateStringsArray) => {
+    const sql = query.join("?");
+    if (sql.includes('AS "reservations"')) return [{ slotKey: "analysis", jobType: "ANALYSIS", reservations: [] }];
+    if (sql.includes('SELECT "deletionRequestedAt"')) return [{ deletionRequestedAt: null }];
+    return [{ active: true }];
+  }, job: { updateMany: async () => ({ count: 1 }) }, storageObject: {
     create: async ({ data }: { data: Record<string, unknown> }) => { row = { ...data, id: "stored" }; return { id: "stored", sha256 }; },
     findFirst: async ({ where }: { where: Record<string, unknown> }) => row && where.ownerUserId === row.ownerUserId && where.analysisId === row.analysisId ? row : null,
   } };

@@ -9,37 +9,37 @@ function requireOwnerAndId(userId: string, id: string): void {
 // Do not replace these predicates with an ID-only lookup followed by an in-memory check.
 export function findAnalysisForUser(db: PrismaClient, userId: string, analysisId: string) {
   requireOwnerAndId(userId, analysisId);
-  return db.analysis.findFirst({ where: { id: analysisId, ownerUserId: userId } });
+  return db.analysis.findFirst({ where: { id: analysisId, ownerUserId: userId, deletionRequestedAt: null } });
 }
 
 export function findJobForUser(db: PrismaClient, userId: string, jobId: string) {
   requireOwnerAndId(userId, jobId);
-  return db.job.findFirst({ where: { id: jobId, ownerUserId: userId } });
+  return db.job.findFirst({ where: { id: jobId, ownerUserId: userId, OR: [{ analysisId: null }, { analysis: { is: { deletionRequestedAt: null } } }] } });
 }
 
 export function findSourceFileForUser(db: PrismaClient, userId: string, sourceFileId: string) {
   requireOwnerAndId(userId, sourceFileId);
-  return db.sourceFile.findFirst({ where: { id: sourceFileId, ownerUserId: userId } });
+  return db.sourceFile.findFirst({ where: { id: sourceFileId, ownerUserId: userId, analysis: { is: { deletionRequestedAt: null } } } });
 }
 
 export function findGraphBundleForUser(db: PrismaClient, userId: string, graphBundleId: string) {
   requireOwnerAndId(userId, graphBundleId);
-  return db.graphBundle.findFirst({ where: { id: graphBundleId, ownerUserId: userId } });
+  return db.graphBundle.findFirst({ where: { id: graphBundleId, ownerUserId: userId, analysis: { is: { deletionRequestedAt: null } } } });
 }
 
 export function findArchitectureDocumentForUser(db: PrismaClient, userId: string, documentId: string) {
   requireOwnerAndId(userId, documentId);
-  return db.architectureDocument.findFirst({ where: { id: documentId, ownerUserId: userId } });
+  return db.architectureDocument.findFirst({ where: { id: documentId, ownerUserId: userId, analysis: { is: { deletionRequestedAt: null } } } });
 }
 
 export function findExportForUser(db: PrismaClient, userId: string, exportId: string) {
   requireOwnerAndId(userId, exportId);
-  return db.export.findFirst({ where: { id: exportId, ownerUserId: userId } });
+  return db.export.findFirst({ where: { id: exportId, ownerUserId: userId, analysis: { is: { deletionRequestedAt: null } } } });
 }
 
 export function findStorageObjectForUser(db: PrismaClient, userId: string, storageObjectId: string) {
   requireOwnerAndId(userId, storageObjectId);
-  return db.storageObject.findFirst({ where: { id: storageObjectId, ownerUserId: userId } });
+  return db.storageObject.findFirst({ where: { id: storageObjectId, ownerUserId: userId, analysis: { is: { deletionRequestedAt: null } } } });
 }
 
 export function findGitHubConnectionForUser(db: PrismaClient, userId: string, connectionId: string) {

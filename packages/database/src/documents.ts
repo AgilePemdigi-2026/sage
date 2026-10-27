@@ -325,7 +325,7 @@ export async function readCanonicalDocumentForUser(
   if (typeof analysisId !== "string" || !analysisId.trim()) throw new Error("ID analisis wajib diisi.");
   const safeSourceBytes = snapshotSourceBytes(sourceBytes);
   const record = await db.analysis.findFirst({
-    where: { id: analysisId, ownerUserId, status: { in: ["COMPLETED", "COMPLETED_WITH_LIMITATIONS"] } },
+    where: { id: analysisId, ownerUserId, deletionRequestedAt: null, status: { in: ["COMPLETED", "COMPLETED_WITH_LIMITATIONS"] } },
     select: {
       configurationHash: true,
       repositoryFullNameSnapshot: true,

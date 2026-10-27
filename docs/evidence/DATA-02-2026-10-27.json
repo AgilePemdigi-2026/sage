@@ -1,0 +1,140 @@
+{
+  "issue": 23,
+  "backlog": "DATA-02",
+  "baseCommit": "3c7b6676f75dd7dc4e090ddd72da92affcf856be",
+  "verifiedSourceCommit": "c0d70945b9f9a08bca7fddc98beafe97d8bb3cee",
+  "checkedAt": "2026-10-27T12:31:15.191116+00:00",
+  "status": "PASS",
+  "environment": {
+    "node": "24.22.0",
+    "postgresql": "17",
+    "next": "16.4.2",
+    "prisma": "7.10.1",
+    "playwright": "1.64.1",
+    "isolation": "Disposable sage-cleanup23 Compose project; dedicated sage_cleanup23, sage_pipeline16, sage_export20, sage_pdf21 databases; temporary storage; no product DB deletion"
+  },
+  "checks": {
+    "lint": "PASS: npm run lint",
+    "typecheck": "PASS: npm run typecheck (root and web)",
+    "productionBuild": "PASS: npm run build",
+    "unitTests": {
+      "passed": 350,
+      "failed": 0,
+      "skipped": 0
+    },
+    "databaseFoundation": {
+      "passed": 8,
+      "failed": 0,
+      "skipped": 0
+    },
+    "cleanupPostgres": {
+      "passed": 3,
+      "failed": 0,
+      "skipped": 0
+    },
+    "pipelinePostgres": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0
+    },
+    "markdownPostgres": {
+      "passed": 2,
+      "failed": 0,
+      "skipped": 0,
+      "includes": "Paused stale writer resumed after cleanup; paths remain absent and unrelated canary unchanged"
+    },
+    "pdfPostgres": {
+      "passed": 1,
+      "failed": 0,
+      "skipped": 0
+    }
+  },
+  "live": {
+    "cleanup": {
+      "status": "PASS",
+      "groups": 6,
+      "checkedAt": "2026-10-27T12:27:32.757Z",
+      "checks": [
+        "Live DELETE rejects anonymous, stale-account, off-origin, unknown-field, and foreign-owner requests with 401/403/400/404; active analysis and export fixtures return 409.",
+        "Live cleanup-job reads are owner-only: foreign owner receives 200 while another account and anonymous caller receive 404 and 401.",
+        "At 390px, cancelling the accessible confirmation leaves the analysis row, cleanup queue, archive, and history entry intact.",
+        "The live cleanup worker removed source archive, registered Markdown export, reserved .pending export, source/graph/document/export rows, and the parent analysis before its job became COMPLETED; repeat DELETE returns 204 and the retry child remains visible with a null parent link.",
+        "A symlinked registered snapshot key fails safely, keeps outside bytes intact, exposes the retry action, and succeeds through the real history retry flow after repair.",
+        "Foreign analysis, active storage metadata, archive bytes, and the outside-neighbor canary are unchanged after owner cleanup."
+      ]
+    },
+    "markdown": {
+      "status": "PASS",
+      "groups": 20,
+      "checkedAt": "2026-10-27T12:29:27.938Z",
+      "checks": [
+        "real Next API and PostgreSQL health",
+        "real analyzer fixture seeded as four identical canonical GraphBundle, ArchitectureDocument, limitation, and private source archive snapshots",
+        "test-only live export lease holds the production queue slot to make duplicate-POST and failure timings deterministic",
+        "strict same-origin POST, exact request body, MARKDOWN format, and authenticated owner checks",
+        "foreign owner create returns 404 without revealing or creating an export",
+        "390px live document page: real Ekspor Markdown click creates a QUEUED export through same-origin HTTP",
+        "two concurrent API POSTs and the browser POST deduplicate to one owner/analysis/document/renderer export and job",
+        "status/download owner isolation and EXPORT_NOT_READY behavior before the worker publishes a file",
+        "390px browser download: real attachment bytes verify against the stored SHA-256 and canonical Markdown renderer output",
+        "API GET download: content type, private attachment filename, no-store headers, and exact SHA-256 verified",
+        "clean offline Chromium Markdown viewer using the locked Mermaid dependency's Marked parser: three document sections, two full Mermaid source blocks, no active/external HTML resources",
+        "1440px browser page: real create click and actual private Markdown download match the 390px byte hash",
+        "delayed READY response: account switch to B rejects A identity, clears the document, and never publishes A's stale download control",
+        "delayed real attachment response: account switch during Blob transfer is rejected after session recheck and produces no old-account download",
+        "controlled storage-integrity fault reached the real worker and failed safely as EXPORT_FAILED; test-only archive digest restored before retry",
+        "real UI retry requeues the same export/document hash, worker returns READY, and the retried browser download is byte-for-byte identical",
+        "production lease recovery records WORKER_INTERRUPTED, real archive-integrity failure is retryable, and retry succeeds without changing the document hash",
+        "analysis status/result hash, canonical graph hash, and architecture document hash are unchanged after failure and retry",
+        "foreign account cannot inspect or retry another account's ready export",
+        "all UI/download/race flows remain same-origin, make no GitHub/provider request, and produce no uncaught browser errors"
+      ]
+    },
+    "pdf": {
+      "status": "PASS",
+      "groups": 15,
+      "checkedAt": "2026-10-27T12:29:54.802Z",
+      "checks": [
+        "real Next API and PostgreSQL health",
+        "20-node / 27-edge analyzer fixture projected to a canonical, public expected-document.json with one explicit limitation",
+        "POST rejects unsupported formats, extra body fields, query parameters, and off-origin requests",
+        "human document hides hashes and renders both colored SVG diagrams with zoom at 390px",
+        "stale selected-account and unauthenticated nested status requests are rejected with 401",
+        "390px browser created PDF through real POST, downloaded the worker-produced attachment, and repeated READY downloads were byte-identical",
+        "1440px browser created a deduplicated PDF and downloaded the same READY bytes as the 390px browser",
+        "nested status/retry/download paths enforce owner scope: owner reads READY; foreign account receives 404",
+        "PDF attachment is application/pdf, starts with %PDF-, and matches owner-bound ACTIVE private storage checksum/length/0600 file",
+        "legacy Markdown path still creates/downloads through the production worker and exactly matches renderMarkdownDocument",
+        "delayed real PDF attachment revalidates the session after body transfer; account switch exposes no old-account download",
+        "actual source archive checksum fault reaches production PDF worker and fails as EXPORT_FAILED; source hash restored before retry POST",
+        "retry uses the real API and production consumer, keeps format/document hash/renderer version, and downloads a valid PDF",
+        "real consumer recovered the expired test lease, failed the archive-integrity export, and completed its real retry",
+        "tested browser paths make no off-origin/provider requests and have no uncaught page errors"
+      ]
+    }
+  },
+  "testSourceSha256": {
+    "scripts/test-analysis-cleanup.ts": "ac3e336b3ea867fca22c6df525cdab38b988a8b1f28afd2ddcf01a8322bb6674",
+    "tests/cleanup-database.integration.ts": "2b2751111b9d57c5830fbaa88ea34eb431e6a962514ab3b3247c1a16fbb34725",
+    "tests/exports.integration.ts": "080c921c19e5a1ec64d91ff9967edb1a6f7a127bbd791af235649b5ae70934de",
+    "tests/cleanup-ui.test.ts": "1158a589635b911853e46295b563ea370d4e9df63c41138706acdfa99319a4af"
+  },
+  "review": {
+    "pr": "https://github.com/AgilePemdigi-2026/sage/pull/95",
+    "initialHead": "d144911b4ee93dd63426081080f384c83e1a8ede",
+    "resolvedAt": "7441724229da933662b4452ceced87f07b3804c7",
+    "findings": [
+      "Create empty export directory before reserving paths to prevent stale recreation",
+      "Reconcile timed-out pending actions on FAILED reload without cancelling active polls"
+    ]
+  },
+  "localArtifacts": "artifacts/cleanup23/run1 (ignored): reports, four cleanup viewport screenshots, Markdown/PDF regression outputs",
+  "boundaries": [
+    "Synthetic session/provider fixtures; no fresh GitHub OAuth or provider requests",
+    "Not a shared-server load benchmark or Coolify deployment",
+    "No automatic TTL/sweep; legacy unassociated files and external backups are outside deletion manifest",
+    "A minimal completed cleanup job remains for status/idempotency",
+    "Bytes previously delivered to clients cannot be recalled",
+    "No canonical graph/document deduplication implemented"
+  ]
+}

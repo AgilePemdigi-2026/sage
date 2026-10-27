@@ -76,8 +76,8 @@ Header `Idempotency-Key` digunakan untuk mencegah double-submit. Scope key adala
 | GET | `/analyses` | **Tersedia (HIST-01)**: history milik user; filter `query`, `status`, dan cursor keyset 20 per halaman |
 | GET | `/analyses/{analysisId}` | **Tersedia (HIST-01)**: context, full SHA, status, sembilan stage, limitations, serta link hasil jika tersedia |
 | POST | `/analyses/{analysisId}/retry` | Analysis baru dengan full SHA/config yang sama; detail menyajikan `retryOfAnalysisId` dari relasi internal `retryParentId` |
-| DELETE | `/analyses/{analysisId}` | Penghapusan data terminal milik user; `202` selama cleanup atau `204` setelah selesai |
-| GET | `/jobs/{jobId}` | Status job milik user, termasuk cleanup/export yang masih diproses |
+| DELETE | `/analyses/{analysisId}` | **Tersedia (DATA-02)**: penghapusan data terminal milik user; `202` selama cleanup atau `204` setelah selesai |
+| GET | `/jobs/{jobId}` | **Tersedia (DATA-02)**: status job CLEANUP milik user; status ekspor memakai endpoint ekspor tersendiri |
 
 `GET /analyses` paginasi memakai cursor keyset `(createdAt DESC, id DESC)` membatasi 20 record; `nextCursor: null` berarti habis. Tautan graph/dokumen pada detail hanya muncul untuk status `COMPLETED`/`COMPLETED_WITH_LIMITATIONS` dan berformat canonical `/analyses/{analysisId}/graph` dan `/analyses/{analysisId}/document`; halaman tujuannya mengikuti paket GRAPH-01 dan DOC-01.
 
@@ -87,7 +87,11 @@ Response progress menyertakan `updatedAt` dan `stateVersion` monoton untuk mengh
 
 Retry hanya diterima untuk analysis `FAILED`; pemilik yang ingin mengulang hasil sukses membuat analysis baru dari target yang dipilih. Retry selalu menjalankan validasi izin dan tidak mengubah record lama. Endpoint retry menerima object JSON kosong, `Idempotency-Key` 16–128 karakter dan header akun, jika dikirim, harus cocok dengan session; field target/owner/config dari klien ditolak. Izin provider diperiksa lagi termasuk saat replay. Parent asing menghasilkan 404, non-FAILED 409 `ANALYSIS_NOT_RETRYABLE`, identitas repository/SHA berubah 409 `RETRY_TARGET_CHANGED`; kegagalan izin tidak membuat analysis baru. Nama snapshot parent dipertahankan pada retry meskipun metadata repository berubah.
 
-Delete analysis queued/running menghasilkan `409 ANALYSIS_ACTIVE`; delete dengan export aktif menghasilkan `409 EXPORT_ACTIVE`. Setelah cleanup dimulai, hasil dan file tidak dapat dibaca lagi meskipun penghapusan volume masih retry. Perilaku lifecycle lengkap mengikuti [model data](DATA_MODEL.md).
+DELETE menerima JSON kosong `{}` dengan `Content-Type: application/json`, batas body 512 byte, tanpa query parameter. Session wajib; `X-SAGE-Account`, bila dikirim, harus sesuai session. Origin harus sama dengan `AUTH_BASE_URL`. ID tidak valid/body tambahan menghasilkan 400, session/akun lama 401, origin asing 403, dan target asing/tidak ada 404. Pemilik tidak diambil dari body.
+
+Delete analysis queued/running menghasilkan `409 ANALYSIS_ACTIVE`; delete dengan export queued/generating atau job export aktif menghasilkan `409 EXPORT_ACTIVE`. Respons `202` berbentuk `{ data: { analysisId, accountKey, deletion: { jobId, analysisId, status, errorCode } } }`. Status cleanup adalah `QUEUED`, `RUNNING`, `FAILED`, atau `COMPLETED`; kegagalan memakai kode aman `CLEANUP_FAILED`, atau `WORKER_INTERRUPTED` setelah recovery claim kedaluwarsa. `GET /api/jobs/{jobId}` menerima session/header akun yang sama tanpa query, dan mengembalikan envelope data dengan status cleanup. Manifest/path storage tidak pernah dikirim.
+
+Permintaan DELETE berulang memakai job yang sama; status `FAILED` mengantrekan ulang job tersebut. Setelah sukses, DELETE target yang sama mengembalikan `204` tanpa body. Job/status milik akun lain menghasilkan 404. Semua respons memakai cache privat/no-store. Setelah cleanup dimulai, pembacaan hasil dan file berikutnya ditolak meskipun penghapusan volume masih retry; pembacaan file memeriksa tombstone lagi setelah I/O, tetapi respons yang sudah diterima client tidak dapat ditarik kembali. History mempertahankan baris pending/failed untuk pemantauan dan retry setelah reload. Perilaku lifecycle lengkap mengikuti [model data](DATA_MODEL.md).
 
 ## Graph, inspector, dan source
 

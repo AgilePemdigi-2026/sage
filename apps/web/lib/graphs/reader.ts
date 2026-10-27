@@ -26,7 +26,7 @@ class GraphReadUnavailableError extends Error {
 
 export interface GraphReadDatabase {
   analysis: {
-    findFirst(args: { where: { id: string; ownerUserId: string }; select: { status: true } }): Promise<{ status: string } | null>;
+    findFirst(args: { where: { id: string; ownerUserId: string; deletionRequestedAt: null }; select: { status: true } }): Promise<{ status: string } | null>;
   };
   storageObject: {
     findFirst(args: {
@@ -62,7 +62,7 @@ export async function loadVerifiedGraphForUser(
   storageRoot: string,
 ): Promise<VerifiedGraphReadState> {
   const analysis = await db.analysis.findFirst({
-    where: { id: analysisId, ownerUserId },
+    where: { id: analysisId, ownerUserId, deletionRequestedAt: null },
     select: { status: true },
   });
   if (!analysis) return { kind: "not-found" };
@@ -87,6 +87,8 @@ export async function loadVerifiedGraphForUser(
   const canonicalDb = db as unknown as Parameters<typeof readCanonicalGraphForUser>[0];
   const canonical = await readCanonicalGraphForUser(canonicalDb, ownerUserId, analysisId, sourceBytes);
   if (!canonical) throw new GraphReadUnavailableError();
+
+  if (!await db.analysis.findFirst({ where: { id: analysisId, ownerUserId, deletionRequestedAt: null }, select: { status: true } })) return { kind: "not-found" };
 
   return {
     kind: "ready",

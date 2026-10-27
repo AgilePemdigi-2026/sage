@@ -190,6 +190,7 @@ export async function readCanonicalGraphForUser(
     where: {
       id: analysisId,
       ownerUserId,
+      deletionRequestedAt: null,
       status: { in: ["COMPLETED", "COMPLETED_WITH_LIMITATIONS"] },
     },
     select: {

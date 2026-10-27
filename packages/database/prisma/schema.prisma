@@ -181,69 +181,76 @@ model Repository {
 }
 
 model Analysis {
-  id                   String                @id @default(cuid())
-  ownerUserId          String
-  repositoryId         String
+  id                         String                @id @default(cuid())
+  ownerUserId                String
+  repositoryId               String
   /// Repository name captured when the analysis was enqueued; later repository renames do not change its source target.
   repositoryFullNameSnapshot String?
-  retryParentId        String?
-  branchName           String
-  commitSha            String
-  idempotencyKeyHash   String?               @db.VarChar(64)
-  requestHash          String?               @db.VarChar(64)
-  configuration        Json
-  configurationHash    String
-  analyzerVersion      String
-  schemaVersion        String
-  status               AnalysisStatus        @default(QUEUED)
-  errorCode            String?
-  resultHash           String?
-  queuedAt             DateTime              @default(now())
-  startedAt            DateTime?
-  completedAt          DateTime?
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  owner                User                  @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
-  repository           Repository            @relation(fields: [repositoryId], references: [id], onDelete: Restrict)
-  retryParent          Analysis?             @relation("AnalysisRetry", fields: [retryParentId, ownerUserId], references: [id, ownerUserId], onDelete: Restrict)
-  retries              Analysis[]            @relation("AnalysisRetry")
-  stages               AnalysisStage[]
-  sourceFiles          SourceFile[]
-  limitations          AnalysisLimitation[]
-  graphBundle          GraphBundle?
-  architectureDocument ArchitectureDocument?
-  exports              Export[]
-  jobs                 Job[]                 @relation("JobAnalysisOwner")
-  storageObjects       StorageObject[]
+  retryParentId              String?
+  branchName                 String
+  commitSha                  String
+  idempotencyKeyHash         String?               @db.VarChar(64)
+  requestHash                String?               @db.VarChar(64)
+  configuration              Json
+  configurationHash          String
+  analyzerVersion            String
+  schemaVersion              String
+  status                     AnalysisStatus        @default(QUEUED)
+  errorCode                  String?
+  resultHash                 String?
+  queuedAt                   DateTime              @default(now())
+  startedAt                  DateTime?
+  completedAt                DateTime?
+  deletionRequestedAt        DateTime?
+  createdAt                  DateTime              @default(now())
+  updatedAt                  DateTime              @updatedAt
+  owner                      User                  @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  repository                 Repository            @relation(fields: [repositoryId], references: [id], onDelete: Restrict)
+  retryParent                Analysis?             @relation("AnalysisRetry", fields: [retryParentId, ownerUserId], references: [id, ownerUserId], onDelete: Restrict)
+  retries                    Analysis[]            @relation("AnalysisRetry")
+  stages                     AnalysisStage[]
+  sourceFiles                SourceFile[]
+  limitations                AnalysisLimitation[]
+  graphBundle                GraphBundle?
+  architectureDocument       ArchitectureDocument?
+  exports                    Export[]
+  jobs                       Job[]                 @relation("JobAnalysisOwner")
+  storageObjects             StorageObject[]
 
   @@unique([id, ownerUserId])
   @@unique([ownerUserId, idempotencyKeyHash])
   @@index([ownerUserId, createdAt])
   @@index([repositoryId, commitSha])
   @@index([retryParentId, ownerUserId])
+  @@index([ownerUserId, deletionRequestedAt])
 }
 
 model Job {
-  id             String      @id @default(cuid())
-  ownerUserId    String
-  analysisId     String?
-  exportId       String?
-  queueSequence  BigInt?
-  type           JobType
-  status         JobStatus   @default(QUEUED)
-  enqueuedAt     DateTime    @default(now())
-  startedAt      DateTime?
-  finishedAt     DateTime?
-  leaseExpiresAt DateTime?
-  heartbeatAt    DateTime?
-  attempt        Int         @default(0)
-  errorCode      String?
-  createdAt      DateTime    @default(now())
-  updatedAt      DateTime    @updatedAt
-  owner          User        @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
-  analysis       Analysis?   @relation("JobAnalysisOwner", fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Restrict)
-  export         Export?     @relation("JobExportOwner", fields: [exportId, ownerUserId], references: [id, ownerUserId], onDelete: Restrict)
-  workerSlot     WorkerSlot?
+  id                  String      @id @default(cuid())
+  ownerUserId         String
+  analysisId          String?
+  exportId            String?
+  queueSequence       BigInt?
+  type                JobType
+  status              JobStatus   @default(QUEUED)
+  enqueuedAt          DateTime    @default(now())
+  startedAt           DateTime?
+  finishedAt          DateTime?
+  leaseExpiresAt      DateTime?
+  heartbeatAt         DateTime?
+  attempt             Int         @default(0)
+  errorCode           String?
+  /// Stable ID retained after deleting the Analysis row; deliberately not a relation.
+  cleanupAnalysisId   String?     @unique
+  cleanupManifest     Json?
+  /// Storage keys reserved by a live ANALYSIS/EXPORT worker before filesystem writes.
+  storageReservations Json        @default("[]")
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  owner               User        @relation(fields: [ownerUserId], references: [id], onDelete: Restrict)
+  analysis            Analysis?   @relation("JobAnalysisOwner", fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Restrict)
+  export              Export?     @relation("JobExportOwner", fields: [exportId, ownerUserId], references: [id, ownerUserId], onDelete: Restrict)
+  workerSlot          WorkerSlot?
 
   @@unique([id, ownerUserId])
   @@index([ownerUserId, status, enqueuedAt])
@@ -370,9 +377,9 @@ model Export {
   jobs                   Job[]                @relation("JobExportOwner")
 
   @@unique([id, ownerUserId])
+  @@unique([ownerUserId, analysisId, format, documentHash, rendererVersion], map: "Export_owner_analysis_format_documentHash_rendererVersion_key")
   @@index([ownerUserId, status, createdAt])
   @@index([analysisId, ownerUserId])
-  @@unique([ownerUserId, analysisId, format, documentHash, rendererVersion], map: "Export_owner_analysis_format_documentHash_rendererVersion_key")
 }
 
 model StorageObject {

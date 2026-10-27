@@ -124,7 +124,7 @@ test("graph reader chooses the latest owner-bound active source archive and vali
 
     const preflight = fixture.calls[0];
     assert.equal(preflight.delegate, "analysis");
-    assert.deepEqual(preflight.args, { where: { id: analysisId, ownerUserId }, select: { status: true } });
+    assert.deepEqual(preflight.args, { where: { id: analysisId, ownerUserId, deletionRequestedAt: null }, select: { status: true } });
     const archiveLookup = fixture.calls[1];
     assert.equal(archiveLookup.delegate, "storageObject");
     assert.deepEqual(archiveLookup.args, {
@@ -173,4 +173,18 @@ test("graph reader treats missing terminal artifacts as unavailable and rejects 
   } finally {
     await rm(tampered.storageRoot, { recursive: true, force: true });
   }
+});
+
+test("graph reader suppresses a loaded graph if deletion begins during archive replay", async () => {
+  const fixture = await publishedFixture();
+  const find = fixture.db.analysis.findFirst;
+  let statusReads = 0;
+  fixture.db.analysis.findFirst = async args => {
+    if (args.select.status && ++statusReads > 1) return null;
+    return find(args);
+  };
+  try {
+    assert.deepEqual(await loadGraphForUser(fixture.db, ownerUserId, analysisId, fixture.storageRoot), { kind: "not-found" });
+    assert.equal(statusReads, 2);
+  } finally { await rm(fixture.storageRoot, { recursive: true, force: true }); }
 });

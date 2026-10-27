@@ -94,6 +94,21 @@ export type { AnalysisRetryTarget } from "./retry.ts";
 
 export { CanonicalDocumentIntegrityError, persistCanonicalDocument, readCanonicalDocumentForUser } from "./documents.ts";
 export {
+  AnalysisDeletionActiveError,
+  AnalysisDeletionNotFoundError,
+  CleanupQueueInvariantError,
+  claimCleanupJob,
+  completeCleanupJob,
+  failCleanupJob,
+  findCleanupJobForUser,
+  markCleanupObjectDeleted,
+  renewCleanupLease,
+  requestAnalysisDeletion,
+  reserveJobStorage,
+  snapshotCleanupJobClaim,
+} from "./cleanup.ts";
+export type { CleanupJobClaim, CleanupManifestItem, CleanupSnapshot, CleanupStatus, JobStorageReservationClaim } from "./cleanup.ts";
+export {
   completeExportJob,
   claimExportJob,
   enqueueExport,

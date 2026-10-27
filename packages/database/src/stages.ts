@@ -294,7 +294,7 @@ export async function readAnalysisStages(
 ): Promise<readonly AnalysisStageProgress[] | null> {
   if (typeof ownerUserId !== "string" || !ownerUserId.trim()) throw new Error("Pemilik analisis wajib diisi.");
   if (typeof analysisId !== "string" || !analysisId.trim()) throw new Error("ID analisis wajib diisi.");
-  const ownedAnalysis = await db.analysis.findFirst({ where: { id: analysisId, ownerUserId }, select: { id: true } });
+  const ownedAnalysis = await db.analysis.findFirst({ where: { id: analysisId, ownerUserId, deletionRequestedAt: null }, select: { id: true } });
   if (!ownedAnalysis) return null;
   const rows = await db.analysisStage.findMany({
     where: { ownerUserId, analysisId },

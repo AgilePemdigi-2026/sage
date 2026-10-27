@@ -40,7 +40,7 @@ export async function getAnalysisRetryTargetForUser(
   if (typeof ownerUserId !== "string" || ownerUserId.trim().length === 0) throw new Error("Pemilik analisis tidak valid.");
   if (typeof analysisId !== "string" || analysisId.trim().length === 0) throw new Error("ID analisis tidak valid.");
   const row = await db.analysis.findFirst({
-    where: { id: analysisId, ownerUserId },
+    where: { id: analysisId, ownerUserId, deletionRequestedAt: null },
     select: {
       id: true,
       ownerUserId: true,

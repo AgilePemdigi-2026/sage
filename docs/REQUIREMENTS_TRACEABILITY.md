@@ -91,7 +91,7 @@ ID `APP-*` merupakan tambahan project, bukan identifier yang diklaim berasal dar
 | APP-02 | Setelah login, public repository pihak lain dapat dipilih melalui URL/slug | GH-02, REP-01 | T-GH-03, T-REP-01 | Planned |
 | APP-03 | Hanya satu analysis repository aktif secara global dengan antrean | ANA-01 | T-ANA-01 | Planned |
 | APP-04 | Target full SHA immutable sebelum antrean dan retry memakai record baru | REP-02, ANA-07 | T-REP-02, T-ANA-06 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| APP-05 | Hasil/snapshot disimpan sampai user menghapus; deletion membersihkan turunannya | DATA-01, DATA-02 | T-DATA-01, T-DATA-02 | Planned |
+| APP-05 | Hasil/snapshot disimpan sampai user menghapus; deletion membersihkan turunannya | DATA-01, DATA-02 | T-DATA-01, T-DATA-02 | Implemented; owner-only cleanup/retry teruji ([bukti](DATA-02_CHECKS.md)) |
 | APP-06 | Semua komponen MVP berjalan lokal melalui Docker Compose | ENV-01, REL-01 | T-REL-01 | Planned |
 | APP-07 | UI menggunakan Bahasa Indonesia | UI-01, QA-03 | T-UI-01 | Planned |
 | APP-08 | Mobile first dengan pengalaman laptop/desktop yang tetap lengkap | UI-01, GRAPH-01, QA-03 | T-UI-01 | Planned |
@@ -111,7 +111,7 @@ ID `NFR-*` adalah indeks lokal untuk pengujian prinsip yang tersebar di SRS; buk
 | NFR-02 | Traceability file/baris, SRS 2.5 dan 5.4 | ANA-05, GRAPH-03, DOC-01, DOC-02 | T-ANA-04, T-GRAPH-03, T-DOC-01 | Inspector/source snapshot dan bounds teruji (GRAPH-03_CHECKS); signoff oracle analyzer tetap QA-01 |
 | NFR-03 | Konsistensi snapshot yang sama, SRS 5.4 Reliability | REP-02, ANA-06 | T-REP-02, T-ANA-04 | Planned |
 | NFR-04 | Source asli tidak berubah dan kode target tidak dieksekusi, SRS 5.2 dan glossary | REP-02, ANA-03, ANA-04 | T-SEC-01 | Snapshot/adapter teruji tanpa eksekusi source atau konfigurasi target |
-| NFR-05 | Credential terlindungi dan akses user terisolasi, SRS 5.3 | GH-01, DATA-01, DATA-02 | T-GH-02, T-DATA-01, T-DATA-02, T-SEC-01 | Planned |
+| NFR-05 | Credential terlindungi dan akses user terisolasi, SRS 5.3 | GH-01, DATA-01, DATA-02 | T-GH-02, T-DATA-01, T-DATA-02, T-SEC-01 | Owner/auth/cleanup teruji; signoff keamanan menyeluruh tetap QA-02 |
 | NFR-06 | Progress tetap tersedia dan resource/performa diukur, SRS 5.1 | ENV-01, ANA-01, ANA-07, QA-01 | T-ANA-01, T-ANA-02, T-REL-01 | Benchmark enam run pada dua corpus repository tersedia (QA-01_CHECKS); progres browser/worker teruji dengan provider terkontrol (ANA-07_CHECKS); kapasitas dekat ceiling belum diterima, SLA tetap TBD |
 | NFR-07 | Usability serta bahasa/responsivitas keputusan project, SRS 5.4 dan APP-07/08 | UI-01, QA-03 | T-UI-01 | Planned |
 | NFR-08 | Maintainability adapter/contracts dan interoperabilitas, SRS 5.4 | ENV-01, ANA-05, REL-01 | T-ANA-04, T-REL-01 | Planned |

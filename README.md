@@ -35,7 +35,7 @@
 
 Login GitHub App, daftar repository public/instalasi, pemilihan branch dan full SHA, `POST /api/analyses` yang mengantre secara idempotent, serta snapshot immutable dan source handlers tersambung ke provider nyata. Worker mengonsumsi antrean secara berurutan dan menjalankan sembilan handler nyata. Graph, ADD, limitation, dan hash hasil diterbitkan bersama setelah seluruh tahap selesai. Analisis gagal dapat diulang dengan SHA serta konfigurasi yang sama setelah izin GitHub diperiksa kembali.
 
-Landing, login, workspace, dan halaman repository memakai backend autentikasi/repository nyata. Halaman `/preview/progress`, `/preview/history`, `/preview/graph`, dan `/preview/document` adalah pratinjau fixture dari satu contoh source-backed tervalidasi berisi 10 node dan 9 edge, termasuk `ReportService`; halaman tersebut bukan hasil analisis repository pengguna. `/ui-preview` dan `/graph-preview` tetap tersedia sebagai fixture kompatibilitas. Pratinjau Markdown tetap ditandai sebagai fixture. Dokumen hasil analisis menyediakan **Ekspor Markdown** dan **Ekspor PDF**, status antrean, unduhan privat, serta retry kegagalan. Riwayat dan progres produk membaca record tersimpan. Graph `/analyses/{analysisId}/graph` membaca canonical CKG milik akun setelah analisis sukses, dengan mode overview, fokus, dan semua referensi. Dokumen `/analyses/{analysisId}/document` membaca ADD canonical dari snapshot yang sama, dengan Interface Catalog dan dua diagram SVG lokal. Node Query dan kategori AST dapat digabung untuk menyaring graph tanpa mengubah hasil canonical; gunakan **Atur ulang filter** untuk menghapus pencarian dan pilihan kategori. Mode graph tetap mengikuti pilihan pengguna. [Bukti filter graph](docs/GRAPH-02_CHECKS.md) menjelaskan perilaku dan batas pengujiannya. Inspector menampilkan bounds AST, relasi masuk/keluar, dan evidence canonical. Dialog source membaca cuplikan dari snapshot yang hash-nya diverifikasi, dengan loading, retry, dan close melalui keyboard; lihat [bukti inspector/source](docs/GRAPH-03_CHECKS.md). Ekspor Markdown diproses worker sebagai job terpisah tanpa mengubah hasil analisis; file memuat tiga artefak, source Mermaid dan evidence mandiri. Lihat [bukti ekspor Markdown](docs/EXP-01_CHECKS.md). PDF menyertakan diagram tercetak serta evidence, dengan halaman detail untuk diagram besar; lihat [bukti PDF](docs/EXP-02_CHECKS.md). Penghapusan mengikuti issue terkait. Bukti dokumen dan batas pipeline ada pada [DOC-01 checks](docs/DOC-01_CHECKS.md). Bukti dan batas verifikasi UI dicatat di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md).
+Landing, login, workspace, dan halaman repository memakai backend autentikasi/repository nyata. Halaman `/preview/progress`, `/preview/history`, `/preview/graph`, dan `/preview/document` adalah pratinjau fixture dari satu contoh source-backed tervalidasi berisi 10 node dan 9 edge, termasuk `ReportService`; halaman tersebut bukan hasil analisis repository pengguna. `/ui-preview` dan `/graph-preview` tetap tersedia sebagai fixture kompatibilitas. Pratinjau Markdown tetap ditandai sebagai fixture. Dokumen hasil analisis menyediakan **Ekspor Markdown** dan **Ekspor PDF**, status antrean, unduhan privat, serta retry kegagalan. Riwayat dan progres produk membaca record tersimpan. Graph `/analyses/{analysisId}/graph` membaca canonical CKG milik akun setelah analisis sukses, dengan mode overview, fokus, dan semua referensi. Dokumen `/analyses/{analysisId}/document` membaca ADD canonical dari snapshot yang sama, dengan Interface Catalog dan dua diagram SVG lokal. Node Query dan kategori AST dapat digabung untuk menyaring graph tanpa mengubah hasil canonical; gunakan **Atur ulang filter** untuk menghapus pencarian dan pilihan kategori. Mode graph tetap mengikuti pilihan pengguna. [Bukti filter graph](docs/GRAPH-02_CHECKS.md) menjelaskan perilaku dan batas pengujiannya. Inspector menampilkan bounds AST, relasi masuk/keluar, dan evidence canonical. Dialog source membaca cuplikan dari snapshot yang hash-nya diverifikasi, dengan loading, retry, dan close melalui keyboard; lihat [bukti inspector/source](docs/GRAPH-03_CHECKS.md). Ekspor Markdown diproses worker sebagai job terpisah tanpa mengubah hasil analisis; file memuat tiga artefak, source Mermaid dan evidence mandiri. Lihat [bukti ekspor Markdown](docs/EXP-01_CHECKS.md). PDF menyertakan diagram vektor ringkas pada A4 serta evidence; lihat [bukti PDF](docs/EXP-02_CHECKS.md). Pemilik dapat menghapus analisis terminal dari history setelah konfirmasi. Cleanup menutup akses hasil, menghapus snapshot serta ekspor, dan menyediakan retry jika gagal; analisis atau ekspor aktif tidak dapat dihapus. Lihat [bukti penghapusan](docs/DATA-02_CHECKS.md). Bukti dokumen dan batas pipeline ada pada [DOC-01 checks](docs/DOC-01_CHECKS.md). Bukti dan batas verifikasi UI dicatat di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md).
 
 </details>
 
@@ -54,9 +54,9 @@ Seluruh kemampuan di atas masuk target MVP lokal. Status implementasi serta acce
 
 ## Alur penggunaan
 
-[Buka workflow interaktif — zoom dan geser diagram](https://mermaid.live/view#pako:eJxVkstu2zAQRX9lwLWd7r0oYMfPwAGMpO0m6mIkjq0BKZLgo4Fr-987khMh3Yggee-ZyxldVOM1qZk6Wv_etBgz7F8qB5BKfYoYWmhKjOTyW6V-UEykGSEhZmDHlfrdSwHmcrv3J3agyZ3QwYbzttRyD9Ppd1hcKnVgyy2gSZQgUvCJs4_nSt3uhEUvvB5Kbdlc4VF4z5iKMcL6-bIHzFggDAiNkeVzzBjH-h_uyH8w0xWWYt-5lNFiYpiHIHoH_Ffy1djgf_U_CI9D0NXbZ9A6omvawdf4ruMMPiT2Du1oWd4t981q2KzF_wst676uBDxRHhDHYu0n53U7HxHrwbUR15Nkdf1rAwey7AgSdTXLoXBaDKNlM1i2wzhsSUWacZ9TX0d7Uzpyo3g7iHciXhSDYAQp6aAji7YwtJy-NIGc7pcdTB9A2iCD7OXDOGuKbEp2Z6wUPAjySZArk4KP8IzRaP_u4BsclmthqYnqKHbIWs0uKrfU9f-XpiMWm9VtorBk_3p2jZrlWGiiStAytiWjPKS7H97-Aax22hM). Tampilan ini membuka Mermaid Live; diagram di bawah tetap tersedia langsung di README.
+[Buka workflow interaktif — zoom dan geser diagram](https://mermaid.live/view#pako:eNpVks1vozAQxf-Vkc-pes9hpaT5IG0qRW13L2UPAzYwwtiWP1p1k_zvO5gGqRck4_d-83jDWdRWKrEUjbafdYc-wvGlNAAhVa1H10GdvFcmvpfiTfmgJCEExAhkqBR_RynAim-PtiUDUpkWDewpFqnie7i7-wXrcylOpKkD7IMK4JWzgaL1X6W4ToT1KLycUqWpv8AD854xpL5n1u-XI2DEBC4jJHriRxPRz_O_3Z4-MKoLbNh-MCGixkCwco71Bugf56uwxh_zvwkPOej2_Ra08mjqLvtqOwwUwbpA1qCeLZvJMh22-bBj_x_UJMe5HLBVMSOapPWN81qsZsQuu_bseuSsZvxaR05pMgqCGiril8zp0M2WfbYUeR06hcRlTHsa50jbp0GZWVxk8YHF69Qj9IzkdDAojToRdBR-lDDJH1m-7YOzHp7R99J-GriH02Y36w5Z98S6Al0KgFwLBQqcOTK6g96ahvzALcyep-w5jgWjGbdZa4UmuWm1ta0QNLY3vTJSLMSgmEFSLM8idmoYf1OpGkw6iutCYIr29cvUYhl9UguRnOTtbwi5j2F6ef0PwYrv7A). Tampilan ini membuka Mermaid Live; diagram di bawah tetap tersedia langsung di README.
 
-Alur hingga graph, dokumen, dan history tersedia pada aplikasi. Ekspor Markdown/PDF masih mengikuti issue ekspor; halaman `/preview/*` memakai data contoh terpisah.
+Alur analisis, graph, dokumen, history, ekspor Markdown/PDF, dan penghapusan tersedia pada aplikasi; halaman `/preview/*` memakai data contoh terpisah.
 
 ```mermaid
 flowchart LR
@@ -70,8 +70,10 @@ flowchart LR
     F --> G["Jalankan pipeline sembilan tahap"]
     G --> H["Telusuri graph dan dokumen"]
     H --> I["Buka kembali melalui history"]
+    H --> J["Ekspor Markdown / PDF"]
+    I --> K["Hapus analisis setelah konfirmasi"]
+    K --> L["Pantau cleanup atau coba lagi"]
   end
-  I -. "Pengembangan berikutnya" .-> J["Ekspor Markdown / PDF"]
 ```
 
 Pemilih target memanggil API submission idempotent; worker menjalankan satu analisis pada satu waktu. Progres diperbarui setiap tiga detik dan polling berhenti saat terminal. Rincian teknis: [arsitektur](docs/ARCHITECTURE.md) dan [ANA-07 #16](https://github.com/AgilePemdigi-2026/sage/issues/16).
@@ -162,7 +164,7 @@ Jika port 3000 dipakai aplikasi lain, ubah `WEB_PORT=3001` di `.env`, jalankan k
 
 Migrasi, smoke test, persistensi, dan troubleshooting lebih lengkap tersedia di [panduan setup lokal](docs/LOCAL_SETUP.md). Bukti implementasi: [DATA-01](docs/DATA-01_CHECKS.md), [kontrak CCM minimum](docs/ANA-05-S1_CHECKS.md), [hardening CCM dan kompatibilitas PHP/JS/TS](docs/ANA-05_CHECKS.md), [spike taxonomy CCM v1](docs/CCM_TAXONOMY_SPIKE.md), [oracle minimum](docs/QA-01-S1_CHECKS.md), serta [review oracle dan benchmark repository](docs/QA-01_CHECKS.md).
 
-Daftar repository menampilkan **public milik akun yang login** secara otomatis, dengan pagination dan pilihan branch. Bagian instalasi App menampilkan akses private/shared yang diberikan GitHub; instalasi milik collaborator atau organisasi dapat muncul bila akun memang berizin. Untuk mengganti akun, keluar dari SAGE lalu login kembali; pergantian akun pada tab lain akan memuat ulang daftar dan menghapus target sebelumnya. Memilih repository saat ini memvalidasi target; pipeline analisis penuh belum aktif.
+Daftar repository menampilkan **public milik akun yang login** secara otomatis, dengan pagination dan pilihan branch. Bagian instalasi App menampilkan akses private/shared yang diberikan GitHub; instalasi milik collaborator atau organisasi dapat muncul bila akun memang berizin. Untuk mengganti akun, keluar dari SAGE lalu login kembali; pergantian akun pada tab lain akan memuat ulang daftar dan menghapus target sebelumnya. Memilih repository memvalidasi target; analisis berjalan melalui antrean worker dengan snapshot full SHA.
 
 ## Benchmark analyzer
 
@@ -186,7 +188,7 @@ docker compose run --rm --no-deps worker npm run test:browser
 
 Delapan suite memeriksa landing, login/workspace, pemilihan repository, isolasi pergantian akun dan preview pada 360/390/768/1024/1440 px. Identitas serta sesi fixture sementara dibersihkan setelah pengujian. Respons provider pada tes UI dikontrol; akses GitHub nyata diperiksa terpisah melalui `test:provider:playwright` dengan akun yang telah diotorisasi. Laporan dan screenshot per run berada di `/app/storage/browser-regression` pada volume Docker (atau `artifacts/browser-regression` untuk run dari source). Untuk menyimpan bukti di host, lihat [panduan regression](docs/QA-04-S1_CHECKS.md) serta [perbaikan isolasi akun](docs/GH-03-S1_CHECKS.md).
 
-Pengujian fixture tidak membuktikan pipeline produk, ekspor PDF, history atau penghapusan yang belum tersedia.
+Pengujian fixture UI tidak membuktikan alur produk. Bukti pipeline, ekspor PDF, history, dan penghapusan dicatat terpisah pada dokumen pemeriksaan masing-masing.
 
 ## Acceptance Cucumber BDD Sprint 1
 
@@ -264,9 +266,14 @@ Semua tanggal mengikuti **Asia/Jakarta**. Setiap siklus terdiri atas dua minggu 
 
 Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Conventional Commit satu baris/satu kalimat**. Penanggung jawab serta hasil aktual mengikuti [alur kontribusi](CONTRIBUTING.md) dan [alokasi sprint](docs/SPRINT_ALLOCATION.md).
 
+### Pengujian cleanup terisolasi
+
+`npm test` mencakup unit cleanup. `npm run test:cleanup:integration` dan `npm run test:cleanup:live` bersifat destruktif dan hanya menerima database disposable bernama `sage_cleanup23` dengan `SAGE_CLEANUP_TESTS=1`. Jangan arahkan ke database aplikasi. Tes browser memerlukan build Next, worker, session fixture, serta storage sementara yang sama; lihat [DATA-02 checks](docs/DATA-02_CHECKS.md).
+
 ## Langkah berikutnya
 
-1. Consumer sembilan tahap, progres, retry, dan publikasi atomik tersedia pada **ANA-07 #16**; lihat [bukti serta batas pengujian](docs/ANA-07_CHECKS.md). Gate oracle formal tim tetap mengikuti #4/#11/#14.
-2. Canonical CKG dan persistensi owner/lease-scoped tersedia sebagai handler internal **ANA-06 #14**; lihat [bukti dan batas acceptance](docs/ANA-06_CHECKS.md). Model dan halaman dokumen **DOC-01 #15** tersedia untuk hasil tersimpan yang sukses; lihat [bukti DOC-01](docs/DOC-01_CHECKS.md). Lanjutkan query/filter dan inspector graph **#18–19**, Markdown/PDF **#20–21**, dan penghapusan **#23**. History list/detail **#22** dan graph tersimpan **#17** sudah tersedia untuk record nyata; pipeline tersedia melalui worker ANA-07.
-3. Frontend Figma **UI-02 #59** dan **UI-03 #60** telah diuji pada lima viewport; rute pratinjau memakai fixture. Bukti visual, interaksi dan batas pengujian ada di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md). Integrasi hasil produk tetap Sprint 2.
-4. Ikuti bukti dan batas per issue: [GH-02](docs/GH-02_CHECKS.md), [REP-01](docs/REP-01_CHECKS.md), [REP-02](docs/REP-02_CHECKS.md), [ANA-02](docs/ANA-02_CHECKS.md), serta [test plan](docs/TEST_PLAN.md). Tutup acceptance produk setelah alur lengkap diperiksa.
+1. Sebelum deployment Coolify pada server bersama, ukur penggunaan resource dan kurangi duplikasi penyimpanan graph/dokumen. Penghapusan DATA-02 tidak melakukan deduplikasi atau menghapus data pengguna otomatis.
+2. Consumer sembilan tahap, progres, retry, dan publikasi atomik tersedia pada **ANA-07 #16**; lihat [bukti serta batas pengujian](docs/ANA-07_CHECKS.md). Gate oracle formal tim tetap mengikuti #4/#11/#14.
+3. Canonical CKG dan persistensi owner/lease-scoped tersedia sebagai handler internal **ANA-06 #14**; lihat [bukti dan batas acceptance](docs/ANA-06_CHECKS.md). Model dan halaman dokumen **DOC-01 #15** tersedia untuk hasil tersimpan yang sukses; lihat [bukti DOC-01](docs/DOC-01_CHECKS.md). Query/filter dan inspector graph **#18–19**, Markdown/PDF **#20–21**, serta penghapusan **#23** tersedia dengan bukti masing-masing. History list/detail **#22** dan graph tersimpan **#17** sudah tersedia untuk record nyata; pipeline tersedia melalui worker ANA-07.
+4. Frontend Figma **UI-02 #59** dan **UI-03 #60** telah diuji pada lima viewport; rute pratinjau memakai fixture. Bukti visual, interaksi dan batas pengujian ada di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md). Hasil produk tersedia melalui rute analisis nyata dan diuji terpisah dari preview.
+5. Ikuti bukti dan batas per issue: [GH-02](docs/GH-02_CHECKS.md), [REP-01](docs/REP-01_CHECKS.md), [REP-02](docs/REP-02_CHECKS.md), [ANA-02](docs/ANA-02_CHECKS.md), serta [test plan](docs/TEST_PLAN.md). Tutup acceptance produk setelah alur lengkap diperiksa.

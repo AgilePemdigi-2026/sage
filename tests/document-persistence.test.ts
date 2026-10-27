@@ -253,7 +253,7 @@ test("published document reads are owner scoped, terminal only and treat legacy 
   } as unknown as PrismaClient;
   assert.equal(await readCanonicalDocumentForUser(db, ownerUserId, analysisId, {}), null);
   assert.deepEqual(calls[0], {
-    where: { id: analysisId, ownerUserId, status: { in: ["COMPLETED", "COMPLETED_WITH_LIMITATIONS"] } },
+    where: { id: analysisId, ownerUserId, deletionRequestedAt: null, status: { in: ["COMPLETED", "COMPLETED_WITH_LIMITATIONS"] } },
     select: {
       configurationHash: true,
       repositoryFullNameSnapshot: true,

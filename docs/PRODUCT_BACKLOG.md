@@ -54,7 +54,7 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | EXP-01 | Markdown mandiri beserta failure/retry | 2 | P0 / L | Zarra | DOC-01 | - | Implemented; [bukti](EXP-01_CHECKS.md) | [#20](https://github.com/AgilePemdigi-2026/sage/issues/20) |
 | EXP-02 | PDF, print layout, diagram, dan download | 2 | P0 / L | Valentina | DOC-01, ENV-01 | - | Implemented; teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) | [#21](https://github.com/AgilePemdigi-2026/sage/issues/21) |
 | HIST-01 | History per user, search, empty/error, navigasi | 2 | P1 / M | Rizqy | DATA-01, ANA-01 | - | Planned | [#22](https://github.com/AgilePemdigi-2026/sage/issues/22) |
-| DATA-02 | Penghapusan analysis dan cleanup storage/export | 2 | P1 / M | Zarra | DATA-01, EXP-01, EXP-02 | - | Planned | [#23](https://github.com/AgilePemdigi-2026/sage/issues/23) |
+| DATA-02 | Penghapusan analysis dan cleanup storage/export | 2 | P1 / M | Zarra | DATA-01, EXP-01, EXP-02 | - | Implemented; cleanup/retry dan isolasi teruji ([bukti](DATA-02_CHECKS.md)) | [#23](https://github.com/AgilePemdigi-2026/sage/issues/23) |
 | QA-02 | Integrasi penuh, GitHub nyata, error, dan release evidence | 2 | P0 / XL | Rizqy | GH-01, REP-02, ANA-07, GRAPH-03, EXP-01, EXP-02, HIST-01, DATA-02 | - | Planned | [#24](https://github.com/AgilePemdigi-2026/sage/issues/24) |
 | QA-03 | Responsivitas, keyboard, bahasa UI, dan visual QA | 1-2 | P1 / L | Valentina | GRAPH-03, EXP-02, REP-01, HIST-01, QA-03-S1 | - | Planned | [#25](https://github.com/AgilePemdigi-2026/sage/issues/25) |
 | REL-01 | MVP freeze lokal dan panduan setup/demo teruji | 2 | P0 / M | Iltizam | QA-02, QA-03 | - | Planned | [#26](https://github.com/AgilePemdigi-2026/sage/issues/26) |

@@ -226,6 +226,7 @@ async function assertPublishedDocument(
     FROM "Analysis" AS analysis
     JOIN "ArchitectureDocument" AS document ON document."analysisId" = analysis."id" AND document."ownerUserId" = analysis."ownerUserId"
     WHERE analysis."id" = ${analysisId} AND analysis."ownerUserId" = ${ownerUserId}
+      AND analysis."deletionRequestedAt" IS NULL
     FOR UPDATE OF analysis
   `;
   const row = rows[0];
@@ -325,6 +326,7 @@ export async function retryExport(db: PrismaClient, input: {
     const found = await tx.export.findFirst({
       where: {
         id: input.exportId, ownerUserId: input.ownerUserId, analysisId: input.analysisId,
+        analysis: { is: { deletionRequestedAt: null } },
         ...(requestedFormat ? { format: requestedFormat } : {}),
       },
       select: { id: true, format: true, status: true, documentHash: true, rendererVersion: true },
@@ -360,6 +362,7 @@ export async function findExportSnapshotForUser(
   const row = await db.export.findFirst({
     where: {
       id: input.exportId, ownerUserId: input.ownerUserId, analysisId: input.analysisId,
+      analysis: { is: { deletionRequestedAt: null } },
       ...(format ? { format } : {}),
     },
     select: { id: true, format: true, status: true, documentHash: true, rendererVersion: true, contentHash: true, errorCode: true },
