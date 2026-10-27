@@ -351,7 +351,7 @@ function initialReport(options) {
     runnerFailureCode: null,
     limitations: [
       "Node peak RSS is process-level; cgroup memory.peak and cpu.stat include the whole container, including PHP child processes and Chromium.",
-      "Container resource readings include Node startup and renderer work; stage wall times are measured inside the workload process.",
+      "Memory peak and container wall include startup; CPU delta starts after module imports and covers workload plus children. Stage wall times are measured inside the workload process.",
       "PDF SHA-256 and size are recorded for each sample; byte-level PDF replay is excluded because Chromium may vary PDF metadata or compression between renders.",
       "Each container starts with fresh cgroup counters, but the host or VM filesystem cache is not flushed.",
       "This bounded local workload is not an end-to-end service capacity or production concurrency gate.",
