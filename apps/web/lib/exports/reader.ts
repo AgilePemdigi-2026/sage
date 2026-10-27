@@ -34,7 +34,7 @@ async function loadExportDownload(
   expectedFormat?: ExportFormat,
 ): Promise<ExportDownloadState> {
   const record = await db.export.findFirst({
-    where: { id: exportId, ownerUserId, analysisId, ...(expectedFormat ? { format: expectedFormat } : {}) },
+    where: { id: exportId, ownerUserId, analysisId, analysis: { deletionRequestedAt: null }, ...(expectedFormat ? { format: expectedFormat } : {}) },
     select: {
       id: true,
       format: true,
@@ -83,6 +83,8 @@ async function loadExportDownload(
     await handle.close();
   }
   if (sha256(bytes) !== object.sha256) throw new Error("Export storage checksum does not match.");
+
+  if (!await db.analysis.findFirst({ where: { id: analysisId, ownerUserId, deletionRequestedAt: null }, select: { id: true } })) return { kind: "not-found" };
 
   const repositoryFullName = record.analysis.repositoryFullNameSnapshot ?? record.analysis.repository.fullName;
   return { kind: "ready", value: { bytes, filename: filename(repositoryFullName, record.analysis.commitSha, record.format), format: record.format } };

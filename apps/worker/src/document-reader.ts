@@ -12,7 +12,7 @@ export type DocumentReadState =
 
 export interface DocumentReadDatabase {
   analysis: {
-    findFirst(args: { where: { id: string; ownerUserId: string }; select: { status: true } }): Promise<{ status: string } | null>;
+    findFirst(args: { where: { id: string; ownerUserId: string; deletionRequestedAt: null }; select: { status: true } }): Promise<{ status: string } | null>;
   };
   storageObject: {
     findFirst(args: {
@@ -36,7 +36,7 @@ export async function loadDocumentForUser(
   signal?: AbortSignal,
 ): Promise<DocumentReadState> {
   const analysis = await db.analysis.findFirst({
-    where: { id: analysisId, ownerUserId },
+    where: { id: analysisId, ownerUserId, deletionRequestedAt: null },
     select: { status: true },
   });
   if (!analysis) return { kind: "not-found" };
@@ -61,6 +61,9 @@ export async function loadDocumentForUser(
   const canonicalDb = db as unknown as Parameters<typeof readCanonicalDocumentForUser>[0];
   const canonical = await readCanonicalDocumentForUser(canonicalDb, ownerUserId, analysisId, sourceBytes);
   if (!canonical) throw new Error("Published architecture document is unavailable.");
+
+  // Recheck after archive IO/replay; a deletion may have started while bytes were loaded.
+  if (!await db.analysis.findFirst({ where: { id: analysisId, ownerUserId, deletionRequestedAt: null }, select: { status: true } })) return { kind: "not-found" };
 
   return {
     kind: "ready",

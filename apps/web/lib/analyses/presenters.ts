@@ -6,18 +6,22 @@ const stageKeys = ANALYSIS_STAGE_DEFINITIONS.map(stage => stage.key);
 
 export function presentHistoryList(result: HistoryListResult) {
   return {
-    analyses: result.items.map(item => ({
-      id: item.id,
-      repository: { fullName: item.repositoryFullName },
-      branch: item.branchName,
-      commitSha: item.commitSha,
-      status: item.status,
-      errorCode: item.errorCode,
-      queuedAt: item.queuedAt.toISOString(),
-      startedAt: item.startedAt ? item.startedAt.toISOString() : null,
-      completedAt: item.completedAt ? item.completedAt.toISOString() : null,
-      retryOfAnalysisId: item.retryOfAnalysisId,
-    })),
+    analyses: result.items.map(item => {
+      const deletion = item.deletion;
+      return {
+        id: item.id,
+        repository: { fullName: item.repositoryFullName },
+        branch: item.branchName,
+        commitSha: item.commitSha,
+        status: item.status,
+        errorCode: item.errorCode,
+        queuedAt: item.queuedAt.toISOString(),
+        startedAt: item.startedAt ? item.startedAt.toISOString() : null,
+        completedAt: item.completedAt ? item.completedAt.toISOString() : null,
+        retryOfAnalysisId: item.retryOfAnalysisId,
+        ...(deletion ? { deletion } : {}),
+      };
+    }),
     nextCursor: result.nextCursor,
   };
 }

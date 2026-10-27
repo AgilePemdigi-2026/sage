@@ -4,6 +4,7 @@ import { basename, join } from "node:path";
 import { createHash } from "node:crypto";
 import type { PrismaClient } from "../../../../packages/database/generated/client.ts";
 import { registerSnapshotArchive } from "../../../../packages/database/src/snapshot.ts";
+import { reserveJobStorage } from "@sage/database";
 import type { AnalysisJobClaim } from "../../../../packages/database/src/queue.ts";
 import { SnapshotArchiveError } from "./archive.ts";
 export async function writeSnapshotArchive(db: PrismaClient, input: { storageRoot: string; claim: AnalysisJobClaim; signal?: AbortSignal; archive: Uint8Array; sha256: string }) {
@@ -15,6 +16,7 @@ export async function writeSnapshotArchive(db: PrismaClient, input: { storageRoo
   const folder = await mkdtemp(join(root, "snapshot-"));
   const storageKey = `${basename(folder)}/archive.tar.gz`;
   try {
+    if (!await reserveJobStorage(db, input.claim, storageKey)) throw new SnapshotArchiveError("SNAPSHOT_INVALID");
     await writeFile(join(folder, "archive.tar.gz"), archive, { flag: "wx", mode: 0o600 });
     input.signal?.throwIfAborted();
     const record = await registerSnapshotArchive(db, input.claim, { storageKey, sha256: input.sha256, byteLength: archive.byteLength, signal: input.signal });

@@ -1,0 +1,20 @@
+.rowActions { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; min-width: 0; }
+.rowActions > a { display: inline-flex; align-items: center; width: fit-content; min-height: 32px; color: #075f55; font-size: 12px; font-weight: 600; }
+.deleteAction { min-height: 32px; padding: 5px 9px; border: 1px solid #b9c8d3; border-radius: 5px; color: #74402e; background: #fff; font-size: 11px; font-weight: 600; cursor: pointer; }
+.deleteAction:hover:not(:disabled) { border-color: #a8523a; color: #7a2e1c; background: #fff7f4; }
+.deleteAction:focus-visible, .confirmAction:focus-visible { outline: 3px solid #168675; outline-offset: 2px; }
+.deleteAction:disabled { color: #788697; background: #f5f7f8; cursor: not-allowed; }
+.pending { display: inline-flex; align-items: center; gap: 7px; color: #52637b; font-size: 11px; line-height: 16px; }
+.spinner { display: inline-block; width: 13px; height: 13px; flex: 0 0 13px; border: 2px solid #b3c2d0; border-top-color: #19786b; border-radius: 50%; animation: rotate 1s linear infinite; }
+.failure { flex-basis: 100%; color: #812839; font-size: 11px; line-height: 16px; }
+.dialog { width: min(480px, calc(100vw - 32px)); max-width: none; max-height: calc(100vh - 32px); margin: auto; padding: 0; overflow: auto; border: 1px solid #d0dbe4; border-radius: 9px; color: #243b57; background: #fff; box-shadow: 0 16px 50px rgb(6 30 66 / 22%); }
+.dialog::backdrop { background: rgb(6 30 66 / 44%); }
+.dialogContent { padding: 22px; }
+.dialogEyebrow { margin-bottom: 6px !important; color: #8b3926; font-size: 10px; line-height: 15px; font-weight: 700; letter-spacing: 1.2px; }
+.dialogContent h2 { margin-bottom: 10px !important; color: #243b57; font-size: 19px !important; line-height: 26px !important; font-weight: 600; overflow-wrap: anywhere; }
+.dialogContent > p:not(.dialogEyebrow) { color: #52637b; font-size: 12px; line-height: 19px; }
+.dialogActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px 14px; align-items: center; margin-top: 20px; }
+.confirmAction { min-height: 36px; padding: 7px 11px; border: 1px solid #8f3525; border-radius: 5px; color: #fff; background: #9e3f2d; font-size: 11px; font-weight: 600; cursor: pointer; }
+.confirmAction:hover { background: #832f20; }
+@keyframes rotate { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }

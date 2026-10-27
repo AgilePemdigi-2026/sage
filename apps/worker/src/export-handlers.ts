@@ -3,7 +3,7 @@ import { mkdir, open, realpath, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { randomUUID } from "node:crypto";
-import { completeExportJob, failExportJob, renewExportLease, snapshotExportJobClaim } from "@sage/database";
+import { completeExportJob, failExportJob, renewExportLease, snapshotExportJobClaim, reserveJobStorage } from "@sage/database";
 import type { ExportJobClaim } from "@sage/database";
 import type { PrismaClient } from "../../../packages/database/generated/client.ts";
 import { MARKDOWN_RENDERER_VERSION, renderMarkdownDocument } from "../../../packages/documents/src/markdown.ts";
@@ -31,19 +31,20 @@ function assertActive(signal: AbortSignal): void {
   if (signal.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("Export worker stopped.");
 }
 
-async function writePrivateExportFile(storageRoot: string, body: Uint8Array, format: ExportJobClaim["format"], signal: AbortSignal) {
+async function writePrivateExportFile(storageRoot: string, body: Uint8Array, format: ExportJobClaim["format"], signal: AbortSignal, reserve: (key: string) => Promise<boolean>) {
   if (body.byteLength > MAX_EXPORT_BYTES) throw new ExportProcessingError("EXPORT_TOO_LARGE");
   const filename = format === "PDF" ? "document.pdf" : "document.md";
   await mkdir(storageRoot, { recursive: true, mode: 0o700 });
   const root = await realpath(storageRoot);
   const folderName = `export-${randomUUID()}`;
   const folder = join(root, folderName);
-  await mkdir(folder, { mode: 0o700 });
   const storageKey = `${folderName}/${filename}`;
   const pendingPath = join(folder, `${filename}.pending`);
   const finalPath = join(folder, filename);
   try {
     assertActive(signal);
+    if (!await reserve(storageKey) || !await reserve(`${storageKey}.pending`)) throw new ExportProcessingError("EXPORT_FAILED");
+    await mkdir(folder, { mode: 0o700 });
     const handle = await open(pendingPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
     try {
       await handle.writeFile(body);
@@ -134,7 +135,8 @@ export function createExportWorker(options: { db: PrismaClient; storageRoot: str
           bytes = Buffer.from(markdown, "utf8");
         }
         if (bytes.byteLength > MAX_EXPORT_BYTES) throw new ExportProcessingError("EXPORT_TOO_LARGE");
-        publishedFile = await writePrivateExportFile(options.storageRoot, bytes, claim.format, controller.signal);
+        publishedFile = await writePrivateExportFile(options.storageRoot, bytes, claim.format, controller.signal,
+          key => reserveJobStorage(options.db, claim, key));
         assertActive(controller.signal);
         completionAttempted = true;
         const completed = await completeExportJob(options.db, claim, {

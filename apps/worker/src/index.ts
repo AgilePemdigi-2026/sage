@@ -5,11 +5,13 @@ import {
   ANALYSIS_RUNTIME_LEASE_DURATION_MS,
   claimAnalysisJob,
   claimExportJob,
+  claimCleanupJob,
   database,
   disconnectDatabase,
 } from "@sage/database";
 import { createAnalysisPipeline } from "./pipeline.ts";
 import { createExportWorker } from "./export-handlers.ts";
+import { createCleanupWorker } from "./cleanup-handlers.ts";
 
 const WORKER_HEARTBEAT_INTERVAL_MS = 5_000;
 const QUEUE_POLL_INTERVAL_MS = 1_000;
@@ -46,6 +48,7 @@ async function main(): Promise<void> {
     leaseDurationMs: ANALYSIS_RUNTIME_LEASE_DURATION_MS,
   });
   const exportWorker = createExportWorker({ db, storageRoot: process.env.STORAGE_ROOT ?? "/app/storage" });
+  const cleanupWorker = createCleanupWorker({ db, storageRoot: process.env.STORAGE_ROOT ?? "/app/storage" });
   console.log(JSON.stringify({ event: "worker_started", mode: "durable_queue" }));
   const heartbeatLoop = async () => {
     while (!controller.signal.aborted) {
@@ -78,7 +81,15 @@ async function main(): Promise<void> {
     }
   };
 
-  const tasks = [heartbeatLoop(), consumerLoop(), exportConsumerLoop()];
+  const cleanupConsumerLoop = async () => {
+    while (!controller.signal.aborted) {
+      const claim = await claimCleanupJob(db, { leaseDurationMs: 30_000 });
+      if (controller.signal.aborted) return;
+      if (claim) await cleanupWorker.process(claim, controller.signal);
+      else await wait(QUEUE_POLL_INTERVAL_MS * 2, controller.signal);
+    }
+  };
+  const tasks = [heartbeatLoop(), consumerLoop(), exportConsumerLoop(), cleanupConsumerLoop()];
   try {
     await Promise.race(tasks.map(task => task.then(() => {
       if (!controller.signal.aborted) throw new Error("Worker service loop stopped unexpectedly.");
