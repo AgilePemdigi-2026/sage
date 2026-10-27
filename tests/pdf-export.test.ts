@@ -74,6 +74,21 @@ test("diagram tile planner keeps page-sized overlaps while covering every edge o
   );
 });
 
+test("SVG viewport sizing updates root attributes without changing child rectangle dimensions", () => {
+  const source = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" width="320"><rect x="1" y="2" width="40" height="20" stroke-width="3"/></svg>`;
+  const updated = pdfRendererInternals.setSvgRootAttributes(source, {
+    viewBox: "10 20 1040 600",
+    width: "1040px",
+    height: "600px",
+  });
+  const root = /<svg\b[^>]*>/i.exec(updated)?.[0] ?? "";
+  assert.match(root, /\bviewBox="10 20 1040 600"/);
+  assert.match(root, /\bwidth="1040px"/);
+  assert.match(root, /\bheight="600px"/);
+  assert.match(updated, /<rect x="1" y="2" width="40" height="20" stroke-width="3"\/>/,
+    "a missing root height must not rewrite the child rect height");
+});
+
 test("evidence register deduplicates shared spans and assigns stable references across artifacts", () => {
   const document = emptyDocument();
   const spanA: EvidenceSpan = {

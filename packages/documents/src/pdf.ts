@@ -364,12 +364,28 @@ function renderEdgeMappings(diagram: DiagramProjection, registry: EvidenceRegist
     <section class="subsection"><h3>Excluded canonical edge IDs</h3>${arrayValue(diagram.excludedEdgeIds)}</section>`;
 }
 
+function setSvgRootAttributes(svg: string, attributes: Record<string, string>): string {
+  const openingTag = /<svg\b[^>]*>/i.exec(svg);
+  if (!openingTag || openingTag.index === undefined) fail("PDF_DIAGRAM_SVG_INVALID");
+  let updatedRoot = openingTag[0];
+  for (const [name, value] of Object.entries(attributes)) {
+    const attribute = new RegExp(`(^|\\s)${name}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, "i");
+    if (attribute.test(updatedRoot)) {
+      updatedRoot = updatedRoot.replace(attribute, (_match, prefix: string) => `${prefix}${name}="${escapePdfHtml(value)}"`);
+    } else {
+      updatedRoot = updatedRoot.replace(/>$/, ` ${name}="${escapePdfHtml(value)}">`);
+    }
+  }
+  return `${svg.slice(0, openingTag.index)}${updatedRoot}${svg.slice(openingTag.index + openingTag[0].length)}`;
+}
+
 function tileSvgMarkup(svg: string, tile: DiagramTile): string {
-  return `<div class="diagram-svg" data-grid="${escapePdfHtml(tile.label)}">${svg.replace(
-    /\bviewBox\s*=\s*(["'])[^"']+\1/i,
-    `viewBox="${tile.x} ${tile.y} ${tile.width} ${tile.height}"`,
-  ).replace(/\bwidth\s*=\s*(["'])[^"']+\1/i, `width="${tile.width}px"`)
-    .replace(/\bheight\s*=\s*(["'])[^"']+\1/i, `height="${tile.height}px"`)}</div>`;
+  const tileSvg = setSvgRootAttributes(svg, {
+    viewBox: `${tile.x} ${tile.y} ${tile.width} ${tile.height}`,
+    width: `${tile.width}px`,
+    height: `${tile.height}px`,
+  });
+  return `<div class="diagram-svg" data-grid="${escapePdfHtml(tile.label)}">${tileSvg}</div>`;
 }
 
 function overviewSvgMarkup(svg: string, layout: DiagramLayout): string {
@@ -382,9 +398,11 @@ function overviewSvgMarkup(svg: string, layout: DiagramLayout): string {
       <text x="${labelX}" y="${labelY}" fill="#7c2d12" font-family="Arial, sans-serif" font-size="20" font-weight="700">${tile.label}</text>
     </g>`;
   }).join("");
-  const tileSvg = svg.replace(/\bwidth\s*=\s*(["'])[^"']+\1/i, `width="${MAX_TILE_WIDTH}px"`)
-    .replace(/\bheight\s*=\s*(["'])[^"']+\1/i, `height="${MAX_TILE_HEIGHT}px"`)
-    .replace(/<svg\b/i, `<svg aria-label="Full diagram overview; use the detail grid for readable labels"`)
+  const tileSvg = setSvgRootAttributes(svg, {
+    width: `${MAX_TILE_WIDTH}px`,
+    height: `${MAX_TILE_HEIGHT}px`,
+    "aria-label": "Full diagram overview; use the detail grid for readable labels",
+  })
     .replace(/<\/svg>\s*$/i, `${markers}</svg>`);
   return `<div class="diagram-overview">${tileSvg}</div>`;
 }
@@ -819,10 +837,10 @@ export async function renderPdfDocument(
     const html = renderDocumentHtml(document, [diagrams[0].svg, diagrams[1].svg], layouts);
     if (Buffer.byteLength(html, "utf8") > MAX_HTML_BYTES) fail("PDF_DOCUMENT_LIMIT_EXCEEDED");
 
-    const page = await context!.newPage();
-    await page.emulateMedia({ media: "print" });
-    await page.setContent(html, { waitUntil: "load", timeout: RENDER_TIMEOUT_MS });
-    await page.evaluate(() => window.document.fonts.ready);
+    const page = await control.race(context!.newPage());
+    await control.race(page.emulateMedia({ media: "print" }));
+    await control.race(page.setContent(html, { waitUntil: "load", timeout: RENDER_TIMEOUT_MS }));
+    await control.race(page.evaluate(() => window.document.fonts.ready));
     const pdf = await control.race(page.pdf({
       format: "A4",
       landscape: true,
@@ -861,5 +879,6 @@ export const pdfRendererInternals = {
   errorCode,
   escapePdfHtml,
   makeDiagramLayout,
+  setSvgRootAttributes,
   validatePdfDocument,
 };
