@@ -284,7 +284,18 @@ test("ANA-07 composes production stages, atomically publishes terminal results, 
     const firstArchive = await createArchive("first-root", cleanSources);
     const first = await enqueueAndClaim(db, owner, "first canonical run");
     claims.push(first.claim);
-    await runTrustedPipeline(db, first.claim, storageRoot, firstArchive, owner.repositoryFullName);
+    // Exercise the publisher's bounded transaction with database work longer than
+    // Prisma's previous 5s default while the test claim has a 300s lease.
+    const slowFunctionName = `pipeline16_slow_${suffix.replaceAll("-", "")}`;
+    const slowTriggerName = `${slowFunctionName}_trigger`;
+    try {
+      await db.$executeRawUnsafe(`CREATE FUNCTION "${slowFunctionName}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(6); RETURN NEW; END $$`);
+      await db.$executeRawUnsafe(`CREATE TRIGGER "${slowTriggerName}" BEFORE INSERT ON "SourceFile" FOR EACH ROW EXECUTE FUNCTION "${slowFunctionName}"()`);
+      await runTrustedPipeline(db, first.claim, storageRoot, firstArchive, owner.repositoryFullName);
+    } finally {
+      await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${slowTriggerName}" ON "SourceFile"`);
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${slowFunctionName}"()`);
+    }
     const firstAnalysis = await db.analysis.findUniqueOrThrow({ where: { id: first.enqueued.analysisId }, select: { status: true, resultHash: true } });
     assert.equal(firstAnalysis.status, "COMPLETED");
     assert.match(firstAnalysis.resultHash ?? "", /^[a-f0-9]{64}$/);

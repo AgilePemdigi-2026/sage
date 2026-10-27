@@ -1,0 +1,86 @@
+{
+  "date": "2026-10-27",
+  "issue": 93,
+  "pullRequest": 94,
+  "presentationSource": "afc8f89bcde879f86aeec1d339a5db76921f9738",
+  "presentation": {
+    "mainTests": 333,
+    "dataTests": 8,
+    "typecheck": "PASS",
+    "scopedLint": "PASS",
+    "productionBuild": "PASS",
+    "postgresExportIntegrations": 2,
+    "browserPdfGroups": 15,
+    "browserMarkdownGroups": 20,
+    "viewports": [
+      390,
+      1440
+    ],
+    "pdfPages": 4,
+    "pdfBytes": 77377,
+    "pdfSha256": "11c92aec1b3688e3dca632a54fda7f43d7ae519b9df004ee8850d9ed00e29c5d",
+    "rasterImagesPerPage": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "visualReview": "all four final pages inspected",
+    "textInspection": "PASS"
+  },
+  "controlledPipeline": {
+    "nineStages": "PASS",
+    "provider": "fixture, not real OAuth",
+    "terminalStatus": "COMPLETED_WITH_LIMITATIONS",
+    "retry": "PASS"
+  },
+  "backend": {
+    "source": "f645b73",
+    "mainTests": 335,
+    "typecheck": "PASS",
+    "scopedLint": "PASS",
+    "postgresDocumentIntegration": 1,
+    "postgresPipelineIntegrations": 2,
+    "delayedStorageSeconds": 6,
+    "leaseLossRollback": "PASS",
+    "realProvider": {
+      "result": "PASS",
+      "repository": "iltizamhasan3/sage",
+      "credential": "existing SAGE GitHub App user credential",
+      "newOAuthLoginTested": false,
+      "temporaryLocalSessionRemoved": true,
+      "completedStages": 9,
+      "status": "COMPLETED_WITH_LIMITATIONS",
+      "nodeCount": 6656,
+      "edgeCount": 8563,
+      "graphHttpStatus": 200,
+      "documentHttpStatus": 200
+    },
+    "postgresDocumentStageIntegrations": 3,
+    "default30SecondLeaseHeartbeatContention": "PASS",
+    "productionLeaseMs": 120000,
+    "transactionTimeoutMs": 45000,
+    "renewalTransactionTimeoutMs": 50000,
+    "databaseMemoryLimitBytes": 1073741824,
+    "actualLargeRepositoryPdf": "not claimed; model exceeds existing renderer budgets",
+    "naturalSigkillRecovery": {
+      "result": "PASS",
+      "durationMs": 130369,
+      "leaseExpiresNaturally": true,
+      "retrySameSnapshot": true,
+      "stagesCompleted": 9
+    },
+    "finalProductionBuild": "PASS"
+  },
+  "capacity": {
+    "mermaidCharactersAndBytes": 50000,
+    "nodesPerDiagram": 500,
+    "edgesPerDiagram": 500,
+    "svgBytes": 4194304,
+    "htmlBytes": 12582912,
+    "pdfBytes": 33554432,
+    "renderDeadlineMs": 45000,
+    "overflow": "explicit failure; no silent truncation"
+  },
+  "artifacts": "ignored artifacts/document-revision/run4 and run3/pipeline; historical PDF samples preserved"
+}

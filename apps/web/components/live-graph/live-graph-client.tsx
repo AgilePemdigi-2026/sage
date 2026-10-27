@@ -325,13 +325,8 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
             <h2>Snapshot analisis</h2>
             <p className={styles.repositoryPath}>{visiblePayload.graph.repository}<span aria-hidden="true"> · </span>{visiblePayload.graph.branch ?? "branch tidak diketahui"}</p>
           </div>
-          <p className={styles.snapshotLabel}>Commit snapshot<code>{visiblePayload.graph.commitSha}</code></p>
-        </div>
 
-        <dl className={styles.graphIdentity}>
-          <div><dt>Hash CKG</dt><dd><code>{visiblePayload.ckgSha256}</code></dd></div>
-          <div><dt>Konfigurasi</dt><dd><code>{visiblePayload.configurationHash}</code></dd></div>
-        </dl>
+        </div>
 
         <div className={styles.legend} aria-label="Kategori node dan jenis relasi">
           <div className={styles.categoryLegend}>

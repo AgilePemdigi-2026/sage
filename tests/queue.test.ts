@@ -12,6 +12,16 @@ import {
 } from "../packages/database/src/queue.ts";
 import type { PrismaClient } from "../packages/database/generated/client.ts";
 
+import { ANALYSIS_RUNTIME_LEASE_DURATION_MS, ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS, ANALYSIS_RENEWAL_TRANSACTION_OPTIONS } from "../packages/database/src/analysis-timing.ts";
+
+test("production timing leaves room for persistence locks and lease renewal", () => {
+  const heartbeatIntervalMs = Math.floor(ANALYSIS_RUNTIME_LEASE_DURATION_MS / 3);
+  const writeWindowMs = ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS.maxWait + ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS.timeout;
+  assert.ok(heartbeatIntervalMs + writeWindowMs < ANALYSIS_RUNTIME_LEASE_DURATION_MS);
+  assert.ok(ANALYSIS_RENEWAL_TRANSACTION_OPTIONS.timeout > ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS.timeout);
+  assert.ok(ANALYSIS_RENEWAL_TRANSACTION_OPTIONS.timeout < ANALYSIS_RUNTIME_LEASE_DURATION_MS);
+});
+
 const noDatabase = {} as PrismaClient;
 const validEnqueue = {
   ownerUserId: "user-1",

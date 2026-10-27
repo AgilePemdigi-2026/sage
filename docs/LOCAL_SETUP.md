@@ -18,10 +18,10 @@ Script membuat password PostgreSQL acak serta `CREDENTIAL_ENCRYPTION_KEY` base64
 
 Buka [http://localhost:3000](http://localhost:3000). Hanya web dipublikasikan, pada loopback host. Database tidak memiliki port host. `migrate` selesai dengan exit 0 sebelum web/worker dimulai; status Exited (0) pada service ini sesuai rancangan.
 
-Pada macOS yang memakai Colima, mulai VM sebelum command Compose. Lingkungan pemeriksaan menggunakan profile `sage`, 2 CPU, dan RAM 4 GiB:
+Pada macOS yang memakai Colima, mulai VM sebelum command Compose. Lingkungan pemeriksaan menggunakan profile `sage`, 2 CPU, dan RAM 6 GiB untuk memberi ruang database dan dokumen besar:
 
 ```sh
-colima start --profile sage --cpu 2 --memory 4 --disk 30 --vm-type vz --mount-type virtiofs
+colima start --profile sage --cpu 2 --memory 6 --disk 30 --vm-type vz --mount-type virtiofs
 docker context use colima-sage
 ```
 
@@ -68,7 +68,7 @@ Untuk tooling pada host gunakan Node 24 dan npm yang tercantum pada `package.jso
 
 ## Batas awal dan pekerjaan tersisa
 
-Compose membatasi web 768 MiB, worker 2 GiB, dan database 384 MiB. Web/worker berjalan non-root dengan capabilities dihapus. Volume storage hanya dibaca oleh web dan dapat ditulis worker.
+Compose membatasi web 768 MiB, worker 2 GiB, dan database 1 GiB. Web/worker berjalan non-root dengan capabilities dihapus. Volume storage hanya dibaca oleh web dan dapat ditulis worker.
 
 `config/analysis-limits.json` memuat batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Kebijakan source diterapkan pada jalur snapshot immutable; lihat batas bukti REP-02. ANA-07 menerapkan deadline keseluruhan 300 detik melalui cancellation dan mempertahankan lease selama publikasi. Nilai ceiling tersebut bukan bukti kapasitas produksi. Ekspor Markdown #20 diproses worker dari dokumen canonical; worker harus berjalan untuk mengubah QUEUED menjadi READY. Ekspor PDF memakai worker dan reader privat yang sama; bukti layout ada pada [EXP-02_CHECKS](EXP-02_CHECKS.md). Lifecycle deletion tetap #23. Bukti ekspor dan batasnya tersedia pada [EXP-01_CHECKS](EXP-01_CHECKS.md). API claim/recovery #9 sudah diuji terpisah. Parser PHP memiliki timeout sendiri.
 
@@ -89,3 +89,17 @@ Setelah konfigurasi `.env` tersimpan, recreate web dengan `docker compose up -d 
 ## Akses repository
 
 Setelah login, buka `/workspace/repositories` untuk memuat instalasi atau memeriksa public milik siapa saja. Link pengaturan App memakai `GITHUB_APP_SLUG`; setelah mengubahnya, recreate web. Private memerlukan instalasi yang dipilih pemilik akun dan izin user serta Contents read. Status verifikasi dan batasnya ada di [GH-02](GH-02_CHECKS.md). Pemeriksaan akses belum menjalankan job analisis.
+
+## Setelah kode aplikasi diperbarui
+
+`docker compose start` menyalakan kembali container yang sama. Perintah ini tidak membangun source baru. Sesudah `git pull`, gunakan:
+
+```sh
+docker compose build
+docker compose up -d --wait --wait-timeout 180
+docker compose logs --tail=20 worker
+```
+
+Worker saat ini mencatat `worker_started` dengan `mode=durable_queue`. Log `mode=environment` atau `queueEnabled=false` menunjukkan image lama yang hanya mengirim heartbeat; status healthy saja tidak membuktikan analyzer aktif. Rebuild web dan worker bersama agar API, skema, dan pipeline seversi. Named volume tetap dipertahankan.
+
+Database sebelumnya dibatasi 384 MiB; uji repository nyata dengan ADD sekitar 28 MB dan mirror JSON memicu OOM saat penyimpanan. Batas 1 GiB memberi ruang untuk operasi tersebut. Batas container adalah plafon, bukan alokasi RAM tetap. Worker analisis memakai lease renewable 120 detik; setelah SIGKILL, pemulihan menunggu lease alami kedaluwarsa (hingga sekitar dua menit), lalu retry mempertahankan target snapshot.

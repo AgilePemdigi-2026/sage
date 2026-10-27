@@ -58,33 +58,28 @@ def main():
         missing.extend({"category": category, "value": value} for value in absent)
 
     nodes = expected["softwareEngineeringDiagram"]["nodes"]
-    edges = expected["interfaceCatalog"]["relations"]
-    required("metadata", [expected["title"], expected["schemaVersion"], expected["ckgSha256"],
-                          expected["configurationHash"], *expected["snapshot"].values()])
-    required("nodeIds", [node["id"] for node in nodes])
-    required("nodeNames", [node["name"] for node in nodes] + [node["qualifiedName"] for node in nodes])
-    required("nodeSignatures", [node.get("signature") for node in nodes])
-    required("nodeAttributes", [json.dumps(node["attributes"], sort_keys=True, ensure_ascii=False,
-                                           separators=(",", ":")) for node in nodes], compact(attribute_text))
-    required("edgeIds", [edge["id"] for edge in edges])
-    required("relationFields", [edge["kind"] for edge in edges] + [edge["resolution"] for edge in edges]
-             + [edge["unresolvedReason"] for edge in edges])
-    required("files", [file["path"] for file in expected["files"]]
-             + [file["sha256"] for file in expected["files"]])
-    spans = [node["location"] for node in nodes if node["location"]]
-    spans += [span for edge in edges for span in edge["evidence"]]
-    required("evidence", [span["filePath"] for span in spans] + [span["fileSha256"] for span in spans]
-             + [f"[{span['startByte']}, {span['endByte']})" for span in spans]
-             + [f"{span['startLine']}:{span['startColumn']}" for span in spans]
-             + [f"{span['endLine']}:{span['endColumn']}" for span in spans])
+    required("metadata", [expected["title"], expected["snapshot"]["repository"], expected["snapshot"]["branch"]])
+    declarations = [row["declaration"] for row in expected["interfaceCatalog"]["entries"]]
+    declaration_ids = {node["id"] for node in declarations}
+    root_declarations = [node for node in declarations if not (node["kind"] in ["Method", "Property"] and node["parentId"] in declaration_ids)]
+    def human_name(node):
+        name = node["qualifiedName"] or node["name"]
+        prefix = (node.get("filePath") or "") + "."
+        return name[len(prefix):] if node.get("filePath") and name.startswith(prefix) else name
+    required("catalogNames", [human_name(node) for node in root_declarations])
+    required("catalogSignatures", [node.get("signature") for node in declarations])
+    required("catalogEvidence", [node["location"]["filePath"] for node in declarations if node["location"]])
     required("limitations", [item["reason"] for item in expected["limitations"]])
-    required("sections", ["Interface Catalog", "Software Engineering Diagram", "UML Class Diagram",
-                          "Canonical node and edge register"])
-    diagram_text = compact("\n".join(page for page in pages if "Diagram ·" in page))
-    literal_paths = [file["path"] for file in expected["files"] if "#95;" in file["path"]]
-    for path in literal_paths:
-        assert compact(path) in diagram_text, "Diagram changed a literal numeric-token path"
-    assert "UNKNOWN#95;RECEIVER" not in diagram_text and "UNKNOWN&#95;RECEIVER" not in diagram_text, "Diagram left a generated underscore escape"
+    required("sections", ["Interface Catalog", "Software Engineering Diagram", "UML Class Diagram"])
+    forbidden = [expected["ckgSha256"], expected["configurationHash"], expected["snapshot"]["commitSha"]]
+    forbidden += [node["id"] for node in nodes]
+    forbidden += [edge["id"] for edge in expected["interfaceCatalog"]["relations"]]
+    assert all(compact(value) not in normalized for value in forbidden), "PDF exposes opaque machine identifiers"
+    assert "data-grid" not in text and "Detail A1" not in text
+    assert "Canonical node and edge register" not in text
+    assert sum("Software Engineering Diagram" in page for page in pages) == 1
+    assert sum("UML Class Diagram" in page for page in pages) == 1
+    assert all(abs(w - 841.92) < 2 and abs(h - 595.92) < 2 for w,h in sizes), "A4 landscape required"
     assert not missing, missing
     assert "\ufffd" not in text
     assert "PDF21_RAW_SOURCE_CANARY" not in text
@@ -100,7 +95,7 @@ def main():
         "status": "PASS", "pages": len(pages), "pageSizesPt": sorted(set(sizes)),
         "checks": checks, "missing": missing, "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
         "bytes": pdf.stat().st_size, "allPagesHeaderFooter": True, "canariesAbsent": True,
-        "replacementGlyphAbsent": True, "retryCanonicalTextMatches": True, "diagramEscapesFaithful": True, "visualReview": "pending",
+        "replacementGlyphAbsent": True, "retryCanonicalTextMatches": True, "compactContract": True, "opaqueIdsAbsent": True, "visualReview": "pending",
     }
     (folder / "pdf-inspection.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))

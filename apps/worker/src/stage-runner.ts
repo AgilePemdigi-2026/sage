@@ -28,6 +28,16 @@ const CANCELLED_HANDLER_FAILURE = "STAGE_CANCELLED";
 const PUBLICATION_HANDLER_FAILURE = "RESULT_PUBLICATION_FAILED";
 const ANALYSIS_TIMEOUT_FAILURE = "ANALYSIS_TIMEOUT";
 
+/** Server-only diagnostic code; never log exception messages, SQL, tokens, or source. */
+export function stageFailureDiagnosticCode(error: unknown): string {
+  if (error instanceof RangeError) return "RANGE_ERROR";
+  if (error instanceof TypeError) return "TYPE_ERROR";
+  if (typeof error !== "object" || error === null) return "UNCLASSIFIED";
+  const code = Object.getOwnPropertyDescriptor(error, "code");
+  return code && "value" in code && typeof code.value === "string" && /^P[0-9]{4}$/.test(code.value)
+    ? code.value : "UNCLASSIFIED";
+}
+
 export type AnalysisStageArtifact =
   | ReadonlyJsonValue
   | Uint8Array
@@ -339,6 +349,8 @@ export async function runAnalysisStages(
             : error instanceof AnalysisStageExecutionError && SAFE_EXECUTION_FAILURES.includes(error.code)
               ? error.code
               : DEFAULT_HANDLER_FAILURE;
+        console.error(JSON.stringify({ event: "analysis_stage_failed", stage: key, errorCode: failureCode,
+          diagnosticCode: stageFailureDiagnosticCode(error) }));
         const failed = await failAnalysisJob(db, claim, failureCode);
         if (!failed) abort("LEASE_LOST");
         else jobFailureHandled = true;

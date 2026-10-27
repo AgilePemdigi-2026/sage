@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { setTimeout as delay } from "node:timers/promises";
 import { hostname } from "node:os";
 import {
+  ANALYSIS_RUNTIME_LEASE_DURATION_MS,
   claimAnalysisJob,
   claimExportJob,
   database,
@@ -42,6 +43,7 @@ async function main(): Promise<void> {
   const pipeline = createAnalysisPipeline({
     db,
     storageRoot: process.env.STORAGE_ROOT ?? "/app/storage",
+    leaseDurationMs: ANALYSIS_RUNTIME_LEASE_DURATION_MS,
   });
   const exportWorker = createExportWorker({ db, storageRoot: process.env.STORAGE_ROOT ?? "/app/storage" });
   console.log(JSON.stringify({ event: "worker_started", mode: "durable_queue" }));
@@ -54,7 +56,7 @@ async function main(): Promise<void> {
   };
   const consumerLoop = async () => {
     while (!controller.signal.aborted) {
-      const claim = await claimAnalysisJob(db);
+      const claim = await claimAnalysisJob(db, { leaseDurationMs: ANALYSIS_RUNTIME_LEASE_DURATION_MS });
       if (controller.signal.aborted) return;
       if (claim) {
         await pipeline(claim, controller.signal);

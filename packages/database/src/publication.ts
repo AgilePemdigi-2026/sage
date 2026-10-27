@@ -7,6 +7,7 @@ import { AnalysisQueueInvariantError, snapshotAnalysisJobClaim } from "./queue.t
 import type { AnalysisJobClaim } from "./queue.ts";
 import { Prisma } from "../generated/client.ts";
 import type { PrismaClient } from "../generated/client.ts";
+import { ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS } from "./analysis-timing.ts";
 
 const ANALYSIS_SLOT = "analysis";
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -272,12 +273,13 @@ function matchesGraphBundle(
   ownerUserId: string,
   analysisId: string,
   expectedId: string,
+  serializedMirrors: { nodes: string; edges: string },
 ): boolean {
   return bundle.id === expectedId && bundle.ownerUserId === ownerUserId && bundle.analysisId === analysisId &&
     bundle.schemaVersion === graph.value.schemaVersion && bundle.configurationHash === graph.value.configurationHash &&
     bundle.canonicalContent === graph.json && bundle.contentHash === graph.sha256 &&
     bundle.nodeCount === graph.value.counts.nodes && bundle.edgeCount === graph.value.counts.edges &&
-    bundle.nodes === JSON.stringify(graph.value.ccm.nodes) && bundle.edges === JSON.stringify(graph.value.ccm.edges);
+    bundle.nodes === serializedMirrors.nodes && bundle.edges === serializedMirrors.edges;
 }
 
 function matchesDocument(
@@ -297,13 +299,14 @@ function matchesDocument(
   ownerUserId: string,
   analysisId: string,
   expectedId: string,
+  serializedMirrors: { interfaceCatalog: string; softwareEngineeringDiagram: string; umlClassDiagram: string },
 ): boolean {
   return row.id === expectedId && row.ownerUserId === ownerUserId && row.analysisId === analysisId &&
     row.canonicalContent === document.json && row.contentHash === document.sha256 &&
     row.title === document.value.title && row.documentModelVersion === document.value.schemaVersion &&
-    row.interfaceCatalog === JSON.stringify(document.value.interfaceCatalog) &&
-    row.softwareEngineeringDiagram === JSON.stringify(document.value.softwareEngineeringDiagram) &&
-    row.umlClassDiagram === JSON.stringify(document.value.umlClassDiagram);
+    row.interfaceCatalog === serializedMirrors.interfaceCatalog &&
+    row.softwareEngineeringDiagram === serializedMirrors.softwareEngineeringDiagram &&
+    row.umlClassDiagram === serializedMirrors.umlClassDiagram;
 }
 
 function safeLimitations(graph: Extract<ReturnType<typeof parseCanonicalCkg>, { ok: true }>): SafeLimitation[] {
@@ -393,6 +396,28 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
   const limitations = safeLimitations(graph);
   const terminalStatus = limitations.length === 0 ? "COMPLETED" : "COMPLETED_WITH_LIMITATIONS";
   const digest = resultHash(safe.target, graph, document, limitations);
+  // Derive all large JSON strings and source/limitation mirror rows before acquiring
+  // the WorkerSlot lock; the transaction only validates and persists these snapshots.
+  const serializedGraphMirrors = {
+    nodes: JSON.stringify(graph.value.ccm.nodes),
+    edges: JSON.stringify(graph.value.ccm.edges),
+  };
+  const serializedDocumentMirrors = {
+    interfaceCatalog: JSON.stringify(document.value.interfaceCatalog),
+    softwareEngineeringDiagram: JSON.stringify(document.value.softwareEngineeringDiagram),
+    umlClassDiagram: JSON.stringify(document.value.umlClassDiagram),
+  };
+  const sourceFiles = graph.value.ccm.files.map(file => ({
+    ownerUserId: safe.claim.ownerUserId,
+    analysisId: safe.claim.analysisId,
+    storageObjectId: safe.snapshot.storageObjectId,
+    path: file.path,
+    language: file.language,
+    byteLength: BigInt(file.sizeBytes),
+    sha256: file.sha256,
+    processingStatus: file.status,
+  }));
+  const expectedLimitations = [...limitations].sort((left, right) => left.code.localeCompare(right.code));
   const tokenHash = sha256(safe.claim.leaseToken);
 
   try {
@@ -417,9 +442,11 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
           analysis.repositoryFullNameSnapshot !== safe.target.repositoryFullName ||
           analysis.branchName !== safe.target.branchName || analysis.commitSha.toLowerCase() !== safe.target.commitSha.toLowerCase() ||
           analysis.configurationHash !== safe.target.configurationHash ||
-          sha256(canonicalJson(analysis.configuration)) !== analysis.configurationHash ||
-          canonicalJson(analysis.configuration) !== safe.configurationJson ||
           analysis.analyzerVersion !== safe.target.analyzerVersion || analysis.schemaVersion !== safe.target.schemaVersion) {
+        throw new Error("Analysis target or configuration changed before publication.");
+      }
+      const currentConfigurationJson = canonicalJson(analysis.configuration);
+      if (sha256(currentConfigurationJson) !== analysis.configurationHash || currentConfigurationJson !== safe.configurationJson) {
         throw new Error("Analysis target or configuration changed before publication.");
       }
 
@@ -455,7 +482,9 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
           canonicalContent: true, nodes: true, edges: true, nodeCount: true, edgeCount: true, contentHash: true,
         },
       });
-      if (!graphBundle || !matchesGraphBundle(graphBundle, graph, safe.claim.ownerUserId, safe.claim.analysisId, safe.graphBundleId)) {
+      if (!graphBundle || !matchesGraphBundle(
+        graphBundle, graph, safe.claim.ownerUserId, safe.claim.analysisId, safe.graphBundleId, serializedGraphMirrors,
+      )) {
         throw new Error("Stored graph bundle does not match the canonical result.");
       }
 
@@ -467,20 +496,12 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
           canonicalContent: true, contentHash: true,
         },
       });
-      if (!documentRow || !matchesDocument(documentRow, document, safe.claim.ownerUserId, safe.claim.analysisId, safe.architectureDocumentId)) {
+      if (!documentRow || !matchesDocument(
+        documentRow, document, safe.claim.ownerUserId, safe.claim.analysisId, safe.architectureDocumentId, serializedDocumentMirrors,
+      )) {
         throw new Error("Stored architecture document does not match the canonical result.");
       }
 
-      const sourceFiles = graph.value.ccm.files.map(file => ({
-        ownerUserId: safe.claim.ownerUserId,
-        analysisId: safe.claim.analysisId,
-        storageObjectId: archive.id,
-        path: file.path,
-        language: file.language,
-        byteLength: BigInt(file.sizeBytes),
-        sha256: file.sha256,
-        processingStatus: file.status,
-      }));
       const existingSourceFiles = await tx.sourceFile.findMany({
         where: { analysisId: safe.claim.analysisId, ownerUserId: safe.claim.ownerUserId },
         orderBy: { path: "asc" },
@@ -498,7 +519,6 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
         orderBy: { code: "asc" },
         select: { path: true, stageKey: true, code: true, safeExplanation: true, affectedPartCount: true },
       });
-      const expectedLimitations = [...limitations].sort((left, right) => left.code.localeCompare(right.code));
       if (existingLimitations.length > 0 && (existingLimitations.length !== expectedLimitations.length || existingLimitations.some((row, index) => {
         const expected = expectedLimitations[index];
         return !expected || row.path !== null || row.stageKey !== expected.stageKey || row.code !== expected.code ||
@@ -581,7 +601,7 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
       `;
       if (released.length !== 1) throw new PublicationLeaseLostError();
       return true;
-    });
+    }, ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS);
   } catch (error) {
     if (error instanceof PublicationLeaseLostError) return false;
     throw error;

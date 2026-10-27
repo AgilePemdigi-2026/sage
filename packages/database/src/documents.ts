@@ -8,6 +8,7 @@ import type { ArchitectureDocumentV1 } from "@sage/documents/model";
 import type { Prisma, PrismaClient } from "../generated/client.ts";
 import { snapshotAnalysisJobClaim } from "./queue.ts";
 import type { AnalysisJobClaim } from "./queue.ts";
+import { ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS } from "./analysis-timing.ts";
 
 const ANALYSIS_SLOT = "analysis";
 const DOCUMENT_STAGE_KEYS = [
@@ -144,6 +145,10 @@ async function hasCurrentAnalysisLease(
 function graphBundleMatchesCanonical(
   bundle: CanonicalGraphBundle,
   canonical: Extract<ReturnType<typeof parseCanonicalCkg>, { ok: true }>,
+  serializedMirrors = {
+    nodes: JSON.stringify(canonical.value.ccm.nodes),
+    edges: JSON.stringify(canonical.value.ccm.edges),
+  },
 ): boolean {
   return bundle.schemaVersion === "sage-ckg-v1" &&
     bundle.configurationHash === canonical.value.configurationHash &&
@@ -151,8 +156,8 @@ function graphBundleMatchesCanonical(
     bundle.contentHash === canonical.sha256 &&
     bundle.nodeCount === canonical.value.counts.nodes &&
     bundle.edgeCount === canonical.value.counts.edges &&
-    bundle.nodes === JSON.stringify(canonical.value.ccm.nodes) &&
-    bundle.edges === JSON.stringify(canonical.value.ccm.edges);
+    bundle.nodes === serializedMirrors.nodes &&
+    bundle.edges === serializedMirrors.edges;
 }
 
 function documentRowMatchesCanonical(
@@ -160,13 +165,14 @@ function documentRowMatchesCanonical(
   ownerUserId: string,
   analysisId: string,
   canonical: Extract<ReturnType<typeof projectArchitectureDocument>, { ok: true }>,
+  serializedMirrors: { interfaceCatalog: string; softwareEngineeringDiagram: string; umlClassDiagram: string },
 ): boolean {
   return row.ownerUserId === ownerUserId && row.analysisId === analysisId &&
     row.canonicalContent === canonical.json && row.contentHash === canonical.sha256 &&
     row.title === canonical.value.title && row.documentModelVersion === canonical.value.schemaVersion &&
-    row.interfaceCatalog === JSON.stringify(canonical.value.interfaceCatalog) &&
-    row.softwareEngineeringDiagram === JSON.stringify(canonical.value.softwareEngineeringDiagram) &&
-    row.umlClassDiagram === JSON.stringify(canonical.value.umlClassDiagram);
+    row.interfaceCatalog === serializedMirrors.interfaceCatalog &&
+    row.softwareEngineeringDiagram === serializedMirrors.softwareEngineeringDiagram &&
+    row.umlClassDiagram === serializedMirrors.umlClassDiagram;
 }
 
 /** Persist one canonical architecture document while this exact analysis job owns the worker lease. */
@@ -184,6 +190,17 @@ export async function persistCanonicalDocument(
     safeInput.expectedCkgSha256,
   );
   if (!canonical.ok) throw new Error("Dokumen arsitektur tidak dapat dibentuk dari CKG canonical.");
+  // Serialize each large JSON mirror before opening the transaction so CPU work does
+  // not consume the lease while the WorkerSlot row is locked.
+  const serializedGraphMirrors = {
+    nodes: JSON.stringify(parsedGraph.value.ccm.nodes),
+    edges: JSON.stringify(parsedGraph.value.ccm.edges),
+  };
+  const serializedDocumentMirrors = {
+    interfaceCatalog: JSON.stringify(canonical.value.interfaceCatalog),
+    softwareEngineeringDiagram: JSON.stringify(canonical.value.softwareEngineeringDiagram),
+    umlClassDiagram: JSON.stringify(canonical.value.umlClassDiagram),
+  };
   const claim = safeInput.claim;
   const tokenHash = createHash("sha256").update(claim.leaseToken, "utf8").digest("hex");
 
@@ -243,7 +260,7 @@ export async function persistCanonicalDocument(
         },
       });
       if (!graphBundle || graphBundle.ownerUserId !== claim.ownerUserId || graphBundle.analysisId !== claim.analysisId ||
-          graphBundle.canonicalContent === null || !graphBundleMatchesCanonical(graphBundle, parsedGraph)) {
+          graphBundle.canonicalContent === null || !graphBundleMatchesCanonical(graphBundle, parsedGraph, serializedGraphMirrors)) {
         throw new Error("Graph bundle tidak konsisten dengan CKG canonical yang diberikan.");
       }
 
@@ -265,7 +282,7 @@ export async function persistCanonicalDocument(
       });
       let result: { id: string; contentHash: string };
       if (existing) {
-        if (!documentRowMatchesCanonical(existing, claim.ownerUserId, claim.analysisId, canonical)) {
+        if (!documentRowMatchesCanonical(existing, claim.ownerUserId, claim.analysisId, canonical, serializedDocumentMirrors)) {
           throw new Error("Dokumen arsitektur bersifat immutable dan tidak cocok dengan hasil tersimpan.");
         }
         result = { id: existing.id, contentHash: existing.contentHash };
@@ -276,9 +293,9 @@ export async function persistCanonicalDocument(
             analysisId: claim.analysisId,
             title: canonical.value.title,
             documentModelVersion: canonical.value.schemaVersion,
-            interfaceCatalog: JSON.stringify(canonical.value.interfaceCatalog),
-            softwareEngineeringDiagram: JSON.stringify(canonical.value.softwareEngineeringDiagram),
-            umlClassDiagram: JSON.stringify(canonical.value.umlClassDiagram),
+            interfaceCatalog: serializedDocumentMirrors.interfaceCatalog,
+            softwareEngineeringDiagram: serializedDocumentMirrors.softwareEngineeringDiagram,
+            umlClassDiagram: serializedDocumentMirrors.umlClassDiagram,
             canonicalContent: canonical.json,
             contentHash: canonical.sha256,
           },
@@ -290,7 +307,7 @@ export async function persistCanonicalDocument(
       // ran past the lease deadline. Throwing aborts the transaction and rolls the write back.
       if (!await hasCurrentAnalysisLease(tx, claim, tokenHash)) throw new PersistLeaseLostError();
       return result;
-    });
+    }, ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS);
   } catch (error) {
     if (error instanceof PersistLeaseLostError) return null;
     throw error;

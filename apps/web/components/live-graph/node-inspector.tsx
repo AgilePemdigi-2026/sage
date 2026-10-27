@@ -52,7 +52,7 @@ function isAbortError(value: unknown): boolean {
 }
 
 function formatSnapshot(snapshot: CcmSnapshot): string {
-  return `${snapshot.repository} · ${snapshot.branch ?? "branch tidak diketahui"} · ${snapshot.commitSha}`;
+  return `${snapshot.repository} · ${snapshot.branch ?? "branch tidak diketahui"}`;
 }
 
 function EvidenceLocation({ evidence }: { evidence: EvidenceSpan }) {
@@ -404,9 +404,7 @@ export function NodeInspector({
           <button type="button" className={styles.inspectorClose} onClick={closeSource} aria-label="Tutup source evidence">Tutup</button>
         </div>
         <dl className={styles.sourceContext}>
-          <div><dt>Repository · branch · commit snapshot</dt><dd><code>{formatSnapshot(snapshot)}</code></dd></div>
-          <div><dt>Hash CKG</dt><dd><code>{ckgSha256}</code></dd></div>
-          <div><dt>SHA-256 file snapshot</dt><dd><code>{sourceTarget.file.sha256}</code></dd></div>
+          <div><dt>Repository · branch</dt><dd><code>{formatSnapshot(snapshot)}</code></dd></div>
           <div><dt>Batas AST</dt><dd><code>bytes {sourceTarget.evidence.startByte}–{sourceTarget.evidence.endByte} (akhir eksklusif) · baris {sourceTarget.evidence.startLine}:{sourceTarget.evidence.startColumn}–{sourceTarget.evidence.endLine}:{sourceTarget.evidence.endColumn}</code></dd></div>
         </dl>
 

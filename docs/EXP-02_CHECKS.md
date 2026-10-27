@@ -1,4 +1,16 @@
-# Verifikasi ekspor PDF EXP-02
+# Revisi penyajian PDF EXP-02
+
+Kontrak terbaru memakai renderer 2.0.0: PDF compact, satu SVG per diagram A4, tanpa tile atau opaque ID; Markdown tetap lengkap. Aturan dan referensi: [DOCUMENT_PRESENTATION.md](DOCUMENT_PRESENTATION.md). Catatan renderer 1.0.0 di bawah adalah bukti historis sebelum revisi, bukan deskripsi keluaran terbaru.
+
+## Bukti revisi DOC-04
+
+Sampel terbaru menjadi **4 halaman A4 landscape**, dibanding 40 halaman pada renderer lama. Diagram struktur dan UML masing-masing berupa satu SVG utuh pada satu halaman; dua halaman lainnya memuat katalog dan konteks. Keempat halaman telah dirender dengan Poppler dan diperiksa visual. Parser independen mencocokkan seluruh nama deklarasi root, signature, evidence katalog, dan alasan keterbatasan; tidak ada opaque ID atau raster image. SHA-256 PDF: `11c92aec1b3688e3dca632a54fda7f43d7ae519b9df004ee8850d9ed00e29c5d` (77.377 byte).
+
+Pengujian production web/worker/PostgreSQL/Chromium lulus **15 kelompok PDF dan 20 kelompok Markdown**, termasuk viewport 390/1440, zoom, disclosure evidence, checksum, account switch, korupsi archive, retry, serta isolasi pemilik. Dua integrasi ekspor PostgreSQL lulus tanpa skip. Full TypeScript, lint terarah, build production, 333 main tests dan 8 data tests lulus untuk source presentasi `afc8f89`; setelah diagnostik backend ditambahkan, 335 main tests lulus; build production diulang dan lulus setelah seluruh perubahan backend.
+
+Pipeline sembilan tahap juga diuji melalui antrean dan worker dengan provider GitHub fixture, termasuk retry dan publikasi atomik. Pengujian tersebut tidak membuktikan OAuth GitHub baru. Audit runtime lokal dan hasil uji provider nyata dicatat terpisah dalam [DOCUMENT_PRESENTATION.md](DOCUMENT_PRESENTATION.md) dan ringkasan [DOC-04](evidence/DOC-04-2026-10-27.json).
+
+# Verifikasi historis ekspor PDF EXP-02
 
 Issue [#21](https://github.com/AgilePemdigi-2026/sage/issues/21), SAGE-FR-EXP-05/07/08/09/10, APP-11, NFR-09; T-EXP-02 dan T-EXP-03. Base `4a0c7a7f7e9ed122fd3226d3ddd512693e1aa4f2`. Pengiriman: Valentina (`liliks13`); review/merge: Iltizam (`iltizamhasan3`).
 
