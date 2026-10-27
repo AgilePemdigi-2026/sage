@@ -1,10 +1,10 @@
 # Model data dan lifecycle
 
-Status per 22 Oktober 2026: DATA-01 menyediakan schema PostgreSQL, helper session/kredensial, query owner-scoped, dan pemeriksaan integrasi/persistensi. GH-01/02 menyediakan autentikasi dan akses repository nyata; REP-01/02 menyediakan validasi target, submission idempotent, snapshot immutable, serta source handlers. ANA-01 menyediakan queue durable dan runner stage terbatas sudah memiliki slice teruji. Consumer sembilan tahap dan publikasi bundle atomik tersedia pada ANA-07; history, graph dan dokumen membaca hasil tersimpan yang sukses. Ekspor dan cleanup lifecycle masih mengikuti issue terbuka.
+Status per 27 Oktober 2026: DATA-01 menyediakan schema PostgreSQL, helper session/kredensial, query owner-scoped, dan pemeriksaan integrasi/persistensi. GH-01/02 menyediakan autentikasi dan akses repository nyata; REP-01/02 menyediakan validasi target, submission idempotent, snapshot immutable, serta source handlers. ANA-01 menyediakan queue durable dan runner stage terbatas sudah memiliki slice teruji. Consumer sembilan tahap dan publikasi bundle atomik tersedia pada ANA-07; history, graph dan dokumen membaca hasil tersimpan yang sukses. Ekspor Markdown/PDF tersedia; DATA-02 menambah penghapusan owner-scoped dengan cleanup durable dan retry.
 
 ## Entitas
 
-Model ini memperinci empat entitas konseptual pada SRS agar queue, source evidence, dan ekspor dapat dikelola. Nama fisik serta indeks dipastikan saat DATA-01; hubungan dan invariannya menjadi kontrak awal.
+Model ini memperinci empat entitas konseptual pada SRS agar queue, source evidence, dan ekspor dapat dikelola. Nama fisik serta indeks tersedia pada schema dan migration database.
 
 | Entitas | Field utama dan hubungan |
 | --- | --- |
@@ -13,8 +13,8 @@ Model ini memperinci empat entitas konseptual pada SRS agar queue, source eviden
 | `GitHubConnection` | `userId`, identitas GitHub, ciphertext AES-256-GCM, nonce, authentication tag, key ID, expiry, revocation, status |
 | `GitHubInstallation` | `ownerUserId`, ID instalasi, account, status, permission metadata; akses instalasi tetap harus divalidasi oleh integrasi GitHub |
 | `Repository` | ID GitHub unik, owner/name, visibility; record global dapat dipakai beberapa user dan tidak memberi hak baca hasil analysis |
-| `Analysis` | `ownerUserId`, `repositoryId`, branch, full SHA, config/schema/analyzer versions, status, retry parent, timestamps, error code, result hash |
-| `Job` | Type `ANALYSIS`/`EXPORT`/`CLEANUP`, pemilik, relasi analysis/export opsional, status, enqueue/start/end, lease/heartbeat, attempt metadata, dan FIFO `queueSequence` untuk analysis |
+| `Analysis` | `ownerUserId`, `repositoryId`, branch, full SHA, config/schema/analyzer versions, status, retry parent, timestamps, error code, result hash, tombstone `deletionRequestedAt` |
+| `Job` | Type `ANALYSIS`/`EXPORT`/`CLEANUP`, pemilik, relasi analysis/export opsional, status, enqueue/start/end, lease/heartbeat, attempt metadata, FIFO `queueSequence` untuk analysis, `cleanupAnalysisId`, `cleanupManifest`, serta reservasi path `storageReservations` |
 | `AnalysisStage` | `ownerUserId`, `analysisId`, sequence/key, status, timestamps, error code; unik per analysis/sequence dan analysis/key |
 | `SourceFile` | Pemilik/analysis, path, language, byte length, SHA-256, processing status, relasi storage opsional |
 | `AnalysisLimitation` | Pemilik/analysis, path opsional, stage, code, penjelasan aman, jumlah bagian terdampak |
@@ -22,7 +22,7 @@ Model ini memperinci empat entitas konseptual pada SRS agar queue, source eviden
 | `ArchitectureDocument` | Maksimal satu per analysis, title, versi model, `interfaceCatalog`, `softwareEngineeringDiagram`, `umlClassDiagram` sebagai mirror string JSON canonical, `canonicalContent`, content hash, generated timestamp |
 | `Export` | Pemilik/analysis/document, format, versi renderer, status, storage reference, content hash, error code |
 | `StorageObject` | Pemilik/analysis, jenis objek, opaque storage key unik, hash, ukuran, status penghapusan |
-| `WorkerSlot` | Slot global `analysis`, relasi job/pemilik, lease/heartbeat, hash token lease, dan counter FIFO; row lock menserialkan enqueue/claim/renew/fail |
+| `WorkerSlot` | Slot global `analysis`, `export`, dan `cleanup`, relasi job/pemilik, lease/heartbeat, hash token lease, dan counter FIFO; row lock menserialkan enqueue/claim/renew/fail |
 
 `GraphBundle` dapat memakai JSONB dengan schema validation untuk MVP. Pemisahan ke tabel node/edge dilakukan bila benchmark membuktikan kebutuhan; keberadaan Code Knowledge Graph tidak mewajibkan graph database.
 
@@ -30,9 +30,9 @@ Model ini memperinci empat entitas konseptual pada SRS agar queue, source eviden
 
 - Setiap analysis memiliki tepat satu pemilik dan satu target full SHA yang tidak berubah.
 - Repository yang sama dapat dianalisis oleh beberapa user; result bundle milik user lain tidak dapat dibuka hanya karena repository-nya publik.
-- Pipeline nantinya membuat sembilan stage berurutan; schema saat ini menyimpan stage dan membatasi sequence/key duplikat, tetapi belum menegakkan jumlah sembilan.
+- Pipeline membuat sembilan stage berurutan; schema saat ini menyimpan stage dan membatasi sequence/key duplikat, tetapi belum menegakkan jumlah sembilan.
 - ANA-01 menegakkan maksimal satu analysis dan satu ANALYSIS Job `RUNNING` lewat partial unique index PostgreSQL serta claim atomik pada slot tetap. Lease mengikuti waktu database; recovery menandai percobaan interrupted sebagai gagal. Detail ada di [ANA-01](ANA-01_CHECKS.md).
-- Kelengkapan graph/document untuk status terminal divalidasi oleh worker/pipeline yang belum tersedia.
+- Kelengkapan graph/document untuk status terminal divalidasi oleh worker ANA-07 sebelum publikasi atomik.
 - Dokumen maksimal satu per analysis; varian PDF/Markdown disimpan sebagai export terpisah dari dokumen logis.
 - Retry adalah analysis baru dengan target/config salinan dan FK parent; bukan overwrite hasil percobaan sebelumnya.
 - Bahasa disimpan sebagai koleksi terstruktur; UI tidak mem-parsing string seperti `TypeScript; Python excluded` untuk menentukan kemampuan analyzer.
@@ -61,32 +61,42 @@ Key diambil dari environment proses web/worker dan tidak diberikan ke container 
 
 Koneksi pertama memakai `storeGitHubCredential`; refresh atau reconnect memakai `replaceGitHubCredential` dengan ID koneksi yang sama. Replacement dibatasi pemilik, mengaktifkan kembali koneksi, menghapus revocation, dan mengganti expiry secara eksplisit. Callback OAuth tetap harus memilih operasi yang sesuai.
 
-Helper `find*ForUser` selalu memasukkan user yang dipercaya server ke predicate SQL. Relasi analysis-child memakai foreign key komposit `(analysisId, ownerUserId)`; relasi storage source/export mengikat analysis dan owner sekaligus. Repository global boleh dibagi, sedangkan baris hasil dan kredensial tetap owner-scoped. `POST /api/analyses` mengambil pemilik dari session server dan tidak mempercayai `userId` request. History membaca melalui `listAnalysesForUser` dan `getAnalysisDetailForUser` yang mengikuti konvensi `find*ForUser` (predicate `ownerUserId`); graph dan dokumen memakai reader canonical dengan validasi snapshot serta owner/status; ekspor Markdown mengikuti owner-scoped predicate yang sama; delete mengikuti issue produknya.
+Helper `find*ForUser` selalu memasukkan user yang dipercaya server ke predicate SQL. Relasi analysis-child memakai foreign key komposit `(analysisId, ownerUserId)`; relasi storage source/export mengikat analysis dan owner sekaligus. Repository global boleh dibagi, sedangkan baris hasil dan kredensial tetap owner-scoped. `POST /api/analyses` mengambil pemilik dari session server dan tidak mempercayai `userId` request. History membaca melalui `listAnalysesForUser` dan `getAnalysisDetailForUser` yang mengikuti konvensi `find*ForUser` (predicate `ownerUserId`); graph dan dokumen memakai reader canonical dengan validasi snapshot serta owner/status; ekspor Markdown/PDF dan penghapusan DATA-02 mengikuti owner-scoped predicate yang sama.
 
 Izin GitHub diperiksa saat repository diajukan dan saat snapshot immutable diambil; bukti per slice ada pada [GH-02](GH-02_CHECKS.md) dan [REP-02](REP-02_CHECKS.md). Helper pembacaan server tidak mengembalikan token jika status bukan `ACTIVE`, token kedaluwarsa, atau koneksi dicabut. Consumer ANA-07 memakai kredensial aktif pada saat snapshot diambil dan mempertahankan full SHA yang dibekukan.
 
 ## Storage dan isolasi
 
-Key storage dibuat oleh aplikasi berdasarkan owner/analysis/object ID; path mentah tidak diterima dari browser. Database menyimpan metadata, sedangkan snapshot source disimpan pada persistent volume dan dilayani melalui source handlers berotorisasi. Root storage tidak dipublikasikan sebagai static directory. Lifecycle cleanup terkoordinasi masih menunggu #23; ekspor produk belum tersedia.
+Key storage dibuat oleh aplikasi berdasarkan owner/analysis/object ID; path mentah tidak diterima dari browser. Database menyimpan metadata, sedangkan snapshot source disimpan pada persistent volume dan dilayani melalui source handlers berotorisasi. Root storage tidak dipublikasikan sebagai static directory. Ekspor produk dan cleanup DATA-02 memakai metadata storage yang terikat owner/analysis.
 
-Source handlers membaca file dari snapshot melalui identitas file dan pemeriksaan pemilik. Ini menyediakan data untuk pemanggil tepercaya; graph inspector/source-preview sebagai fitur produk masih menunggu GRAPH-03 #19. File yang tidak diproses dapat dicatat sebagai metadata limitation tanpa menyimpan potongan source yang tidak diperlukan. Data private tidak digunakan sebagai fixture yang di-commit.
+Source handlers membaca file dari snapshot melalui identitas file dan pemeriksaan pemilik. Ini menyediakan data untuk pemanggil tepercaya; graph inspector/source-preview tersedia melalui GRAPH-03 #19. File yang tidak diproses dapat dicatat sebagai metadata limitation tanpa menyimpan potongan source yang tidak diperlukan. Data private tidak digunakan sebagai fixture yang di-commit.
 
 ## Retensi dan penghapusan
 
 Hasil, snapshot yang diperlukan untuk evidence, dan export disimpan sampai pemilik menghapus analisis. Cakupan penghapusan adalah analysis, stage, graph, dokumen, export, metadata file, dan seluruh storage object terkait. Session/token tetap tunduk pada expiry serta revocation.
 
-Rancangan awal penghapusan:
+Lifecycle penghapusan DATA-02:
 
 1. Verifikasi session dan pemilik.
 2. Jika analysis sedang `QUEUED` atau `RUNNING`, kembalikan `409 ANALYSIS_ACTIVE`; pengguna dapat menghapus setelah terminal. Pembatalan job interaktif bukan fitur baseline.
 3. Jika export terkait masih aktif, kembalikan `409 EXPORT_ACTIVE` agar proses tidak menulis objek yang sudah dihapus.
 4. Tandai record untuk penghapusan dan segera hilangkan akses baca/download.
 5. Hapus objek volume secara idempotent, lalu hapus record turunan dalam urutan transaksi yang aman.
-6. Jika penghapusan storage gagal, simpan status pending agar cleanup dapat diulang; jangan menyatakan penghapusan selesai sebelum seluruh objek tersingkir.
+6. Jika penghapusan storage gagal, simpan status `FAILED` pada cleanup job dan tampilkan retry di history; jangan menyatakan penghapusan selesai sebelum seluruh objek tersingkir.
 
 API mengembalikan `202` saat cleanup masih berjalan dan `204` setelah benar-benar selesai. Queue cleanup diproses secara aman meskipun worker restart. Penghapusan parent retry tidak menghapus percobaan baru; FK retry di-null-kan agar tidak memblokir penghapusan.
 
 Kebijakan backup produksi belum ditentukan dosen. Jangan menjanjikan penghapusan backup eksternal sebelum kebijakan tersebut tersedia. Pada MVP lokal, backup manual dan volume yang disalin pengguna harus dijelaskan pada panduan operasional.
+
+### Manifest, reservasi, dan pemulihan
+
+Permintaan delete menandai `Analysis.deletionRequestedAt`, mengubah storage menjadi `DELETION_PENDING`, dan menyimpan manifest pada job CLEANUP dalam satu transaksi. History tetap menyajikan status cleanup agar pemilik dapat memantau atau retry setelah reload; pembacaan hasil, source, dokumen, ekspor, serta retry analisis ditutup. Reader file memeriksa ulang tombstone setelah I/O. Respons atau file yang sudah diterima client sebelum penghapusan tidak dapat ditarik kembali.
+
+Worker menghapus file satu per satu secara idempotent, menandai storage `DELETED`, lalu menghapus folder kosong tanpa rekursi. Symlink, path di luar pola aplikasi, serta isi folder yang tidak dikenal ditolak. Worker hanya menerbitkan `COMPLETED` setelah seluruh key manifest terhapus dan transaksi penghapusan turunan berhasil. Lease/token/attempt pada slot cleanup mencegah claim lama menerbitkan status; restart memulihkan claim kedaluwarsa. Retry menggunakan cleanup job yang sama.
+
+Penulis snapshot dan ekspor mereservasi path pada job sebelum menulis byte. Manifest mencakup objek terdaftar dan path reservasi, termasuk file ekspor `.pending`, sehingga kegagalan sebelum registrasi StorageObject tetap dapat dibersihkan. Reservasi dibatasi 32 path per job. File lama yang tidak pernah terdaftar atau terreservasi tidak ditebak kepemilikannya dan tidak disapu otomatis. Analisis dengan key legacy yang tidak dikenal membutuhkan penanganan operator sebelum cleanup dapat selesai.
+
+Sesudah selesai, data analisis beserta stages, source metadata, limitations, graph, dokumen, export, storage metadata, dan job analisis/ekspor dihapus. Retry child tetap ada dengan parent dilepas. Satu tombstone job minimal (`ownerUserId`, target ID, status dan timestamp) dipertahankan untuk status/idempotensi; manifest dan relasi analysis dikosongkan. Akun, session, kredensial, dan metadata repository global tidak ikut dihapus. Tidak ada penghapusan otomatis berdasarkan umur data.
 
 ## Provenance dan replay
 
@@ -96,8 +106,8 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 
 - Queue durable, API submission idempotent, dan runner stage terbatas sudah memiliki bukti. Consumer ANA-07 menjalankan sembilan tahap dan menerbitkan bundle atomik; retry FAILED memerlukan pemeriksaan izin baru serta analysis ID baru dengan SHA/configuration yang sama.
 - DOC-01 #15 memvalidasi dan menyimpan tiga artefak dokumen bersama serta menyediakan API/halaman privat. History #22 menyediakan pembacaan list/detail GET, GRAPH-01 #17 menyediakan graph canonical; query/filter/inspector #18–19 tersedia. Ekspor Markdown #20 memiliki bukti terpisah; PDF #21 memiliki bukti terpisah pada [EXP-02_CHECKS](EXP-02_CHECKS.md).
-- #23 menentukan alur penghapusan analysis dan objek storage secara idempotent.
-- Pipeline analisis harus menegakkan kelengkapan graph/document dan hash sebelum menyatakan analysis selesai.
+- DATA-02 #23 menyediakan penghapusan analysis dan objek storage secara idempotent; lihat [bukti dan batas cleanup](DATA-02_CHECKS.md).
+- Pipeline analisis menegakkan kelengkapan graph/document dan hash sebelum menyatakan analysis selesai.
 
 ## Canonical CKG ANA-06
 

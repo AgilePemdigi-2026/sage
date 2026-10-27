@@ -124,3 +124,9 @@ Registry CCM v1 dipertahankan selama TypeAlias, Enum, dan Trait belum mempunyai 
 ## DOC-01: satu model dokumen, tiga artefak
 
 ADD `sage-add-v1` memproyeksikan satu CKG tervalidasi tanpa resolver ulang. Catalog mempertahankan deklarasi non-Module dan seluruh relasi canonical sebagai observasi, tanpa menganggapnya seluruhnya API publik. Diagram memakai DOC-02. Satu transaksi menyimpan ketiga artefak dan hash canonical; API/halaman hanya membaca hasil milik akun yang berstatus sukses. Publikasi terminal graph+ADD+resultHash tetap menjadi tanggung jawab ANA-07. Mermaid browser lokal memakai SVG yang diperiksa sebagai Blob image dengan batas renderer eksplisit. Ekspor Markdown/PDF tidak menjadi bagian DOC-01. Bukti: [DOC-01_CHECKS](DOC-01_CHECKS.md).
+
+## DATA-02: penghapusan durable — 27 Oktober 2026
+
+Penghapusan memakai tombstone + queue cleanup agar hasil segera tertutup sementara operasi filesystem dapat diulang setelah kegagalan/restart. Penghapusan sinkron di request tidak dipilih karena transaksi database dan file tidak dapat di-commit atomik. Job aktif harus terminal dahulu; pembatalan analisis tetap di luar scope. Manifest mencakup storage terdaftar dan reservasi sebelum penulisan byte; direktori ekspor kosong dibuat sebelum reservasi agar writer kedaluwarsa tidak dapat membuat ulang folder setelah cleanup.
+
+Retensi hasil tetap sampai pemilik menghapus, tanpa TTL otomatis. Satu tombstone CLEANUP minimal dipertahankan untuk status/idempotensi; manifest dan seluruh data hasil dihapus setelah sukses. File lama yang tidak memiliki asosiasi tidak disapu otomatis. Keputusan ini menjaga APP-05 dan isolasi NFR-05; backup eksternal serta kuota deployment server bersama tetap mengikuti operator. Bukti dan batas: [DATA-02_CHECKS](DATA-02_CHECKS.md).
