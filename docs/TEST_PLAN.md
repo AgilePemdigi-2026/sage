@@ -57,9 +57,9 @@ ID di bawah adalah kontrak acceptance alur produk lengkap. Check per issue dapat
 | T-GRAPH-02 | Cari node, combine kategori, no result, reset | Query AND kategori; edge sesuai endpoint; canonical result tidak berubah; 5 unit filter dan 18 kelompok regresi browser PASS, interaksi filter 390 px (GRAPH-02_CHECKS) |
 | T-GRAPH-03 | Pilih node, incoming/outgoing, buka/tutup source preview, unavailable | Lulus: canonical bounds/relasi/source hash, retry, Escape/focus, akun berubah dan respons terlambat; 25 kelompok browser/API dengan fixture TypeScript, lihat GRAPH-03_CHECKS |
 | T-DOC-01 | Bandingkan tiga artefak dengan CKG/source | Contract/signature/dependency terbukti; unresolved dan provenance terpelihara; tidak ada fakta tambahan |
-| T-EXP-01 | Ekspor dan buka Markdown pada viewer bersih | Tiga artefak, diagram source, evidence, context, limitation lengkap; tidak bergantung path lokal |
+| T-EXP-01 | Ekspor dan buka Markdown pada viewer bersih | Markdown mandiri: tiga artefak, diagram source, evidence/context/limitation; unduhan nyata dan viewer offline, lihat EXP-01_CHECKS |
 | T-EXP-02 | Ekspor dan buka PDF, ekstrak teks, render seluruh halaman | File valid, teks sesuai, diagram terbaca, tidak terpotong, font dan evidence sesuai |
-| T-EXP-03 | Gagalkan ekspor, double submit, retry, download bukan pemilik | State benar, deduplikasi bekerja, graph tidak berubah, retry berhasil pada document hash sama, akses ditolak |
+| T-EXP-03 | Gagalkan ekspor, double submit, retry, download bukan pemilik | Markdown: dedup, hash graph/ADD/analysis tetap, retry dokumen sama dan akses privat; PDF mengikuti EXP-02, bukti EXP-01_CHECKS |
 | T-HIST-01 | Empty history, list berbagai status, query nama/SHA, buka record | Hanya milik user; query/reset benar; terminal sukses ke graph, queued/running/failed ke progress |
 | T-DATA-01 | Migrasi bersih, restart Docker, dua user mengakses ID yang sama | Persistensi utuh, credential/session aman, user lain ditolak pada graph/source/doc/export/job |
 | T-DATA-02 | Delete terminal/active/export aktif; simulasikan cleanup gagal | Active ditolak; akses hilang saat cleanup; file dan record turunan hilang sebelum selesai; cleanup idempotent |
@@ -119,7 +119,7 @@ T-GRAPH-01 juga diverifikasi oleh tes reader/handler/mode/payload serta `npm run
 
 T-DOC-01 memeriksa proyeksi deterministik dari satu CKG, katalog deklarasi dan seluruh relasi, mapping/evidence/unresolved, tidak ada fakta tebakan, serta penolakan tamper/hash/source berbeda. T-ANA-02 pada handler tahap 6–9 memeriksa context immutable yang sama dan penolakan artefak upstream berbeda. Integrasi PostgreSQL disposable memeriksa owner/token/attempt/lease/stage fence, replay immutable, mirror/target/config rusak serta rollback ketika lease habis saat insert. Tahap 2–9 menggunakan handler nyata dengan archive fixture; publikasi terminal pipeline tetap #16.
 
-API/halaman dokumen diuji terhadap server Next.js production, PostgreSQL dan Chromium nyata melalui `npm run test:documents:live` pada lima viewport. Kasus meliputi auth/owner, status nonterminal, data canonical corrupt, pemulihan error, metadata/evidence/relasi, tiga bagian dokumen, diagram SVG lokal, keyboard/responsif, dan pergantian akun yang membuang hasil lama. Fixture terminal dibuat secara terkontrol, bukan output consumer pipeline produk. Hasil, versi, hash fixture serta batas aktual dicatat pada [DOC-01_CHECKS](DOC-01_CHECKS.md). Ekspor file tetap T-EXP-01/02 pada #20/#21.
+API/halaman dokumen diuji terhadap server Next.js production, PostgreSQL dan Chromium nyata melalui `npm run test:documents:live` pada lima viewport. Kasus meliputi auth/owner, status nonterminal, data canonical corrupt, pemulihan error, metadata/evidence/relasi, tiga bagian dokumen, diagram SVG lokal, keyboard/responsif, dan pergantian akun yang membuang hasil lama. Fixture terminal dibuat secara terkontrol, bukan output consumer pipeline produk. Hasil, versi, hash fixture serta batas aktual dicatat pada [DOC-01_CHECKS](DOC-01_CHECKS.md). Ekspor Markdown memakai bukti T-EXP-01/03 pada [EXP-01_CHECKS](EXP-01_CHECKS.md); PDF T-EXP-02 tetap #21.
 
 ## Cucumber BDD acceptance Sprint 1
 

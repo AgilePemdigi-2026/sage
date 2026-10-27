@@ -159,3 +159,15 @@ Kedua endpoint membaca ulang canonical CKG terhadap archive immutable setelah me
 Inspector client mengikat respons ke analysis, account, CKG/configuration hash, snapshot, serta node atau file/range yang diminta. Pergantian selection/context membatalkan request lama. Deteksi 401 memicu pemeriksaan identitas parent dan membersihkan inspector/source lama. Dialog menampilkan highlight pada baris evidence, bukan klaim highlight byte/kolom; bounds AST asli tetap ditampilkan, termasuk keterangan akhir byte eksklusif.
 
 Endpoint terpisah `/nodes/{nodeId}/relations` pada tabel rancangan belum diimplementasikan; relasi aktual GRAPH-03 dikirim sebagai array incoming/outgoing di payload detail node.
+
+## Ekspor Markdown EXP-01 yang tersedia
+
+`POST /api/analyses/{analysisId}/exports` menerima JSON tepat `{ "format": "MARKDOWN" }`. Format lain menghasilkan 422 `EXPORT_FORMAT_UNSUPPORTED`; PDF mengikuti #21. Request baru menghasilkan 202, request yang sudah ada untuk owner/analysis/document hash/renderer yang sama menghasilkan 200. Body tidak menerima owner, path storage atau hash dokumen dari pengguna. Hash diambil dari ADD canonical yang diverifikasi ulang.
+
+`GET /api/analyses/{analysisId}/exports/{exportId}` membaca status. Ketiga operasi status/create/retry mengembalikan `{ data: { analysisId, accountKey, export: { id, format, status, documentHash, rendererVersion, contentHash, errorCode } } }`; `status` adalah QUEUED/GENERATING/READY/FAILED. READY memiliki contentHash SHA-256, sedangkan detail path storage tidak dikirim.
+
+`POST /api/analyses/{analysisId}/exports/{exportId}/retry` menerima JSON kosong `{}` dan mengembalikan 202 hanya untuk FAILED. Retry mempertahankan ID ekspor, documentHash dan rendererVersion, lalu membuat job percobaan baru. READY/aktif menghasilkan 409 `EXPORT_RETRY_CONFLICT`; dokumen yang berubah menghasilkan 409 `DOCUMENT_CHANGED`.
+
+`GET /api/analyses/{analysisId}/exports/{exportId}/download` mengirim attachment `text/markdown; charset=utf-8` sesudah ownership, status READY, metadata storage, ukuran dan checksum file diverifikasi. File maksimum 32 MiB; renderer yang melebihi batas gagal dengan `EXPORT_TOO_LARGE`. Tidak ada parameter query pada endpoint ekspor. POST wajib Origin tepercaya serta JSON berbatas ukuran. Semua respons memakai private/no-store, Vary Cookie/X-SAGE-Account dan nosniff. Session/akun berubah menghasilkan 401, missing/foreign export 404, unduhan belum siap 409, gangguan storage/integritas 503 aman. Browser mengikat status pada analysis/account/document hash dan memeriksa session sesudah menerima body unduhan sebelum membuat Blob URL.
+
+Worker ekspor memakai slot `export` dengan lease terpisah dari antrean analisis. Kegagalan atau retry ekspor tidak memublikasikan ulang graph/ADD dan tidak mengubah result hash analisis. Bukti aktual serta batas integrasi: [EXP-01_CHECKS](EXP-01_CHECKS.md).

@@ -61,7 +61,7 @@ Key diambil dari environment proses web/worker dan tidak diberikan ke container 
 
 Koneksi pertama memakai `storeGitHubCredential`; refresh atau reconnect memakai `replaceGitHubCredential` dengan ID koneksi yang sama. Replacement dibatasi pemilik, mengaktifkan kembali koneksi, menghapus revocation, dan mengganti expiry secara eksplisit. Callback OAuth tetap harus memilih operasi yang sesuai.
 
-Helper `find*ForUser` selalu memasukkan user yang dipercaya server ke predicate SQL. Relasi analysis-child memakai foreign key komposit `(analysisId, ownerUserId)`; relasi storage source/export mengikat analysis dan owner sekaligus. Repository global boleh dibagi, sedangkan baris hasil dan kredensial tetap owner-scoped. `POST /api/analyses` mengambil pemilik dari session server dan tidak mempercayai `userId` request. History membaca melalui `listAnalysesForUser` dan `getAnalysisDetailForUser` yang mengikuti konvensi `find*ForUser` (predicate `ownerUserId`); graph dan dokumen memakai reader canonical dengan validasi snapshot serta owner/status; export dan delete tetap mengikuti issue produknya.
+Helper `find*ForUser` selalu memasukkan user yang dipercaya server ke predicate SQL. Relasi analysis-child memakai foreign key komposit `(analysisId, ownerUserId)`; relasi storage source/export mengikat analysis dan owner sekaligus. Repository global boleh dibagi, sedangkan baris hasil dan kredensial tetap owner-scoped. `POST /api/analyses` mengambil pemilik dari session server dan tidak mempercayai `userId` request. History membaca melalui `listAnalysesForUser` dan `getAnalysisDetailForUser` yang mengikuti konvensi `find*ForUser` (predicate `ownerUserId`); graph dan dokumen memakai reader canonical dengan validasi snapshot serta owner/status; ekspor Markdown mengikuti owner-scoped predicate yang sama; delete mengikuti issue produknya.
 
 Izin GitHub diperiksa saat repository diajukan dan saat snapshot immutable diambil; bukti per slice ada pada [GH-02](GH-02_CHECKS.md) dan [REP-02](REP-02_CHECKS.md). Helper pembacaan server tidak mengembalikan token jika status bukan `ACTIVE`, token kedaluwarsa, atau koneksi dicabut. Consumer ANA-07 memakai kredensial aktif pada saat snapshot diambil dan mempertahankan full SHA yang dibekukan.
 
@@ -95,7 +95,7 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 ## Cakupan yang masih menunggu issue lain
 
 - Queue durable, API submission idempotent, dan runner stage terbatas sudah memiliki bukti. Consumer ANA-07 menjalankan sembilan tahap dan menerbitkan bundle atomik; retry FAILED memerlukan pemeriksaan izin baru serta analysis ID baru dengan SHA/configuration yang sama.
-- DOC-01 #15 memvalidasi dan menyimpan tiga artefak dokumen bersama serta menyediakan API/halaman privat. History #22 menyediakan pembacaan list/detail GET, GRAPH-01 #17 menyediakan graph canonical; query/filter/inspector #18–19 dan ekspor #20–21 tetap terbuka.
+- DOC-01 #15 memvalidasi dan menyimpan tiga artefak dokumen bersama serta menyediakan API/halaman privat. History #22 menyediakan pembacaan list/detail GET, GRAPH-01 #17 menyediakan graph canonical; query/filter/inspector #18–19 tersedia. Ekspor Markdown #20 memiliki bukti terpisah; PDF #21 tetap terbuka.
 - #23 menentukan alur penghapusan analysis dan objek storage secara idempotent.
 - Pipeline analisis harus menegakkan kelengkapan graph/document dan hash sebelum menyatakan analysis selesai.
 
@@ -108,3 +108,7 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 ## Canonical ADD DOC-01
 
 `ArchitectureDocument.canonicalContent` menyimpan JSON `sage-add-v1`; nullable hanya untuk legacy yang tidak disajikan sebagai hasil canonical. Ketiga kolom artefak JSONB berisi string JSON canonical agar escaped NUL/lone surrogate dipertahankan. Reader meregenerasi model dari CKG serta source snapshot dan memverifikasi hash, title/version dan semua mirror. Penulisan dilakukan sekali secara transaksional dengan lease/stage fence; replay berbeda ditolak. Model tidak memuat ID record/job atau waktu generate dalam hash. DOC-01 tidak mengubah status Analysis/Job terminal; publikasi graph+document+resultHash bersama dilakukan ANA-07. Lihat [bukti DOC-01](DOC-01_CHECKS.md).
+
+## Ekspor Markdown EXP-01
+
+`Export.documentHash` menyimpan hash ADD yang diminta. Unique key owner/analysis/format/documentHash/rendererVersion mencegah duplikasi permintaan. Export menggunakan Job bertipe EXPORT dan WorkerSlot `export`; lease/token/attempt memagari publikasi serta memulihkan claim kedaluwarsa. Retry FAILED memakai ID ekspor, dokumen dan renderer yang sama dengan job percobaan baru. StorageObject bertipe EXPORT menyimpan SHA-256/ukuran file; source, canonical document serta result hash analisis tetap immutable. File hanya diunduh melalui pemeriksaan pemilik dan checksum, tanpa URL publik permanen.
