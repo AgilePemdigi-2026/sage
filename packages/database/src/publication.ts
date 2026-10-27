@@ -8,6 +8,7 @@ import type { AnalysisJobClaim } from "./queue.ts";
 import { Prisma } from "../generated/client.ts";
 import type { PrismaClient } from "../generated/client.ts";
 import { ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS } from "./analysis-timing.ts";
+import { storageMirrorsMatchLayout } from "./storage-layout.ts";
 
 const ANALYSIS_SLOT = "analysis";
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -262,6 +263,7 @@ function matchesGraphBundle(
     analysisId: string;
     schemaVersion: string;
     configurationHash: string;
+    storageLayoutVersion: number;
     canonicalContent: string | null;
     nodes: unknown;
     edges: unknown;
@@ -273,13 +275,18 @@ function matchesGraphBundle(
   ownerUserId: string,
   analysisId: string,
   expectedId: string,
-  serializedMirrors: { nodes: string; edges: string },
+  legacySerializedMirrors?: { nodes: string; edges: string },
 ): boolean {
   return bundle.id === expectedId && bundle.ownerUserId === ownerUserId && bundle.analysisId === analysisId &&
     bundle.schemaVersion === graph.value.schemaVersion && bundle.configurationHash === graph.value.configurationHash &&
     bundle.canonicalContent === graph.json && bundle.contentHash === graph.sha256 &&
     bundle.nodeCount === graph.value.counts.nodes && bundle.edgeCount === graph.value.counts.edges &&
-    bundle.nodes === serializedMirrors.nodes && bundle.edges === serializedMirrors.edges;
+    storageMirrorsMatchLayout(
+      bundle.storageLayoutVersion,
+      bundle.canonicalContent,
+      [bundle.nodes, bundle.edges],
+      legacySerializedMirrors ? [legacySerializedMirrors.nodes, legacySerializedMirrors.edges] : undefined,
+    );
 }
 
 function matchesDocument(
@@ -287,6 +294,7 @@ function matchesDocument(
     id: string;
     ownerUserId: string;
     analysisId: string;
+    storageLayoutVersion: number;
     title: string;
     documentModelVersion: string;
     interfaceCatalog: unknown;
@@ -299,14 +307,21 @@ function matchesDocument(
   ownerUserId: string,
   analysisId: string,
   expectedId: string,
-  serializedMirrors: { interfaceCatalog: string; softwareEngineeringDiagram: string; umlClassDiagram: string },
+  legacySerializedMirrors?: { interfaceCatalog: string; softwareEngineeringDiagram: string; umlClassDiagram: string },
 ): boolean {
   return row.id === expectedId && row.ownerUserId === ownerUserId && row.analysisId === analysisId &&
     row.canonicalContent === document.json && row.contentHash === document.sha256 &&
     row.title === document.value.title && row.documentModelVersion === document.value.schemaVersion &&
-    row.interfaceCatalog === serializedMirrors.interfaceCatalog &&
-    row.softwareEngineeringDiagram === serializedMirrors.softwareEngineeringDiagram &&
-    row.umlClassDiagram === serializedMirrors.umlClassDiagram;
+    storageMirrorsMatchLayout(
+      row.storageLayoutVersion,
+      row.canonicalContent,
+      [row.interfaceCatalog, row.softwareEngineeringDiagram, row.umlClassDiagram],
+      legacySerializedMirrors ? [
+        legacySerializedMirrors.interfaceCatalog,
+        legacySerializedMirrors.softwareEngineeringDiagram,
+        legacySerializedMirrors.umlClassDiagram,
+      ] : undefined,
+    );
 }
 
 function safeLimitations(graph: Extract<ReturnType<typeof parseCanonicalCkg>, { ok: true }>): SafeLimitation[] {
@@ -396,17 +411,24 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
   const limitations = safeLimitations(graph);
   const terminalStatus = limitations.length === 0 ? "COMPLETED" : "COMPLETED_WITH_LIMITATIONS";
   const digest = resultHash(safe.target, graph, document, limitations);
-  // Derive all large JSON strings and source/limitation mirror rows before acquiring
-  // the WorkerSlot lock; the transaction only validates and persists these snapshots.
-  const serializedGraphMirrors = {
-    nodes: JSON.stringify(graph.value.ccm.nodes),
-    edges: JSON.stringify(graph.value.ccm.edges),
-  };
-  const serializedDocumentMirrors = {
-    interfaceCatalog: JSON.stringify(document.value.interfaceCatalog),
-    softwareEngineeringDiagram: JSON.stringify(document.value.softwareEngineeringDiagram),
-    umlClassDiagram: JSON.stringify(document.value.umlClassDiagram),
-  };
+  const where = { analysisId_ownerUserId: { analysisId: safe.claim.analysisId, ownerUserId: safe.claim.ownerUserId } };
+  const [existingGraphLayout, existingDocumentLayout] = await Promise.all([
+    db.graphBundle.findUnique({ where, select: { storageLayoutVersion: true } }),
+    db.architectureDocument.findUnique({ where, select: { storageLayoutVersion: true } }),
+  ]);
+  // Only v1 replay needs large JSON mirror strings. Build those before acquiring
+  // the WorkerSlot lock; v2 publication validates the canonical payload and NULL mirrors.
+  const serializedGraphMirrors = existingGraphLayout?.storageLayoutVersion === 1
+    ? { nodes: JSON.stringify(graph.value.ccm.nodes), edges: JSON.stringify(graph.value.ccm.edges) }
+    : undefined;
+  const serializedDocumentMirrors = existingDocumentLayout?.storageLayoutVersion === 1
+    ? {
+        interfaceCatalog: JSON.stringify(document.value.interfaceCatalog),
+        softwareEngineeringDiagram: JSON.stringify(document.value.softwareEngineeringDiagram),
+        umlClassDiagram: JSON.stringify(document.value.umlClassDiagram),
+      }
+    : undefined;
+  // Source and limitation rows are also derived before acquiring the WorkerSlot lock.
   const sourceFiles = graph.value.ccm.files.map(file => ({
     ownerUserId: safe.claim.ownerUserId,
     analysisId: safe.claim.analysisId,
@@ -476,9 +498,10 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
       }
 
       const graphBundle = await tx.graphBundle.findUnique({
-        where: { analysisId_ownerUserId: { analysisId: safe.claim.analysisId, ownerUserId: safe.claim.ownerUserId } },
+        where,
         select: {
           id: true, ownerUserId: true, analysisId: true, schemaVersion: true, configurationHash: true,
+          storageLayoutVersion: true,
           canonicalContent: true, nodes: true, edges: true, nodeCount: true, edgeCount: true, contentHash: true,
         },
       });
@@ -489,9 +512,10 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
       }
 
       const documentRow = await tx.architectureDocument.findUnique({
-        where: { analysisId_ownerUserId: { analysisId: safe.claim.analysisId, ownerUserId: safe.claim.ownerUserId } },
+        where,
         select: {
           id: true, ownerUserId: true, analysisId: true, title: true, documentModelVersion: true,
+          storageLayoutVersion: true,
           interfaceCatalog: true, softwareEngineeringDiagram: true, umlClassDiagram: true,
           canonicalContent: true, contentHash: true,
         },

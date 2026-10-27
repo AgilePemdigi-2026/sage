@@ -5,10 +5,11 @@ import {
   projectArchitectureDocument,
 } from "@sage/documents/model";
 import type { ArchitectureDocumentV1 } from "@sage/documents/model";
-import type { Prisma, PrismaClient } from "../generated/client.ts";
+import { Prisma, type PrismaClient } from "../generated/client.ts";
 import { snapshotAnalysisJobClaim } from "./queue.ts";
 import type { AnalysisJobClaim } from "./queue.ts";
 import { ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS } from "./analysis-timing.ts";
+import { CANONICAL_STORAGE_LAYOUT_VERSION, storageMirrorsMatchLayout } from "./storage-layout.ts";
 
 const ANALYSIS_SLOT = "analysis";
 const DOCUMENT_STAGE_KEYS = [
@@ -33,6 +34,7 @@ interface CanonicalGraphBundle {
   analysisId: string;
   schemaVersion: string;
   configurationHash: string;
+  storageLayoutVersion: number;
   canonicalContent: string | null;
   nodes: unknown;
   edges: unknown;
@@ -45,6 +47,7 @@ interface CanonicalDocumentRow {
   id: string;
   ownerUserId: string;
   analysisId: string;
+  storageLayoutVersion: number;
   title: string;
   documentModelVersion: string;
   interfaceCatalog: unknown;
@@ -145,10 +148,7 @@ async function hasCurrentAnalysisLease(
 function graphBundleMatchesCanonical(
   bundle: CanonicalGraphBundle,
   canonical: Extract<ReturnType<typeof parseCanonicalCkg>, { ok: true }>,
-  serializedMirrors = {
-    nodes: JSON.stringify(canonical.value.ccm.nodes),
-    edges: JSON.stringify(canonical.value.ccm.edges),
-  },
+  legacySerializedMirrors?: { nodes: string; edges: string },
 ): boolean {
   return bundle.schemaVersion === "sage-ckg-v1" &&
     bundle.configurationHash === canonical.value.configurationHash &&
@@ -156,8 +156,12 @@ function graphBundleMatchesCanonical(
     bundle.contentHash === canonical.sha256 &&
     bundle.nodeCount === canonical.value.counts.nodes &&
     bundle.edgeCount === canonical.value.counts.edges &&
-    bundle.nodes === serializedMirrors.nodes &&
-    bundle.edges === serializedMirrors.edges;
+    storageMirrorsMatchLayout(
+      bundle.storageLayoutVersion,
+      bundle.canonicalContent,
+      [bundle.nodes, bundle.edges],
+      legacySerializedMirrors ? [legacySerializedMirrors.nodes, legacySerializedMirrors.edges] : undefined,
+    );
 }
 
 function documentRowMatchesCanonical(
@@ -165,14 +169,21 @@ function documentRowMatchesCanonical(
   ownerUserId: string,
   analysisId: string,
   canonical: Extract<ReturnType<typeof projectArchitectureDocument>, { ok: true }>,
-  serializedMirrors: { interfaceCatalog: string; softwareEngineeringDiagram: string; umlClassDiagram: string },
+  legacySerializedMirrors?: { interfaceCatalog: string; softwareEngineeringDiagram: string; umlClassDiagram: string },
 ): boolean {
   return row.ownerUserId === ownerUserId && row.analysisId === analysisId &&
     row.canonicalContent === canonical.json && row.contentHash === canonical.sha256 &&
     row.title === canonical.value.title && row.documentModelVersion === canonical.value.schemaVersion &&
-    row.interfaceCatalog === serializedMirrors.interfaceCatalog &&
-    row.softwareEngineeringDiagram === serializedMirrors.softwareEngineeringDiagram &&
-    row.umlClassDiagram === serializedMirrors.umlClassDiagram;
+    storageMirrorsMatchLayout(
+      row.storageLayoutVersion,
+      row.canonicalContent,
+      [row.interfaceCatalog, row.softwareEngineeringDiagram, row.umlClassDiagram],
+      legacySerializedMirrors ? [
+        legacySerializedMirrors.interfaceCatalog,
+        legacySerializedMirrors.softwareEngineeringDiagram,
+        legacySerializedMirrors.umlClassDiagram,
+      ] : undefined,
+    );
 }
 
 /** Persist one canonical architecture document while this exact analysis job owns the worker lease. */
@@ -180,7 +191,7 @@ export async function persistCanonicalDocument(
   db: PrismaClient,
   input: PersistCanonicalDocumentInput,
 ): Promise<{ id: string; contentHash: string } | null> {
-  // Snapshot and derive every source-backed artifact synchronously before the first database await.
+  // Canonical source-backed content is derived synchronously before the first database await.
   const safeInput = snapshotDocumentInput(input);
   const parsedGraph = parseCanonicalCkg(safeInput.canonicalCkgJson, safeInput.sourceBytes, safeInput.expectedCkgSha256);
   if (!parsedGraph.ok) throw new Error("CKG canonical tidak valid untuk persistensi dokumen.");
@@ -190,18 +201,24 @@ export async function persistCanonicalDocument(
     safeInput.expectedCkgSha256,
   );
   if (!canonical.ok) throw new Error("Dokumen arsitektur tidak dapat dibentuk dari CKG canonical.");
-  // Serialize each large JSON mirror before opening the transaction so CPU work does
-  // not consume the lease while the WorkerSlot row is locked.
-  const serializedGraphMirrors = {
-    nodes: JSON.stringify(parsedGraph.value.ccm.nodes),
-    edges: JSON.stringify(parsedGraph.value.ccm.edges),
-  };
-  const serializedDocumentMirrors = {
-    interfaceCatalog: JSON.stringify(canonical.value.interfaceCatalog),
-    softwareEngineeringDiagram: JSON.stringify(canonical.value.softwareEngineeringDiagram),
-    umlClassDiagram: JSON.stringify(canonical.value.umlClassDiagram),
-  };
   const claim = safeInput.claim;
+  const where = { analysisId_ownerUserId: { analysisId: claim.analysisId, ownerUserId: claim.ownerUserId } };
+  const [existingGraphLayout, existingDocumentLayout] = await Promise.all([
+    db.graphBundle.findUnique({ where, select: { storageLayoutVersion: true } }),
+    db.architectureDocument.findUnique({ where, select: { storageLayoutVersion: true } }),
+  ]);
+  // Only legacy replay needs large string mirrors. Serialize them before opening
+  // the lease-locked transaction; new v2 writes never construct these copies.
+  const serializedGraphMirrors = existingGraphLayout?.storageLayoutVersion === 1
+    ? { nodes: JSON.stringify(parsedGraph.value.ccm.nodes), edges: JSON.stringify(parsedGraph.value.ccm.edges) }
+    : undefined;
+  const serializedDocumentMirrors = existingDocumentLayout?.storageLayoutVersion === 1
+    ? {
+        interfaceCatalog: JSON.stringify(canonical.value.interfaceCatalog),
+        softwareEngineeringDiagram: JSON.stringify(canonical.value.softwareEngineeringDiagram),
+        umlClassDiagram: JSON.stringify(canonical.value.umlClassDiagram),
+      }
+    : undefined;
   const tokenHash = createHash("sha256").update(claim.leaseToken, "utf8").digest("hex");
 
   try {
@@ -251,6 +268,7 @@ export async function persistCanonicalDocument(
           analysisId: true,
           schemaVersion: true,
           configurationHash: true,
+          storageLayoutVersion: true,
           canonicalContent: true,
           nodes: true,
           edges: true,
@@ -260,17 +278,18 @@ export async function persistCanonicalDocument(
         },
       });
       if (!graphBundle || graphBundle.ownerUserId !== claim.ownerUserId || graphBundle.analysisId !== claim.analysisId ||
-          graphBundle.canonicalContent === null || !graphBundleMatchesCanonical(graphBundle, parsedGraph, serializedGraphMirrors)) {
+          graphBundle.canonicalContent === null ||
+          !graphBundleMatchesCanonical(graphBundle, parsedGraph, serializedGraphMirrors)) {
         throw new Error("Graph bundle tidak konsisten dengan CKG canonical yang diberikan.");
       }
 
-      const where = { analysisId_ownerUserId: { analysisId: claim.analysisId, ownerUserId: claim.ownerUserId } };
       const existing = await tx.architectureDocument.findUnique({
         where,
         select: {
           id: true,
           ownerUserId: true,
           analysisId: true,
+          storageLayoutVersion: true,
           title: true,
           documentModelVersion: true,
           interfaceCatalog: true,
@@ -291,11 +310,12 @@ export async function persistCanonicalDocument(
           data: {
             ownerUserId: claim.ownerUserId,
             analysisId: claim.analysisId,
+            storageLayoutVersion: CANONICAL_STORAGE_LAYOUT_VERSION,
             title: canonical.value.title,
             documentModelVersion: canonical.value.schemaVersion,
-            interfaceCatalog: serializedDocumentMirrors.interfaceCatalog,
-            softwareEngineeringDiagram: serializedDocumentMirrors.softwareEngineeringDiagram,
-            umlClassDiagram: serializedDocumentMirrors.umlClassDiagram,
+            interfaceCatalog: Prisma.DbNull,
+            softwareEngineeringDiagram: Prisma.DbNull,
+            umlClassDiagram: Prisma.DbNull,
             canonicalContent: canonical.json,
             contentHash: canonical.sha256,
           },
@@ -338,6 +358,7 @@ export async function readCanonicalDocumentForUser(
           analysisId: true,
           schemaVersion: true,
           configurationHash: true,
+          storageLayoutVersion: true,
           canonicalContent: true,
           nodes: true,
           edges: true,
@@ -351,6 +372,7 @@ export async function readCanonicalDocumentForUser(
           id: true,
           ownerUserId: true,
           analysisId: true,
+          storageLayoutVersion: true,
           title: true,
           documentModelVersion: true,
           interfaceCatalog: true,
@@ -364,12 +386,20 @@ export async function readCanonicalDocumentForUser(
   });
   const row = record?.architectureDocument;
   // Pre-DOC01 documents did not retain a canonical replay payload; keep them absent to callers.
-  if (!record || !row || row.canonicalContent === null) return null;
+  if (!record || !row) return null;
+  if (row.canonicalContent === null) {
+    if (row.storageLayoutVersion === 1) return null;
+    throw new CanonicalDocumentIntegrityError();
+  }
 
   const bundle = record.graphBundle;
   if (!bundle || bundle.canonicalContent === null) throw new CanonicalDocumentIntegrityError();
   const parsedGraph = parseCanonicalCkg(bundle.canonicalContent, safeSourceBytes, bundle.contentHash);
-  if (!parsedGraph.ok || !graphBundleMatchesCanonical(bundle, parsedGraph) ||
+  if (!parsedGraph.ok) throw new CanonicalDocumentIntegrityError();
+  const legacyGraphMirrors = bundle.storageLayoutVersion === 1
+    ? { nodes: JSON.stringify(parsedGraph.value.ccm.nodes), edges: JSON.stringify(parsedGraph.value.ccm.edges) }
+    : undefined;
+  if (!graphBundleMatchesCanonical(bundle, parsedGraph, legacyGraphMirrors) ||
       bundle.ownerUserId !== ownerUserId || bundle.analysisId !== analysisId ||
       record.configurationHash !== parsedGraph.value.configurationHash ||
       record.repositoryFullNameSnapshot !== parsedGraph.value.ccm.snapshot.repository ||
@@ -385,11 +415,21 @@ export async function readCanonicalDocumentForUser(
     row.contentHash,
     bundle.contentHash,
   );
+  const legacyDocumentMirrors = row.storageLayoutVersion === 1 && parsedDocument.ok
+    ? [
+        JSON.stringify(parsedDocument.value.interfaceCatalog),
+        JSON.stringify(parsedDocument.value.softwareEngineeringDiagram),
+        JSON.stringify(parsedDocument.value.umlClassDiagram),
+      ]
+    : undefined;
   if (!parsedDocument.ok || row.ownerUserId !== ownerUserId || row.analysisId !== analysisId ||
       row.title !== parsedDocument.value.title || row.documentModelVersion !== parsedDocument.value.schemaVersion ||
-      row.interfaceCatalog !== JSON.stringify(parsedDocument.value.interfaceCatalog) ||
-      row.softwareEngineeringDiagram !== JSON.stringify(parsedDocument.value.softwareEngineeringDiagram) ||
-      row.umlClassDiagram !== JSON.stringify(parsedDocument.value.umlClassDiagram) ||
+      !storageMirrorsMatchLayout(
+        row.storageLayoutVersion,
+        row.canonicalContent,
+        [row.interfaceCatalog, row.softwareEngineeringDiagram, row.umlClassDiagram],
+        legacyDocumentMirrors,
+      ) ||
       parsedDocument.value.configurationHash !== record.configurationHash ||
       parsedDocument.value.snapshot.repository !== record.repositoryFullNameSnapshot ||
       parsedDocument.value.snapshot.branch !== record.branchName ||

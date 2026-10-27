@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
 import { CKG_SCHEMA_VERSION, canonicalizeCkg, parseCanonicalCkg } from "@sage/contracts";
 import type { CkgV1 } from "@sage/contracts";
-import type { Prisma } from "../generated/client.ts";
-import type { PrismaClient } from "../generated/client.ts";
+import { Prisma, type PrismaClient } from "../generated/client.ts";
 import { snapshotAnalysisJobClaim } from "./queue.ts";
 import type { AnalysisJobClaim } from "./queue.ts";
+import { CANONICAL_STORAGE_LAYOUT_VERSION, storageMirrorsMatchLayout } from "./storage-layout.ts";
 
 const ANALYSIS_SLOT = "analysis";
 
@@ -57,6 +57,7 @@ function bundleMatchesCanonical(
   bundle: {
     schemaVersion: string;
     configurationHash: string;
+    storageLayoutVersion: number;
     canonicalContent: string | null;
     nodes: unknown;
     edges: unknown;
@@ -65,15 +66,18 @@ function bundleMatchesCanonical(
     contentHash: string;
   },
   canonical: Extract<ReturnType<typeof canonicalizeCkg>, { ok: true }>,
+  legacySerializedMirrors?: readonly string[],
 ): boolean {
-  return bundle.schemaVersion === CKG_SCHEMA_VERSION &&
-    bundle.configurationHash === canonical.value.configurationHash &&
-    bundle.canonicalContent === canonical.json &&
-    bundle.contentHash === canonical.sha256 &&
-    bundle.nodeCount === canonical.value.counts.nodes &&
-    bundle.edgeCount === canonical.value.counts.edges &&
-    bundle.nodes === JSON.stringify(canonical.value.ccm.nodes) &&
-    bundle.edges === JSON.stringify(canonical.value.ccm.edges);
+  if (bundle.schemaVersion !== CKG_SCHEMA_VERSION ||
+      bundle.configurationHash !== canonical.value.configurationHash ||
+      bundle.canonicalContent !== canonical.json || bundle.contentHash !== canonical.sha256 ||
+      bundle.nodeCount !== canonical.value.counts.nodes || bundle.edgeCount !== canonical.value.counts.edges) return false;
+  return storageMirrorsMatchLayout(
+    bundle.storageLayoutVersion,
+    bundle.canonicalContent,
+    [bundle.nodes, bundle.edges],
+    legacySerializedMirrors,
+  );
 }
 
 export class CanonicalGraphIntegrityError extends Error {
@@ -98,11 +102,13 @@ export async function persistCanonicalGraph(
   const canonical = canonicalizeCkg(input.ccm, input.sourceBytes, input.configurationHash);
   if (!canonical.ok) throw new Error("CCM tidak valid untuk persistensi CKG.");
   const graph = canonical.value;
-  // JSONB rejects decoded NUL and lone surrogates. Store each canonical array as a JSON
-  // string value so escaped source codepoints survive losslessly; canonicalContent remains
-  // authoritative. This encoding is part of the new sage-ckg-v1 storage contract.
-  const serializedNodes = JSON.stringify(graph.ccm.nodes);
-  const serializedEdges = JSON.stringify(graph.ccm.edges);
+  const where = { analysisId_ownerUserId: { analysisId: claim.analysisId, ownerUserId: claim.ownerUserId } };
+  const existingLayout = await db.graphBundle.findUnique({ where, select: { storageLayoutVersion: true } });
+  // Legacy replay needs the historical string mirrors. Build them before acquiring
+  // the lease lock; v2 writes and replays never serialize those large arrays.
+  const legacySerializedMirrors = existingLayout?.storageLayoutVersion === 1
+    ? [JSON.stringify(graph.ccm.nodes), JSON.stringify(graph.ccm.edges)]
+    : undefined;
 
   const tokenHash = createHash("sha256").update(claim.leaseToken, "utf8").digest("hex");
   try {
@@ -140,11 +146,10 @@ export async function persistCanonicalGraph(
         throw new Error("CKG hanya dapat disimpan pada tahap graph yang aktif.");
       }
 
-      const where = { analysisId_ownerUserId: { analysisId: claim.analysisId, ownerUserId: claim.ownerUserId } };
       const existing = await tx.graphBundle.findUnique({ where });
       let result: { id: string; contentHash: string };
       if (existing) {
-        if (!bundleMatchesCanonical(existing, canonical)) {
+        if (!bundleMatchesCanonical(existing, canonical, legacySerializedMirrors)) {
           throw new Error("CKG analisis bersifat immutable dan tidak cocok dengan hasil tersimpan.");
         }
         result = { id: existing.id, contentHash: existing.contentHash };
@@ -155,9 +160,10 @@ export async function persistCanonicalGraph(
             analysisId: claim.analysisId,
             schemaVersion: CKG_SCHEMA_VERSION,
             configurationHash: graph.configurationHash,
+            storageLayoutVersion: CANONICAL_STORAGE_LAYOUT_VERSION,
             canonicalContent: canonical.json,
-            nodes: serializedNodes,
-            edges: serializedEdges,
+            nodes: Prisma.DbNull,
+            edges: Prisma.DbNull,
             nodeCount: graph.counts.nodes,
             edgeCount: graph.counts.edges,
             contentHash: canonical.sha256,
@@ -203,6 +209,7 @@ export async function readCanonicalGraphForUser(
           id: true,
           schemaVersion: true,
           configurationHash: true,
+          storageLayoutVersion: true,
           canonicalContent: true,
           nodes: true,
           edges: true,
@@ -214,9 +221,16 @@ export async function readCanonicalGraphForUser(
     },
   });
   const bundle = record?.graphBundle;
-  if (!bundle || bundle.canonicalContent === null) return null;
+  if (!bundle) return null;
+  if (bundle.canonicalContent === null) {
+    if (bundle.storageLayoutVersion === 1) return null;
+    throw new CanonicalGraphIntegrityError();
+  }
   const parsed = parseCanonicalCkg(bundle.canonicalContent, safeSourceBytes, bundle.contentHash);
-  if (!parsed.ok || !bundleMatchesCanonical(bundle, parsed) ||
+  const legacySerializedMirrors = bundle.storageLayoutVersion === 1 && parsed.ok
+    ? [JSON.stringify(parsed.value.ccm.nodes), JSON.stringify(parsed.value.ccm.edges)]
+    : undefined;
+  if (!parsed.ok || !bundleMatchesCanonical(bundle, parsed, legacySerializedMirrors) ||
       record.configurationHash !== parsed.value.configurationHash ||
       record.repositoryFullNameSnapshot !== parsed.value.ccm.snapshot.repository ||
       record.branchName !== parsed.value.ccm.snapshot.branch ||

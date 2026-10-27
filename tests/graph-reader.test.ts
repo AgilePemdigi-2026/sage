@@ -53,6 +53,7 @@ async function publishedFixture(options: { corruptMirror?: boolean; missingBundl
     id: "graph-bundle-17",
     schemaVersion: canonical.value.schemaVersion,
     configurationHash,
+    storageLayoutVersion: 1,
     canonicalContent: canonical.json,
     nodes: options.corruptMirror ? [] : JSON.stringify(canonical.value.ccm.nodes),
     edges: JSON.stringify(canonical.value.ccm.edges),
