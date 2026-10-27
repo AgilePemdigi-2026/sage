@@ -91,6 +91,8 @@ docker compose config --quiet
 
 Sudah punya repository-nya? Masuk ke folder `sage` dan mulai dari command setup. Script membuat `.env` privat dengan password PostgreSQL dan key enkripsi acak. Jika `.env` sudah ada, nilai lama dipertahankan dan key yang belum tersedia ditambahkan. Tidak perlu menyalin placeholder `.env.example`.
 
+PDF hasil analisis menyajikan katalog ringkas dan satu diagram vektor utuh per halaman A4. Markdown menyimpan detail penuh, termasuk ID, atribut, dan evidence. Tampilan interaktif memakai nama simbol dan lokasi source. Lihat [aturan penyajian dokumen](docs/DOCUMENT_PRESENTATION.md).
+
 ### 2. Build lalu start aplikasi
 
 ```sh
