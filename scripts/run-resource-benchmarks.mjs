@@ -200,6 +200,25 @@ function classifyExecError(error, fallback) {
   return error?.killed || error?.code === "ETIMEDOUT" ? "CONTAINER_DEADLINE_EXCEEDED" : fallback;
 }
 
+/** Docker attach exits nonzero for a legitimate failed workload; keep the domain failure. */
+export function resolveSampleFailure(current, workloadFailure, exitCode, oomKilled) {
+  if (oomKilled) return "CONTAINER_OOM_KILLED";
+  if (current !== null && !["CONTAINER_EXECUTION_FAILED", "CONTAINER_EXIT_INVALID"].includes(current)) return current;
+  if (workloadFailure !== null) return workloadFailure;
+  if (exitCode !== 0) return "CONTAINER_EXIT_INVALID";
+  return current;
+}
+
+/** A timed-out create may already have created the container on the daemon. */
+export async function cleanupSampleContainer(name, invokeDocker = docker) {
+  try {
+    await invokeDocker(["rm", "--force", name]);
+    return true;
+  } catch (error) {
+    return /No such (?:container|object):/i.test(String(error?.stderr ?? ""));
+  }
+}
+
 /** One fresh offline cgroup per sample; docker rm --force runs after every attempted create. */
 async function measure(options, corpus, iteration, runtimeImageId, preflightFailure = null) {
   const name = `sage-resource-${randomUUID()}`;
@@ -261,22 +280,15 @@ async function measure(options, corpus, iteration, runtimeImageId, preflightFail
       const checked = validateWorkloadPayload(payload, corpus.manifestId, corpus.language);
       if (checked.valid) {
         record.result = checked.result;
-        if (record.oomKilled) record.failureCode = "CONTAINER_OOM_KILLED";
-        else if (record.failureCode === null || record.failureCode === "CONTAINER_EXIT_INVALID") {
-          record.failureCode = checked.failureCode ?? (record.containerExitCode !== 0 ? "CONTAINER_EXIT_INVALID" : null);
-        }
+        record.failureCode = resolveSampleFailure(record.failureCode, checked.failureCode, record.containerExitCode, record.oomKilled);
       } else {
         record.failureCode ??= checked.failureCode;
       }
     }
   } finally {
-    if (created) {
-      try {
-        await docker(["rm", "--force", name]);
-      } catch {
-        record.cleanupFailure = true;
-        record.failureCode ??= "CONTAINER_CLEANUP_FAILED";
-      }
+    if (!(await cleanupSampleContainer(name))) {
+      record.cleanupFailure = true;
+      record.failureCode ??= "CONTAINER_CLEANUP_FAILED";
     }
   }
   return record;

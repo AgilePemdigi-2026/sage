@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 import test from "node:test";
 import { loadBenchmarkInput } from "../scripts/benchmark-repository.ts";
 import type { ResourceWorkloadResult } from "../scripts/benchmark-resource-workload.ts";
-import { parseArguments, RESOURCE_CASES, validateWorkloadPayload } from "../scripts/run-resource-benchmarks.mjs";
+import { cleanupSampleContainer, resolveSampleFailure, parseArguments, RESOURCE_CASES, validateWorkloadPayload } from "../scripts/run-resource-benchmarks.mjs";
 
 const project = resolve(new URL("../", import.meta.url).pathname);
 const cpu = { usage_usec: 1_000, user_usec: 750, system_usec: 250, nr_periods: 4, nr_throttled: 1, throttled_usec: 20 };
@@ -108,7 +108,7 @@ test("expected stage failures remain valid failed-sample evidence", () => {
   const failure = completePayload();
   failure.status = "FAILED";
   failure.stageTimingsMs.pdfRender = 12;
-  failure.coreElapsedMs = Object.values(failure.stageTimingsMs).reduce((sum, value) => sum + value, 0);
+  failure.coreElapsedMs = Object.values(failure.stageTimingsMs).reduce<number>((sum, value) => sum + (value ?? 0), 0);
   failure.metrics.pdfSha256 = null;
   failure.metrics.pdfBytes = null;
   failure.failureStage = "pdfRender";
@@ -121,4 +121,21 @@ test("expected stage failures remain valid failed-sample evidence", () => {
   const invalidFailure = { ...failure, stageTimingsMs: { ...failure.stageTimingsMs, markdownRender: null } };
   invalidFailure.coreElapsedMs = Object.values(invalidFailure.stageTimingsMs).reduce<number>((sum, value) => sum + (value ?? 0), 0);
   assert.equal(validateWorkloadPayload(invalidFailure, "resource-small-ts", "javascript").failureCode, "BENCHMARK_FAILURE_EVIDENCE_INVALID");
+});
+
+
+test("a nonzero Docker attach retains workload failures while deadline and OOM take precedence", () => {
+  assert.equal(resolveSampleFailure("CONTAINER_EXECUTION_FAILED", "PDF_DOCUMENT_LIMIT_EXCEEDED", 1, false), "PDF_DOCUMENT_LIMIT_EXCEEDED");
+  assert.equal(resolveSampleFailure("CONTAINER_DEADLINE_EXCEEDED", "PDF_RENDER_FAILED", 1, false), "CONTAINER_DEADLINE_EXCEEDED");
+  assert.equal(resolveSampleFailure(null, "PDF_RENDER_FAILED", 137, true), "CONTAINER_OOM_KILLED");
+  assert.equal(resolveSampleFailure("CONTAINER_EXECUTION_FAILED", null, 1, false), "CONTAINER_EXIT_INVALID");
+});
+
+test("cleanup removes a named container after an interrupted create and tolerates confirmed absence", async () => {
+  const calls: string[][] = [];
+  const invoke = async (args: string[]) => { calls.push(args); return {}; };
+  assert.equal(await cleanupSampleContainer("sage-resource-owned", invoke), true);
+  assert.deepEqual(calls, [["rm", "--force", "sage-resource-owned"]]);
+  assert.equal(await cleanupSampleContainer("sage-resource-owned", async () => { throw { stderr: "Error response from daemon: No such container: sage-resource-owned" }; }), true);
+  assert.equal(await cleanupSampleContainer("sage-resource-owned", async () => { throw { stderr: "daemon unavailable" }; }), false);
 });
