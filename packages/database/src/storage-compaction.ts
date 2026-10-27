@@ -140,11 +140,17 @@ export async function compactAnalysisStorage(db: PrismaClient, analysisId: strin
       if (!inspection.graphs && !inspection.documents) return { status: "unchanged", reason: null, ...inspection };
       if (!options.apply) return { status: "eligible", reason: null, ...inspection };
       if (graph && inspection.graphs) await tx.graphBundle.update({
-        where, data: { storageLayoutVersion: 2, nodes: Prisma.DbNull, edges: Prisma.DbNull },
+        where, data: { storageLayoutVersion: 2, nodes: Prisma.DbNull, edges: Prisma.DbNull, updatedAt: graph.updatedAt },
         select: { id: true },
       });
       if (document && inspection.documents) await tx.architectureDocument.update({
-        where, data: { storageLayoutVersion: 2, interfaceCatalog: Prisma.DbNull, softwareEngineeringDiagram: Prisma.DbNull, umlClassDiagram: Prisma.DbNull },
+        where, data: {
+          storageLayoutVersion: 2,
+          interfaceCatalog: Prisma.DbNull,
+          softwareEngineeringDiagram: Prisma.DbNull,
+          umlClassDiagram: Prisma.DbNull,
+          updatedAt: document.updatedAt,
+        },
         select: { id: true },
       });
       return { status: "compacted", reason: null, ...inspection };

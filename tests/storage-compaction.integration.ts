@@ -223,6 +223,10 @@ test("canonical storage compaction audits, compacts atomically, and preserves ca
       document: happy.document.contentHash,
       result: happy.resultHash,
     };
+    const originalUpdatedAt = {
+      graph: happy.graph.updatedAt,
+      document: happy.document.updatedAt,
+    };
     const beforeRead = await readCanonicalDocumentForUser(db, owner.id, happy.analysis.id, happy.sourceBytes);
     assert.ok(beforeRead);
     const markdownBefore = renderMarkdownDocument(beforeRead.document);
@@ -253,6 +257,8 @@ test("canonical storage compaction audits, compacts atomically, and preserves ca
     assert.equal(after.graph.contentHash, originalHashes.graph);
     assert.equal(after.document.contentHash, originalHashes.document);
     assert.equal(after.analysis.resultHash, originalHashes.result);
+    assert.equal(after.graph.updatedAt.getTime(), originalUpdatedAt.graph.getTime());
+    assert.equal(after.document.updatedAt.getTime(), originalUpdatedAt.document.getTime());
     assert.equal(after.graph.canonicalContent, happy.canonicalGraph.json);
     assert.equal(after.document.canonicalContent, happy.canonicalDocument.json);
 
@@ -325,6 +331,8 @@ test("canonical storage compaction audits, compacts atomically, and preserves ca
     assert.equal(cliAfterApply.document.storageLayoutVersion, 2);
     assert.equal(cliAfterApply.graph.contentHash, cliFixture.graph.contentHash);
     assert.equal(cliAfterApply.document.contentHash, cliFixture.document.contentHash);
+    assert.equal(cliAfterApply.graph.updatedAt.getTime(), cliFixture.graph.updatedAt.getTime());
+    assert.equal(cliAfterApply.document.updatedAt.getTime(), cliFixture.document.updatedAt.getTime());
 
     const cliRerun = await runMaintenanceCli([...cliArgs, "--apply"], cliEnv);
     assert.equal(cliRerun.exitCode, 0, "CLI apply rerun succeeds");
