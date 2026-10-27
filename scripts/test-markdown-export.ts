@@ -841,9 +841,9 @@ async function runLiveMarkdownExportRegression(): Promise<void> {
     });
     assert.ok(invalidBody.status() >= 400 && invalidBody.status() < 500, "unknown JSON fields must be rejected");
     const invalidFormat: APIResponse = await api.post(exportCollectionPath(base, success.analysisId), {
-      headers: postHeaders(owner, parsedBase.origin), data: { format: "PDF" },
+      headers: postHeaders(owner, parsedBase.origin), data: { format: "HTML" },
     });
-    assert.ok(invalidFormat.status() >= 400 && invalidFormat.status() < 500, "format other than Markdown must be rejected by this endpoint");
+    assert.ok(invalidFormat.status() >= 400 && invalidFormat.status() < 500, "unknown export format must be rejected by this endpoint");
     const noAuth: APIResponse = await api.post(exportCollectionPath(base, success.analysisId), {
       headers: { Origin: parsedBase.origin, "Content-Type": "application/json" }, data: { format: "MARKDOWN" },
     });
@@ -993,7 +993,7 @@ async function runLiveMarkdownExportRegression(): Promise<void> {
     releaseDelayedPost();
     await delayedPostPage.getByRole("alert").filter({ hasText: "Analisis tidak ditemukan." }).waitFor();
     assert.equal(await delayedPostPage.getByRole("button", { name: "Unduh Markdown", exact: true }).count(), 0);
-    assert.equal(await delayedPostPage.getByRole("button", { name: "Coba ekspor lagi", exact: true }).count(), 0);
+    assert.equal(await delayedPostPage.getByRole("button", { name: "Coba ekspor Markdown lagi", exact: true }).count(), 0);
     const delayedPostText = await delayedPostPage.locator("body").innerText();
     assert.ok(!delayedPostText.includes("MarkdownExportService"));
     assert.ok(!delayedPostText.includes(success.documentHash));
@@ -1068,8 +1068,8 @@ async function runLiveMarkdownExportRegression(): Promise<void> {
       await waitForBlockerRecovery(db, secondBlocker);
       const failed = await waitForExportStatus(api, base, recovery.analysisId, recoveryExportId, owner, "FAILED");
       assert.equal(failed.export.errorCode, "EXPORT_FAILED", "real worker must report safe source-integrity failure");
-      await recoveryPage.getByRole("alert").filter({ hasText: "Ekspor gagal (EXPORT_FAILED)." }).waitFor();
-      await recoveryPage.getByRole("button", { name: "Coba ekspor lagi", exact: true }).waitFor();
+      await recoveryPage.getByRole("alert").filter({ hasText: "Ekspor Markdown belum berhasil. Anda dapat mencoba lagi." }).waitFor();
+      await recoveryPage.getByRole("button", { name: "Coba ekspor Markdown lagi", exact: true }).waitFor();
       await recoveryPage.screenshot({ path: join(resultDir, "export-20-390-failed.png"), fullPage: true });
       screenshots.push("export-20-390-failed.png");
     } finally {
@@ -1079,7 +1079,7 @@ async function runLiveMarkdownExportRegression(): Promise<void> {
 
     const retryPath = new URL(exportRetryPath(base, recovery.analysisId, recoveryExportId)).pathname;
     const retryResponsePromise: Promise<BrowserResponse> = waitForApiResponse(recoveryPage, retryPath, "POST");
-    await recoveryPage.getByRole("button", { name: "Coba ekspor lagi", exact: true }).click();
+    await recoveryPage.getByRole("button", { name: "Coba ekspor Markdown lagi", exact: true }).click();
     const retryResponse: BrowserResponse = await retryResponsePromise;
     assert.ok(retryResponse.status() >= 200 && retryResponse.status() < 300, "real UI retry button must call retry endpoint");
     const retryData = parseExportData(await readJson(retryResponse));
