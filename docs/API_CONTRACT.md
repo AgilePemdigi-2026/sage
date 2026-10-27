@@ -146,7 +146,7 @@ Ukuran pagination, interval polling, TTL idempotency, resource limits, masa berl
 
 `GET /api/analyses/{analysisId}/document` tidak menerima query parameter. Envelope `{ data: { analysisId, accountKey, contentHash, document } }` membawa `sage-add-v1` lengkap dari canonical CKG dan archive ACTIVE terbaru yang terikat owner/analysis, diurutkan createdAt/id. Source bytes, storage key dan kredensial tidak dikirim. Owner/status diperiksa sebelum akses storage; parent target/config serta hash/mirror graph dan dokumen diperiksa ulang.
 
-ID/query invalid menghasilkan 400 `INVALID_INPUT`; session atau `X-SAGE-Account` tidak cocok menghasilkan 401 `AUTH_REQUIRED`; missing/foreign 404 `ANALYSIS_NOT_FOUND`; milik sendiri belum sukses 409 `RESULT_NOT_READY`; hasil terminal hilang/rusak 503 `DOCUMENT_UNAVAILABLE` generik. Respons memakai `Cache-Control: private, no-store`, `Vary: Cookie, X-SAGE-Account`, serta `X-Content-Type-Options: nosniff`. Halaman dokumen memeriksa ulang identitas dan membuang respons lama setelah pergantian akun. Endpoint ini tidak menyediakan download/ekspor #20/#21 atau menerbitkan status terminal #16.
+ID/query invalid menghasilkan 400 `INVALID_INPUT`; session atau `X-SAGE-Account` tidak cocok menghasilkan 401 `AUTH_REQUIRED`; missing/foreign 404 `ANALYSIS_NOT_FOUND`; milik sendiri belum sukses 409 `RESULT_NOT_READY`; hasil terminal hilang/rusak 503 `DOCUMENT_UNAVAILABLE` generik. Respons memakai `Cache-Control: private, no-store`, `Vary: Cookie, X-SAGE-Account`, serta `X-Content-Type-Options: nosniff`. Halaman dokumen memeriksa ulang identitas dan membuang respons lama setelah pergantian akun. Endpoint JSON dokumen ini tidak mengunduh file; ekspor tersedia melalui endpoint terpisah EXP-01/EXP-02. Publikasi terminal dilakukan oleh pipeline ANA-07.
 
 ## Pembacaan inspector dan source GRAPH-03
 
@@ -162,7 +162,7 @@ Endpoint terpisah `/nodes/{nodeId}/relations` pada tabel rancangan belum diimple
 
 ## Ekspor Markdown EXP-01 yang tersedia
 
-`POST /api/analyses/{analysisId}/exports` menerima JSON tepat `{ "format": "MARKDOWN" }`. Format lain menghasilkan 422 `EXPORT_FORMAT_UNSUPPORTED`; PDF mengikuti #21. Request baru menghasilkan 202, request yang sudah ada untuk owner/analysis/document hash/renderer yang sama menghasilkan 200. Body tidak menerima owner, path storage atau hash dokumen dari pengguna. Hash diambil dari ADD canonical yang diverifikasi ulang.
+`POST /api/analyses/{analysisId}/exports` menerima JSON tepat `{ "format": "MARKDOWN" }`. Format selain `MARKDOWN` atau `PDF` menghasilkan 422 `EXPORT_FORMAT_UNSUPPORTED`; dukungan PDF dijelaskan pada bagian EXP-02. Request baru menghasilkan 202, request yang sudah ada untuk owner/analysis/document hash/renderer yang sama menghasilkan 200. Body tidak menerima owner, path storage atau hash dokumen dari pengguna. Hash diambil dari ADD canonical yang diverifikasi ulang.
 
 `GET /api/analyses/{analysisId}/exports/{exportId}` membaca status. Ketiga operasi status/create/retry mengembalikan `{ data: { analysisId, accountKey, export: { id, format, status, documentHash, rendererVersion, contentHash, errorCode } } }`; `status` adalah QUEUED/GENERATING/READY/FAILED. READY memiliki contentHash SHA-256, sedangkan detail path storage tidak dikirim.
 
@@ -171,3 +171,11 @@ Endpoint terpisah `/nodes/{nodeId}/relations` pada tabel rancangan belum diimple
 `GET /api/analyses/{analysisId}/exports/{exportId}/download` mengirim attachment `text/markdown; charset=utf-8` sesudah ownership, status READY, metadata storage, ukuran dan checksum file diverifikasi. File maksimum 32 MiB; renderer yang melebihi batas gagal dengan `EXPORT_TOO_LARGE`. Tidak ada parameter query pada endpoint ekspor. POST wajib Origin tepercaya serta JSON berbatas ukuran. Semua respons memakai private/no-store, Vary Cookie/X-SAGE-Account dan nosniff. Session/akun berubah menghasilkan 401, missing/foreign export 404, unduhan belum siap 409, gangguan storage/integritas 503 aman. Browser mengikat status pada analysis/account/document hash dan memeriksa session sesudah menerima body unduhan sebelum membuat Blob URL.
 
 Worker ekspor memakai slot `export` dengan lease terpisah dari antrean analisis. Kegagalan atau retry ekspor tidak memublikasikan ulang graph/ADD dan tidak mengubah result hash analisis. Bukti aktual serta batas integrasi: [EXP-01_CHECKS](EXP-01_CHECKS.md).
+
+## Ekspor PDF EXP-02
+
+Collection endpoint yang sama menerima JSON tepat `{ "format": "PDF" }`. Envelope, status/retry, ownership, CSRF dan account binding sama dengan Markdown; field `export.format` menyatakan format dan diikat kembali oleh UI. Kunci deduplikasi mencakup format serta rendererVersion sehingga PDF dan Markdown dari documentHash sama memiliki record/job masing-masing. Retry mempertahankan format/dokumen/version; tidak menjalankan analisis ulang.
+
+Download PDF memakai `Content-Type: application/pdf`, attachment `.pdf` dan header privat yang sama. Path internal harus berakhiran `document.pdf` sesuai format record; ukuran/checksum diverifikasi, dan worker menolak byte yang bukan PDF sebelum READY. Batas file tetap 32 MiB. Renderer PDF menjalankan Mermaid dan Chromium lokal dengan request jaringan diblokir, HTML/SVG tervalidasi, batas waktu serta budget diagram/halaman. Diagram yang terlalu besar bagi satu halaman memakai overview dan detail bertumpang tindih; renderer menolak kasus melewati budget tanpa memangkas fakta.
+
+Retry menjaga isi canonical dan semantic result. Checksum mengikat file READY yang diunduh; metadata internal PDF bukan kontrak identitas byte antar-render. Rincian bukti/layout: [EXP-02_CHECKS](EXP-02_CHECKS.md).

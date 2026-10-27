@@ -1,0 +1,241 @@
+{
+  "date": "2026-10-27",
+  "verifiedContentCommit": "dc2a068f10c81c97e74013d4208ab67866e1d46f",
+  "status": "PASS",
+  "mainTests": 331,
+  "dataTests": 8,
+  "focusedExportTests": 20,
+  "databaseIntegrationTests": 2,
+  "pdfBrowserApiGroups": 14,
+  "markdownRegressionGroups": 20,
+  "browser": {
+    "offOriginRequests": 0,
+    "providerRequests": 0,
+    "pageErrors": []
+  },
+  "viewports": [
+    390,
+    1440
+  ],
+  "reportPath": "artifacts/pdf-21/2026-10-27-run4/report.json",
+  "reportSha256": "e67d42f6989533726a4c88a069b6e0fe3ee0d2532421c359a11c724e43582550",
+  "markdownReportSha256": "1b4149ea892b799be9d77a3c7db00380e5de1eed2030ca3e032e79432c98faa1",
+  "pdf": {
+    "exportId": "cmvq7psvi0000vlnt0l6c8pgw",
+    "rendererVersion": "1.0.0",
+    "sha256": "5d371676c8be4cf25126e29e9e87d81ff583790a5dd9c67cf335184f482af6e8",
+    "byteLength": 326826,
+    "contentType": "application/pdf",
+    "signature": "%PDF-",
+    "browserFiles": [
+      "sage-pdf21-browser-390.pdf",
+      "sage-pdf21-browser-1440.pdf",
+      "sage-pdf21-browser-retry.pdf"
+    ]
+  },
+  "textInspection": {
+    "status": "PASS",
+    "pages": 39,
+    "pageSizesPt": [
+      [
+        842.88,
+        595.91998
+      ]
+    ],
+    "checks": {
+      "metadata": {
+        "expected": 7,
+        "matched": 7
+      },
+      "nodeIds": {
+        "expected": 20,
+        "matched": 20
+      },
+      "nodeNames": {
+        "expected": 38,
+        "matched": 38
+      },
+      "nodeSignatures": {
+        "expected": 6,
+        "matched": 6
+      },
+      "nodeAttributes": {
+        "expected": 7,
+        "matched": 7
+      },
+      "edgeIds": {
+        "expected": 27,
+        "matched": 27
+      },
+      "relationFields": {
+        "expected": 10,
+        "matched": 10
+      },
+      "files": {
+        "expected": 6,
+        "matched": 6
+      },
+      "evidence": {
+        "expected": 89,
+        "matched": 89
+      },
+      "limitations": {
+        "expected": 3,
+        "matched": 3
+      },
+      "sections": {
+        "expected": 4,
+        "matched": 4
+      }
+    },
+    "missing": [],
+    "sha256": "5d371676c8be4cf25126e29e9e87d81ff583790a5dd9c67cf335184f482af6e8",
+    "bytes": 326826,
+    "allPagesHeaderFooter": true,
+    "canariesAbsent": true,
+    "replacementGlyphAbsent": true,
+    "retryCanonicalTextMatches": true,
+    "visualReview": "PASS"
+  },
+  "visualReview": {
+    "pages": 39,
+    "renderedEveryPage": true,
+    "popplerDpi": 90,
+    "unchangedReviewedPages": [
+      "page-01.png",
+      "page-02.png",
+      "page-03.png",
+      "page-04.png",
+      "page-05.png",
+      "page-06.png",
+      "page-07.png",
+      "page-08.png",
+      "page-09.png",
+      "page-10.png",
+      "page-11.png",
+      "page-12.png",
+      "page-13.png",
+      "page-14.png",
+      "page-15.png",
+      "page-16.png",
+      "page-17.png",
+      "page-18.png",
+      "page-19.png",
+      "page-21.png",
+      "page-22.png",
+      "page-23.png",
+      "page-24.png",
+      "page-25.png",
+      "page-26.png",
+      "page-29.png",
+      "page-30.png",
+      "page-31.png",
+      "page-32.png",
+      "page-33.png",
+      "page-34.png",
+      "page-38.png",
+      "page-39.png"
+    ],
+    "reinspectedChangedPages": [
+      "page-20.png",
+      "page-27.png",
+      "page-28.png",
+      "page-35.png",
+      "page-36.png",
+      "page-37.png"
+    ],
+    "pngHashes": {
+      "page-01.png": "1f951a6b385813937fc40c5dc4259c2ddb039f70e33c48443add997772fad47b",
+      "page-02.png": "8f2ddaf4309cd1502a39103939cd11869c41a332a5bfe81269946384a914da99",
+      "page-03.png": "943591e862c0ba65b2cf175b0709f48f4956706fa69cf506f932fe767ea2b11e",
+      "page-04.png": "316c33a7781a51293da13c5c4b744368f43b6ae75af5d2b1033b05ef301eb59d",
+      "page-05.png": "35e466623c7a7b40b26591e879f26a83b6f1feb3e5cdc0d9f186f416573d0c0d",
+      "page-06.png": "c474f7b96c283e7884b9160682b17e6205c7e61d7991273f3e4b6f32e7cf7b62",
+      "page-07.png": "4659e45928e79b2df35c470a1d3f108ce61eda187c6dcb0f7aa2e24b90f8a5e2",
+      "page-08.png": "50231c768bed120d1acc8afcc0fb8f96500e089ec6c23d9f3c16dfc9652960e5",
+      "page-09.png": "3945bc147e709c41c8ed8c5ab5bc2dc8ed4347a622fdcf8701b5bf15a6bfc5b7",
+      "page-10.png": "ac4b759d003128802eee8001e14bfe1d2290c4482b58d480d0f84c3b00cca9ca",
+      "page-11.png": "aca7f512300b910d1fed406c417ff75f2868cdd504eb9b5fecafe98065c986f3",
+      "page-12.png": "fc4eb166657b1f29401edffab268814083f4dd3a806e925b420e221e9bb65bc4",
+      "page-13.png": "a807cdb0d04180a29abd4517d408e48e64a15a268552ad1d6fae9f240b97a03c",
+      "page-14.png": "4e3373318e15f6a165a55ef0f5e3ad48380d262f1a2d161cbf5d0657126e90a3",
+      "page-15.png": "dd900ba066f1cc821b711e6ac2d08bb38121ae051ff12f03deead237a4cde847",
+      "page-16.png": "3392e62fd06460752605c59ffc8a158e2c5cb0c435e96d30346cbc42da9fec9d",
+      "page-17.png": "cdc95b96d37d64d197d51ee7e22c1b65342be76053e9f30896528e29330d501b",
+      "page-18.png": "6ec9d473b6a9815c8a00bd122565924d1f5cf95e62644cbb107efee0a91c0975",
+      "page-19.png": "ec06228f79e4bb8421869cbe806fcacdc3e7e3c0a0064025c71b77b0846816c6",
+      "page-20.png": "7991466f4520fa3232bb360d900f05de9f4e80b9217771cd5f43e6109d3ffe22",
+      "page-21.png": "7f30376cc64d0a804fd06aa1a609693e838f9a582525f56a31606a3dac26a673",
+      "page-22.png": "3018b33c89955b7bbcf7516e7cf01f5d6082737780280577568fac160e0c8b71",
+      "page-23.png": "cbcf8c6057399a07efa77936e1eaeabb7cbc3dd917444a3f525938f90598a682",
+      "page-24.png": "6f2090dfec030f7f0c34df5e50b515558b6c32e40c8d35c597e635b2afa46e6b",
+      "page-25.png": "2ff5db41e717ba64c8ff6bc25f64717513777b62665d744ffd9f5b0b13fd8fc2",
+      "page-26.png": "8c92b869975c08e29140ccfccd471ec492b1b90c32aa944e8fa0464e041a8bcc",
+      "page-27.png": "c2e6af49600845915dca393d5bd1208ef99478b4428d153045bb9f8a193cd091",
+      "page-28.png": "032d9a98ef8aad4cbef5eefd7126bd2c76ea1f0050baa4e04fa5739f1c268c72",
+      "page-29.png": "89ba7805bf6cb3ed9396711c5c60d3a273cef5d86bb6dda79e3e3c77aca8fda7",
+      "page-30.png": "5ceb2e6fed4ea99501cd41b6ec7e4a3c6827e8c47a493edee1b7349ec24fdbaa",
+      "page-31.png": "36c683fe5e6348c1515a2fb5207a8317b82d2fc6c51c5ae4ef06ecad4a551d0a",
+      "page-32.png": "c6ba758817ca538f771aee9fc9763fa7743ae2dcfde65e48d9e56c06461352c9",
+      "page-33.png": "3004040a825d8dd77fe68e2ebde2f521f5cc4d1c4875346ce663140d8bfe947e",
+      "page-34.png": "953ded846068dd401e638c9aa8f80735576eb3ec69a8d91e8ab5726482ad8afd",
+      "page-35.png": "183c161267bc911bf736660794fed7a01f00cc9b1b59b1574bafe798902d1504",
+      "page-36.png": "4689eea653cef84bfafc646d8ae216c75c4615f91b882532a1f95abbc041dcc2",
+      "page-37.png": "17ff3b895ebc0a0ce1d9f2415afd34b99bf5aa80da7f251c88bb29985fe2853a",
+      "page-38.png": "830dbf8eac58c27c1785184f8b41d485641289b5f9a0ccbb5af9c9b0f5d93cf3",
+      "page-39.png": "f0b6b8717222b479be0d060af969b60a632591458a451ea2c7aedfba1e75b652"
+    },
+    "grayRectangleFixed": true,
+    "intentionalTiling": "Large diagrams have complete overview plus overlapping native-scale detail tiles; tile-edge cropping is intentional and neighbors continue the diagram."
+  },
+  "build": "Final production Next build passed in the QA container after full main/data tests. Final renderer/test sources mounted read-only over the built QA image. Web static assets recopied before running the production server.",
+  "qaBaseImage": "sha256:d104f4a38cd232cfd974701bbb96c6e1e74c9c2c99a49d5a370feee0e98f87f2",
+  "mountedSourceFiles": [
+    "packages/documents/src/pdf.ts",
+    "tests/pdf-export.test.ts",
+    "tests/pdf-exports.integration.ts"
+  ],
+  "workerProductionDependenciesImport": "PASS",
+  "failureInjection": {
+    "actualFailureCode": "EXPORT_FAILED",
+    "injectedFault": "After the real PDF POST queued behind a test-only lease, changed only the source archive StorageObject.sha256. Production lease recovery and the real worker produced EXPORT_FAILED; the original archive checksum was restored before POST retry."
+  },
+  "canonicalDocument": {
+    "file": "expected-document.json",
+    "canonicalDocumentHash": "17fc342238612f89cec98982eb195beb5c8c536856508bb258a0bae1d80e7ff0",
+    "canonicalDocumentJsonSha256": "17fc342238612f89cec98982eb195beb5c8c536856508bb258a0bae1d80e7ff0",
+    "canonicalCkgHash": "4dc88751ba4bb4663c3ba057119cc9ac14e5fd0c57b211dca57a3e9b109eb884",
+    "repository": "sage-pdf21/export-fixture",
+    "branch": "feature/pdf-21",
+    "commitSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "nodeCount": 20,
+    "edgeCount": 27,
+    "title": "Architecture Definition Document",
+    "limitationCount": 5
+  },
+  "maxPdfBytes": 33554432,
+  "scope": "Actual production Next/Postgres/worker export from directly seeded analyzer-produced terminal fixture; not live OAuth or a fresh nine-stage analysis. Timing gates, archive checksum fault, and delayed response are controlled test cases.",
+  "fileSha256": {
+    "apps/web/components/live-document/export-data.ts": "c1ea2a736f5660bb45ed8cd4aa4962e428de4a0e0d7f1fcc1e7362aa08b0c837",
+    "apps/web/components/live-document/live-document-client.tsx": "b28ebbc2cff4104f7caff34945f3db23d4506eae4c794edbe087cac90fdb09bf",
+    "apps/web/components/live-document/live-document.module.css": "338e0fc5179bb5fc195007d09ee148f8dbb7b966f7b49f33eb0ee4ac79787c59",
+    "apps/web/components/live-document/markdown-export.tsx": "875ad96ae3c649a07c3c18ec4e3e847b9c780c686f5a3834f704ac0bc4a616bb",
+    "apps/web/lib/exports/handlers.ts": "ef098619ee14928a57dbaa29965c118e2b9185f71fd69995e7a9e83f333b2b12",
+    "apps/web/lib/exports/reader.ts": "3f672cf3e438be8bea0444befdc997f4dec9703c8d7d9ab41d4c287d347b4449",
+    "apps/web/lib/exports/server-handlers.ts": "1acf9b2c0035af778d0044afdb2555cee07aad0050cfc061bb062f7ba10bd12e",
+    "apps/worker/src/export-handlers.ts": "2f83566d736cb9572a1a0884aadb8b05994d876700742b62f8fc286f0b00f7d3",
+    "package.json": "13b5f941ed2a33a88f5a5c546814c46379b223583a3b21a3bb2c22b8ceb4ca9e",
+    "packages/database/src/exports.ts": "b0afff0e049098db61511a74a585e989c4e6d805b0c448d06b7c368fdd7704d9",
+    "packages/database/src/index.ts": "8f5dcf279f03232e8a97c9265d5611fd1587debbec827d297c9d4cd47d523c7b",
+    "packages/documents/src/index.ts": "c3bf092cc5223ccf2ea7cfa6a0b234e7bcffcef3e0e51733be2587e2df0096ad",
+    "packages/documents/src/pdf-version.ts": "51fee38a4d5fde4e4d5beb838fc9df3aa6e3c8ed08836613c7bc359aa6ff5971",
+    "packages/documents/src/pdf.ts": "b0fe4026d469eeef036b26f85d8090ddcebfd63355a99ce9612b034ecee18224",
+    "scripts/check-pdf-export.py": "107f8efc0a11c4f719c2ac6067a0a7d7194955d06f3e23bb90b3484328d5edf2",
+    "scripts/test-markdown-export.ts": "017969102744b5b4813f575b3977c8093dac17a1c706f42cade2629bb555701f",
+    "scripts/test-pdf-export.ts": "48b720a886727d9beb613fba8d8551c64ce9208d37b7ebd95046cc66db711037",
+    "tests/export-data.test.ts": "a6fc53503bb0c54298354ffe23bebf142e2333226580798a55267d6055914fec",
+    "tests/exports.test.ts": "4bbdb860426077c87f2539211111952bf2e00cfe67e2ee71b2ac6942a843b8e0",
+    "tests/pdf-export.test.ts": "bc0309281afaf9c185a05c46f199ea3940e28d35e12e94aa83962105d58d6ca0",
+    "tests/pdf-exports.integration.ts": "50ad1ba94153f1b1a15f474303f34f67cf3b2a6b19fff57adc2da2e6222b72cc"
+  }
+}

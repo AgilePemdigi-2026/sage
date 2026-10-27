@@ -1,6 +1,6 @@
 # Requirements traceability
 
-Status diperbarui 21 Oktober 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Paket Sprint 1 memiliki bukti implementasi terpisah; keberadaan mapping tidak membuktikan acceptance MVP penuh. Status “paket teruji” mengacu bukti issue dan check record, termasuk batas pengujian controlled/live; status Planned tetap menunggu penerimaan produk.
+Status diperbarui 27 Oktober 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Paket Sprint 1 memiliki bukti implementasi terpisah; keberadaan mapping tidak membuktikan acceptance MVP penuh. Status “paket teruji” mengacu bukti issue dan check record, termasuk batas pengujian controlled/live; status Planned tetap menunggu penerimaan produk.
 
 Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Rincian perilaku dibaca bersama sumber dan PRD, bukan digantikan hanya oleh judul. ID backlog adalah ID internal; nomor issue GitHub tersedia pada tabel product backlog. Test ID merujuk [test plan](TEST_PLAN.md).
 
@@ -63,12 +63,12 @@ Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Ri
 | SAGE-FR-EXP-02 | Interface Catalog Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
 | SAGE-FR-EXP-03 | Software Engineering Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
 | SAGE-FR-EXP-04 | UML Class Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-EXP-05 | PDF Export | 38 | Dokumen / Ekspor PDF | EXP-02 | T-EXP-02 | 2 | Planned |
+| SAGE-FR-EXP-05 | PDF Export | 38 | Dokumen / Ekspor PDF | EXP-02 | T-EXP-02 | 2 | Implemented; teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
 | SAGE-FR-EXP-06 | Markdown Export | 38 | Dokumen / Ekspor Markdown | EXP-01 | T-EXP-01 | 2 | Markdown tersedia; bukti dan batas EXP-01_CHECKS |
-| SAGE-FR-EXP-07 | Export File Generation | 38 | Dokumen / Ekspor | EXP-01, EXP-02 | T-EXP-01, T-EXP-02, T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF mengikuti EXP-02 #21 |
-| SAGE-FR-EXP-08 | Export File Availability | 38 | Dokumen / Ekspor | EXP-01, EXP-02 | T-EXP-01, T-EXP-02, T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF mengikuti EXP-02 #21 |
-| SAGE-FR-EXP-09 | Export Failure Notification | 38 | Dokumen / Ekspor gagal | EXP-01, EXP-02 | T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF mengikuti EXP-02 #21 |
-| SAGE-FR-EXP-10 | Export Retry | 38 | Dokumen / Ekspor gagal | EXP-01, EXP-02 | T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF mengikuti EXP-02 #21 |
+| SAGE-FR-EXP-07 | Export File Generation | 38 | Dokumen / Ekspor | EXP-01, EXP-02 | T-EXP-01, T-EXP-02, T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
+| SAGE-FR-EXP-08 | Export File Availability | 38 | Dokumen / Ekspor | EXP-01, EXP-02 | T-EXP-01, T-EXP-02, T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
+| SAGE-FR-EXP-09 | Export Failure Notification | 38 | Dokumen / Ekspor gagal | EXP-01, EXP-02 | T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
+| SAGE-FR-EXP-10 | Export Retry | 38 | Dokumen / Ekspor gagal | EXP-01, EXP-02 | T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
 | SAGE-FR-HIST-01 | Analysis History Display | 39 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
 | SAGE-FR-HIST-02 | Analysis History Information | 39 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
 | SAGE-FR-HIST-03 | Repository Search | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
@@ -97,7 +97,7 @@ ID `APP-*` merupakan tambahan project, bukan identifier yang diklaim berasal dar
 | APP-08 | Mobile first dengan pengalaman laptop/desktop yang tetap lengkap | UI-01, GRAPH-01, QA-03 | T-UI-01 | Planned |
 | APP-09 | LLM tidak menjadi dependency MVP sebelum freeze | ENV-01, REL-01 | T-REL-01 dan review dependency/config | Planned |
 | APP-10 | PHP dan JS/TS dikembangkan paralel dan diuji melalui capability matrix | ANA-03, ANA-04, QA-01 | T-ANA-03, T-ANA-04 | Dua capability matrix dan 33 fakta resolver teruji; review source independen dan benchmark dua corpus tersedia; signoff QA-01 pending |
-| APP-11 | Error pipeline, recovery, source unavailable, dan export retry dapat ditindaklanjuti | ANA-07, GRAPH-03, EXP-01, EXP-02 | T-ANA-06, T-GRAPH-03, T-EXP-03 | Pipeline/retry/recovery teruji (ANA-07_CHECKS); source unavailable/retry teruji (GRAPH-03_CHECKS); failure/retry Markdown tersedia (EXP-01_CHECKS); PDF mengikuti EXP-02 |
+| APP-11 | Error pipeline, recovery, source unavailable, dan export retry dapat ditindaklanjuti | ANA-07, GRAPH-03, EXP-01, EXP-02 | T-ANA-06, T-GRAPH-03, T-EXP-03 | Pipeline/retry/recovery memiliki bukti terkontrol (ANA-07_CHECKS); source unavailable/retry teruji (GRAPH-03_CHECKS); failure/retry Markdown tersedia (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
 | APP-12 | Seluruh fitur MVP ditargetkan selesai Sprint 2, Sprint 3 finishing | REL-01, FIN-01, FIN-02, FIN-03, FIN-04 | T-REL-01 dan review sprint | Planned |
 | APP-13 | Handoff memakai issue/PR dan commit Conventional Commit satu kalimat | PLAN-01 | Pemeriksaan dokumentasi, issue/PR, dan metadata commit aktual | Kebijakan disepakati |
 
@@ -115,7 +115,7 @@ ID `NFR-*` adalah indeks lokal untuk pengujian prinsip yang tersebar di SRS; buk
 | NFR-06 | Progress tetap tersedia dan resource/performa diukur, SRS 5.1 | ENV-01, ANA-01, ANA-07, QA-01 | T-ANA-01, T-ANA-02, T-REL-01 | Benchmark enam run pada dua corpus repository tersedia (QA-01_CHECKS); progres browser/worker teruji dengan provider terkontrol (ANA-07_CHECKS); kapasitas dekat ceiling belum diterima, SLA tetap TBD |
 | NFR-07 | Usability serta bahasa/responsivitas keputusan project, SRS 5.4 dan APP-07/08 | UI-01, QA-03 | T-UI-01 | Planned |
 | NFR-08 | Maintainability adapter/contracts dan interoperabilitas, SRS 5.4 | ENV-01, ANA-05, REL-01 | T-ANA-04, T-REL-01 | Planned |
-| NFR-09 | Kegagalan export tidak mengubah hasil, SRS 5.2 | EXP-01, EXP-02 | T-EXP-03 | Ekspor/retry Markdown menjaga hash analisis/CKG/ADD; PDF masih EXP-02 |
+| NFR-09 | Kegagalan export tidak mengubah hasil, SRS 5.2 | EXP-01, EXP-02 | T-EXP-03 | Ekspor/retry Markdown menjaga hash analisis/CKG/ADD; PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
 
 ## Resolusi ketidaksesuaian
 

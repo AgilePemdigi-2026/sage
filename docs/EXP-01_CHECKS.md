@@ -31,4 +31,4 @@ Lingkungan: Node 24.22, npm 11.17.0, Next 16.4.2, Prisma 7.10.1, PostgreSQL 17.1
 
 ## Batas bukti
 
-Fixture pengujian menggunakan output analyzer nyata yang disimpan langsung sebagai hasil terminal. Ini menguji ekspor dari hasil tersimpan, bukan OAuth GitHub live atau run baru pipeline sembilan tahap. Kasus fault/penundaan terkontrol dilabeli terpisah. Ekspor PDF tetap mengikuti #21; signoff oracle analyzer mengikuti QA-01.
+Fixture pengujian menggunakan output analyzer nyata yang disimpan langsung sebagai hasil terminal. Ini menguji ekspor dari hasil tersimpan, bukan OAuth GitHub live atau run baru pipeline sembilan tahap. Kasus fault/penundaan terkontrol dilabeli terpisah. Ekspor PDF memiliki bukti terpisah pada [EXP-02_CHECKS](EXP-02_CHECKS.md); signoff oracle analyzer mengikuti QA-01.
