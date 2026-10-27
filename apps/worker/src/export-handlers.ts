@@ -7,6 +7,8 @@ import { completeExportJob, failExportJob, renewExportLease, snapshotExportJobCl
 import type { ExportJobClaim } from "@sage/database";
 import type { PrismaClient } from "../../../packages/database/generated/client.ts";
 import { MARKDOWN_RENDERER_VERSION, renderMarkdownDocument } from "../../../packages/documents/src/markdown.ts";
+import { PDF_RENDERER_VERSION } from "../../../packages/documents/src/pdf-version.ts";
+import { renderPdfDocument } from "../../../packages/documents/src/pdf.ts";
 import { loadDocumentForUser } from "./document-reader.ts";
 import type { DocumentReadDatabase } from "./document-reader.ts";
 
@@ -29,16 +31,17 @@ function assertActive(signal: AbortSignal): void {
   if (signal.aborted) throw signal.reason instanceof Error ? signal.reason : new Error("Export worker stopped.");
 }
 
-async function writePrivateExportFile(storageRoot: string, body: Uint8Array, signal: AbortSignal) {
+async function writePrivateExportFile(storageRoot: string, body: Uint8Array, format: ExportJobClaim["format"], signal: AbortSignal) {
   if (body.byteLength > MAX_EXPORT_BYTES) throw new ExportProcessingError("EXPORT_TOO_LARGE");
+  const filename = format === "PDF" ? "document.pdf" : "document.md";
   await mkdir(storageRoot, { recursive: true, mode: 0o700 });
   const root = await realpath(storageRoot);
   const folderName = `export-${randomUUID()}`;
   const folder = join(root, folderName);
   await mkdir(folder, { mode: 0o700 });
-  const storageKey = `${folderName}/document.md`;
-  const pendingPath = join(folder, "document.md.pending");
-  const finalPath = join(folder, "document.md");
+  const storageKey = `${folderName}/${filename}`;
+  const pendingPath = join(folder, `${filename}.pending`);
+  const finalPath = join(folder, filename);
   try {
     assertActive(signal);
     const handle = await open(pendingPath, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o600);
@@ -105,7 +108,8 @@ export function createExportWorker(options: { db: PrismaClient; storageRoot: str
       let completionAttempted = false;
       try {
         assertActive(controller.signal);
-        if (claim.rendererVersion !== MARKDOWN_RENDERER_VERSION) throw new ExportProcessingError("EXPORT_FAILED");
+        const expectedRendererVersion = claim.format === "PDF" ? PDF_RENDERER_VERSION : MARKDOWN_RENDERER_VERSION;
+        if (claim.rendererVersion !== expectedRendererVersion) throw new ExportProcessingError("EXPORT_FAILED");
         const state = await loadDocumentForUser(
           options.db as unknown as DocumentReadDatabase,
           claim.ownerUserId,
@@ -117,11 +121,20 @@ export function createExportWorker(options: { db: PrismaClient; storageRoot: str
           throw new ExportProcessingError("DOCUMENT_UNAVAILABLE");
         }
         assertActive(controller.signal);
-        const markdown = renderMarkdownDocument(state.value.document);
-        if (typeof markdown !== "string") throw new ExportProcessingError("EXPORT_FAILED");
-        const bytes = Buffer.from(markdown, "utf8");
+        let bytes: Uint8Array;
+        if (claim.format === "PDF") {
+          bytes = await renderPdfDocument(state.value.document, { signal: controller.signal });
+          if (!(bytes instanceof Uint8Array)) throw new ExportProcessingError("EXPORT_FAILED");
+          if (bytes.byteLength < 5 || Buffer.from(bytes.subarray(0, 5)).toString("ascii") !== "%PDF-") {
+            throw new ExportProcessingError("EXPORT_FAILED");
+          }
+        } else {
+          const markdown = renderMarkdownDocument(state.value.document);
+          if (typeof markdown !== "string") throw new ExportProcessingError("EXPORT_FAILED");
+          bytes = Buffer.from(markdown, "utf8");
+        }
         if (bytes.byteLength > MAX_EXPORT_BYTES) throw new ExportProcessingError("EXPORT_TOO_LARGE");
-        publishedFile = await writePrivateExportFile(options.storageRoot, bytes, controller.signal);
+        publishedFile = await writePrivateExportFile(options.storageRoot, bytes, claim.format, controller.signal);
         assertActive(controller.signal);
         completionAttempted = true;
         const completed = await completeExportJob(options.db, claim, {
@@ -139,7 +152,10 @@ export function createExportWorker(options: { db: PrismaClient; storageRoot: str
           // Once completion reaches PostgreSQL a transport error can make commit outcome unknown.
           // Leave the private orphan for later cleanup rather than risk deleting a READY file.
         }
-        const errorCode = cause instanceof ExportProcessingError ? cause.code : "EXPORT_FAILED";
+        const pdfError = claim.format === "PDF" && cause instanceof Error && /^PDF_[A-Z0-9_]{1,63}$/.test(cause.message)
+          ? cause.message
+          : null;
+        const errorCode = cause instanceof ExportProcessingError ? cause.code : pdfError ?? "EXPORT_FAILED";
         await failExportJob(options.db, claim, errorCode);
       } finally {
         clearInterval(heartbeat);

@@ -3,11 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { DocumentPayload } from "../../lib/documents/types.ts";
 import {
-  MarkdownExportBindingError,
-  MarkdownExportPayloadError,
-  markdownDownloadFilename,
-  parseMarkdownExportPayload,
-  type MarkdownExportRecord,
+  ExportBindingError,
+  ExportPayloadError,
+  exportDownloadFilename,
+  parseExportPayload,
+  type ExportFormat,
+  type ExportRecord,
 } from "./export-data.ts";
 import styles from "./live-document.module.css";
 
@@ -35,25 +36,25 @@ function retryable(cause: unknown): boolean {
   return cause instanceof TypeError;
 }
 
-function operationLabel(operation: Operation): string {
-  if (operation === "create") return "Membuat permintaan ekspor…";
-  if (operation === "status") return "Memeriksa status ekspor…";
-  if (operation === "retry") return "Mengantrekan ulang ekspor…";
-  return "Memverifikasi dan mengunduh Markdown…";
+function operationLabel(operation: Operation, formatName: string): string {
+  if (operation === "create") return `Memulai ekspor ${formatName}…`;
+  if (operation === "status") return `Memeriksa status ${formatName}…`;
+  if (operation === "retry") return `Mencoba kembali ekspor ${formatName}…`;
+  return `Memverifikasi dan mengunduh ${formatName}…`;
 }
 
-function failureMessage(cause: unknown, operation: Operation): string {
-  if (cause instanceof MarkdownExportPayloadError) return "Respons ekspor Markdown tidak dapat dibaca.";
+function failureMessage(cause: unknown, operation: Operation, formatName: string): string {
+  if (cause instanceof ExportPayloadError) return `Respons ekspor ${formatName} tidak dapat dibaca.`;
   if (cause instanceof ExportRequestError) {
-    if (cause.status === 404) return "Ekspor Markdown tidak ditemukan.";
+    if (cause.status === 404) return `Ekspor ${formatName} tidak ditemukan.`;
     if (cause.status === 409) return "Snapshot dokumen telah berubah. Muat ulang dokumen sebelum mengekspor.";
     if (cause.status !== null && cause.status >= 500) return "Layanan ekspor sementara tidak tersedia.";
     if (cause.status === 429) return "Permintaan ekspor terlalu sering. Tunggu sebentar, lalu coba lagi.";
   }
-  if (operation === "download") return cause instanceof Error ? cause.message : "Unduhan Markdown gagal diverifikasi.";
+  if (operation === "download") return cause instanceof Error ? cause.message : `Unduhan ${formatName} gagal diverifikasi.`;
   if (operation === "status") return "Status ekspor belum dapat diperiksa.";
   if (operation === "retry") return "Ekspor belum dapat diantrekan ulang.";
-  return "Ekspor Markdown belum dapat dimulai.";
+  return `Ekspor ${formatName} belum dapat dimulai.`;
 }
 
 function waitForPoll(signal: AbortSignal): Promise<void> {
@@ -71,20 +72,22 @@ function waitForPoll(signal: AbortSignal): Promise<void> {
   });
 }
 
-async function sha256Blob(blob: Blob): Promise<string> {
-  if (!globalThis.crypto?.subtle) throw new Error("Browser ini tidak dapat memverifikasi unduhan Markdown.");
+async function sha256Blob(blob: Blob, formatName: string): Promise<string> {
+  if (!globalThis.crypto?.subtle) throw new Error(`Browser ini tidak dapat memverifikasi unduhan ${formatName}.`);
   const digest = await globalThis.crypto.subtle.digest("SHA-256", await blob.arrayBuffer());
   return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export function MarkdownExport({
+function FormatExport({
   payload,
+  format,
   onUnauthorized,
 }: {
   payload: Pick<DocumentPayload, "analysisId" | "accountKey" | "contentHash">;
+  format: ExportFormat;
   onUnauthorized: () => void;
 }) {
-  const [exportRecord, setExportRecord] = useState<MarkdownExportRecord | null>(null);
+  const [exportRecord, setExportRecord] = useState<ExportRecord | null>(null);
   const [pending, setPending] = useState<PendingOperation>(null);
   const [error, setError] = useState<ExportError | null>(null);
   const [pollingPaused, setPollingPaused] = useState(false);
@@ -94,6 +97,8 @@ export function MarkdownExport({
   const objectUrl = useRef<string | null>(null);
   const revokeTimer = useRef<number | null>(null);
 
+  const formatName = format === "PDF" ? "PDF" : "Markdown";
+  const acceptedMediaType = format === "PDF" ? "application/pdf" : "text/markdown";
   const collectionPath = `/api/analyses/${encodeURIComponent(payload.analysisId)}/exports`;
   const expectation = {
     analysisId: payload.analysisId,
@@ -169,7 +174,7 @@ export function MarkdownExport({
     response: Response,
     token: number,
     expectedExportId?: string,
-  ): Promise<MarkdownExportRecord | null> {
+  ): Promise<ExportRecord | null> {
     if (!current(token)) return null;
     if (response.status === 401) {
       clearForIdentityRefresh(token);
@@ -177,12 +182,12 @@ export function MarkdownExport({
     }
     if (!response.ok) throw new ExportRequestError(response.status, "Permintaan ekspor gagal.");
     let body: unknown;
-    try { body = await response.json(); } catch { throw new MarkdownExportPayloadError(); }
+    try { body = await response.json(); } catch { throw new ExportPayloadError(format); }
     if (!current(token)) return null;
     const data = typeof body === "object" && body !== null && "data" in body
       ? (body as { data?: unknown }).data
       : null;
-    const result = parseMarkdownExportPayload(data, { ...expectation, exportId: expectedExportId });
+    const result = parseExportPayload(data, { ...expectation, format, exportId: expectedExportId });
     return result.export;
   }
 
@@ -193,7 +198,7 @@ export function MarkdownExport({
     signal: AbortSignal,
     body?: unknown,
     expectedExportId?: string,
-  ): Promise<MarkdownExportRecord | null> {
+  ): Promise<ExportRecord | null> {
     const response = await fetch(path, {
       method,
       headers: {
@@ -209,14 +214,14 @@ export function MarkdownExport({
     return readExportResponse(response, token, expectedExportId);
   }
 
-  function publishRecord(value: MarkdownExportRecord, token: number) {
+  function publishRecord(value: ExportRecord, token: number) {
     if (!current(token)) return;
     setExportRecord(value);
     setError(null);
   }
 
   async function pollUntilTerminal(
-    initial: MarkdownExportRecord,
+    initial: ExportRecord,
     token: number,
     signal: AbortSignal,
   ): Promise<void> {
@@ -246,11 +251,11 @@ export function MarkdownExport({
         await task(token, nextController.signal);
       } catch (cause) {
         if (!current(token) || isAbortError(cause)) return;
-        if (cause instanceof MarkdownExportBindingError) {
+        if (cause instanceof ExportBindingError) {
           clearForIdentityRefresh(token);
           return;
         }
-        setError({ message: failureMessage(cause, operation), retry: retryable(cause) ? operation : null });
+        setError({ message: failureMessage(cause, operation, formatName), retry: retryable(cause) ? operation : null });
       } finally {
         if (current(token)) {
           setPending(null);
@@ -262,7 +267,7 @@ export function MarkdownExport({
 
   function createExport() {
     beginOperation("create", async (token, signal) => {
-      const value = await fetchExportRecord(collectionPath, "POST", token, signal, { format: "MARKDOWN" });
+      const value = await fetchExportRecord(collectionPath, "POST", token, signal, { format });
       if (!value || !current(token)) return;
       publishRecord(value, token);
       await pollUntilTerminal(value, token, signal);
@@ -297,7 +302,7 @@ export function MarkdownExport({
     beginOperation("download", async (token, signal) => {
       if (!await validateSession(token, signal) || !current(token)) return;
       const response = await fetch(`${collectionPath}/${encodeURIComponent(readyExport.id)}/download`, {
-        headers: { "X-SAGE-Account": payload.accountKey, Accept: "text/markdown" },
+        headers: { "X-SAGE-Account": payload.accountKey, Accept: acceptedMediaType },
         cache: "no-store",
         credentials: "same-origin",
         signal,
@@ -309,11 +314,11 @@ export function MarkdownExport({
       }
       if (!response.ok) throw new ExportRequestError(response.status, "Unduhan ekspor gagal.");
       const mediaType = (response.headers.get("content-type") ?? "").split(";", 1)[0]?.trim().toLowerCase();
-      if (mediaType !== "text/markdown") throw new Error("Jenis berkas unduhan bukan Markdown.");
+      if (mediaType !== acceptedMediaType) throw new Error(`Jenis berkas unduhan bukan ${formatName}.`);
       const blob = await response.blob();
       if (!current(token)) return;
-      if (readyExport.contentHash && await sha256Blob(blob) !== readyExport.contentHash) {
-        throw new Error("Hash unduhan tidak sesuai dengan ekspor yang telah diverifikasi.");
+      if (await sha256Blob(blob, formatName) !== readyExport.contentHash) {
+        throw new Error(`Berkas ${formatName} belum bisa diverifikasi. Coba unduh lagi.`);
       }
       // A cookie can change during the body transfer, so only make the Blob downloadable
       // after revalidating the account against the completed download.
@@ -322,7 +327,7 @@ export function MarkdownExport({
       objectUrl.current = url;
       const anchor = window.document.createElement("a");
       anchor.href = url;
-      anchor.download = markdownDownloadFilename(response.headers.get("content-disposition"), payload.analysisId);
+      anchor.download = exportDownloadFilename(response.headers.get("content-disposition"), payload.analysisId, format);
       anchor.rel = "noopener";
       window.document.body.append(anchor);
       anchor.click();
@@ -334,36 +339,51 @@ export function MarkdownExport({
   }
 
   const statusMessage = !exportRecord ? null : exportRecord.status === "QUEUED"
-    ? "Ekspor Markdown masuk antrean."
+    ? `Ekspor ${formatName} masuk antrean.`
     : exportRecord.status === "GENERATING"
-      ? "Markdown sedang dibuat dari snapshot dokumen ini."
+      ? `${formatName} sedang disiapkan dari dokumen ini.`
       : exportRecord.status === "READY"
-        ? "Markdown siap diunduh."
-        : `Ekspor gagal${exportRecord.errorCode ? ` (${exportRecord.errorCode})` : ""}.`;
+        ? `${formatName} siap diunduh.`
+        : `Ekspor ${formatName} belum berhasil. Anda dapat mencoba lagi.`;
 
-  return <section className={styles.exportCard} aria-labelledby="markdown-export-title" aria-busy={pending !== null}>
+  const titleId = `${format.toLowerCase()}-export-title`;
+  return <section className={styles.exportCard} aria-labelledby={titleId} aria-busy={pending !== null}>
     <div className={styles.exportCopy}>
       <p className={styles.eyebrow}>EKSPOR DOKUMEN</p>
-      <h2 id="markdown-export-title">Markdown</h2>
-      <p>Ekspor terikat pada hash dokumen <code>{payload.contentHash}</code>.</p>
+      <h2 id={titleId}>{formatName}</h2>
+      <p>Berkas dibuat dari dokumen analisis ini.</p>
       {statusMessage ? <p className={exportRecord?.status === "FAILED" ? styles.exportFailure : styles.exportStatus} role={exportRecord?.status === "FAILED" ? "alert" : "status"}>{statusMessage}</p> : null}
-      {pending ? <p className={styles.exportStatus} role="status">{operationLabel(pending)}</p> : null}
-      {pollingPaused ? <p className={styles.exportStatus} role="status">Pemeriksaan otomatis dijeda setelah batas waktu. Periksa status untuk melanjutkan.</p> : null}
+      {pending ? <p className={styles.exportStatus} role="status">{operationLabel(pending, formatName)}</p> : null}
+      {pollingPaused ? <p className={styles.exportStatus} role="status">Pemeriksaan otomatis ${formatName} dijeda. Periksa status untuk melanjutkan.</p> : null}
       {error ? <p className={styles.exportFailure} role="alert">{error.message}</p> : null}
     </div>
     <div className={styles.exportActions}>
       {!exportRecord ? <button className={styles.exportButton} type="button" disabled={pending !== null} onClick={createExport}>
-        {pending === "create" ? "Memproses…" : error?.retry === "create" ? "Coba lagi" : "Ekspor Markdown"}
+        {pending === "create" ? `Menyiapkan ${formatName}…` : error?.retry === "create" ? `Coba ekspor ${formatName} lagi` : `Ekspor ${formatName}`}
       </button> : null}
       {exportRecord && (exportRecord.status === "QUEUED" || exportRecord.status === "GENERATING") && (pollingPaused || error !== null) ? <button className={styles.exportButton} type="button" disabled={pending !== null} onClick={checkExport}>
-        {pending === "status" ? "Memeriksa…" : error?.retry === "status" ? "Coba periksa lagi" : "Periksa status"}
+        {pending === "status" ? `Memeriksa ${formatName}…` : error?.retry === "status" ? `Coba periksa ${formatName} lagi` : `Periksa status ${formatName}`}
       </button> : null}
       {exportRecord?.status === "READY" ? <button className={styles.exportButton} type="button" disabled={pending !== null} onClick={downloadExport}>
-        {pending === "download" ? "Mengunduh…" : error?.retry === "download" ? "Coba unduh lagi" : "Unduh Markdown"}
+        {pending === "download" ? `Mengunduh ${formatName}…` : error?.retry === "download" ? `Coba unduh ${formatName} lagi` : `Unduh ${formatName}`}
       </button> : null}
       {exportRecord?.status === "FAILED" ? <button className={styles.exportButton} type="button" disabled={pending !== null} onClick={retryExport}>
-        {pending === "retry" ? "Mengantrekan…" : error?.retry === "retry" ? "Coba lagi" : "Coba ekspor lagi"}
+        {pending === "retry" ? `Mengantrekan ${formatName}…` : `Coba ekspor ${formatName} lagi`}
       </button> : null}
     </div>
   </section>;
+}
+
+export function MarkdownExport(props: {
+  payload: Pick<DocumentPayload, "analysisId" | "accountKey" | "contentHash">;
+  onUnauthorized: () => void;
+}) {
+  return <FormatExport {...props} format="MARKDOWN" />;
+}
+
+export function PdfExport(props: {
+  payload: Pick<DocumentPayload, "analysisId" | "accountKey" | "contentHash">;
+  onUnauthorized: () => void;
+}) {
+  return <FormatExport {...props} format="PDF" />;
 }

@@ -7,9 +7,12 @@ const MIN_LEASE_DURATION_MS = 1_000;
 const MAX_LEASE_DURATION_MS = 300_000;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
 
+export type ExportFormat = "MARKDOWN" | "PDF";
+
 export interface ExportJobClaim {
   jobId: string;
   exportId: string;
+  format: ExportFormat;
   analysisId: string;
   ownerUserId: string;
   documentHash: string;
@@ -23,7 +26,7 @@ export interface ExportLeaseOptions { leaseDurationMs?: number; }
 
 export interface ExportSnapshot {
   id: string;
-  format: "MARKDOWN";
+  format: ExportFormat;
   status: "QUEUED" | "GENERATING" | "READY" | "FAILED";
   documentHash: string;
   rendererVersion: string;
@@ -65,6 +68,11 @@ function validateRendererVersion(value: unknown): string {
   return value;
 }
 
+function validateExportFormat(value: unknown): ExportFormat {
+  if (value !== "MARKDOWN" && value !== "PDF") throw new Error("Export format is invalid.");
+  return value;
+}
+
 function validateLeaseDuration(value: unknown): number {
   if (value === undefined) return DEFAULT_LEASE_DURATION_MS;
   if (!Number.isSafeInteger(value) || (value as number) < MIN_LEASE_DURATION_MS || (value as number) > MAX_LEASE_DURATION_MS) {
@@ -79,7 +87,7 @@ export function snapshotExportJobClaim(input: ExportJobClaim): ExportJobClaim {
   if (!input || typeof input !== "object" || Array.isArray(input)) throw new Error("Export claim is invalid.");
   const prototype = Object.getPrototypeOf(input);
   if (prototype !== Object.prototype && prototype !== null) throw new Error("Export claim must be a plain object.");
-  const fields = ["jobId", "exportId", "analysisId", "ownerUserId", "documentHash", "rendererVersion", "attempt", "leaseToken", "leaseExpiresAt"] as const;
+  const fields = ["jobId", "exportId", "format", "analysisId", "ownerUserId", "documentHash", "rendererVersion", "attempt", "leaseToken", "leaseExpiresAt"] as const;
   const keys = Reflect.ownKeys(input);
   const descriptors = Object.getOwnPropertyDescriptors(input);
   if (keys.length !== fields.length || keys.some(key => typeof key !== "string" || !fields.includes(key as typeof fields[number]))) {
@@ -97,6 +105,7 @@ export function snapshotExportJobClaim(input: ExportJobClaim): ExportJobClaim {
   const claim = Object.freeze({
     jobId: descriptors.jobId.value as string,
     exportId: descriptors.exportId.value as string,
+    format: descriptors.format.value as ExportFormat,
     analysisId: descriptors.analysisId.value as string,
     ownerUserId: descriptors.ownerUserId.value as string,
     documentHash: descriptors.documentHash.value as string,
@@ -107,6 +116,7 @@ export function snapshotExportJobClaim(input: ExportJobClaim): ExportJobClaim {
   });
   requireNonEmpty(claim.jobId, "Job ID");
   requireNonEmpty(claim.exportId, "Export ID");
+  validateExportFormat(claim.format);
   requireNonEmpty(claim.analysisId, "Analysis ID");
   requireNonEmpty(claim.ownerUserId, "Owner ID");
   validateDocumentHash(claim.documentHash);
@@ -136,6 +146,7 @@ type OccupiedExportSlotRow = ExportSlotRow & {
   jobAttempt: number | null;
   jobLeaseExpiresAt: Date | null;
   exportStatus: string | null;
+  exportFormat: string | null;
   exportAnalysisId: string | null;
   exportOwnerUserId: string | null;
   documentHash: string | null;
@@ -164,7 +175,7 @@ async function readExportSlot(tx: Prisma.TransactionClient): Promise<OccupiedExp
     SELECT slot."jobId", slot."ownerUserId", slot."leaseUntil", slot."heartbeatAt", slot."leaseTokenHash", slot."lastEnqueueSequence",
       job."type"::text AS "jobType", job."status"::text AS "jobStatus", job."exportId" AS "jobExportId",
       job."analysisId" AS "jobAnalysisId", job."ownerUserId" AS "jobOwnerUserId", job."attempt" AS "jobAttempt",
-      job."leaseExpiresAt" AS "jobLeaseExpiresAt", export."status"::text AS "exportStatus",
+      job."leaseExpiresAt" AS "jobLeaseExpiresAt", export."status"::text AS "exportStatus", export."format"::text AS "exportFormat",
       export."analysisId" AS "exportAnalysisId", export."ownerUserId" AS "exportOwnerUserId",
       export."documentHash", export."rendererVersion"
     FROM "WorkerSlot" AS slot
@@ -186,12 +197,13 @@ function requireOccupiedExportSlot(slot: OccupiedExportSlotRow): asserts slot is
   jobId: string; ownerUserId: string; leaseUntil: Date; heartbeatAt: Date; leaseTokenHash: string;
   jobExportId: string; jobAnalysisId: string; jobOwnerUserId: string; jobAttempt: number; jobLeaseExpiresAt: Date;
   exportAnalysisId: string; exportOwnerUserId: string; documentHash: string; rendererVersion: string;
+  exportFormat: ExportFormat;
 } {
   if (!slot.jobId || !slot.ownerUserId || !slot.leaseUntil || !slot.heartbeatAt || !slot.leaseTokenHash
     || slot.jobType !== "EXPORT" || slot.jobStatus !== "RUNNING" || !slot.jobExportId || !slot.jobAnalysisId
     || slot.jobOwnerUserId !== slot.ownerUserId || !Number.isSafeInteger(slot.jobAttempt) || !slot.jobLeaseExpiresAt
     || slot.exportStatus !== "GENERATING" || slot.exportAnalysisId !== slot.jobAnalysisId || slot.exportOwnerUserId !== slot.ownerUserId
-    || !slot.documentHash || !slot.rendererVersion) throw new ExportQueueInvariantError();
+    || (slot.exportFormat !== "MARKDOWN" && slot.exportFormat !== "PDF") || !slot.documentHash || !slot.rendererVersion) throw new ExportQueueInvariantError();
 }
 
 async function allocateExportSequence(tx: Prisma.TransactionClient): Promise<bigint> {
@@ -226,10 +238,10 @@ async function assertPublishedDocument(
 function toSnapshot(row: {
   id: string; format: string; status: string; documentHash: string; rendererVersion: string; contentHash: string | null; errorCode: string | null;
 }): ExportSnapshot {
-  if (row.format !== "MARKDOWN" || !["QUEUED", "GENERATING", "READY", "FAILED"].includes(row.status)) throw new ExportQueueInvariantError();
+  if ((row.format !== "MARKDOWN" && row.format !== "PDF") || !["QUEUED", "GENERATING", "READY", "FAILED"].includes(row.status)) throw new ExportQueueInvariantError();
   return {
     id: row.id,
-    format: "MARKDOWN",
+    format: row.format,
     status: row.status as ExportSnapshot["status"],
     documentHash: row.documentHash,
     rendererVersion: row.rendererVersion,
@@ -252,12 +264,21 @@ async function createExportJob(tx: Prisma.TransactionClient, input: {
   await tx.$executeRaw`UPDATE "Job" SET "enqueuedAt" = clock_timestamp() WHERE "exportId" = ${input.exportId} AND "ownerUserId" = ${input.ownerUserId} AND "status" = 'QUEUED'`;
 }
 
-export async function enqueueMarkdownExport(
+export interface EnqueueExportInput {
+  ownerUserId: string;
+  analysisId: string;
+  format: ExportFormat;
+  documentHash: string;
+  rendererVersion: string;
+}
+
+export async function enqueueExport(
   db: PrismaClient,
-  input: { ownerUserId: string; analysisId: string; documentHash: string; rendererVersion: string },
+  input: EnqueueExportInput,
 ): Promise<{ export: ExportSnapshot; created: boolean }> {
   requireNonEmpty(input.ownerUserId, "Owner ID");
   requireNonEmpty(input.analysisId, "Analysis ID");
+  const format = validateExportFormat(input.format);
   const documentHash = validateDocumentHash(input.documentHash);
   const rendererVersion = validateRendererVersion(input.rendererVersion);
 
@@ -265,7 +286,7 @@ export async function enqueueMarkdownExport(
     await ensureAndLockExportSlot(tx);
     const architectureDocumentId = await assertPublishedDocument(tx, input.ownerUserId, input.analysisId, documentHash);
     const existing = await tx.export.findFirst({
-      where: { ownerUserId: input.ownerUserId, analysisId: input.analysisId, format: "MARKDOWN", documentHash, rendererVersion },
+      where: { ownerUserId: input.ownerUserId, analysisId: input.analysisId, format, documentHash, rendererVersion },
       select: { id: true, format: true, status: true, documentHash: true, rendererVersion: true, contentHash: true, errorCode: true },
     });
     if (existing) return { export: toSnapshot(existing), created: false };
@@ -274,7 +295,7 @@ export async function enqueueMarkdownExport(
       ownerUserId: input.ownerUserId,
       analysisId: input.analysisId,
       architectureDocumentId,
-      format: "MARKDOWN",
+      format,
       documentHash,
       rendererVersion,
       status: "QUEUED",
@@ -284,24 +305,36 @@ export async function enqueueMarkdownExport(
   });
 }
 
-export async function retryMarkdownExport(db: PrismaClient, input: {
-  ownerUserId: string; analysisId: string; exportId: string;
+export async function enqueueMarkdownExport(
+  db: PrismaClient,
+  input: Omit<EnqueueExportInput, "format">,
+): Promise<{ export: ExportSnapshot; created: boolean }> {
+  return enqueueExport(db, { ...input, format: "MARKDOWN" });
+}
+
+export async function retryExport(db: PrismaClient, input: {
+  ownerUserId: string; analysisId: string; exportId: string; format?: ExportFormat;
 }): Promise<ExportSnapshot> {
   requireNonEmpty(input.ownerUserId, "Owner ID");
   requireNonEmpty(input.analysisId, "Analysis ID");
   requireNonEmpty(input.exportId, "Export ID");
+  const requestedFormat = input.format === undefined ? undefined : validateExportFormat(input.format);
 
   return db.$transaction(async tx => {
     await ensureAndLockExportSlot(tx);
     const found = await tx.export.findFirst({
-      where: { id: input.exportId, ownerUserId: input.ownerUserId, analysisId: input.analysisId, format: "MARKDOWN" },
-      select: { id: true, status: true, documentHash: true, rendererVersion: true },
+      where: {
+        id: input.exportId, ownerUserId: input.ownerUserId, analysisId: input.analysisId,
+        ...(requestedFormat ? { format: requestedFormat } : {}),
+      },
+      select: { id: true, format: true, status: true, documentHash: true, rendererVersion: true },
     });
     if (!found) throw new ExportAnalysisNotFoundError();
+    const format = validateExportFormat(found.format);
     if (found.status !== "FAILED") throw new ExportRetryConflictError();
     const architectureDocumentId = await assertPublishedDocument(tx, input.ownerUserId, input.analysisId, found.documentHash);
     const updated = await tx.export.update({
-      where: { id: found.id },
+      where: { id: found.id, format },
       data: { status: "QUEUED", contentHash: null, errorCode: null, storageObjectId: null, readyAt: null, architectureDocumentId },
       select: { id: true, format: true, status: true, documentHash: true, rendererVersion: true, contentHash: true, errorCode: true },
     });
@@ -310,18 +343,35 @@ export async function retryMarkdownExport(db: PrismaClient, input: {
   });
 }
 
-export async function findMarkdownExportForUser(
+export async function retryMarkdownExport(db: PrismaClient, input: {
+  ownerUserId: string; analysisId: string; exportId: string;
+}): Promise<ExportSnapshot> {
+  return retryExport(db, { ...input, format: "MARKDOWN" });
+}
+
+export async function findExportSnapshotForUser(
   db: PrismaClient,
-  input: { ownerUserId: string; analysisId: string; exportId: string },
+  input: { ownerUserId: string; analysisId: string; exportId: string; format?: ExportFormat },
 ): Promise<ExportSnapshot | null> {
   requireNonEmpty(input.ownerUserId, "Owner ID");
   requireNonEmpty(input.analysisId, "Analysis ID");
   requireNonEmpty(input.exportId, "Export ID");
+  const format = input.format === undefined ? undefined : validateExportFormat(input.format);
   const row = await db.export.findFirst({
-    where: { id: input.exportId, ownerUserId: input.ownerUserId, analysisId: input.analysisId, format: "MARKDOWN" },
+    where: {
+      id: input.exportId, ownerUserId: input.ownerUserId, analysisId: input.analysisId,
+      ...(format ? { format } : {}),
+    },
     select: { id: true, format: true, status: true, documentHash: true, rendererVersion: true, contentHash: true, errorCode: true },
   });
   return row ? toSnapshot(row) : null;
+}
+
+export async function findMarkdownExportForUser(
+  db: PrismaClient,
+  input: { ownerUserId: string; analysisId: string; exportId: string },
+): Promise<ExportSnapshot | null> {
+  return findExportSnapshotForUser(db, { ...input, format: "MARKDOWN" });
 }
 
 export type ClaimExportJobOptions = ExportLeaseOptions;
@@ -329,6 +379,7 @@ export type RenewExportLeaseOptions = ExportLeaseOptions;
 
 async function recoverExpiredExport(tx: Prisma.TransactionClient, slot: OccupiedExportSlotRow & {
   jobId: string; ownerUserId: string; leaseTokenHash: string; jobExportId: string; jobAnalysisId: string; jobAttempt: number;
+  exportFormat: ExportFormat;
 }): Promise<void> {
   const jobRows = await tx.$queryRaw<Array<{ id: string }>>`
     UPDATE "Job" AS job
@@ -336,6 +387,9 @@ async function recoverExpiredExport(tx: Prisma.TransactionClient, slot: Occupied
     WHERE job."id" = ${slot.jobId} AND job."ownerUserId" = ${slot.ownerUserId} AND job."type" = 'EXPORT'
       AND job."exportId" = ${slot.jobExportId} AND job."analysisId" = ${slot.jobAnalysisId}
       AND job."status" = 'RUNNING' AND job."attempt" = ${slot.jobAttempt}
+      AND EXISTS (SELECT 1 FROM "Export" AS export WHERE export."id" = job."exportId"
+        AND export."ownerUserId" = job."ownerUserId" AND export."analysisId" = job."analysisId"
+        AND export."format"::text = ${slot.exportFormat})
       AND EXISTS (SELECT 1 FROM "WorkerSlot" AS current_slot
         WHERE current_slot."slotKey" = ${EXPORT_SLOT} AND current_slot."jobId" = job."id"
           AND current_slot."ownerUserId" = job."ownerUserId" AND current_slot."leaseTokenHash" = ${slot.leaseTokenHash}
@@ -348,7 +402,7 @@ async function recoverExpiredExport(tx: Prisma.TransactionClient, slot: Occupied
     UPDATE "Export" AS export
     SET "status" = 'FAILED', "errorCode" = 'WORKER_INTERRUPTED', "updatedAt" = clock_timestamp()
     WHERE export."id" = ${slot.jobExportId} AND export."ownerUserId" = ${slot.ownerUserId}
-      AND export."analysisId" = ${slot.jobAnalysisId} AND export."status" = 'GENERATING'
+      AND export."analysisId" = ${slot.jobAnalysisId} AND export."format"::text = ${slot.exportFormat} AND export."status" = 'GENERATING'
       AND EXISTS (SELECT 1 FROM "Job" AS job
         WHERE job."id" = ${slot.jobId} AND job."ownerUserId" = ${slot.ownerUserId}
           AND job."type" = 'EXPORT' AND job."exportId" = export."id" AND job."attempt" = ${slot.jobAttempt}
@@ -365,7 +419,9 @@ async function recoverExpiredExport(tx: Prisma.TransactionClient, slot: Occupied
       AND slot."ownerUserId" = ${slot.ownerUserId} AND slot."leaseTokenHash" = ${slot.leaseTokenHash}
       AND (slot."leaseUntil" <= clock_timestamp() OR EXISTS (
         SELECT 1 FROM "Job" AS job WHERE job."id" = ${slot.jobId} AND job."ownerUserId" = ${slot.ownerUserId}
-          AND job."attempt" = ${slot.jobAttempt} AND job."leaseExpiresAt" <= clock_timestamp()))
+          AND job."attempt" = ${slot.jobAttempt} AND job."leaseExpiresAt" <= clock_timestamp()
+          AND EXISTS (SELECT 1 FROM "Export" AS export WHERE export."id" = job."exportId"
+            AND export."ownerUserId" = job."ownerUserId" AND export."format"::text = ${slot.exportFormat})))
     RETURNING slot."slotKey"
   `;
   if (releaseRows.length !== 1) throw new ExportQueueInvariantError();
@@ -400,9 +456,10 @@ export async function claimExportJob(db: PrismaClient, options: ClaimExportJobOp
 
     const candidates = await tx.$queryRaw<Array<{
       jobId: string; exportId: string; analysisId: string; ownerUserId: string; attempt: number; documentHash: string; rendererVersion: string;
+      format: string;
     }>>`
       SELECT job."id" AS "jobId", export."id" AS "exportId", export."analysisId", export."ownerUserId",
-        job."attempt", export."documentHash", export."rendererVersion"
+        job."attempt", export."documentHash", export."rendererVersion", export."format"::text AS "format"
       FROM "Job" AS job JOIN "Export" AS export ON export."id" = job."exportId" AND export."ownerUserId" = job."ownerUserId"
       WHERE job."type" = 'EXPORT' AND job."status" = 'QUEUED' AND export."status" = 'QUEUED'
       ORDER BY job."queueSequence" ASC, job."enqueuedAt" ASC, job."id" ASC
@@ -410,23 +467,28 @@ export async function claimExportJob(db: PrismaClient, options: ClaimExportJobOp
     `;
     const next = candidates[0];
     if (!next) return null;
+    const format = validateExportFormat(next.format);
 
     const leaseToken = randomUUID();
     const leaseTokenHash = sha256(leaseToken);
     const jobRows = await tx.$queryRaw<Array<{ attempt: number; leaseExpiresAt: Date }>>`
-      UPDATE "Job" SET "status" = 'RUNNING', "startedAt" = clock_timestamp(), "finishedAt" = NULL,
+      UPDATE "Job" AS job SET "status" = 'RUNNING', "startedAt" = clock_timestamp(), "finishedAt" = NULL,
         "heartbeatAt" = clock_timestamp(), "leaseExpiresAt" = clock_timestamp() + (${leaseDurationMs} * INTERVAL '1 millisecond'),
         "attempt" = "attempt" + 1, "errorCode" = NULL, "updatedAt" = clock_timestamp()
-      WHERE "id" = ${next.jobId} AND "ownerUserId" = ${next.ownerUserId} AND "exportId" = ${next.exportId}
-        AND "analysisId" = ${next.analysisId} AND "type" = 'EXPORT' AND "status" = 'QUEUED' AND "attempt" = ${next.attempt}
-      RETURNING "attempt", "leaseExpiresAt"
+      WHERE job."id" = ${next.jobId} AND job."ownerUserId" = ${next.ownerUserId} AND job."exportId" = ${next.exportId}
+        AND job."analysisId" = ${next.analysisId} AND job."type" = 'EXPORT' AND job."status" = 'QUEUED' AND job."attempt" = ${next.attempt}
+        AND EXISTS (SELECT 1 FROM "Export" AS export WHERE export."id" = job."exportId"
+          AND export."ownerUserId" = job."ownerUserId" AND export."analysisId" = job."analysisId"
+          AND export."format"::text = ${format} AND export."status" = 'QUEUED')
+      RETURNING job."attempt", job."leaseExpiresAt"
     `;
     if (jobRows.length !== 1) throw new ExportQueueInvariantError();
     const attempt = jobRows[0].attempt;
     const exportRows = await tx.$queryRaw<Array<{ id: string }>>`
       UPDATE "Export" SET "status" = 'GENERATING', "errorCode" = NULL, "updatedAt" = clock_timestamp()
       WHERE "id" = ${next.exportId} AND "ownerUserId" = ${next.ownerUserId} AND "analysisId" = ${next.analysisId}
-        AND "documentHash" = ${next.documentHash} AND "rendererVersion" = ${next.rendererVersion} AND "status" = 'QUEUED'
+        AND "format"::text = ${format} AND "documentHash" = ${next.documentHash}
+        AND "rendererVersion" = ${next.rendererVersion} AND "status" = 'QUEUED'
       RETURNING "id"
     `;
     if (exportRows.length !== 1) throw new ExportQueueInvariantError();
@@ -439,12 +501,16 @@ export async function claimExportJob(db: PrismaClient, options: ClaimExportJobOp
         AND slot."leaseUntil" IS NULL AND slot."leaseTokenHash" IS NULL
         AND job."id" = ${next.jobId} AND job."ownerUserId" = ${next.ownerUserId} AND job."status" = 'RUNNING'
         AND job."attempt" = ${attempt} AND job."leaseExpiresAt" > clock_timestamp()
+        AND EXISTS (SELECT 1 FROM "Export" AS export WHERE export."id" = job."exportId"
+          AND export."ownerUserId" = job."ownerUserId" AND export."analysisId" = job."analysisId"
+          AND export."format"::text = ${format} AND export."status" = 'GENERATING')
       RETURNING slot."jobId"
     `;
     if (slotRows.length !== 1) throw new ExportQueueInvariantError();
     return {
       jobId: next.jobId,
       exportId: next.exportId,
+      format,
       analysisId: next.analysisId,
       ownerUserId: next.ownerUserId,
       documentHash: next.documentHash,
@@ -475,7 +541,10 @@ export async function renewExportLease(
           AND slot."leaseTokenHash" = ${leaseTokenHash} AND slot."leaseUntil" > clock_timestamp()
           AND EXISTS (SELECT 1 FROM "Job" AS job WHERE job."id" = slot."jobId" AND job."ownerUserId" = slot."ownerUserId"
             AND job."analysisId" = ${claim.analysisId} AND job."exportId" = ${claim.exportId} AND job."type" = 'EXPORT'
-            AND job."status" = 'RUNNING' AND job."attempt" = ${claim.attempt} AND job."leaseExpiresAt" > clock_timestamp())
+            AND job."status" = 'RUNNING' AND job."attempt" = ${claim.attempt} AND job."leaseExpiresAt" > clock_timestamp()
+            AND EXISTS (SELECT 1 FROM "Export" AS export WHERE export."id" = job."exportId"
+              AND export."ownerUserId" = job."ownerUserId" AND export."analysisId" = job."analysisId"
+              AND export."format"::text = ${claim.format}))
         RETURNING slot."jobId", slot."ownerUserId", slot."leaseUntil", slot."heartbeatAt"
       ), updated_job AS (
         UPDATE "Job" AS job SET "leaseExpiresAt" = renewed_slot."leaseUntil", "heartbeatAt" = renewed_slot."heartbeatAt", "updatedAt" = clock_timestamp()
@@ -504,6 +573,9 @@ export async function failExportJob(db: PrismaClient, inputClaim: ExportJobClaim
       WHERE job."id" = ${claim.jobId} AND job."ownerUserId" = ${claim.ownerUserId} AND job."analysisId" = ${claim.analysisId}
         AND job."exportId" = ${claim.exportId} AND job."type" = 'EXPORT' AND job."status" = 'RUNNING'
         AND job."attempt" = ${claim.attempt} AND job."leaseExpiresAt" > clock_timestamp()
+        AND EXISTS (SELECT 1 FROM "Export" AS export WHERE export."id" = job."exportId"
+          AND export."ownerUserId" = job."ownerUserId" AND export."analysisId" = job."analysisId"
+          AND export."format"::text = ${claim.format})
         AND EXISTS (SELECT 1 FROM "WorkerSlot" AS slot WHERE slot."slotKey" = ${EXPORT_SLOT} AND slot."jobId" = job."id"
           AND slot."ownerUserId" = job."ownerUserId" AND slot."leaseTokenHash" = ${leaseTokenHash} AND slot."leaseUntil" > clock_timestamp())
       RETURNING job."id"
@@ -513,7 +585,8 @@ export async function failExportJob(db: PrismaClient, inputClaim: ExportJobClaim
     const exportRows = await tx.$queryRaw<Array<{ id: string }>>`
       UPDATE "Export" AS export SET "status" = 'FAILED', "errorCode" = ${errorCode}, "updatedAt" = clock_timestamp()
       WHERE export."id" = ${claim.exportId} AND export."ownerUserId" = ${claim.ownerUserId} AND export."analysisId" = ${claim.analysisId}
-        AND export."status" = 'GENERATING' AND export."documentHash" = ${claim.documentHash} AND export."rendererVersion" = ${claim.rendererVersion}
+        AND export."format"::text = ${claim.format} AND export."status" = 'GENERATING'
+        AND export."documentHash" = ${claim.documentHash} AND export."rendererVersion" = ${claim.rendererVersion}
         AND EXISTS (SELECT 1 FROM "Job" AS job WHERE job."id" = ${claim.jobId} AND job."ownerUserId" = ${claim.ownerUserId}
           AND job."exportId" = export."id" AND job."status" = 'FAILED' AND job."attempt" = ${claim.attempt}
           AND job."leaseExpiresAt" > clock_timestamp())
@@ -526,7 +599,9 @@ export async function failExportJob(db: PrismaClient, inputClaim: ExportJobClaim
       WHERE slot."slotKey" = ${EXPORT_SLOT} AND slot."jobId" = ${claim.jobId} AND slot."ownerUserId" = ${claim.ownerUserId}
         AND slot."leaseTokenHash" = ${leaseTokenHash} AND slot."leaseUntil" > clock_timestamp()
         AND EXISTS (SELECT 1 FROM "Job" AS job WHERE job."id" = ${claim.jobId} AND job."ownerUserId" = ${claim.ownerUserId}
-          AND job."exportId" = ${claim.exportId} AND job."attempt" = ${claim.attempt} AND job."leaseExpiresAt" > clock_timestamp())
+          AND job."exportId" = ${claim.exportId} AND job."attempt" = ${claim.attempt} AND job."leaseExpiresAt" > clock_timestamp()
+          AND EXISTS (SELECT 1 FROM "Export" AS export WHERE export."id" = job."exportId"
+            AND export."ownerUserId" = job."ownerUserId" AND export."format"::text = ${claim.format}))
       RETURNING slot."slotKey"
     `;
     if (releaseRows.length !== 1) throw new ExportQueueInvariantError();
@@ -539,7 +614,9 @@ export async function completeExportJob(db: PrismaClient, inputClaim: ExportJobC
   storageKey: string; contentHash: string; byteLength: number;
 }): Promise<{ storageObjectId: string } | null> {
   const claim = snapshotExportJobClaim(inputClaim);
-  if (typeof input.storageKey !== "string" || !/^export-[A-Za-z0-9-]{36}\/document\.md$/.test(input.storageKey)) throw new Error("Export storage key is invalid.");
+  const extension = claim.format === "PDF" ? "pdf" : "md";
+  const storageKeyPattern = new RegExp(`^export-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\\/document\\.${extension}$`);
+  if (typeof input.storageKey !== "string" || !storageKeyPattern.test(input.storageKey)) throw new Error("Export storage key is invalid.");
   const contentHash = validateDocumentHash(input.contentHash);
   if (!Number.isSafeInteger(input.byteLength) || input.byteLength < 0) throw new Error("Export file length is invalid.");
   const leaseTokenHash = sha256(claim.leaseToken);
@@ -554,7 +631,7 @@ export async function completeExportJob(db: PrismaClient, inputClaim: ExportJobC
           AND job."analysisId" = ${claim.analysisId} AND job."exportId" = ${claim.exportId} AND job."type" = 'EXPORT'
           AND job."status" = 'RUNNING' AND job."attempt" = ${claim.attempt} AND job."leaseExpiresAt" > clock_timestamp()
           AND export."status" = 'GENERATING' AND export."documentHash" = ${claim.documentHash}
-          AND export."rendererVersion" = ${claim.rendererVersion}) AS "active"
+          AND export."format"::text = ${claim.format} AND export."rendererVersion" = ${claim.rendererVersion}) AS "active"
     `;
     if (!active[0]?.active) return null;
 
@@ -570,7 +647,8 @@ export async function completeExportJob(db: PrismaClient, inputClaim: ExportJobC
       UPDATE "Export" AS export SET "status" = 'READY', "storageObjectId" = ${storage.id}, "contentHash" = ${contentHash},
         "errorCode" = NULL, "readyAt" = clock_timestamp(), "updatedAt" = clock_timestamp()
       WHERE export."id" = ${claim.exportId} AND export."ownerUserId" = ${claim.ownerUserId} AND export."analysisId" = ${claim.analysisId}
-        AND export."status" = 'GENERATING' AND export."documentHash" = ${claim.documentHash} AND export."rendererVersion" = ${claim.rendererVersion}
+        AND export."format"::text = ${claim.format} AND export."status" = 'GENERATING'
+        AND export."documentHash" = ${claim.documentHash} AND export."rendererVersion" = ${claim.rendererVersion}
       RETURNING export."id"
     `;
     if (exportRows.length !== 1) throw new ExportQueueInvariantError();
@@ -578,6 +656,9 @@ export async function completeExportJob(db: PrismaClient, inputClaim: ExportJobC
       UPDATE "Job" AS job SET "status" = 'COMPLETED', "finishedAt" = clock_timestamp(), "errorCode" = NULL, "updatedAt" = clock_timestamp()
       WHERE job."id" = ${claim.jobId} AND job."ownerUserId" = ${claim.ownerUserId} AND job."analysisId" = ${claim.analysisId}
         AND job."exportId" = ${claim.exportId} AND job."type" = 'EXPORT' AND job."status" = 'RUNNING' AND job."attempt" = ${claim.attempt}
+        AND EXISTS (SELECT 1 FROM "Export" AS export WHERE export."id" = job."exportId"
+          AND export."ownerUserId" = job."ownerUserId" AND export."analysisId" = job."analysisId"
+          AND export."format"::text = ${claim.format})
         AND job."leaseExpiresAt" > clock_timestamp() AND EXISTS (SELECT 1 FROM "WorkerSlot" AS slot
           WHERE slot."slotKey" = ${EXPORT_SLOT} AND slot."jobId" = job."id" AND slot."ownerUserId" = job."ownerUserId"
             AND slot."leaseTokenHash" = ${leaseTokenHash} AND slot."leaseUntil" > clock_timestamp())
@@ -589,6 +670,10 @@ export async function completeExportJob(db: PrismaClient, inputClaim: ExportJobC
         "leaseTokenHash" = NULL, "updatedAt" = clock_timestamp()
       WHERE slot."slotKey" = ${EXPORT_SLOT} AND slot."jobId" = ${claim.jobId} AND slot."ownerUserId" = ${claim.ownerUserId}
         AND slot."leaseTokenHash" = ${leaseTokenHash}
+        AND EXISTS (SELECT 1 FROM "Job" AS job WHERE job."id" = ${claim.jobId} AND job."ownerUserId" = ${claim.ownerUserId}
+          AND job."exportId" = ${claim.exportId} AND job."attempt" = ${claim.attempt}
+          AND EXISTS (SELECT 1 FROM "Export" AS export WHERE export."id" = job."exportId"
+            AND export."ownerUserId" = job."ownerUserId" AND export."format"::text = ${claim.format}))
       RETURNING slot."slotKey"
     `;
     if (releaseRows.length !== 1) throw new ExportQueueInvariantError();

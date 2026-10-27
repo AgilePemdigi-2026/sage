@@ -95,7 +95,7 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 ## Cakupan yang masih menunggu issue lain
 
 - Queue durable, API submission idempotent, dan runner stage terbatas sudah memiliki bukti. Consumer ANA-07 menjalankan sembilan tahap dan menerbitkan bundle atomik; retry FAILED memerlukan pemeriksaan izin baru serta analysis ID baru dengan SHA/configuration yang sama.
-- DOC-01 #15 memvalidasi dan menyimpan tiga artefak dokumen bersama serta menyediakan API/halaman privat. History #22 menyediakan pembacaan list/detail GET, GRAPH-01 #17 menyediakan graph canonical; query/filter/inspector #18–19 tersedia. Ekspor Markdown #20 memiliki bukti terpisah; PDF #21 tetap terbuka.
+- DOC-01 #15 memvalidasi dan menyimpan tiga artefak dokumen bersama serta menyediakan API/halaman privat. History #22 menyediakan pembacaan list/detail GET, GRAPH-01 #17 menyediakan graph canonical; query/filter/inspector #18–19 tersedia. Ekspor Markdown #20 memiliki bukti terpisah; PDF #21 memiliki bukti terpisah pada [EXP-02_CHECKS](EXP-02_CHECKS.md).
 - #23 menentukan alur penghapusan analysis dan objek storage secara idempotent.
 - Pipeline analisis harus menegakkan kelengkapan graph/document dan hash sebelum menyatakan analysis selesai.
 

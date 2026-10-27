@@ -45,7 +45,7 @@ mkdir -p artifacts
 docker compose cp worker:/app/storage/environment artifacts/
 ```
 
-Folder `artifacts/` diabaikan Git. PDF/SVG tersebut hanya sample kompatibilitas yang berasal dari data tepercaya, bukan dokumentasi hasil analisis repository. DOC-01 menyediakan model dan halaman tiga artefak untuk hasil canonical tersimpan yang sukses; ekspor terotorisasi masih mengikuti EXP-01/EXP-02.
+Folder `artifacts/` diabaikan Git. PDF/SVG tersebut hanya sample kompatibilitas yang berasal dari data tepercaya, bukan dokumentasi hasil analisis repository. DOC-01 menyediakan model dan halaman tiga artefak untuk hasil canonical tersimpan yang sukses; ekspor terotorisasi tersedia melalui EXP-01/EXP-02 dengan bukti terpisah dari smoke sample.
 
 ## Restart dan persistensi
 
@@ -70,7 +70,7 @@ Untuk tooling pada host gunakan Node 24 dan npm yang tercantum pada `package.jso
 
 Compose membatasi web 768 MiB, worker 2 GiB, dan database 384 MiB. Web/worker berjalan non-root dengan capabilities dihapus. Volume storage hanya dibaca oleh web dan dapat ditulis worker.
 
-`config/analysis-limits.json` memuat batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Kebijakan source diterapkan pada jalur snapshot immutable; lihat batas bukti REP-02. ANA-07 menerapkan deadline keseluruhan 300 detik melalui cancellation dan mempertahankan lease selama publikasi. Nilai ceiling tersebut bukan bukti kapasitas produksi. Ekspor Markdown #20 diproses worker dari dokumen canonical; worker harus berjalan untuk mengubah QUEUED menjadi READY. Lifecycle deletion #23 serta ekspor PDF #21 mengikuti issue masing-masing. Bukti ekspor dan batasnya tersedia pada [EXP-01_CHECKS](EXP-01_CHECKS.md). API claim/recovery #9 sudah diuji terpisah. Parser PHP memiliki timeout sendiri.
+`config/analysis-limits.json` memuat batas konservatif: archive 25 MiB, extracted 100 MiB, file source 1 MiB, 2.000 file, rasio ekstraksi 20, timeout parser 10 detik, dan analisis 300 detik. Kebijakan source diterapkan pada jalur snapshot immutable; lihat batas bukti REP-02. ANA-07 menerapkan deadline keseluruhan 300 detik melalui cancellation dan mempertahankan lease selama publikasi. Nilai ceiling tersebut bukan bukti kapasitas produksi. Ekspor Markdown #20 diproses worker dari dokumen canonical; worker harus berjalan untuk mengubah QUEUED menjadi READY. Ekspor PDF memakai worker dan reader privat yang sama; bukti layout ada pada [EXP-02_CHECKS](EXP-02_CHECKS.md). Lifecycle deletion tetap #23. Bukti ekspor dan batasnya tersedia pada [EXP-01_CHECKS](EXP-01_CHECKS.md). API claim/recovery #9 sudah diuji terpisah. Parser PHP memiliki timeout sendiri.
 
 Mermaid memakai strict mode. Modul DOC-02 menambahkan encoding label, pembatasan diagram, blokir jaringan, pengujian label berbahaya, serta validasi SVG; lihat [bukti DOC-02](DOC-02_CHECKS.md). DOC-01 merender diagram lokal dari dokumen canonical; integrasi ekspor produk tetap diuji pada EXP-01/EXP-02. Chromium tidak boleh dipakai membuka URL bebas dari input pengguna.
 

@@ -5,6 +5,7 @@
 .pageHeading > p:last-child,.muted { color: #52637b; }
 .snapshotCard,.contentCard,.notice { min-width: 0; padding: 16px; border: 1px solid #dce5ec; border-radius: 8px; background: #fff; box-shadow: 0 1px 2px rgb(6 30 66 / 3%); }
 .exportCard { display: grid; gap: 16px; min-width: 0; padding: 16px; border: 1px solid #c9dcd7; border-radius: 8px; background: #f8fcfb; }
+.exportGrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; }
 .exportCopy { min-width: 0; }
 .exportCopy h2 { margin: 0; color: #183b39; font-size: 17px; font-weight: 600; line-height: 24px; }
 .exportCopy p { margin: 6px 0 0; color: #52637b; font-size: 12px; line-height: 19px; }
@@ -86,6 +87,7 @@
   .sectionButton { width: 100%; }
   .catalogTable th,.relationTable th,.mappingTable th,.fileTable th { font-size: 12px; }
   .exportCard { grid-template-columns: minmax(0, 1fr) auto; align-items: center; }
+  .exportGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .exportActions { justify-content: flex-end; }
 }
 @media (max-width: 560px) {

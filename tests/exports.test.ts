@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { MARKDOWN_RENDERER_VERSION } from "../packages/documents/src/markdown.ts";
+import { PDF_RENDERER_VERSION } from "../packages/documents/src/pdf-version.ts";
 import { createExportHandlers } from "../apps/web/lib/exports/handlers.ts";
 import type { ExportHandlerDependencies } from "../apps/web/lib/exports/handlers.ts";
 import type { ExportSnapshot } from "../packages/database/src/exports.ts";
@@ -36,7 +37,7 @@ function dependencies(overrides: Partial<ExportHandlerDependencies> = {}) {
     retry: async input => { calls.retry.push(input); return queued; },
     readDownload: async (ownerUserId, id, recordId) => {
       calls.download.push([ownerUserId, id, recordId]);
-      return { kind: "ready", value: { bytes: Buffer.from("# Canonical export\n"), filename: "sage-repo-a1b2c3d.md" } };
+      return { kind: "ready", value: { bytes: Buffer.from("# Canonical export\n"), filename: "sage-repo-a1b2c3d.md", format: "MARKDOWN" } };
     },
   };
   return { handlers: createExportHandlers({ ...base, ...overrides }), calls };
@@ -59,14 +60,14 @@ function assertPrivateHeaders(response: Response, jsonContent = true) {
   if (jsonContent) assert.match(response.headers.get("content-type") ?? "", /^application\/json/);
 }
 
-test("export POST accepts only same-origin MARKDOWN and binds the queue request to canonical document hash", async () => {
+test("export POST accepts Markdown and binds the queue request to canonical document hash", async () => {
   const { handlers, calls } = dependencies();
   const response = await handlers.post(post(), analysisId);
   assert.equal(response.status, 202);
   assertPrivateHeaders(response);
   assert.deepEqual(await response.json(), { data: { analysisId, accountKey: account.githubUserId, export: queued } });
   assert.deepEqual(calls.readDocument, [[account.userId, analysisId]]);
-  assert.deepEqual(calls.enqueue, [{ ownerUserId: account.userId, analysisId, documentHash, rendererVersion: MARKDOWN_RENDERER_VERSION }]);
+  assert.deepEqual(calls.enqueue, [{ ownerUserId: account.userId, analysisId, format: "MARKDOWN", documentHash, rendererVersion: MARKDOWN_RENDERER_VERSION }]);
 
   const replay = dependencies({ enqueue: async () => ({ export: { ...queued, status: "READY", contentHash }, created: false }) });
   const replayResponse = await replay.handlers.post(post(), analysisId);
@@ -74,12 +75,20 @@ test("export POST accepts only same-origin MARKDOWN and binds the queue request 
   assert.deepEqual((await replayResponse.json() as { data: { export: ExportSnapshot } }).data.export.status, "READY");
 });
 
+test("export POST accepts PDF and deduplicates through the format-specific renderer version", async () => {
+  const { handlers, calls } = dependencies();
+  const response = await handlers.post(post(undefined, '{"format":"PDF"}'), analysisId);
+  assert.equal(response.status, 202);
+  assertPrivateHeaders(response);
+  assert.deepEqual(calls.enqueue, [{ ownerUserId: account.userId, analysisId, format: "PDF", documentHash, rendererVersion: PDF_RENDERER_VERSION }]);
+});
+
 test("export POST validates IDs, query, body, format, origin and account before touching private data", async () => {
   const { handlers, calls } = dependencies();
   assert.equal((await handlers.post(post(), "bad")).status, 400);
   assert.equal((await handlers.post(post(`http://localhost:3000/api/analyses/${analysisId}/exports?format=MARKDOWN`), analysisId)).status, 400);
   assert.equal((await handlers.post(post(undefined, '{"format":"MARKDOWN","extra":true}'), analysisId)).status, 400);
-  assert.equal((await handlers.post(post(undefined, '{"format":"PDF"}'), analysisId)).status, 422);
+  assert.equal((await handlers.post(post(undefined, '{"format":"HTML"}'), analysisId)).status, 422);
   assert.equal((await handlers.post(post(undefined, '{"format":"MARKDOWN"}', account.githubUserId, "https://attacker.test"), analysisId)).status, 403);
   assert.equal((await handlers.post(post(undefined, '{"format":"MARKDOWN"}', "github-other-account"), analysisId)).status, 401);
   assert.deepEqual(calls.readDocument, []);
@@ -113,6 +122,10 @@ test("export status is owner and account scoped and rejects unsupported query pa
   const hiddenResponse = await hidden.handlers.get(get(`http://localhost:3000/api/analyses/${analysisId}/exports/${exportId}`), analysisId, exportId);
   assert.equal(hiddenResponse.status, 404);
   assert.match(await hiddenResponse.text(), /EXPORT_NOT_FOUND/);
+
+  const pdf = dependencies({ find: async () => ({ ...queued, format: "PDF" }) });
+  const pdfResponse = await pdf.handlers.get(get(`http://localhost:3000/api/analyses/${analysisId}/exports/${exportId}`), analysisId, exportId);
+  assert.equal((await pdfResponse.json() as { data: { export: ExportSnapshot } }).data.export.format, "PDF");
 });
 
 test("export retry requires a strict same-origin empty JSON object and a failed owner-bound export", async () => {
@@ -129,6 +142,10 @@ test("export retry requires a strict same-origin empty JSON object and a failed 
   assert.deepEqual(calls.retry, [{ ownerUserId: account.userId, analysisId, exportId }]);
   assert.equal((await handlers.retry(retryRequest('{"force":true}'), analysisId, exportId)).status, 400);
   assert.equal((await handlers.retry(retryRequest("{}", "https://attacker.test"), analysisId, exportId)).status, 403);
+
+  const pdf = dependencies({ retry: async () => ({ ...queued, format: "PDF" }) });
+  const pdfResponse = await pdf.handlers.retry(retryRequest(), analysisId, exportId);
+  assert.equal((await pdfResponse.json() as { data: { export: ExportSnapshot } }).data.export.format, "PDF");
 
   const conflict = dependencies({ retry: async () => { const error = new Error("conflict"); error.name = "ExportRetryConflictError"; throw error; } });
   const conflictResponse = await conflict.handlers.retry(retryRequest(), analysisId, exportId);
@@ -155,4 +172,12 @@ test("export download returns private attachment headers or distinct not-ready a
   const missingResponse = await missing.handlers.download(get(url), analysisId, exportId);
   assert.equal(missingResponse.status, 404);
   assert.match(await missingResponse.text(), /EXPORT_NOT_FOUND/);
+
+  const pdf = dependencies({ readDownload: async () => ({
+    kind: "ready", value: { bytes: Buffer.from("%PDF-1.7\n"), filename: "sage-repo-a1b2c3d.pdf", format: "PDF" },
+  }) });
+  const pdfResponse = await pdf.handlers.download(get(url), analysisId, exportId);
+  assert.equal(pdfResponse.status, 200);
+  assert.equal(pdfResponse.headers.get("content-type"), "application/pdf");
+  assert.equal(pdfResponse.headers.get("content-disposition"), 'attachment; filename="sage-repo-a1b2c3d.pdf"');
 });

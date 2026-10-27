@@ -1,6 +1,6 @@
 # Product backlog
 
-Status per 21 Oktober 2026: **44 GitHub Issues**, tiga milestone sprint, dan delapan relasi parent/sub-issue sudah dibuat. Revisi pembagian memakai bobot pekerjaan serta bukti kontribusi tiap sprint; jumlah issue tidak harus sama. Penanggung jawab paket mengikuti [alur kontribusi](../CONTRIBUTING.md); Iltizam melakukan review teknis dan merge PR.
+Status per 27 Oktober 2026: **44 GitHub Issues**, tiga milestone sprint, dan delapan relasi parent/sub-issue sudah dibuat. Revisi pembagian memakai bobot pekerjaan serta bukti kontribusi tiap sprint; jumlah issue tidak harus sama. Penanggung jawab paket mengikuti [alur kontribusi](../CONTRIBUTING.md); Iltizam melakukan review teknis dan merge PR.
 
 Seluruh akun sudah dipetakan dan assignment aktif: Iltizam (`iltizamhasan3`), Rizqy (`rizqy-fadhil`), Valentina (`liliks13`), serta Zarra (`zarrrafirdaus`). Sebelas paket Zarra sudah di-assign ke akunnya. Ringkasan lintas anggota ada di [alokasi sprint](SPRINT_ALLOCATION.md).
 
@@ -52,7 +52,7 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | GRAPH-02 | Node Query dan filter kategori gabungan | 2 | P1 / M | Valentina | GRAPH-01 | - | Implemented; query/filter dan regresi browser teruji (GRAPH-02_CHECKS) | [#18](https://github.com/AgilePemdigi-2026/sage/issues/18) |
 | GRAPH-03 | Inspector, incoming/outgoing, evidence, source preview | 2 | P0 / L | Valentina | GRAPH-01, REP-02 | - | Implemented; [bukti](GRAPH-03_CHECKS.md) | [#19](https://github.com/AgilePemdigi-2026/sage/issues/19) |
 | EXP-01 | Markdown mandiri beserta failure/retry | 2 | P0 / L | Zarra | DOC-01 | - | Implemented; [bukti](EXP-01_CHECKS.md) | [#20](https://github.com/AgilePemdigi-2026/sage/issues/20) |
-| EXP-02 | PDF, print layout, diagram, dan download | 2 | P0 / L | Valentina | DOC-01, ENV-01 | - | Planned | [#21](https://github.com/AgilePemdigi-2026/sage/issues/21) |
+| EXP-02 | PDF, print layout, diagram, dan download | 2 | P0 / L | Valentina | DOC-01, ENV-01 | - | Implemented; teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) | [#21](https://github.com/AgilePemdigi-2026/sage/issues/21) |
 | HIST-01 | History per user, search, empty/error, navigasi | 2 | P1 / M | Rizqy | DATA-01, ANA-01 | - | Planned | [#22](https://github.com/AgilePemdigi-2026/sage/issues/22) |
 | DATA-02 | Penghapusan analysis dan cleanup storage/export | 2 | P1 / M | Zarra | DATA-01, EXP-01, EXP-02 | - | Planned | [#23](https://github.com/AgilePemdigi-2026/sage/issues/23) |
 | QA-02 | Integrasi penuh, GitHub nyata, error, dan release evidence | 2 | P0 / XL | Rizqy | GH-01, REP-02, ANA-07, GRAPH-03, EXP-01, EXP-02, HIST-01, DATA-02 | - | Planned | [#24](https://github.com/AgilePemdigi-2026/sage/issues/24) |
@@ -119,7 +119,7 @@ Kriteria berikut tetap wajib bersama scope fase/sisa di atas. Setiap hasil menca
 | GRAPH-02 | Query AND kategori, kategori AST nyata, reset/no result tidak mengubah canonical result | T-GRAPH-02 |
 | GRAPH-03 | Relasi dua arah dan evidence benar, source snapshot sesuai hash/line, loading/unavailable/close berfungsi | T-GRAPH-03 |
 | EXP-01 | File Markdown nyata memuat tiga artefak, evidence, konteks dan limitation; retry tidak mengubah hasil | T-EXP-01, T-EXP-03 |
-| EXP-02 | PDF nyata dapat dibuka, diagram terbaca, tidak terpotong, context/evidence sesuai; download terotorisasi | T-EXP-02, T-EXP-03 |
+| EXP-02 | PDF nyata dapat dibuka, diagram terbaca, tidak terpotong, context/evidence sesuai; download terotorisasi | T-EXP-02, T-EXP-03; hasil verifikasi dicatat pada [EXP-02_CHECKS](EXP-02_CHECKS.md) |
 | HIST-01 | Search nama/SHA, context dan tanggal benar, queued/running/failed ke progress, completed ke graph | T-HIST-01 |
 | DATA-02 | Hanya owner dapat delete, active job ditolak, semua object hilang sebelum status selesai, cleanup dapat retry | T-DATA-02 |
 | QA-02 | Seluruh user story inti dan error lulus dengan bukti fresh run; pengujian nyata dibedakan dari mock | T-REL-01 dan seluruh kasus inti |

@@ -1,0 +1,208 @@
+{
+  "date": "2026-10-27",
+  "verifiedContentCommit": "57f3c26ef6d0c4852b6e2ff1c85401f3e66dfc09",
+  "status": "PASS",
+  "mainTests": 332,
+  "dataTests": 8,
+  "focusedExportTests": 21,
+  "databaseIntegrationTests": 2,
+  "pdfBrowserApiGroups": 14,
+  "markdownRegressionGroups": 20,
+  "browser": {
+    "offOriginRequests": 0,
+    "providerRequests": 0,
+    "pageErrors": []
+  },
+  "viewports": [
+    390,
+    1440
+  ],
+  "reportPath": "artifacts/pdf-21/2026-10-27-run5/report.json",
+  "reportSha256": "7643546e9c323fd16932d986161620e7a0f76deb14216739b47e1bce2890267c",
+  "markdownReportSha256": "2af427548bfcb8d67824d506c793f518bf0cdfe56f69ad279bad13259116060d",
+  "pdf": {
+    "exportId": "cmvq81br20000vkr1qns932mq",
+    "rendererVersion": "1.0.0",
+    "sha256": "0e893293ec3b66ba22171999d65d3238a3300180573a720292a7989f444741fc",
+    "byteLength": 328449,
+    "contentType": "application/pdf",
+    "signature": "%PDF-",
+    "browserFiles": [
+      "sage-pdf21-browser-390.pdf",
+      "sage-pdf21-browser-1440.pdf",
+      "sage-pdf21-browser-retry.pdf"
+    ]
+  },
+  "textInspection": {
+    "status": "PASS",
+    "pages": 40,
+    "pageSizesPt": [
+      [
+        842.88,
+        595.91998
+      ]
+    ],
+    "checks": {
+      "metadata": {
+        "expected": 7,
+        "matched": 7
+      },
+      "nodeIds": {
+        "expected": 20,
+        "matched": 20
+      },
+      "nodeNames": {
+        "expected": 38,
+        "matched": 38
+      },
+      "nodeSignatures": {
+        "expected": 6,
+        "matched": 6
+      },
+      "nodeAttributes": {
+        "expected": 7,
+        "matched": 7
+      },
+      "edgeIds": {
+        "expected": 27,
+        "matched": 27
+      },
+      "relationFields": {
+        "expected": 10,
+        "matched": 10
+      },
+      "files": {
+        "expected": 6,
+        "matched": 6
+      },
+      "evidence": {
+        "expected": 89,
+        "matched": 89
+      },
+      "limitations": {
+        "expected": 3,
+        "matched": 3
+      },
+      "sections": {
+        "expected": 4,
+        "matched": 4
+      }
+    },
+    "missing": [],
+    "sha256": "0e893293ec3b66ba22171999d65d3238a3300180573a720292a7989f444741fc",
+    "bytes": 328449,
+    "allPagesHeaderFooter": true,
+    "canariesAbsent": true,
+    "replacementGlyphAbsent": true,
+    "retryCanonicalTextMatches": true,
+    "diagramEscapesFaithful": true,
+    "visualReview": "PASS"
+  },
+  "visualReview": {
+    "pages": 40,
+    "renderedEveryPage": true,
+    "visuallyInspectedEveryPage": true,
+    "popplerDpi": 90,
+    "pngHashes": {
+      "page-01.png": "b2b5702ae00d91e70a9207d962b26816601a744d08ebfaccb46aa53f5c55713a",
+      "page-02.png": "763a0e72fcdfdeb15ae9a99815876bdf6a4f483ff8ccbfe8aafbc21935de3350",
+      "page-03.png": "02f8e5f84e9976142b50c5f3973d8050347c494e0ebfc2cec7882f3546c6d562",
+      "page-04.png": "e69e59382ac3189bb57c44bc39cb5abedec89df6523048f05ab847ca697a8fa6",
+      "page-05.png": "6fa027ca74edf5e99e96969df7d4f5f226388e71b070ef08abaa1450b637548a",
+      "page-06.png": "81703090767a9decd681ce43a20eddacc1d4b298bc88f1325567cdb65fb3045c",
+      "page-07.png": "a23053cd39e0cee64844804232b42a9df90bd7301c57ab5c5598c9687670d8b4",
+      "page-08.png": "4e4146f2e58614c3d1867542348c50aa0c1a3cfc5ae6feb9fff100188440b455",
+      "page-09.png": "66e261fa54fda7766b317ced3a195a3c8c101123128d7b8c5850e483ab8ac462",
+      "page-10.png": "393119bb67dc629067f21034e4525cc279f318084dee12a5dbd29ced4d593eb9",
+      "page-11.png": "b4a5b7ac6edd40759d2d579b8012272db65d8b88b2106f46fac4913ae4eef360",
+      "page-12.png": "031198300a08fd081112d7c13daa9e7aa2b8fd763be80cef388fa3ea49d59379",
+      "page-13.png": "33395d114f14ed439ac258a79f5c7871c69898c8c912b0ce622df925984b6438",
+      "page-14.png": "d61dfcdd6616c2118b666c0322b58657f2b0151f26449d28fe1ef52635e7e210",
+      "page-15.png": "539dbd69a21179fcd9c60bdca4b0ac8ac55096c0d41c5c8531d239a1f99c5051",
+      "page-16.png": "3c9aa514437fe9c0ebe895926666978f0be76bf1f6a6df149f0188da83a35374",
+      "page-17.png": "ff75cfbf7629510ebe35e8de13297cb9cdb6e08bd4826a87c3bbfe53807e7958",
+      "page-18.png": "a4abfac13418071dbfa4adf649e7971bf88075956997a521a9d7814c7e8f05da",
+      "page-19.png": "1d5f45821b04771927cf2922e01501ef73ce3e61cf0b99006e7e7dca72813d7a",
+      "page-20.png": "450b5d02a3011acf60d051994cd9d6576dd6419de9ace1572e21ab31b5cf8612",
+      "page-21.png": "2f6add66a28fcbd347fdbe8597a53af3c6a22cbe2f84bb78bcf44ad9d9eff443",
+      "page-22.png": "31115bafbd2aa8922c046a39d3597161d38f49f0a484139f0c1e078d3badfa82",
+      "page-23.png": "cfa3e39198b9d350a234ac11367df7ecb1e2f774e7e3cd3af8aca496ddae821e",
+      "page-24.png": "4b93d091f1a7c2f029dfae70389a02431831bf19ca3c47a7fe16be11b4689736",
+      "page-25.png": "6ee942bceb1e4d69ad86075db9f2a93e4ccc603a65eb0bf1191f90a20d23872a",
+      "page-26.png": "b2ff36174d781ae4a91c0937086a4586cd49b52aa2f7a0b03ba5a22f9c53aca1",
+      "page-27.png": "999b96578fc6fe692a6fdc2c0c3f86f09788076bfbe7e54a6be5cb40110736cf",
+      "page-28.png": "68471911449398f95c5499d58398fc4542f01d3d881a73dbd23b6bb6f0446d34",
+      "page-29.png": "4854ebe457adb6f7f5426fb28ce8ea84f5a8fad3c378c9b1ab8f34a4edfdafb5",
+      "page-30.png": "155f2656df71a75bed87a3cad9dab7ea019c52c8d150c69ca95d5fae42afba11",
+      "page-31.png": "6f1be5a145f1bd7f37b47b1b38995ee31dfb2104f61569afc76345eefa9ebb27",
+      "page-32.png": "6fc59a0463d0471a381cd27e35602c88d1eac114ad386aaa20705407abf7ce7b",
+      "page-33.png": "92518cbedea7f6e6543f9bb8c24c3487e5ba4eebdb9a075a47b17fb58af9c378",
+      "page-34.png": "3246f3a4e977eb22f7709df45b41df5fd5c321245fca03bd8402398547211c4c",
+      "page-35.png": "dd5871558bade62e1b730b7289b0d193e4a26b149a62f1fad19cf980715bf651",
+      "page-36.png": "b0d4a7c7fe1c2c73569e36d64001406a055038d9665501de2204864fa33e57f1",
+      "page-37.png": "813ea47d09cd4d7e0a4fb5b5a4e633ae133387c10d7ce81c54ab1a02b1a8b4ea",
+      "page-38.png": "8d807fd3642fc36506b75a453ff9c4ee0843048be923c63afb09ae12a77dc62d",
+      "page-39.png": "afee7d2e5cab50c22eb72b84c19c183393b92204f1c614d99d6e5e7698bad083",
+      "page-40.png": "89fc4282f1e09c21204b63de2c76ec6d951d022e6f2f419045f3f372023db931"
+    },
+    "grayRectangleFixed": true,
+    "generatedUnderscoresAndLiteralNumericTokenPathPreserved": true,
+    "intentionalTiling": "Large diagrams have complete overview plus overlapping native-scale detail tiles; tile-edge cropping is intentional and neighbors continue the diagram."
+  },
+  "build": "Final production Next build passed in the QA container after full main/data tests. Final renderer/test sources mounted read-only over the built QA image. Web static assets recopied before running the production server.",
+  "qaBaseImage": "sha256:d104f4a38cd232cfd974701bbb96c6e1e74c9c2c99a49d5a370feee0e98f87f2",
+  "mountedSourceFiles": [
+    "packages/documents/src/pdf.ts",
+    "tests/pdf-export.test.ts",
+    "tests/pdf-exports.integration.ts",
+    "scripts/test-pdf-export.ts"
+  ],
+  "workerProductionDependenciesImport": "PASS",
+  "failureInjection": {
+    "actualFailureCode": "EXPORT_FAILED",
+    "injectedFault": "After the real PDF POST queued behind a test-only lease, changed only the source archive StorageObject.sha256. Production lease recovery and the real worker produced EXPORT_FAILED; the original archive checksum was restored before POST retry."
+  },
+  "canonicalDocument": {
+    "file": "expected-document.json",
+    "canonicalDocumentHash": "9cd375c2fefe33d1809e99968bfa48bb74f6e85b8cbe6ba163456f7e2a8011a7",
+    "canonicalDocumentJsonSha256": "9cd375c2fefe33d1809e99968bfa48bb74f6e85b8cbe6ba163456f7e2a8011a7",
+    "canonicalCkgHash": "29d33f351dfc9f2b6deb3d8c2b6bbb8c2ad8b77f4e2753c87c408e104cafb003",
+    "repository": "sage-pdf21/export-fixture",
+    "branch": "feature/pdf-21",
+    "commitSha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "nodeCount": 20,
+    "edgeCount": 27,
+    "title": "Architecture Definition Document",
+    "limitationCount": 5
+  },
+  "maxPdfBytes": 33554432,
+  "scope": "Actual production Next/Postgres/worker export from directly seeded analyzer-produced terminal fixture; not live OAuth or a fresh nine-stage analysis. Timing gates, archive checksum fault, and delayed response are controlled test cases.",
+  "fileSha256": {
+    "apps/web/components/live-document/export-data.ts": "c1ea2a736f5660bb45ed8cd4aa4962e428de4a0e0d7f1fcc1e7362aa08b0c837",
+    "apps/web/components/live-document/live-document-client.tsx": "b28ebbc2cff4104f7caff34945f3db23d4506eae4c794edbe087cac90fdb09bf",
+    "apps/web/components/live-document/live-document.module.css": "338e0fc5179bb5fc195007d09ee148f8dbb7b966f7b49f33eb0ee4ac79787c59",
+    "apps/web/components/live-document/markdown-export.tsx": "875ad96ae3c649a07c3c18ec4e3e847b9c780c686f5a3834f704ac0bc4a616bb",
+    "apps/web/lib/exports/handlers.ts": "ef098619ee14928a57dbaa29965c118e2b9185f71fd69995e7a9e83f333b2b12",
+    "apps/web/lib/exports/reader.ts": "3f672cf3e438be8bea0444befdc997f4dec9703c8d7d9ab41d4c287d347b4449",
+    "apps/web/lib/exports/server-handlers.ts": "1acf9b2c0035af778d0044afdb2555cee07aad0050cfc061bb062f7ba10bd12e",
+    "apps/worker/src/export-handlers.ts": "2f83566d736cb9572a1a0884aadb8b05994d876700742b62f8fc286f0b00f7d3",
+    "package.json": "13b5f941ed2a33a88f5a5c546814c46379b223583a3b21a3bb2c22b8ceb4ca9e",
+    "packages/database/src/exports.ts": "b0afff0e049098db61511a74a585e989c4e6d805b0c448d06b7c368fdd7704d9",
+    "packages/database/src/index.ts": "8f5dcf279f03232e8a97c9265d5611fd1587debbec827d297c9d4cd47d523c7b",
+    "packages/documents/src/index.ts": "c3bf092cc5223ccf2ea7cfa6a0b234e7bcffcef3e0e51733be2587e2df0096ad",
+    "packages/documents/src/pdf-version.ts": "51fee38a4d5fde4e4d5beb838fc9df3aa6e3c8ed08836613c7bc359aa6ff5971",
+    "packages/documents/src/pdf.ts": "82b5db3ff7814657be72a1cc5dc6d185beb9ed05f17df92c067bcb4ba21261cf",
+    "scripts/check-pdf-export.py": "5a64b25e2f654758b27403aa4c03fd7e76726376c125716946aab2395a9a77c8",
+    "scripts/test-markdown-export.ts": "017969102744b5b4813f575b3977c8093dac17a1c706f42cade2629bb555701f",
+    "scripts/test-pdf-export.ts": "6390270c0cf0d77c5a088488963e171aff70fad8c614d29652296d5a5f889d71",
+    "tests/export-data.test.ts": "a6fc53503bb0c54298354ffe23bebf142e2333226580798a55267d6055914fec",
+    "tests/exports.test.ts": "4bbdb860426077c87f2539211111952bf2e00cfe67e2ee71b2ac6942a843b8e0",
+    "tests/pdf-export.test.ts": "55d3ffefbdf405bc0538718f88b9076ba539142aae78569a6a76f02e714b9286",
+    "tests/pdf-exports.integration.ts": "50ad1ba94153f1b1a15f474303f34f67cf3b2a6b19fff57adc2da2e6222b72cc"
+  },
+  "negativeAttributeCheck": {
+    "status": "PASS",
+    "case": "Expected canonical node attribute changed to absent canary",
+    "checkerRejected": true
+  }
+}
