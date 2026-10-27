@@ -1,0 +1,71 @@
+{
+  "status": "PASS",
+  "measuredAt": "2026-10-27",
+  "scope": "Private local database snapshot; read-only product source volume; no Coolify deployment or shared-host load test",
+  "baseCommit": "24c0d194688c5a3a5045467a1abb8d2589a46d34",
+  "countsBefore": {
+    "users": 2,
+    "analyses": 6,
+    "graphs": 6,
+    "documents": 2,
+    "exports": 0,
+    "storageObjects": 6
+  },
+  "countsAfter": {
+    "users": 2,
+    "analyses": 6,
+    "graphs": 6,
+    "documents": 2,
+    "exports": 0,
+    "storageObjects": 6
+  },
+  "logicalPayload": {
+    "beforeCanonicalBytes": 106045134,
+    "afterCanonicalBytes": 106045134,
+    "beforeMirrorBytes": 105445942,
+    "afterMirrorBytes": 0,
+    "savedBytes": 105445942,
+    "savedPercent": 49.86,
+    "definition": "UTF-8 canonical text plus unboxed JSONB scalar mirror strings; excludes TOAST compression, indexes, row overhead and filesystem size"
+  },
+  "physicalDatabase": {
+    "beforeBytes": 114783923,
+    "afterBytes": 114808499,
+    "vacuumFull": false,
+    "note": "UPDATE leaves obsolete tuple versions; payload reduction does not imply an immediate smaller database file"
+  },
+  "integrity": {
+    "allNonMirrorNonLayoutColumnsEqual": true,
+    "countsEqual": true,
+    "sourceReplayVerifiedAnalyses": 6,
+    "graphsConverted": 6,
+    "documentsConverted": 2,
+    "skippedAnalyses": 0,
+    "rerunCandidates": 0
+  },
+  "verification": {
+    "unitTests": 355,
+    "databaseFoundation": 8,
+    "storageIntegration": 1,
+    "ckgIntegration": 2,
+    "documentIntegration": 1,
+    "pipelineIntegration": 2,
+    "markdownIntegration": 2,
+    "pdfIntegration": 1,
+    "markdownBrowserCheckGroups": 20,
+    "pdfBrowserCheckGroups": 15,
+    "browserStorageLayout": 2,
+    "viewports": [
+      390,
+      1440
+    ],
+    "liveGitHubOAuth": false,
+    "coolifyDeployed": false
+  },
+  "limitations": [
+    "No existing exports in the local snapshot; Markdown equality and PDF regression verified separately with controlled fixtures.",
+    "Physical database files were not rewritten or shrunk.",
+    "Skipped legacy rows can occupy a batch; use explicit analysis-id for selected maintenance.",
+    "Resource limits and backup for the shared Coolify server remain undecided."
+  ]
+}

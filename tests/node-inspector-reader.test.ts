@@ -174,6 +174,7 @@ async function fixture(source = sourceText, options: { corruptStoredArchive?: bo
     id: "graph-bundle-19",
     schemaVersion: result.value.schemaVersion,
     configurationHash,
+    storageLayoutVersion: 1,
     canonicalContent: result.json,
     nodes: JSON.stringify(result.value.ccm.nodes),
     edges: JSON.stringify(result.value.ccm.edges),

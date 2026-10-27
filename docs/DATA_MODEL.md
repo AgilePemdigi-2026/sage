@@ -18,13 +18,13 @@ Model ini memperinci empat entitas konseptual pada SRS agar queue, source eviden
 | `AnalysisStage` | `ownerUserId`, `analysisId`, sequence/key, status, timestamps, error code; unik per analysis/sequence dan analysis/key |
 | `SourceFile` | Pemilik/analysis, path, language, byte length, SHA-256, processing status, relasi storage opsional |
 | `AnalysisLimitation` | Pemilik/analysis, path opsional, stage, code, penjelasan aman, jumlah bagian terdampak |
-| `GraphBundle` | Satu per analysis, pemilik, schema/config hash, canonical nodes/edges JSON, counts, content hash |
-| `ArchitectureDocument` | Maksimal satu per analysis, title, versi model, `interfaceCatalog`, `softwareEngineeringDiagram`, `umlClassDiagram` sebagai mirror string JSON canonical, `canonicalContent`, content hash, generated timestamp |
+| `GraphBundle` | Satu per analysis, pemilik, schema/config hash, `storageLayoutVersion`, canonical CKG text, counts, content hash; mirror nodes/edges hanya layout 1 |
+| `ArchitectureDocument` | Maksimal satu per analysis, title, versi model, `storageLayoutVersion`, `canonicalContent`, content hash dan timestamps; tiga mirror artefak hanya layout 1 |
 | `Export` | Pemilik/analysis/document, format, versi renderer, status, storage reference, content hash, error code |
 | `StorageObject` | Pemilik/analysis, jenis objek, opaque storage key unik, hash, ukuran, status penghapusan |
 | `WorkerSlot` | Slot global `analysis`, `export`, dan `cleanup`, relasi job/pemilik, lease/heartbeat, hash token lease, dan counter FIFO; row lock menserialkan enqueue/claim/renew/fail |
 
-`GraphBundle` dapat memakai JSONB dengan schema validation untuk MVP. Pemisahan ke tabel node/edge dilakukan bila benchmark membuktikan kebutuhan; keberadaan Code Knowledge Graph tidak mewajibkan graph database.
+`GraphBundle` menyimpan canonical text yang divalidasi terhadap sumber; mirror JSONB hanya dipertahankan pada layout lama. Pemisahan ke tabel node/edge dilakukan bila benchmark membuktikan kebutuhan; keberadaan Code Knowledge Graph tidak mewajibkan graph database.
 
 ## Invarian
 
@@ -111,14 +111,19 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 
 ## Canonical CKG ANA-06
 
-`GraphBundle.canonicalContent` menyimpan canonical JSON `sage-ckg-v1` berisi CCM lengkap, fingerprint queue dan counts. Nullable hanya untuk baris legacy. Hash canonical mencakup snapshot, file/evidence, provenance dan limitation; kolom node/edge JSONB menyimpan string JSON canonical agar escaped NUL/lone surrogate tidak ditolak PostgreSQL; reader canonical mengembalikan model decoded. Mirror string tersebut serta count kolom diverifikasi. Penulisan berada di transaksi lease/stage-fenced dan hasil per analysis immutable. Reader canonical memerlukan owner, status terminal berhasil, kesamaan target parent serta validasi source/hash/mirror. Graph draft tidak dipublikasikan lewat reader tersebut; publikasi result bundle lengkap dilakukan ANA-07. Lihat [verifikasi ANA-06](ANA-06_CHECKS.md).
+`GraphBundle.canonicalContent` menyimpan canonical JSON `sage-ckg-v1` berisi CCM lengkap, fingerprint queue dan counts. Nullable hanya untuk baris legacy. Hash canonical mencakup snapshot, file/evidence, provenance dan limitation; kolom node/edge JSONB menyimpan string JSON canonical agar escaped NUL/lone surrogate tidak ditolak PostgreSQL; reader canonical mengembalikan model decoded. Layout 1 memverifikasi mirror string tersebut serta count kolom. Layout 2 menyimpan mirror sebagai SQL NULL dan tetap memverifikasi canonical/source/hash/count. Penulisan berada di transaksi lease/stage-fenced dan hasil per analysis immutable. Reader canonical memerlukan owner, status terminal berhasil, kesamaan target parent serta validasi source/hash/mirror. Graph draft tidak dipublikasikan lewat reader tersebut; publikasi result bundle lengkap dilakukan ANA-07. Lihat [verifikasi ANA-06](ANA-06_CHECKS.md).
 
 `Analysis.repositoryFullNameSnapshot` membekukan nama target saat enqueue; stable repository relation, branch dan full SHA tetap dipakai. Context stage dan integritas CKG memakai snapshot ini sehingga rename repository tidak merusak hasil historis. Field nullable menjaga baris legacy; saat pertama diinisialisasi, worker menangkap nama terkini satu kali tanpa mengklaim rekonstruksi nama historis yang belum pernah disimpan.
 
 ## Canonical ADD DOC-01
 
-`ArchitectureDocument.canonicalContent` menyimpan JSON `sage-add-v1`; nullable hanya untuk legacy yang tidak disajikan sebagai hasil canonical. Ketiga kolom artefak JSONB berisi string JSON canonical agar escaped NUL/lone surrogate dipertahankan. Reader meregenerasi model dari CKG serta source snapshot dan memverifikasi hash, title/version dan semua mirror. Penulisan dilakukan sekali secara transaksional dengan lease/stage fence; replay berbeda ditolak. Model tidak memuat ID record/job atau waktu generate dalam hash. DOC-01 tidak mengubah status Analysis/Job terminal; publikasi graph+document+resultHash bersama dilakukan ANA-07. Lihat [bukti DOC-01](DOC-01_CHECKS.md).
+`ArchitectureDocument.canonicalContent` menyimpan JSON `sage-add-v1`; nullable hanya untuk legacy yang tidak disajikan sebagai hasil canonical. Pada layout 1, ketiga kolom artefak JSONB berisi string JSON canonical agar escaped NUL/lone surrogate dipertahankan. Layout 2 menyimpan canonicalContent sekali dengan ketiga mirror sebagai SQL NULL. Reader meregenerasi model dari CKG serta source snapshot dan memverifikasi hash, title/version, serta ketentuan mirror sesuai storageLayoutVersion. Penulisan dilakukan sekali secara transaksional dengan lease/stage fence; replay berbeda ditolak. Model tidak memuat ID record/job atau waktu generate dalam hash. DOC-01 tidak mengubah status Analysis/Job terminal; publikasi graph+document+resultHash bersama dilakukan ANA-07. Lihat [bukti DOC-01](DOC-01_CHECKS.md).
 
 ## Ekspor Markdown EXP-01
 
 `Export.documentHash` menyimpan hash ADD yang diminta. Unique key owner/analysis/format/documentHash/rendererVersion mencegah duplikasi permintaan. Export menggunakan Job bertipe EXPORT dan WorkerSlot `export`; lease/token/attempt memagari publikasi serta memulihkan claim kedaluwarsa. Retry FAILED memakai ID ekspor, dokumen dan renderer yang sama dengan job percobaan baru. StorageObject bertipe EXPORT menyimpan SHA-256/ukuran file; source, canonical document serta result hash analisis tetap immutable. File hanya diunduh melalui pemeriksaan pemilik dan checksum, tanpa URL publik permanen.
+
+
+## Layout penyimpanan PERF-01
+
+GraphBundle dan ArchitectureDocument memiliki storageLayoutVersion: 1 untuk mirror legacy yang wajib cocok dengan canonical, 2 untuk canonical-only dengan mirror SQL NULL. Versi semantic dan content/result hash tetap sama. Migrasi schema tidak otomatis mengubah baris lama; tool audit/apply operator hanya mengonversi analisis terminal yang lolos replay source dan pemeriksaan hash/mirror secara atomik. Batas, prosedur dan bukti ada di [PERF-01_CHECKS](PERF-01_CHECKS.md).

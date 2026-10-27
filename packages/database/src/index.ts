@@ -128,3 +128,5 @@ export {
 } from "./exports.ts";
 export type { EnqueueExportInput, ExportFormat, ExportJobClaim, ExportLeaseOptions, ExportSnapshot } from "./exports.ts";
 export { ANALYSIS_RUNTIME_LEASE_DURATION_MS } from "./analysis-timing.ts";
+export { compactAnalysisStorage, inspectCanonicalStorage } from "./storage-compaction.ts";
+export type { StorageCompactionResult } from "./storage-compaction.ts";

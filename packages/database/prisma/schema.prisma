@@ -312,21 +312,23 @@ model AnalysisLimitation {
 }
 
 model GraphBundle {
-  id                String   @id @default(cuid())
-  ownerUserId       String
-  analysisId        String
-  schemaVersion     String
-  configurationHash String
+  id                   String   @id @default(cuid())
+  ownerUserId          String
+  analysisId           String
+  schemaVersion        String
+  configurationHash    String
+  /// 1 stores legacy JSON mirrors; 2 stores canonical content without mirrors.
+  storageLayoutVersion Int      @default(1)
   /// Canonical, replayable CKG envelope. Null only for legacy rows created before ANA-06.
-  canonicalContent  String?
-  nodes             Json
-  edges             Json
-  nodeCount         Int
-  edgeCount         Int
-  contentHash       String
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  analysis          Analysis @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+  canonicalContent     String?
+  nodes                Json?
+  edges                Json?
+  nodeCount            Int
+  edgeCount            Int
+  contentHash          String
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+  analysis             Analysis @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
 
   @@unique([analysisId, ownerUserId])
   @@index([ownerUserId, createdAt])
@@ -338,11 +340,13 @@ model ArchitectureDocument {
   analysisId                 String
   title                      String
   documentModelVersion       String
+  /// 1 stores legacy JSON mirrors; 2 stores canonical content without mirrors.
+  storageLayoutVersion       Int      @default(1)
   /// Canonical, replayable architecture document. Null only for legacy rows created before DOC01.
   canonicalContent           String?
-  interfaceCatalog           Json
-  softwareEngineeringDiagram Json
-  umlClassDiagram            Json
+  interfaceCatalog           Json?
+  softwareEngineeringDiagram Json?
+  umlClassDiagram            Json?
   contentHash                String
   generatedAt                DateTime @default(now())
   createdAt                  DateTime @default(now())

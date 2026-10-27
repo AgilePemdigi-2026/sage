@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { canonicalizeCkg } from "@sage/contracts";
+import { projectArchitectureDocument } from "@sage/documents/model";
 import { database, disconnectDatabase, enqueueAnalysis, failAnalysisJob, claimAnalysisJob } from "../packages/database/src/index.ts";
 import { persistCanonicalGraph } from "../packages/database/src/graphs.ts";
 import { persistCanonicalDocument, readCanonicalDocumentForUser } from "../packages/database/src/documents.ts";
@@ -94,6 +95,8 @@ test("DOC01 persistence is canonical, owner and lease fenced, immutable and hidd
     };
     const canonicalGraph = canonicalizeCkg(ccm, sourceBytes, enqueued.configurationHash);
     if (!canonicalGraph.ok) throw new Error(`Fixture CKG is invalid: ${canonicalGraph.errorCode}`);
+    const canonicalDocument = projectArchitectureDocument(canonicalGraph.json, sourceBytes, canonicalGraph.sha256);
+    if (!canonicalDocument.ok) throw new Error(`Fixture document is invalid: ${canonicalDocument.errorCode}`);
 
     for (const key of STAGES_BEFORE_DOCUMENT.slice(0, 4)) {
       assert.equal(await startAnalysisStage(db, claim, key), true);
@@ -205,10 +208,10 @@ test("DOC01 persistence is canonical, owner and lease fenced, immutable and hidd
     const savedRow = await db.architectureDocument.findUniqueOrThrow({
       where: { analysisId_ownerUserId: { analysisId: claim.analysisId, ownerUserId: owner.id } },
     });
-    assert.equal(typeof savedRow.interfaceCatalog, "string", "complex mirrors are persisted as JSON strings for PostgreSQL Unicode safety");
-    assert.equal(typeof savedRow.softwareEngineeringDiagram, "string");
-    assert.equal(typeof savedRow.umlClassDiagram, "string");
-    const interfaceCatalogMirror = savedRow.interfaceCatalog as string;
+    assert.equal(savedRow.storageLayoutVersion, 2);
+    assert.equal(savedRow.interfaceCatalog, null);
+    assert.equal(savedRow.softwareEngineeringDiagram, null);
+    assert.equal(savedRow.umlClassDiagram, null);
     await db.architectureDocument.update({ where: { id: savedRow.id }, data: { contentHash: "f".repeat(64) } });
     await assert.rejects(persistCanonicalDocument(db, documentInput), /immutable/);
     await db.architectureDocument.update({ where: { id: savedRow.id }, data: { contentHash: savedRow.contentHash } });
@@ -221,7 +224,16 @@ test("DOC01 persistence is canonical, owner and lease fenced, immutable and hidd
     assert.equal(published?.id, storedDocument.id);
     assert.equal(published?.contentHash, storedDocument.contentHash);
 
-    // Corrupted document and graph mirrors fail closed on published reads.
+    // Convert the document to a faithful legacy row, then confirm v1 mirror corruption fails closed.
+    const interfaceCatalogMirror = JSON.stringify(canonicalDocument.value.interfaceCatalog);
+    const softwareEngineeringDiagramMirror = JSON.stringify(canonicalDocument.value.softwareEngineeringDiagram);
+    const umlClassDiagramMirror = JSON.stringify(canonicalDocument.value.umlClassDiagram);
+    await db.architectureDocument.update({ where: { id: savedRow.id }, data: {
+      storageLayoutVersion: 1,
+      interfaceCatalog: interfaceCatalogMirror,
+      softwareEngineeringDiagram: softwareEngineeringDiagramMirror,
+      umlClassDiagram: umlClassDiagramMirror,
+    } });
     await db.architectureDocument.update({ where: { id: savedRow.id }, data: { interfaceCatalog: "{}" } });
     await assert.rejects(readCanonicalDocumentForUser(db, owner.id, claim.analysisId, sourceBytes), /canonical/);
     await db.architectureDocument.update({ where: { id: savedRow.id }, data: { interfaceCatalog: interfaceCatalogMirror } });

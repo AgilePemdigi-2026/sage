@@ -132,3 +132,7 @@ Boundary browser memakai session/provider sintetis dan API terkendali, jadi buka
 ## DATA-02 cleanup dan retensi
 
 T-DATA-02 menguji owner-only delete, penolakan analisis/ekspor aktif, tombstone hasil, kelengkapan manifest sebelum complete, lease/attempt fencing, retry, serta pelestarian data akun lain dan retry child. `npm test` mencakup unit storage/API/read gate/UI; `npm run test:cleanup:integration` menjalankan transaksi nyata; `npm run test:cleanup:live` menjalankan Next production, worker, PostgreSQL dan Chromium pada 390px/1440px. Dua suite destructive tersebut hanya menerima opt-in `SAGE_CLEANUP_TESTS=1` dan database disposable `sage_cleanup23`. Jangan gunakan database aplikasi. Detail hasil dan batas ada di [DATA-02_CHECKS](DATA-02_CHECKS.md).
+
+## PERF-01 penyimpanan canonical
+
+T-PERF-01 memeriksa read/write/replay layout 1 dan 2, SQL NULL versus JSON null, unknown version, owner/target/hash/source, audit tanpa perubahan, apply atomik, idempotensi, rollback, timestamps, active/deleting/corrupt/oversize, dan CLI. `npm run test:storage:integration` memerlukan `SAGE_STORAGE_TESTS=1` dan database disposable **sage_storage96**. Jangan arahkan suite destruktif ke database aplikasi. Regresi PostgreSQL pipeline/CKG/dokumen serta ekspor/browser dijalankan terpisah; ekspor/browser dapat memakai `SAGE_TEST_STORAGE_LAYOUT=2` untuk mengonversi fixture tervalidasi lewat compactor nyata. [PERF-01_CHECKS](PERF-01_CHECKS.md) mencatat hasil, pengukuran salinan privat dan batas klaim performa.

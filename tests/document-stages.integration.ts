@@ -190,9 +190,10 @@ test("real document stages persist one replayable canonical document without pub
     });
     assert.equal(row.contentHash, final.contentHash);
     assert.equal(row.canonicalContent, final.canonicalJson);
-    assert.equal(row.interfaceCatalog, JSON.stringify(interfaceCatalog.artifact));
-    assert.equal(row.softwareEngineeringDiagram, JSON.stringify(softwareDiagram.artifact));
-    assert.equal(row.umlClassDiagram, JSON.stringify(umlDiagram.artifact));
+    assert.equal(row.storageLayoutVersion, 2);
+    assert.equal(row.interfaceCatalog, null);
+    assert.equal(row.softwareEngineeringDiagram, null);
+    assert.equal(row.umlClassDiagram, null);
     assert.equal(graph.contentHash, final.ckgSha256);
     assert.ok(graph.canonicalContent);
     const replay = parseCanonicalArchitectureDocument(row.canonicalContent!, graph.canonicalContent!, fixture.sources, row.contentHash, graph.contentHash);

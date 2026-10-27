@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { canonicalizeCkg } from "@sage/contracts";
 import { projectArchitectureDocument } from "@sage/documents/model";
-import type { PrismaClient } from "../packages/database/generated/client.ts";
+import { Prisma, type PrismaClient } from "../packages/database/generated/client.ts";
 import {
   CanonicalDocumentIntegrityError,
   persistCanonicalDocument,
@@ -47,6 +47,7 @@ function graphRow(value: Awaited<ReturnType<typeof fixture>>["canonical"]) {
     analysisId,
     schemaVersion: value.value.schemaVersion,
     configurationHash: value.value.configurationHash,
+    storageLayoutVersion: 1,
     canonicalContent: value.json,
     nodes: JSON.stringify(value.value.ccm.nodes),
     edges: JSON.stringify(value.value.ccm.edges),
@@ -63,6 +64,7 @@ function documentRow(value: Awaited<ReturnType<typeof fixture>>["document"]) {
     id: "document-document-15",
     ownerUserId,
     analysisId,
+    storageLayoutVersion: 1,
     title: value.value.title,
     documentModelVersion: value.value.schemaVersion,
     interfaceCatalog: JSON.stringify(value.value.interfaceCatalog),
@@ -128,10 +130,12 @@ function transactionDatabase(
       options.onTransactionOptions?.(transactionOptions);
       return callback(tx);
     },
+    graphBundle: { findUnique: async () => graph ? { storageLayoutVersion: graph.storageLayoutVersion } : null },
+    architectureDocument: { findUnique: async () => existing ? { storageLayoutVersion: existing.storageLayoutVersion } : null },
   } as unknown as PrismaClient;
 }
 
-test("document persistence derives canonical content synchronously and stores string mirrors", async () => {
+test("document persistence derives canonical content synchronously and writes canonical-only v2", async () => {
   const value = await fixture();
   let created: Record<string, unknown> | undefined;
   let transactionOptions: unknown;
@@ -151,10 +155,11 @@ test("document persistence derives canonical content synchronously and stores st
   assert.deepEqual(result, { id: "created-document", contentHash: value.document.sha256 });
   assert.equal(created?.canonicalContent, value.document.json);
   assert.equal(created?.contentHash, value.document.sha256);
+  assert.equal(created?.storageLayoutVersion, 2);
   assert.equal(created?.documentModelVersion, "sage-add-v1");
-  assert.equal(created?.interfaceCatalog, JSON.stringify(value.document.value.interfaceCatalog));
-  assert.equal(created?.softwareEngineeringDiagram, JSON.stringify(value.document.value.softwareEngineeringDiagram));
-  assert.equal(created?.umlClassDiagram, JSON.stringify(value.document.value.umlClassDiagram));
+  assert.equal(created?.interfaceCatalog, Prisma.DbNull);
+  assert.equal(created?.softwareEngineeringDiagram, Prisma.DbNull);
+  assert.equal(created?.umlClassDiagram, Prisma.DbNull);
   assert.equal(created?.canonicalContent, value.document.json, "source bytes were copied before asynchronous database work");
   assert.deepEqual(transactionOptions, { maxWait: 2_000, timeout: 45_000 });
 });
@@ -249,7 +254,7 @@ test("document persistence replays only an identical immutable row and rolls bac
 test("published document reads are owner scoped, terminal only and treat legacy canonical rows as absent", async () => {
   const calls: unknown[] = [];
   const db = {
-    analysis: { findFirst: async (args: unknown) => { calls.push(args); return { architectureDocument: { canonicalContent: null } }; } },
+    analysis: { findFirst: async (args: unknown) => { calls.push(args); return { architectureDocument: { storageLayoutVersion: 1, canonicalContent: null } }; } },
   } as unknown as PrismaClient;
   assert.equal(await readCanonicalDocumentForUser(db, ownerUserId, analysisId, {}), null);
   assert.deepEqual(calls[0], {
@@ -261,10 +266,11 @@ test("published document reads are owner scoped, terminal only and treat legacy 
       commitSha: true,
       graphBundle: { select: {
         id: true, ownerUserId: true, analysisId: true, schemaVersion: true, configurationHash: true,
-        canonicalContent: true, nodes: true, edges: true, nodeCount: true, edgeCount: true, contentHash: true,
+        storageLayoutVersion: true, canonicalContent: true, nodes: true, edges: true, nodeCount: true, edgeCount: true, contentHash: true,
       } },
       architectureDocument: { select: {
         id: true, ownerUserId: true, analysisId: true, title: true, documentModelVersion: true,
+        storageLayoutVersion: true,
         interfaceCatalog: true, softwareEngineeringDiagram: true, umlClassDiagram: true,
         canonicalContent: true, contentHash: true,
       } },
@@ -301,6 +307,30 @@ test("published document reads replay canonical content and reject altered mirro
     analysis: { findFirst: async () => ({ ...parent, status: "COMPLETED", graphBundle: wrongGraph, architectureDocument: doc }) },
   } as unknown as PrismaClient;
   await assert.rejects(readCanonicalDocumentForUser(graphMismatchDb, ownerUserId, analysisId, await sourceFixture()), CanonicalDocumentIntegrityError);
+
+  const canonicalOnlyGraph = { ...graph, storageLayoutVersion: 2, nodes: null, edges: null };
+  const canonicalOnlyDocument = {
+    ...doc, storageLayoutVersion: 2,
+    interfaceCatalog: null, softwareEngineeringDiagram: null, umlClassDiagram: null,
+  };
+  const canonicalOnlyDb = {
+    analysis: { findFirst: async () => ({ ...parent, status: "COMPLETED", graphBundle: canonicalOnlyGraph, architectureDocument: canonicalOnlyDocument }) },
+  } as unknown as PrismaClient;
+  assert.deepEqual(
+    await readCanonicalDocumentForUser(canonicalOnlyDb, ownerUserId, analysisId, await sourceFixture()),
+    { id: doc.id, contentHash: doc.contentHash, document: value.document.value },
+  );
+
+  for (const badRow of [
+    { ...canonicalOnlyDocument, umlClassDiagram: "{}" },
+    { ...canonicalOnlyDocument, storageLayoutVersion: 9 },
+    { ...canonicalOnlyDocument, canonicalContent: null },
+  ]) {
+    const badLayoutDb = {
+      analysis: { findFirst: async () => ({ ...parent, status: "COMPLETED", graphBundle: canonicalOnlyGraph, architectureDocument: badRow }) },
+    } as unknown as PrismaClient;
+    await assert.rejects(readCanonicalDocumentForUser(badLayoutDb, ownerUserId, analysisId, await sourceFixture()), CanonicalDocumentIntegrityError);
+  }
 });
 
 async function sourceFixture(): Promise<Record<string, Uint8Array>> {

@@ -433,7 +433,7 @@ test("ANA-07 publisher rejects tampered mirrors and rolls back if the DB-clock l
     const tamperedInput = publicationInput(tamperedCapture, tampered.claim, sourceBytes);
     await db.graphBundle.update({
       where: { analysisId_ownerUserId: { analysisId: tampered.enqueued.analysisId, ownerUserId: owner.ownerId } },
-      data: { nodes: JSON.stringify([]) },
+      data: { storageLayoutVersion: 1, nodes: JSON.stringify([]), edges: JSON.stringify([]) },
     });
     await assert.rejects(publishAnalysisResult(db, tamperedInput), /Stored graph bundle does not match/u);
     assert.equal(await db.sourceFile.count({ where: { analysisId: tampered.enqueued.analysisId } }), 0);

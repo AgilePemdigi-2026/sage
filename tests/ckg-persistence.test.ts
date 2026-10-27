@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { canonicalizeCkg } from "@sage/contracts";
 import { CanonicalGraphIntegrityError, persistCanonicalGraph, readCanonicalGraphForUser } from "../packages/database/src/graphs.ts";
-import type { PrismaClient } from "../packages/database/generated/client.ts";
+import { Prisma, type PrismaClient } from "../packages/database/generated/client.ts";
 
 const configurationHash = "c".repeat(64);
 const sourcePath = new URL("../packages/contracts/examples/minimum-ccm.source.ts", import.meta.url);
@@ -37,7 +37,7 @@ test("CKG persistence rejects invalid source evidence before touching the databa
 test("published graph reads require owner and terminal analysis status and accept legacy rows as absent", async () => {
   const calls: unknown[] = [];
   const db = {
-    analysis: { findFirst: async (args: unknown) => { calls.push(args); return { graphBundle: { canonicalContent: null } }; } },
+    analysis: { findFirst: async (args: unknown) => { calls.push(args); return { graphBundle: { storageLayoutVersion: 1, canonicalContent: null } }; } },
   } as unknown as PrismaClient;
   assert.equal(await readCanonicalGraphForUser(db, "owner-1", "analysis-1", {}), null);
   assert.deepEqual(calls[0], {
@@ -49,7 +49,7 @@ test("published graph reads require owner and terminal analysis status and accep
       commitSha: true,
       graphBundle: { select: {
         id: true, schemaVersion: true, configurationHash: true, canonicalContent: true,
-        nodes: true, edges: true, nodeCount: true, edgeCount: true, contentHash: true,
+        storageLayoutVersion: true, nodes: true, edges: true, nodeCount: true, edgeCount: true, contentHash: true,
       } },
     },
   });
@@ -69,7 +69,7 @@ test("published graph read verifies canonical content, source evidence and mirro
   const db = {
     analysis: { findFirst: async () => ({ ...parent, graphBundle: {
       id: "graph-1", schemaVersion: canonical.value.schemaVersion,
-      configurationHash: canonical.value.configurationHash, canonicalContent: canonical.json,
+      configurationHash: canonical.value.configurationHash, storageLayoutVersion: 1, canonicalContent: canonical.json,
       nodes: JSON.stringify(canonical.value.ccm.nodes), edges: JSON.stringify(canonical.value.ccm.edges),
       nodeCount: canonical.value.counts.nodes, edgeCount: canonical.value.counts.edges,
       contentHash: canonical.sha256,
@@ -81,7 +81,7 @@ test("published graph read verifies canonical content, source evidence and mirro
   const tamperedDb = {
     analysis: { findFirst: async () => ({ ...parent, graphBundle: {
       id: "graph-1", schemaVersion: canonical.value.schemaVersion,
-      configurationHash: canonical.value.configurationHash, canonicalContent: canonical.json,
+      configurationHash: canonical.value.configurationHash, storageLayoutVersion: 1, canonicalContent: canonical.json,
       nodes: [], edges: JSON.stringify(canonical.value.ccm.edges),
       nodeCount: canonical.value.counts.nodes, edgeCount: canonical.value.counts.edges,
       contentHash: canonical.sha256,
@@ -100,7 +100,7 @@ test("published graph read verifies canonical content, source evidence and mirro
         ...mismatch,
         graphBundle: {
           id: "graph-1", schemaVersion: canonical.value.schemaVersion,
-          configurationHash: canonical.value.configurationHash, canonicalContent: canonical.json,
+          configurationHash: canonical.value.configurationHash, storageLayoutVersion: 1, canonicalContent: canonical.json,
           nodes: JSON.stringify(canonical.value.ccm.nodes), edges: JSON.stringify(canonical.value.ccm.edges),
           nodeCount: canonical.value.counts.nodes, edgeCount: canonical.value.counts.edges,
           contentHash: canonical.sha256,
@@ -116,7 +116,7 @@ test("published graph read verifies canonical content, source evidence and mirro
       mutableSource.sourceBytes["examples/minimum-ccm.source.ts"][0] ^= 1;
       return { ...parent, graphBundle: {
         id: "graph-1", schemaVersion: canonical.value.schemaVersion,
-        configurationHash: canonical.value.configurationHash, canonicalContent: canonical.json,
+        configurationHash: canonical.value.configurationHash, storageLayoutVersion: 1, canonicalContent: canonical.json,
         nodes: JSON.stringify(canonical.value.ccm.nodes), edges: JSON.stringify(canonical.value.ccm.edges),
         nodeCount: canonical.value.counts.nodes, edgeCount: canonical.value.counts.edges,
         contentHash: canonical.sha256,
@@ -140,6 +140,7 @@ test("immutable graph replay rejects a database row with tampered mirrors", asyn
     id: "graph-1",
     schemaVersion: canonical.value.schemaVersion,
     configurationHash,
+    storageLayoutVersion: 1,
     canonicalContent: canonical.json,
     nodes: [], // Deliberately inconsistent with the canonical content.
     edges: JSON.stringify(canonical.value.ccm.edges),
@@ -166,7 +167,10 @@ test("immutable graph replay rejects a database row with tampered mirrors", asyn
       create: async () => { created += 1; throw new Error("Must not create a second bundle."); },
     },
   };
-  const db = { $transaction: async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx) } as unknown as PrismaClient;
+  const db = {
+    graphBundle: { findUnique: async () => ({ storageLayoutVersion: 1 }) },
+    $transaction: async (callback: (transaction: typeof tx) => Promise<unknown>) => callback(tx),
+  } as unknown as PrismaClient;
   await assert.rejects(persistCanonicalGraph(db, {
     claim, ccm: value.ccm, sourceBytes: value.sourceBytes, configurationHash,
   }), /immutable/);
@@ -184,6 +188,7 @@ test("expired lease at the final fence rolls back a newly written graph", async 
   };
   let activeChecks = 0;
   let graphStored = false;
+  let createdData: Record<string, unknown> | undefined;
   const tx = {
     $queryRaw: async (parts: TemplateStringsArray) => {
       if (!parts.join("").includes("SELECT EXISTS")) return [{ slotKey: "analysis" }];
@@ -203,13 +208,15 @@ test("expired lease at the final fence rolls back a newly written graph", async 
     ] },
     graphBundle: {
       findUnique: async () => null,
-      create: async () => {
+      create: async (args: { data: Record<string, unknown> }) => {
+        createdData = args.data;
         graphStored = true;
         return { id: "graph-1", contentHash: canonical.sha256 };
       },
     },
   };
   const db = {
+    graphBundle: { findUnique: async () => null },
     $transaction: async (callback: (transaction: typeof tx) => Promise<unknown>) => {
       const before = graphStored;
       try {
@@ -228,6 +235,47 @@ test("expired lease at the final fence rolls back a newly written graph", async 
   assert.equal(activeChecks, 2, "lease is checked both before and after persistence");
   assert.equal(result, null, "expired lease is reported as lost");
   assert.equal(graphStored, false, "failed final fence aborts the transaction write");
+  assert.equal(createdData?.storageLayoutVersion, 2);
+  assert.equal(createdData?.nodes, Prisma.DbNull);
+  assert.equal(createdData?.edges, Prisma.DbNull);
+});
+
+test("published graph read accepts canonical-only v2 rows and rejects mirrors or unknown versions", async () => {
+  const value = await fixture();
+  const canonical = canonicalizeCkg(value.ccm, value.sourceBytes, configurationHash);
+  assert.equal(canonical.ok, true);
+  if (!canonical.ok) return;
+  const parent = {
+    configurationHash,
+    repositoryFullNameSnapshot: canonical.value.ccm.snapshot.repository,
+    branchName: canonical.value.ccm.snapshot.branch,
+    commitSha: canonical.value.ccm.snapshot.commitSha,
+  };
+  const bundle: {
+    id: string;
+    schemaVersion: string;
+    configurationHash: string;
+    storageLayoutVersion: number;
+    canonicalContent: string | null;
+    nodes: unknown;
+    edges: unknown;
+    nodeCount: number;
+    edgeCount: number;
+    contentHash: string;
+  } = {
+    id: "graph-v2", schemaVersion: canonical.value.schemaVersion,
+    configurationHash: canonical.value.configurationHash, storageLayoutVersion: 2,
+    canonicalContent: canonical.json, nodes: null, edges: null,
+    nodeCount: canonical.value.counts.nodes, edgeCount: canonical.value.counts.edges,
+    contentHash: canonical.sha256,
+  };
+  const read = (row: typeof bundle) => readCanonicalGraphForUser({
+    analysis: { findFirst: async () => ({ ...parent, graphBundle: row }) },
+  } as unknown as PrismaClient, "owner-1", "analysis-1", value.sourceBytes);
+  assert.deepEqual(await read(bundle), { id: bundle.id, contentHash: canonical.sha256, graph: canonical.value });
+  await assert.rejects(read({ ...bundle, nodes: "[]" }), CanonicalGraphIntegrityError);
+  await assert.rejects(read({ ...bundle, storageLayoutVersion: 3 }), CanonicalGraphIntegrityError);
+  await assert.rejects(read({ ...bundle, canonicalContent: null }), CanonicalGraphIntegrityError);
 });
 
 test("graph read rejects empty owner and analysis identifiers before querying", async () => {

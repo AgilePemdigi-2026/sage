@@ -7,7 +7,7 @@ import { basename, dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { analyzeReferences } from "@sage/analyzer-js";
 import { canonicalizeCkg, type CcmSnapshot, type CcmV1 } from "@sage/contracts";
-import { createSession, database, storeGitHubCredential } from "@sage/database";
+import { compactAnalysisStorage, createSession, database, storeGitHubCredential } from "@sage/database";
 import { MARKDOWN_RENDERER_VERSION, renderMarkdownDocument } from "@sage/documents";
 import { projectArchitectureDocument, type ArchitectureDocumentV1 } from "@sage/documents/model";
 import { chromium, request, type APIRequestContext, type APIResponse, type Browser, type BrowserContext, type Download, type Page, type Response as BrowserResponse } from "playwright";
@@ -356,6 +356,12 @@ async function seedAnalysis(
   const archive = await createArchiveStorage(
     db, input.storageRoot, input.ownerUserId, analysis.id, input.fixture.sources, input.storageObjectIds, input.createdFolders,
   );
+  if (process.env.SAGE_TEST_STORAGE_LAYOUT === "2") {
+    const compacted = await compactAnalysisStorage(db, analysis.id, { apply: true, sourceBytes: input.fixture.sources });
+    assert.equal(compacted.status, "compacted", "browser fixture must use the verified canonical-only storage layout");
+    assert.equal(compacted.graphs, 1);
+    assert.equal(compacted.documents, 1);
+  }
   return {
     analysisId: analysis.id,
     documentId: documentRow.id,
@@ -1174,6 +1180,7 @@ async function runLiveMarkdownExportRegression(): Promise<void> {
     const report = {
       checkedAt: new Date().toISOString(),
       status: reportStatus,
+      storageLayoutVersion: process.env.SAGE_TEST_STORAGE_LAYOUT === "2" ? 2 : 1,
       failures,
       reportError,
       checks,

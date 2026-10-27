@@ -57,6 +57,7 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | DATA-02 | Penghapusan analysis dan cleanup storage/export | 2 | P1 / M | Zarra | DATA-01, EXP-01, EXP-02 | - | Implemented; cleanup/retry dan isolasi teruji ([bukti](DATA-02_CHECKS.md)) | [#23](https://github.com/AgilePemdigi-2026/sage/issues/23) |
 | QA-02 | Integrasi penuh, GitHub nyata, error, dan release evidence | 2 | P0 / XL | Rizqy | GH-01, REP-02, ANA-07, GRAPH-03, EXP-01, EXP-02, HIST-01, DATA-02 | - | Planned | [#24](https://github.com/AgilePemdigi-2026/sage/issues/24) |
 | QA-03 | Responsivitas, keyboard, bahasa UI, dan visual QA | 1-2 | P1 / L | Valentina | GRAPH-03, EXP-02, REP-01, HIST-01, QA-03-S1 | - | Planned | [#25](https://github.com/AgilePemdigi-2026/sage/issues/25) |
+| PERF-01 | Canonical graph/dokumen tunggal dan backfill terverifikasi | 2 | P1 / M | Iltizam | ANA-06, DOC-01, DATA-02 | - | Implemented; [bukti dan batas](PERF-01_CHECKS.md); tidak menutup REL-01/FIN-01 | [#96](https://github.com/AgilePemdigi-2026/sage/issues/96) |
 | REL-01 | MVP freeze lokal dan panduan setup/demo teruji | 2 | P0 / M | Iltizam | QA-02, QA-03 | - | Planned | [#26](https://github.com/AgilePemdigi-2026/sage/issues/26) |
 | FIN-01 | Regression analyzer/worker, evidence, dan performa | 3 | P2 / L | Iltizam | REL-01 | - | Planned | [#27](https://github.com/AgilePemdigi-2026/sage/issues/27) |
 | FIN-03 | Regression akses repository, pipeline, history, dan integrasi | 3 | P2 / L | Rizqy | REL-01 | - | Planned | [#39](https://github.com/AgilePemdigi-2026/sage/issues/39) |
@@ -122,6 +123,7 @@ Kriteria berikut tetap wajib bersama scope fase/sisa di atas. Setiap hasil menca
 | EXP-02 | PDF nyata dapat dibuka, diagram terbaca, tidak terpotong, context/evidence sesuai; download terotorisasi | T-EXP-02, T-EXP-03; hasil verifikasi dicatat pada [EXP-02_CHECKS](EXP-02_CHECKS.md) |
 | HIST-01 | Search nama/SHA, context dan tanggal benar, queued/running/failed ke progress, completed ke graph | T-HIST-01 |
 | DATA-02 | Hanya owner dapat delete, active job ditolak, semua object hilang sebelum status selesai, cleanup dapat retry | T-DATA-02 |
+| PERF-01 | Hasil baru tanpa mirror duplikat, legacy tetap terbaca, backfill source-verified atomik dan idempotent; hash/output/owner tetap sama serta penghematan diukur | T-PERF-01 |
 | QA-02 | Seluruh user story inti dan error lulus dengan bukti fresh run; pengujian nyata dibedakan dari mock | T-REL-01 dan seluruh kasus inti |
 | QA-03 | UI Indonesia, 360/390/768/1024/1440 px, keyboard/focus, error states dan kontras diperiksa | T-UI-01 |
 | REL-01 | Semua requirement wajib terverifikasi, clean Docker run berhasil, known limitations terdokumentasi, tidak ada blocker alur inti | T-REL-01 |
