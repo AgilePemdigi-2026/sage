@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import type { CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { ArchitectureDocumentV1 } from "../packages/documents/src/architecture-document.ts";
 import { PDF_RENDERER_VERSION } from "../packages/documents/src/pdf-version.ts";
 import { escapePdfHtml, pdfRendererInternals, renderPdfDocument } from "../packages/documents/src/pdf.ts";
@@ -71,6 +72,37 @@ test("diagram tile planner keeps page-sized overlaps while covering every edge o
     /PDF_DIAGRAM_TILE_LIMIT_EXCEEDED/,
     "oversized diagrams fail at the page budget instead of omitting nodes",
   );
+});
+
+test("evidence register deduplicates shared spans and assigns stable references across artifacts", () => {
+  const document = emptyDocument();
+  const spanA: EvidenceSpan = {
+    filePath: "src/a.ts", fileSha256: "a".repeat(64), startByte: 1, endByte: 4,
+    startLine: 1, endLine: 1, startColumn: 2, endColumn: 5, role: "declaration",
+  };
+  const spanB: EvidenceSpan = {
+    filePath: "src/z.ts", fileSha256: "z".repeat(64), startByte: 8, endByte: 12,
+    startLine: 3, endLine: 3, startColumn: 1, endColumn: 5, role: "reference",
+  };
+  const node: CcmNode = {
+    id: "node_fixture", kind: "Class", name: "A", qualifiedName: "src.A", language: "typescript",
+    filePath: "src/a.ts", location: spanA, parentId: null, origin: "source", signature: null, attributes: {},
+  };
+  document.interfaceCatalog.entries = [{
+    declaration: node, nodeIds: [node.id], edgeIds: [], evidence: [spanA, spanB, spanA], exportEdgeIds: [],
+  }];
+  document.softwareEngineeringDiagram.nodes = [node];
+  document.softwareEngineeringDiagram.nodeMappings = [{
+    nodeId: node.id, mermaidId: "N_fixture", mermaidLine: 2, evidence: spanA,
+  }];
+  document.umlClassDiagram.edgeMappings = [{
+    edgeId: "edge_fixture", mermaidLine: 3, sourceMermaidId: "A", targetMermaidId: "B", evidence: [spanB],
+  }];
+
+  const registry = pdfRendererInternals.buildEvidenceRegistry(document);
+  assert.deepEqual(registry.spans.map(span => span.filePath), ["src/a.ts", "src/z.ts"]);
+  assert.deepEqual([...registry.idBySpan.values()], ["EV-0001", "EV-0002"]);
+  assert.equal(registry.idBySpan.size, 2, "catalog and diagram references share one canonical evidence row per span");
 });
 
 test("PDF preflight rejects unsafe, oversized, or incomplete diagram data before Chromium starts", async () => {

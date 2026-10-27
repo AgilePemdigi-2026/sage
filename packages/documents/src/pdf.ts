@@ -27,6 +27,7 @@ export type PdfRenderOptions = { signal?: AbortSignal };
 type ViewBox = { x: number; y: number; width: number; height: number };
 type DiagramTile = ViewBox & { row: number; column: number; label: string };
 type DiagramLayout = { viewBox: ViewBox; tiles: DiagramTile[]; overview: boolean; overviewScale: number };
+type EvidenceRegistry = { spans: EvidenceSpan[]; idBySpan: Map<string, string> };
 
 function fail(code: string): never {
   throw new Error(code);
@@ -169,47 +170,77 @@ function fieldsTable(fields: string[]): string {
   return `<dl class="fields">${fields.join("")}</dl>`;
 }
 
-function evidenceDetails(spans: readonly EvidenceSpan[], title = "Evidence"): string {
-  const content = spans.length === 0
-    ? `<p class="muted">No evidence recorded.</p>`
-    : spans.map((span, index) => `<article class="evidence-item">
-      <h4>${title} ${index + 1}</h4>
-      ${fieldsTable([
-        field("Role", text(span.role)),
-        field("File path", text(span.filePath)),
-        field("File SHA-256", text(span.fileSha256)),
-        field("Byte range", text(`[${span.startByte}, ${span.endByte})`)),
-        field("Start position", text(`${span.startLine}:${span.startColumn}`)),
-        field("End position", text(`${span.endLine}:${span.endColumn}`)),
-      ])}
-    </article>`).join("");
-  return `<section class="subsection"><h4>${title}</h4>${content}</section>`;
+function compareEvidence(left: EvidenceSpan, right: EvidenceSpan): number {
+  const compareText = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
+  return compareText(left.filePath, right.filePath) || left.startByte - right.startByte ||
+    left.endByte - right.endByte || compareText(left.role, right.role) ||
+    compareText(left.fileSha256, right.fileSha256) || left.startLine - right.startLine ||
+    left.endLine - right.endLine || left.startColumn - right.startColumn || left.endColumn - right.endColumn;
 }
 
-function nodeDetails(node: CcmNode): string {
-  return fieldsTable([
-    field("Canonical node ID", `<code>${escapePdfHtml(node.id)}</code>`),
-    field("Kind", text(node.kind)),
-    field("Origin", text(node.origin)),
-    field("Language", text(node.language)),
-    field("Name", text(node.name)),
-    field("Qualified name", text(node.qualifiedName)),
-    field("File path", text(node.filePath)),
-    field("Parent node ID", text(node.parentId)),
-    field("Signature", text(node.signature)),
-    jsonField("Attributes", node.attributes),
-  ]) + evidenceDetails(node.location ? [node.location] : [], "Node evidence");
+function buildEvidenceRegistry(document: ArchitectureDocumentV1): EvidenceRegistry {
+  const spans = new Map<string, EvidenceSpan>();
+  const add = (span: EvidenceSpan | null) => {
+    if (span !== null) spans.set(stableJson(span), span);
+  };
+  const addMany = (items: readonly EvidenceSpan[]) => items.forEach(add);
+  for (const entry of document.interfaceCatalog.entries) addMany(entry.evidence);
+  for (const edge of document.interfaceCatalog.relations) addMany(edge.evidence);
+  for (const diagram of [document.softwareEngineeringDiagram, document.umlClassDiagram]) {
+    for (const node of diagram.nodes) add(node.location);
+    for (const edge of diagram.edges) addMany(edge.evidence);
+    for (const mapping of diagram.nodeMappings) add(mapping.evidence);
+    for (const mapping of diagram.edgeMappings) addMany(mapping.evidence);
+  }
+  const ordered = [...spans.values()].sort(compareEvidence);
+  const idBySpan = new Map(ordered.map((span, index) => [stableJson(span), `EV-${String(index + 1).padStart(4, "0")}`]));
+  return { spans: ordered, idBySpan };
 }
 
-function edgeDetails(edge: CcmEdge): string {
-  return fieldsTable([
-    field("Canonical edge ID", `<code>${escapePdfHtml(edge.id)}</code>`),
-    field("Source node ID", `<code>${escapePdfHtml(edge.sourceId)}</code>`),
-    field("Target node ID", `<code>${escapePdfHtml(edge.targetId)}</code>`),
-    field("Kind", text(edge.kind)),
-    field("Resolution", `<span class="resolution ${edge.resolution === "Exact" ? "exact" : "unresolved"}">${escapePdfHtml(edge.resolution)}</span>`),
-    field("Unresolved reason", text(edge.unresolvedReason)),
-  ]) + evidenceDetails(edge.evidence, "Edge evidence");
+function evidenceRefs(spans: readonly EvidenceSpan[], registry: EvidenceRegistry): string {
+  const ids = spans.map(span => registry.idBySpan.get(stableJson(span))).filter((id): id is string => id !== undefined);
+  return ids.length === 0 ? `<span class="muted">None</span>` : arrayValue(ids);
+}
+
+function compactTable(headers: string[], rows: string[], className = "compact-table"): string {
+  return `<table class="${className}"><thead><tr>${headers.map(header => `<th>${header}</th>`).join("")}</tr></thead>
+    <tbody>${rows.length > 0 ? rows.join("") : `<tr><td colspan="${headers.length}" class="muted">No records.</td></tr>`}</tbody></table>`;
+}
+
+function canonicalNodeRow(node: CcmNode, registry: EvidenceRegistry): string {
+  return `<tr>
+    <td><code>${escapePdfHtml(node.id)}</code></td>
+    <td>${text(`${node.kind} / ${node.origin} / ${node.language}`)}</td>
+    <td><strong>${text(node.name)}</strong><br><span>${text(node.qualifiedName)}</span></td>
+    <td>${text(node.filePath)}</td>
+    <td>${text(node.parentId)}</td>
+    <td>${text(node.signature)}</td>
+    <td><code class="compact-json">${escapePdfHtml(stableJson(node.attributes))}</code></td>
+    <td>${evidenceRefs(node.location ? [node.location] : [], registry)}</td>
+  </tr>`;
+}
+
+function canonicalEdgeRow(edge: CcmEdge, registry: EvidenceRegistry): string {
+  return `<tr>
+    <td><code>${escapePdfHtml(edge.id)}</code></td>
+    <td><code>${escapePdfHtml(edge.sourceId)}</code><br>→<br><code>${escapePdfHtml(edge.targetId)}</code></td>
+    <td>${text(edge.kind)}</td>
+    <td><span class="resolution ${edge.resolution === "Exact" ? "exact" : "unresolved"}">${escapePdfHtml(edge.resolution)}</span></td>
+    <td>${text(edge.unresolvedReason)}</td>
+    <td>${evidenceRefs(edge.evidence, registry)}</td>
+  </tr>`;
+}
+
+function evidenceRegistryTable(registry: EvidenceRegistry): string {
+  const rows = registry.spans.map((span, index) => `<tr>
+    <td><code>EV-${String(index + 1).padStart(4, "0")}</code></td>
+    <td>${text(span.role)}</td>
+    <td>${text(span.filePath)}</td>
+    <td><code>${escapePdfHtml(span.fileSha256)}</code></td>
+    <td><code>[${span.startByte}, ${span.endByte})</code></td>
+    <td><code>${span.startLine}:${span.startColumn}–${span.endLine}:${span.endColumn}</code></td>
+  </tr>`);
+  return compactTable(["Evidence ID", "Role", "Source file", "File SHA-256", "Byte range", "Line:column range"], rows);
 }
 
 function sectionHeading(title: string, description?: string): string {
@@ -238,19 +269,19 @@ function renderCover(document: ArchitectureDocumentV1): string {
       jsonField("Canonical counts", document.canonicalCounts),
       jsonField("Provenance", provenance),
     ])}
-    <p class="evidence-note">${EVIDENCE_RANGE_NOTE}</p>
   </section>`;
 }
 
 function renderSourceFiles(files: readonly CcmFile[]): string {
+  const rows = files.map(file => `<tr>
+    <td>${text(file.path)}</td>
+    <td>${text(file.language)}</td>
+    <td>${text(file.status)}</td>
+    <td>${text(file.sizeBytes)}</td>
+    <td><code>${escapePdfHtml(file.sha256)}</code></td>
+  </tr>`);
   return `<section class="section-block">${sectionHeading("Source files", "Source inventory with canonical byte sizes and SHA-256 values.")}
-    ${files.length === 0 ? `<p class="muted">No source files are recorded.</p>` : files.map((file, index) => itemSection(`File ${index + 1}: ${file.path}`, fieldsTable([
-      field("Path", text(file.path)),
-      field("Language", text(file.language)),
-      field("Status", text(file.status)),
-      field("Size in bytes", text(file.sizeBytes)),
-      field("SHA-256", `<code>${escapePdfHtml(file.sha256)}</code>`),
-    ]), "record source-file")).join("")}
+    ${compactTable(["Path", "Language", "Status", "Size (bytes)", "SHA-256"], rows)}
   </section>`;
 }
 
@@ -264,43 +295,39 @@ function renderLimitations(limitations: readonly CcmLimitation[]): string {
   </section>`;
 }
 
-function renderInterfaceCatalog(document: ArchitectureDocumentV1): string {
+function renderInterfaceCatalog(document: ArchitectureDocumentV1, registry: EvidenceRegistry): string {
   const catalog = document.interfaceCatalog;
-  const entries = catalog.entries.length === 0
-    ? `<p class="muted">No source declarations are listed in the catalog.</p>`
-    : catalog.entries.map((entry, index) => itemSection(`Catalog entry ${index + 1}: ${entry.declaration.qualifiedName || entry.declaration.name}`,
-      fieldsTable([
-        field("Declaration", nodeDetails(entry.declaration)),
-        field("Associated canonical node IDs", arrayValue(entry.nodeIds)),
-        field("Incident canonical edge IDs", arrayValue(entry.edgeIds)),
-        field("Export edge IDs", arrayValue(entry.exportEdgeIds)),
-      ]) + evidenceDetails(entry.evidence, "Catalog evidence"), "record catalog-entry")).join("");
-  const relations = catalog.relations.length === 0
-    ? `<p class="muted">No canonical relations are recorded.</p>`
-    : catalog.relations.map((edge, index) => itemSection(`Canonical relation ${index + 1}: ${edge.id}`, edgeDetails(edge), "record canonical-edge" )).join("");
+  const rows = catalog.entries.map(entry => `<tr>
+    <td><code>${escapePdfHtml(entry.declaration.id)}</code><br>${text(entry.declaration.qualifiedName || entry.declaration.name)}<br><span class="muted">Full declaration facts: canonical node register.</span></td>
+    <td>${arrayValue(entry.nodeIds)}</td>
+    <td>${arrayValue(entry.edgeIds)}</td>
+    <td>${arrayValue(entry.exportEdgeIds)}</td>
+    <td>${evidenceRefs(entry.evidence, registry)}</td>
+  </tr>`);
   return `<section class="section-block">${sectionHeading("Interface Catalog", "Catalog scope, declarations, canonical IDs, explicit exports, and source evidence.")}
     ${fieldsTable([field("Catalog scope", text(catalog.scope))])}
-    <h2>Source declarations</h2>${entries}
-    <h2>Canonical relations</h2>${relations}
+    <h2>Source declarations (${catalog.entries.length})</h2>
+    ${compactTable(["Declaration", "Associated node IDs", "Incident edge IDs", "Export edge IDs", "Catalog evidence IDs"], rows, "compact-table catalog-table")}
+    <h2>Canonical relations (${catalog.relations.length})</h2>
+    <p>Canonical relation records are preserved in source order in the shared edge register, with each edge ID, endpoint, kind, resolution, unresolved reason, and evidence reference.</p>
   </section>`;
 }
 
-function renderCanonicalRegister(document: ArchitectureDocumentV1): string {
+function renderCanonicalRegister(document: ArchitectureDocumentV1, registry: EvidenceRegistry): string {
   const nodes = document.softwareEngineeringDiagram.nodes;
   const edges = document.interfaceCatalog.relations;
-  const nodeContent = nodes.length === 0
-    ? `<p class="muted">No canonical nodes are recorded.</p>`
-    : nodes.map((node, index) => itemSection(`Canonical node ${index + 1}: ${node.qualifiedName || node.name}`, nodeDetails(node), "record canonical-node")).join("");
-  const edgeContent = edges.length === 0
-    ? `<p class="muted">No canonical edges are recorded.</p>`
-    : edges.map((edge, index) => itemSection(`Canonical edge ${index + 1}: ${edge.kind}`, edgeDetails(edge), "record canonical-edge")).join("");
   return `<section class="section-block">${sectionHeading("Canonical node and edge register", "Complete shared node and edge facts. Diagram mappings below point back to these canonical IDs and evidence.")}
-    <h2>Nodes (${nodes.length})</h2>${nodeContent}
-    <h2>Edges (${edges.length})</h2>${edgeContent}
+    <h2>Nodes (${nodes.length})</h2>
+    ${compactTable(["Canonical node ID", "Kind / origin / language", "Name / qualified name", "File path", "Parent ID", "Signature", "Attributes (JSON)", "Location evidence IDs"], nodes.map(node => canonicalNodeRow(node, registry)), "compact-table node-table")}
+    <h2>Edges (${edges.length})</h2>
+    ${compactTable(["Canonical edge ID", "Source / target node IDs", "Kind", "Resolution", "Unresolved reason", "Evidence IDs"], edges.map(edge => canonicalEdgeRow(edge, registry)), "compact-table edge-table")}
+    <h2>Evidence register (${registry.spans.length})</h2>
+    <p>Each evidence ID is a stable reference to one unique span. Catalog and diagram mappings reuse these IDs. ${EVIDENCE_RANGE_NOTE}</p>
+    ${evidenceRegistryTable(registry)}
   </section>`;
 }
 
-function renderNodeMappings(diagram: DiagramProjection): string {
+function renderNodeMappings(diagram: DiagramProjection, registry: EvidenceRegistry): string {
   const mappingById = new Map(diagram.nodeMappings.map(mapping => [mapping.nodeId, mapping]));
   const rows = diagram.nodes.map(node => {
     const mapping = mappingById.get(node.id);
@@ -310,16 +337,16 @@ function renderNodeMappings(diagram: DiagramProjection): string {
       <td>${mapping ? text(mapping.mermaidLine) : `<span class="missing">No mapping</span>`}</td>
       <td>${mapping ? text(mapping.parentMermaidId ?? null) : `<span class="missing">No mapping</span>`}</td>
       <td>${mapping ? arrayValue(mapping.parentContainmentEdgeIds ?? []) : `<span class="missing">No mapping</span>`}</td>
-      <td>${mapping ? (mapping.evidence ? evidenceDetails([mapping.evidence], "Mapping evidence") : `<span class="muted">None</span>`) : ""}</td>
+      <td>${mapping ? evidenceRefs(mapping.evidence ? [mapping.evidence] : [], registry) : ""}</td>
     </tr>`;
   }).join("");
   return `<h2>Node mappings (${diagram.nodes.length})</h2>
-    <table class="mapping-table"><thead><tr><th>Canonical node ID</th><th>Mermaid node ID</th><th>Line</th><th>Parent Mermaid ID</th><th>Parent containment edge IDs</th><th>Mapping evidence</th></tr></thead>
+    <table class="mapping-table"><thead><tr><th>Canonical node ID</th><th>Mermaid node ID</th><th>Line</th><th>Parent Mermaid ID</th><th>Parent containment edge IDs</th><th>Mapping evidence IDs</th></tr></thead>
     <tbody>${rows || `<tr><td colspan="6" class="muted">No included nodes.</td></tr>`}</tbody></table>
     <section class="subsection"><h3>Excluded canonical node IDs</h3>${arrayValue(diagram.excludedNodeIds)}</section>`;
 }
 
-function renderEdgeMappings(diagram: DiagramProjection): string {
+function renderEdgeMappings(diagram: DiagramProjection, registry: EvidenceRegistry): string {
   const mappingById = new Map(diagram.edgeMappings.map(mapping => [mapping.edgeId, mapping]));
   const rows = diagram.edges.map(edge => {
     const mapping = mappingById.get(edge.id);
@@ -328,11 +355,11 @@ function renderEdgeMappings(diagram: DiagramProjection): string {
       <td>${mapping ? text(mapping.mermaidLine) : `<span class="missing">No mapping</span>`}</td>
       <td>${mapping ? text(mapping.sourceMermaidId) : `<span class="missing">No mapping</span>`}</td>
       <td>${mapping ? text(mapping.targetMermaidId) : `<span class="missing">No mapping</span>`}</td>
-      <td>${mapping ? evidenceDetails(mapping.evidence, "Mapping evidence") : `<span class="muted">None</span>`}</td>
+      <td>${mapping ? evidenceRefs(mapping.evidence, registry) : `<span class="muted">None</span>`}</td>
     </tr>`;
   }).join("");
   return `<h2>Edge mappings (${diagram.edges.length})</h2>
-    <table class="mapping-table"><thead><tr><th>Canonical edge ID</th><th>Line</th><th>Source Mermaid ID</th><th>Target Mermaid ID</th><th>Mapping evidence</th></tr></thead>
+    <table class="mapping-table"><thead><tr><th>Canonical edge ID</th><th>Line</th><th>Source Mermaid ID</th><th>Target Mermaid ID</th><th>Mapping evidence IDs</th></tr></thead>
     <tbody>${rows || `<tr><td colspan="5" class="muted">No included edges.</td></tr>`}</tbody></table>
     <section class="subsection"><h3>Excluded canonical edge IDs</h3>${arrayValue(diagram.excludedEdgeIds)}</section>`;
 }
@@ -368,6 +395,7 @@ function renderDiagramSection(
   diagram: DiagramProjection,
   renderedSvg: string,
   layout: DiagramLayout,
+  registry: EvidenceRegistry,
 ): string {
   const diagramPages: string[] = [];
   const projectionNote = `<p class="projection-note">Projection kind: <code>${escapePdfHtml(diagram.kind)}</code> · Projection title: ${escapePdfHtml(diagram.title)} · Included nodes: ${diagram.nodes.length} · Included edges: ${diagram.edges.length}</p>`;
@@ -387,8 +415,8 @@ function renderDiagramSection(
   }
   return `<section class="section-block diagram-section">
     <div class="diagram-pages">${diagramPages.join("")}</div>
-    ${renderNodeMappings(diagram)}
-    ${renderEdgeMappings(diagram)}
+    ${renderNodeMappings(diagram, registry)}
+    ${renderEdgeMappings(diagram, registry)}
   </section>`;
 }
 
@@ -398,6 +426,7 @@ function renderDocumentHtml(
   layouts: [DiagramLayout, DiagramLayout],
 ): string {
   const title = visibleText(document.title).slice(0, 200);
+  const registry = buildEvidenceRegistry(document);
   return `<!doctype html>
   <html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"><title>${escapePdfHtml(title)}</title>
   <style>
@@ -441,11 +470,12 @@ function renderDocumentHtml(
     .resolution.exact { background: #dcfce7; color: #166534; }
     .resolution.unresolved { background: #fef3c7; color: #92400e; }
     .id-list { display: flex; flex-wrap: wrap; gap: 1mm 2mm; }
-    .mapping-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 8.2pt; }
-    .mapping-table th, .mapping-table td { padding: 1.5mm; border: 1px solid #d7dee9; vertical-align: top; text-align: left; overflow-wrap: anywhere; word-break: break-word; }
-    .mapping-table th { background: #eff6ff; color: #1e3a8a; }
-    .mapping-table thead { display: table-header-group; }
-    .mapping-table tr { break-inside: auto; }
+    .compact-table, .mapping-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9pt; line-height: 1.2; }
+    .compact-table th, .compact-table td, .mapping-table th, .mapping-table td { padding: 1.2mm 1.4mm; border: 1px solid #d7dee9; vertical-align: top; text-align: left; overflow-wrap: anywhere; word-break: break-word; }
+    .compact-table th, .mapping-table th { background: #eff6ff; color: #1e3a8a; }
+    .compact-table thead, .mapping-table thead { display: table-header-group; }
+    .compact-table tr, .mapping-table tr { break-inside: auto; }
+    .compact-json { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
     .diagram-pages { margin: 0; }
     .diagram-page { width: 100%; height: 169mm; break-before: page; break-inside: avoid; display: flex; flex-direction: column; justify-content: flex-start; }
     .diagram-page:first-child { break-before: auto; }
@@ -465,10 +495,10 @@ function renderDocumentHtml(
     ${renderCover(document)}
     ${renderSourceFiles(document.files)}
     ${renderLimitations(document.limitations)}
-    ${renderInterfaceCatalog(document)}
-    ${renderCanonicalRegister(document)}
-    ${renderDiagramSection("Software Engineering Diagram", "Software structure projection", document.softwareEngineeringDiagram, renderedSvgs[0], layouts[0])}
-    ${renderDiagramSection("UML Class Diagram", "Class and interface projection", document.umlClassDiagram, renderedSvgs[1], layouts[1])}
+    ${renderInterfaceCatalog(document, registry)}
+    ${renderCanonicalRegister(document, registry)}
+    ${renderDiagramSection("Software Engineering Diagram", "Software structure projection", document.softwareEngineeringDiagram, renderedSvgs[0], layouts[0], registry)}
+    ${renderDiagramSection("UML Class Diagram", "Class and interface projection", document.umlClassDiagram, renderedSvgs[1], layouts[1], registry)}
   </body></html>`;
 }
 
@@ -827,6 +857,7 @@ export async function renderPdfDocument(
 /** Browser-free helpers used by focused PDF-renderer unit tests. */
 export const pdfRendererInternals = {
   axisTileStarts,
+  buildEvidenceRegistry,
   errorCode,
   escapePdfHtml,
   makeDiagramLayout,
