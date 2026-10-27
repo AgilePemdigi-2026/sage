@@ -176,7 +176,7 @@ test("PDF exports deduplicate by format, publish private PDF bytes, and retry un
     }), /Export storage key is invalid/);
     await worker.process(pdfClaim);
     const readyPdf = await findExportSnapshotForUser(db, { ownerUserId: owner.id, analysisId: first.analysisId, exportId: pdfExport.id });
-    assert.equal(readyPdf?.status, "READY");
+    assert.equal(readyPdf?.status, "READY", `PDF export failure: ${readyPdf?.errorCode}`);
     assert.equal(readyPdf?.format, "PDF");
     assert.match(readyPdf?.contentHash ?? "", /^[a-f0-9]{64}$/);
     const pdfRecord = await db.export.findUniqueOrThrow({ where: { id: pdfExport.id }, select: { storageObject: { select: { storageKey: true } } } });

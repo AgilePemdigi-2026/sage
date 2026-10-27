@@ -357,7 +357,7 @@ function overviewSvgMarkup(svg: string, layout: DiagramLayout): string {
   }).join("");
   const tileSvg = svg.replace(/\bwidth\s*=\s*(["'])[^"']+\1/i, `width="${MAX_TILE_WIDTH}px"`)
     .replace(/\bheight\s*=\s*(["'])[^"']+\1/i, `height="${MAX_TILE_HEIGHT}px"`)
-    .replace(/<svg\b/i, `<svg aria-label="Full diagram overview; use the detail grid for readable labels">`)
+    .replace(/<svg\b/i, `<svg aria-label="Full diagram overview; use the detail grid for readable labels"`)
     .replace(/<\/svg>\s*$/i, `${markers}</svg>`);
   return `<div class="diagram-overview">${tileSvg}</div>`;
 }
@@ -563,7 +563,11 @@ function validateSignalOptions(options: PdfRenderOptions | undefined): AbortSign
 }
 
 function errorCode(error: unknown): string {
-  if (error instanceof Error && error.message.startsWith("PDF_")) return error.message;
+  if (error instanceof Error) {
+    if (/^PDF_[A-Z0-9_]+$/.test(error.message)) return error.message;
+    const pageEvaluationError = error.message.match(/(?:^|Error:\s*)(PDF_[A-Z0-9_]+)(?:$|[\s:])/);
+    if (pageEvaluationError) return pageEvaluationError[1]!;
+  }
   return "PDF_RENDER_FAILED";
 }
 
@@ -661,14 +665,19 @@ export async function renderPdfDocument(
           }
           const allowedTags = new Set([
             "svg", "defs", "marker", "path", "g", "rect", "circle", "ellipse", "line", "polygon", "polyline",
-            "text", "tspan", "style", "title", "desc", "clipPath",
+            "text", "tspan", "style", "title", "desc", "clipPath", "linearGradient", "stop",
           ]);
           const elements = [svg, ...Array.from(svg.querySelectorAll("*"))];
+          const filters = Array.from(svg.querySelectorAll("filter"));
+          const filterElements = new Set<Element>(filters);
+          const filterParts = new Set<Element>(filters.flatMap(filter => Array.from(filter.querySelectorAll("*"))));
           const allowedLocalReference = (value: string) => /^#[A-Za-z0-9_.:-]+$/.test(value.trim());
           const urlReferences = (value: string) => [...value.matchAll(/url\(\s*(['"]?)(.*?)\1\s*\)/gi)].map(match => match[2]!.trim());
           for (const element of elements) {
             const tagName = element.localName;
-            if (element.namespaceURI !== "http://www.w3.org/2000/svg" || !allowedTags.has(tagName)) {
+            const isDecorativeFilter = filterElements.has(element) ||
+              (tagName === "feDropShadow" && filterParts.has(element));
+            if (element.namespaceURI !== "http://www.w3.org/2000/svg" || (!allowedTags.has(tagName) && !isDecorativeFilter)) {
               throw new Error("PDF_DIAGRAM_SVG_ACTIVE_CONTENT_REJECTED");
             }
             for (const attribute of Array.from(element.attributes)) {
@@ -689,6 +698,81 @@ export async function renderPdfDocument(
               if (/@import|expression\s*\(|javascript\s*:/i.test(style) ||
                   urlReferences(style).some(reference => !allowedLocalReference(reference))) throw new Error("PDF_DIAGRAM_SVG_STYLE_REJECTED");
             }
+          }
+
+          const filterAttributes = new Set(["id", "height", "width"]);
+          const shadowAttributes = new Set(["dx", "dy", "stddeviation", "flood-opacity", "flood-color"]);
+          for (const filter of filters) {
+            const id = filter.getAttribute("id") ?? "";
+            const shadow = filter.children.length === 1 ? filter.children[0] : null;
+            const dimensionsAreExpected = filter.getAttribute("width") === "130%" || filter.getAttribute("width") === "150%";
+            if (!/^sage-pdf-[a-f0-9]{12}-\d+-drop-shadow(?:-small)?$/.test(id) ||
+                filter.children.length !== 1 || shadow?.localName !== "feDropShadow" || shadow.children.length !== 0 ||
+                !dimensionsAreExpected || filter.getAttribute("height") !== filter.getAttribute("width")) {
+              throw new Error("PDF_DIAGRAM_FILTER_REJECTED");
+            }
+            for (const [element, allowedAttributes] of [[filter, filterAttributes], [shadow, shadowAttributes]] as const) {
+              if (Array.from(element.attributes).some(attribute => !allowedAttributes.has(attribute.localName.toLowerCase()))) {
+                throw new Error("PDF_DIAGRAM_FILTER_REJECTED");
+              }
+            }
+            if (!["dx", "dy", "stdDeviation", "flood-opacity", "flood-color"].every(name => shadow.hasAttribute(name))) {
+              throw new Error("PDF_DIAGRAM_FILTER_REJECTED");
+            }
+            const numberAttribute = (name: string) => {
+              const value = Number(shadow.getAttribute(name));
+              return Number.isFinite(value) ? value : Number.NaN;
+            };
+            const dx = numberAttribute("dx");
+            const dy = numberAttribute("dy");
+            const deviation = numberAttribute("stdDeviation");
+            const opacity = numberAttribute("flood-opacity");
+            if (Math.abs(dx) > 8 || Math.abs(dy) > 8 || deviation < 0 || deviation > 4 || opacity < 0 || opacity > 1 ||
+                !/^#[0-9a-f]{3,8}$/i.test(shadow.getAttribute("flood-color") ?? "")) {
+              throw new Error("PDF_DIAGRAM_FILTER_REJECTED");
+            }
+          }
+
+          const gradientAttributes = new Set(["id", "x1", "y1", "x2", "y2", "gradientunits", "gradienttransform", "spreadmethod", "class"]);
+          const stopAttributes = new Set(["offset", "stop-color", "stop-opacity", "class", "style"]);
+          for (const gradient of Array.from(svg.querySelectorAll("linearGradient"))) {
+            const stops = Array.from(gradient.children);
+            if (!new Set(["defs", "svg"]).has(gradient.parentElement?.localName ?? "") || stops.length < 1 || stops.length > 16 ||
+                stops.some(stop => stop.localName !== "stop" || stop.children.length !== 0)) {
+              throw new Error("PDF_DIAGRAM_GRADIENT_REJECTED");
+            }
+            if (Array.from(gradient.attributes).some(attribute => !gradientAttributes.has(attribute.localName.toLowerCase())) ||
+                stops.some(stop => Array.from(stop.attributes).some(attribute => !stopAttributes.has(attribute.localName.toLowerCase())))) {
+              throw new Error("PDF_DIAGRAM_GRADIENT_REJECTED");
+            }
+          }
+          if (elements.some(element => element.localName === "stop" && element.parentElement?.localName !== "linearGradient")) {
+            throw new Error("PDF_DIAGRAM_GRADIENT_REJECTED_ORPHAN_STOP");
+          }
+
+          // Mermaid's generated drop shadows are decorative. Validate their local-only references,
+          // then remove both definitions and uses so the exported SVG needs no SVG filter support.
+          const stripFilterProperty = (value: string) => value
+            .replace(/(^|[;{])\s*filter\s*:\s*[^;{}]*(?=;|})/gi, "$1")
+            .replace(/;{2,}/g, ";");
+          for (const element of elements) {
+            if (element.localName === "style") element.textContent = stripFilterProperty(element.textContent ?? "");
+            if (element.hasAttribute("filter")) element.removeAttribute("filter");
+            if (element.hasAttribute("style")) {
+              const style = stripFilterProperty(element.getAttribute("style") ?? "");
+              if (style.trim() === "") element.removeAttribute("style");
+              else element.setAttribute("style", style);
+            }
+          }
+          for (const filter of filters) filter.remove();
+          const sanitizedElements = [svg, ...Array.from(svg.querySelectorAll("*"))];
+          if (sanitizedElements.some(element => element.localName === "filter" || element.localName === "feDropShadow" || !allowedTags.has(element.localName))) {
+            throw new Error("PDF_DIAGRAM_SVG_ACTIVE_CONTENT_REJECTED");
+          }
+          const removedFilterIds = new Set(filters.map(filter => filter.getAttribute("id")).filter((id): id is string => !!id));
+          for (const element of sanitizedElements) {
+            const content = [element.textContent ?? "", ...Array.from(element.attributes, attribute => attribute.value)].join(" ");
+            if ([...removedFilterIds].some(id => content.includes(`#${id}`))) throw new Error("PDF_DIAGRAM_FILTER_REFERENCE_REJECTED");
           }
           const serialized = new XMLSerializer().serializeToString(svg);
           if (new TextEncoder().encode(serialized).byteLength > maxSvgBytes) throw new Error("PDF_DIAGRAM_SVG_LIMIT_EXCEEDED");
@@ -743,6 +827,7 @@ export async function renderPdfDocument(
 /** Browser-free helpers used by focused PDF-renderer unit tests. */
 export const pdfRendererInternals = {
   axisTileStarts,
+  errorCode,
   escapePdfHtml,
   makeDiagramLayout,
   validatePdfDocument,

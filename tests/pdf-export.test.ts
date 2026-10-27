@@ -43,6 +43,8 @@ test("PDF renderer version is stable and HTML escaping keeps source labels inert
   assert.equal(PDF_RENDERER_VERSION, "1.0.0");
   assert.equal(escapePdfHtml(`</td><script>alert('x')</script>&`), "&lt;/td&gt;&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;&amp;");
   assert.equal(escapePdfHtml("nul\u0000name"), "nul\\u0000name");
+  assert.equal(pdfRendererInternals.errorCode(new Error("page.evaluate: Error: PDF_DIAGRAM_FILTER_REJECTED\n    at eval")), "PDF_DIAGRAM_FILTER_REJECTED");
+  assert.equal(pdfRendererInternals.errorCode(new Error("an unrelated browser failure")), "PDF_RENDER_FAILED");
 });
 
 test("diagram tile planner keeps page-sized overlaps while covering every edge of a large diagram", () => {
