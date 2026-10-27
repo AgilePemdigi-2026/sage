@@ -1,4 +1,5 @@
 import type { ArchitectureDocumentV1 } from "@sage/documents/model";
+import { projectHumanDiagram, HUMAN_DIAGRAM_THEME } from "@sage/documents/human";
 import { diagramBudget } from "./document-data.ts";
 
 type DiagramProjection = ArchitectureDocumentV1["softwareEngineeringDiagram"];
@@ -139,10 +140,15 @@ export async function renderCanonicalDiagramSvg(
       suppressErrorRendering: true,
       logLevel: "error",
       fontFamily: "Inter, sans-serif",
+      theme: "base",
+            look: "classic",
+      themeVariables: HUMAN_DIAGRAM_THEME,
+      flowchart: { htmlLabels: false, curve: "linear", wrappingWidth: 240 },
+      class: { htmlLabels: false },
     });
     if (!isCurrent()) return "";
     const id = `sage-document-${diagram.kind}-${identitySeed.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || "canonical"}`;
-    const result = await mermaid.render(id, diagram.mermaid);
+    const result = await mermaid.render(id, projectHumanDiagram(diagram).mermaid.replace(/#95;/g, "_"));
     if (!isCurrent()) return "";
     return sanitizeDiagramSvg(result.svg);
   } catch (error) {

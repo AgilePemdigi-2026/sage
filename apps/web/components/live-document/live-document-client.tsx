@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { ArchitectureDocumentV1 } from "@sage/documents/model";
+import { humanNodeName } from "@sage/documents/human";
 import type { CcmEdge, CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { DocumentPayload } from "../../lib/documents/types.ts";
 import { diagramBudget, parseLiveDocumentPayload } from "./document-data.ts";
@@ -39,55 +40,22 @@ function locationText(evidence: Pick<EvidenceSpan, "filePath" | "startLine" | "e
   return `${evidence.filePath}:${lineRange}`;
 }
 
-function nodeName(node: CcmNode | undefined, fallbackId: string): string {
-  return node?.qualifiedName || node?.name || fallbackId;
+function nodeName(node: CcmNode | undefined, _fallbackId: string): string {
+  void _fallbackId;
+  return node ? humanNodeName(node) : "Referensi tidak tersedia";
 }
 
 function Metadata({ payload }: { payload: DocumentPayload }) {
   const document = payload.document;
-  const { snapshot, provenance } = document;
   return <section className={styles.snapshotCard} aria-labelledby="document-snapshot-title">
-    <div className={styles.snapshotHeading}><div><p className={styles.eyebrow}>HASIL ANALISIS TERVERIFIKASI</p><h2 id="document-snapshot-title">Snapshot dan provenance</h2></div></div>
+    <h2 id="document-snapshot-title">Snapshot analisis</h2>
     <dl className={styles.metadataGrid}>
-      <div><dt>Repository</dt><dd>{snapshot.repository}</dd></div>
-      <div><dt>Branch</dt><dd>{snapshot.branch ?? "Branch tidak tersedia"}</dd></div>
-      <div><dt>Commit snapshot</dt><dd><code>{snapshot.commitSha}</code></dd></div>
-      <div><dt>Hash CKG</dt><dd><code>{document.ckgSha256}</code></dd></div>
-      <div><dt>Hash dokumen</dt><dd><code>{payload.contentHash}</code></dd></div>
-      <div><dt>Konfigurasi</dt><dd><code>{document.configurationHash}</code></dd></div>
-      <div><dt>Analyzer</dt><dd>{provenance.analyzer.name} · {provenance.analyzer.version}</dd></div>
-      <div><dt>Resolver</dt><dd>{provenance.resolver.name} · {provenance.resolver.version}</dd></div>
-      <div><dt>Schema</dt><dd><code>{document.schemaVersion}</code></dd></div>
-      <div><dt>File sumber</dt><dd>{document.files.length} file tercatat dalam snapshot</dd></div>
-      <div><dt>Node / relasi kanonik</dt><dd>{document.canonicalCounts.nodes} node · {document.canonicalCounts.edges} relasi</dd></div>
-      <div><dt>Batasan analisis</dt><dd>{document.limitations.length} batasan tercatat</dd></div>
+      <div><dt>Repository</dt><dd>{document.snapshot.repository}</dd></div>
+      <div><dt>Branch</dt><dd>{document.snapshot.branch ?? "Tidak tersedia"}</dd></div>
+      <div><dt>Cakupan</dt><dd>{document.files.length} file · {document.canonicalCounts.nodes} node</dd></div>
+      <div><dt>Hasil</dt><dd>{document.canonicalCounts.exactEdges} Exact · {document.canonicalCounts.unresolvedEdges} Unresolved</dd></div>
     </dl>
-    <div className={styles.detailSummary}>
-      <p><strong>Provenance konfigurasi:</strong> <code>{provenance.configHash}</code></p>
-      <p><strong>Makna resolusi:</strong> <span className={styles.legend}><span><i className={styles.exactMark} aria-hidden="true" />Exact — relasi tercatat langsung</span><span><i className={styles.unresolvedMark} aria-hidden="true" />Unresolved — target belum terpecahkan</span></span></p>
-    </div>
-    {document.limitations.length ? <div className={styles.unresolvedBox}>
-      <h3>Batasan analisis</h3>
-      <ul>{document.limitations.map((limitation, index) => <li key={`${limitation.stage}:${limitation.path ?? ""}:${index}`}>
-        {limitation.path ? <code>{limitation.path}</code> : null}<p>{limitation.reason} · Tahap {limitation.stage}</p>
-      </li>)}</ul>
-    </div> : <p className={styles.emptyMessage}>Tidak ada batasan tambahan yang tercatat.</p>}
-    <FileList document={document} />
-  </section>;
-}
-
-function FileList({ document }: { document: ArchitectureDocumentV1 }) {
-  return <section aria-labelledby="document-files-title">
-    <h3 id="document-files-title" className={styles.evidenceHeading}>Berkas sumber snapshot</h3>
-    {document.files.length === 0 ? <p className={styles.emptyMessage}>Snapshot tidak mencatat berkas source.</p> : <div className={styles.tableScroll}>
-      <table className={styles.fileTable}>
-        <thead><tr><th scope="col">File</th><th scope="col">Bahasa</th><th scope="col">Status</th><th scope="col">Ukuran</th><th scope="col">SHA-256</th></tr></thead>
-        <tbody>{document.files.map((file) => <tr key={file.path}>
-          <td data-label="File"><code>{file.path}</code></td><td data-label="Bahasa">{file.language ?? "Tidak diketahui"}</td>
-          <td data-label="Status">{file.status}</td><td data-label="Ukuran">{file.sizeBytes} byte</td><td data-label="SHA-256"><code>{file.sha256}</code></td>
-        </tr>)}</tbody>
-      </table>
-    </div>}
+    {document.limitations.length ? <details className={styles.unresolvedBox}><summary>Batasan analisis ({document.limitations.length})</summary><ul>{document.limitations.map((item, index) => <li key={index}>{item.path ? <code>{item.path}: </code> : null}{item.reason}</li>)}</ul></details> : null}
   </section>;
 }
 
@@ -97,29 +65,28 @@ function InterfaceCatalog({ document }: { document: ArchitectureDocumentV1 }) {
   const unresolved = interfaceCatalog.relations.filter(edge => edge.resolution === "Unresolved");
   return <section className={styles.contentCard} aria-labelledby="catalog-heading">
     <div className={styles.sectionHeading}><div><h2 id="catalog-heading">Interface Catalog</h2><p>Deklarasi source dan relasi yang tercatat pada model canonical, dilengkapi bukti file dan baris.</p></div></div>
-    <p className={styles.scopeNote}>{interfaceCatalog.scope}</p>
+    <p className={styles.scopeNote}>Simbol, kontrak kode, dan lokasi bukti. Endpoint HTTP atau interface integrasi hanya dapat ditentukan jika tersedia bukti source.</p>
     <div className={styles.legend} aria-label="Legend status relasi">
       <span><i className={styles.exactMark} aria-hidden="true" />Exact — relasi sesuai evidence yang terpetakan</span>
       <span><i className={styles.unresolvedMark} aria-hidden="true" />Unresolved — alasan belum terpecahkan dipertahankan</span>
     </div>
     {interfaceCatalog.entries.length === 0 ? <p className={styles.emptyMessage}>CCM tidak mencatat deklarasi source untuk katalog.</p> : <div className={styles.tableScroll}>
       <table className={styles.catalogTable}>
-        <thead><tr><th scope="col">Symbol</th><th scope="col">Kind / contract</th><th scope="col">Evidence</th><th scope="col">Node / relasi</th></tr></thead>
+        <thead><tr><th scope="col">Symbol</th><th scope="col">Contract</th><th scope="col">Evidence</th></tr></thead>
         <tbody>{interfaceCatalog.entries.map((entry) => <tr key={entry.declaration.id}>
           <td data-label="Symbol"><code>{entry.declaration.qualifiedName || entry.declaration.name}</code></td>
-          <td data-label="Kind / contract"><span className={styles.kind}>{entry.declaration.kind} · {entry.declaration.language}</span>{entry.declaration.signature ? <code>{entry.declaration.signature}</code> : <span className={styles.muted}>Kontrak tidak tersedia di CCM</span>}</td>
+          <td data-label="Kind / contract"><span className={styles.kind}>{entry.declaration.kind} · {entry.declaration.language}</span>{entry.declaration.signature ? <code>{entry.declaration.signature}</code> : document.softwareEngineeringDiagram.nodes.some(node => node.parentId === entry.declaration.id && ["Method", "Property"].includes(node.kind)) ? <code>{document.softwareEngineeringDiagram.nodes.filter(node => node.parentId === entry.declaration.id && ["Method", "Property"].includes(node.kind)).map(node => node.signature ?? node.name).join("; ")}</code> : <span className={styles.muted}>Kontrak tidak tersedia di CCM</span>}</td>
           <td data-label="Evidence"><span className={styles.sourceEvidence}>{locationText(entry.declaration.location)}</span>{entry.evidence.filter(item => item.role !== "declaration").map((item, index) => <span key={`${item.filePath}:${item.startLine}:${item.role}:${index}`} className={styles.sourceEvidence}><br />{locationText(item)} · {item.role}</span>)}</td>
-          <td data-label="Node / relasi"><span>{entry.nodeIds.length} node · {entry.edgeIds.length} relasi</span>{entry.exportEdgeIds.length ? <><br /><span>Export edge ID: <code>{entry.exportEdgeIds.join(", ")}</code></span></> : null}</td>
+
         </tr>)}</tbody>
       </table>
     </div>}
-    {interfaceCatalog.relations.length > 0 ? <section className={styles.unresolvedBox} aria-labelledby="catalog-relations-title">
-      <h3 id="catalog-relations-title">Relasi canonical</h3>
+    {interfaceCatalog.relations.length > 0 ? <details className={styles.unresolvedBox}><summary id="catalog-relations-title">Relasi dan evidence lengkap</summary>
       <div className={styles.tableScroll}><table className={styles.relationTable}>
         <thead><tr><th scope="col">Source</th><th scope="col">Relasi</th><th scope="col">Target</th><th scope="col">Status / alasan</th><th scope="col">Evidence</th></tr></thead>
         <tbody>{interfaceCatalog.relations.map((edge) => <RelationRow key={edge.id} edge={edge} nodeById={nodeById} />)}</tbody>
       </table></div>
-    </section> : <p className={styles.emptyMessage}>CCM tidak mencatat relasi.</p>}
+    </details> : <p className={styles.emptyMessage}>CCM tidak mencatat relasi.</p>}
     {unresolved.length ? <p className={styles.emptyMessage}>{unresolved.length} relasi belum terpecahkan; alasan dan evidence tercantum pada tabel relasi.</p> : null}
   </section>;
 }
@@ -212,7 +179,7 @@ function DiagramSection({
         {/* The sanitized SVG is loaded as an image Blob URL, never inserted into the active DOM. */}
         {/* eslint-disable-next-line @next/next/no-img-element -- Blob-backed canonical SVG keeps active markup out of the page. */}
         <img className={styles.diagramImage} data-testid="document-diagram-image" src={url} alt={label}
-          style={{ width: `${zoomPercent}%`, minWidth: `${640 * zoomPercent / 100}px` }} />
+          style={{ width: `${zoomPercent}%` }} />
       </div>
     </> : null}
   </>;
@@ -224,24 +191,23 @@ function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload
   const nodeById = new Map(diagram.nodes.map(node => [node.id, node]));
   const unresolvedEdges = diagram.edges.filter(edge => edge.resolution === "Unresolved");
   return <section className={styles.contentCard} aria-labelledby="diagram-heading">
-    <div className={styles.sectionHeading}><div><h2 id="diagram-heading">{label}</h2><p>SVG dibentuk di browser dari proyeksi Mermaid canonical dan tidak mengambil URL eksternal.</p></div></div>
+    <div className={styles.sectionHeading}><div><h2 id="diagram-heading">{label}</h2><p>Diagram source untuk mempelajari struktur dan ketergantungan kode. Anggota class diringkas ke pemiliknya pada diagram struktur; detail bukti tersedia di bawah.</p></div></div>
     <div className={styles.legend} aria-label="Legend diagram">
       <span><i className={styles.exactMark} aria-hidden="true" />Exact</span>
       <span><i className={styles.unresolvedMark} aria-hidden="true" />Unresolved</span>
-      <span>{diagram.nodes.length} node · {diagram.edges.length} relasi</span>
+      <span>Teal: class · Ungu: interface · Biru: function · Abu: module · Amber: unresolved</span>
     </div>
     <DiagramSection diagram={diagram} label={label} ckgSha256={payload.document.ckgSha256} accountKey={payload.accountKey} />
     {diagram.nodeMappings.length ? <section aria-labelledby="diagram-evidence-title">
       <h3 id="diagram-evidence-title" className={styles.evidenceHeading}>Bukti node pada diagram</h3>
       <div className={styles.tableScroll}><table className={styles.mappingTable}>
-        <thead><tr><th scope="col">Node</th><th scope="col">Kind</th><th scope="col">Baris diagram</th><th scope="col">Evidence source</th></tr></thead>
+        <thead><tr><th scope="col">Node</th><th scope="col">Kind</th><th scope="col">Evidence source</th></tr></thead>
         <tbody>{diagram.nodeMappings.map((mapping, index) => {
           const node = nodeById.get(mapping.nodeId);
           const evidence = mapping.evidence ?? node?.location ?? null;
           return <tr key={`${mapping.nodeId}:${mapping.mermaidLine}:${index}`}>
             <td data-label="Node"><code>{nodeName(node, mapping.nodeId)}</code></td>
             <td data-label="Kind">{node?.kind ?? "Member"}</td>
-            <td data-label="Baris diagram">{mapping.mermaidLine}</td>
             <td data-label="Evidence source"><span className={styles.sourceEvidence}>{locationText(evidence)}</span></td>
           </tr>;
         })}</tbody>
@@ -250,13 +216,12 @@ function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload
     {diagram.edgeMappings.length ? <section aria-labelledby="diagram-relations-title">
       <h3 id="diagram-relations-title" className={styles.evidenceHeading}>Relasi dan evidence</h3>
       <div className={styles.tableScroll}><table className={styles.mappingTable}>
-        <thead><tr><th scope="col">Relasi</th><th scope="col">Status</th><th scope="col">Baris diagram</th><th scope="col">Evidence source</th></tr></thead>
+        <thead><tr><th scope="col">Relasi</th><th scope="col">Status</th><th scope="col">Evidence source</th></tr></thead>
         <tbody>{diagram.edgeMappings.map((mapping) => {
           const edge = diagram.edges.find(item => item.id === mapping.edgeId);
           return <tr key={mapping.edgeId}>
             <td data-label="Relasi"><code>{edge?.kind ?? mapping.edgeId}</code>{edge ? <span><br />{nodeName(nodeById.get(edge.sourceId), edge.sourceId)} → {nodeName(nodeById.get(edge.targetId), edge.targetId)}</span> : null}</td>
             <td data-label="Status">{edge?.resolution ?? "Tidak diketahui"}{edge?.unresolvedReason ? <><br />{edge.unresolvedReason}</> : null}</td>
-            <td data-label="Baris diagram">{mapping.mermaidLine}</td>
             <td data-label="Evidence source">{mapping.evidence.length ? mapping.evidence.map((item, index) => <span key={`${item.filePath}:${item.startLine}:${index}`} className={styles.sourceEvidence}>{index ? <br /> : null}{locationText(item)}</span>) : <span className={styles.muted}>Bukti lokasi tidak tersedia</span>}</td>
           </tr>;
         })}</tbody>
@@ -454,27 +419,16 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
 
   return <div className={styles.documentPage}>
     <div className={styles.pageHeading}>
-      <p className={styles.eyebrow}>DOKUMENTASI ARSITEKTUR</p>
+
       <h1>Architecture Definition Document</h1>
-      <p>Dokumen direplay dari graph canonical dan source archive snapshot analisis. Label serta status relasi mengikuti evidence yang tersedia.</p>
+      <p>Pelajari kontrak dan struktur kode dari snapshot analisis. PDF menyajikan ringkasan; Markdown memuat seluruh detail teknis.</p>
     </div>
 
     {busy && !visiblePayload ? <p className={styles.loading} role="status">Memeriksa akun dan memuat dokumen arsitektur…</p> : null}
     {errorContent()}
     {visiblePayload ? <>
       <Metadata payload={visiblePayload} />
-      <div className={styles.exportGrid}>
-        <MarkdownExport
-          key={`MARKDOWN:${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}`}
-          payload={visiblePayload}
-          onUnauthorized={() => refreshRef.current?.()}
-        />
-        <PdfExport
-          key={`PDF:${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}`}
-          payload={visiblePayload}
-          onUnauthorized={() => refreshRef.current?.()}
-        />
-      </div>
+      <p className={styles.footerLink}><Link href={`/analyses/${encodeURIComponent(analysisId)}/graph`}>Kembali ke graph</Link></p>
       <div className={styles.sectionLayout}>
         <nav className={styles.sectionNav} aria-label="Bagian dokumen">
           {sections.map((item) => <button
@@ -488,6 +442,19 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
           >{item.label}</button>)}
         </nav>
         <div id="document-content" className={styles.sectionContent} aria-live="polite">
+      <div className={styles.exportGrid}>
+        <MarkdownExport
+          key={`MARKDOWN:${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}`}
+          payload={visiblePayload}
+          onUnauthorized={() => refreshRef.current?.()}
+        />
+        <PdfExport
+          key={`PDF:${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}`}
+          payload={visiblePayload}
+          onUnauthorized={() => refreshRef.current?.()}
+        />
+      </div>
+
           {section === "catalog" ? <InterfaceCatalog document={visiblePayload.document} /> :
             <DiagramDocumentSection key={`${accountKey}:${visiblePayload.document.ckgSha256}:${section}`} payload={visiblePayload} section={section} />}
         </div>

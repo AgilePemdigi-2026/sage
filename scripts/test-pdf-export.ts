@@ -632,6 +632,22 @@ async function runLivePdfExportRegression(): Promise<void> {
     browser = await chromium.launch({ headless: true });
     const context390 = await createBrowserContext(browser, base, owner, 390);
     const page390 = await openDocumentPage(context390, base, readyAnalysis.analysisId, browserAudit, parsedBase.origin, "PDF export 390px");
+    const humanText = await page390.locator("body").innerText();
+    assert.ok(!humanText.includes(readyAnalysis.document.ckgSha256));
+    assert.ok(!humanText.includes(readyAnalysis.documentHash));
+    assert.ok(!humanText.includes(readyAnalysis.snapshot.commitSha));
+    for (const label of ["Software Engineering Diagram", "UML Class Diagram"]) {
+      await page390.getByRole("button", { name: label, exact: true }).click();
+      const image = page390.getByRole("img", { name: label, exact: true });
+      await image.waitFor({ timeout: 30_000 });
+      const svg = await image.evaluate(async el => fetch(el.getAttribute("src")!).then(r => r.text()));
+      assert.ok(!svg.includes("node_"), "visible diagram must use human names, not opaque IDs");
+      await page390.getByRole("button", { name: "Perbesar", exact: true }).click();
+      await page390.getByRole("button", { name: "Sesuaikan", exact: true }).click();
+      await page390.screenshot({ path: join(resultDir, `human-${label.startsWith("UML") ? "uml" : "structure"}-390.png`), fullPage: true });
+    }
+    await page390.getByRole("button", { name: "Interface Catalog", exact: true }).click();
+    checks.push("human document hides hashes and renders both colored SVG diagrams with zoom at 390px");
     const createPath = new URL(exportCollectionPath(base, readyAnalysis.analysisId)).pathname;
     const create390Promise = waitForApiResponse(page390, createPath, "POST");
     await page390.getByRole("button", { name: "Ekspor PDF", exact: true }).click();
@@ -788,7 +804,7 @@ async function runLivePdfExportRegression(): Promise<void> {
     await delayedPage.evaluate(() => window.dispatchEvent(new Event("focus")));
     await ownerSession401;
     releaseDelayedDownload();
-    await delayedPage.getByRole("alert").waitFor();
+    await delayedPage.getByRole("alert").filter({ hasText: "Analisis tidak ditemukan." }).waitFor();
     await delayedPage.waitForTimeout(250);
     assert.equal(leakedDownloadCount, 0, "late owner-A PDF attachment must not become an account-B browser download");
     assert.equal(await delayedPage.getByRole("button", { name: "Unduh PDF", exact: true }).count(), 0);

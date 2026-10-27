@@ -110,5 +110,11 @@
   .catalogTable td:last-child,.relationTable td:last-child,.mappingTable td:last-child,.fileTable td:last-child { border-bottom: 0; }
   .catalogTable td > *,.relationTable td > *,.mappingTable td > *,.fileTable td > * { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
   .catalogTable td::before,.relationTable td::before,.mappingTable td::before,.fileTable td::before { content: attr(data-label); color: #52637b; font-size: 10px; font-weight: 600; }
-  .diagramImage { min-width: 560px; }
+  .diagramImage { min-width: 0; }
 }
+
+.snapshotCard h2 { margin:0 0 14px; font-size:16px; }
+.sectionContent { display:grid;gap:16px; }
+.unresolvedBox summary { cursor:pointer; font-size:13px;font-weight:600; }
+.diagramViewport { background:radial-gradient(#dce5ec 0.7px,transparent 0.7px) 0 0/16px 16px,#fafcfd; }
+@media(min-width:1000px){ .metadataGrid {grid-template-columns:2fr 1fr 1fr 1.5fr;} .sectionLayout{grid-template-columns: minmax(220px,312px) minmax(0,1fr);gap:24px;} }
