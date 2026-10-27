@@ -65,6 +65,11 @@ def main():
     required("limitations", [item["reason"] for item in expected["limitations"]])
     required("sections", ["Interface Catalog", "Software Engineering Diagram", "UML Class Diagram",
                           "Canonical node and edge register"])
+    diagram_text = compact("\n".join(page for page in pages if "Diagram ·" in page))
+    literal_paths = [file["path"] for file in expected["files"] if "#95;" in file["path"]]
+    for path in literal_paths:
+        assert compact(path) in diagram_text, "Diagram changed a literal numeric-token path"
+    assert "UNKNOWN#95;RECEIVER" not in diagram_text and "UNKNOWN&#95;RECEIVER" not in diagram_text, "Diagram left a generated underscore escape"
     assert not missing, missing
     assert "\ufffd" not in text
     assert "PDF21_RAW_SOURCE_CANARY" not in text
@@ -80,7 +85,7 @@ def main():
         "status": "PASS", "pages": len(pages), "pageSizesPt": sorted(set(sizes)),
         "checks": checks, "missing": missing, "sha256": hashlib.sha256(pdf.read_bytes()).hexdigest(),
         "bytes": pdf.stat().st_size, "allPagesHeaderFooter": True, "canariesAbsent": True,
-        "replacementGlyphAbsent": True, "retryCanonicalTextMatches": True, "visualReview": "pending",
+        "replacementGlyphAbsent": True, "retryCanonicalTextMatches": True, "diagramEscapesFaithful": True, "visualReview": "pending",
     }
     (folder / "pdf-inspection.json").write_text(json.dumps(report, indent=2) + "\n")
     print(json.dumps(report, indent=2))

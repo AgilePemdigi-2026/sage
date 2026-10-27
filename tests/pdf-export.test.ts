@@ -89,6 +89,25 @@ test("SVG viewport sizing updates root attributes without changing child rectang
     "a missing root height must not rewrite the child rect height");
 });
 
+test("PDF source restores projection underscores while preserving literal #95; labels", () => {
+  // These are the exact mermaidText encodings for UNKNOWN_RECEIVER and UNKNOWN#95;RECEIVER.
+  const underscoreLabel = 'flowchart LR\n  A["UNKNOWN#95;RECEIVER"]';
+  const literalTokenLabel = 'flowchart LR\n  A["UNKNOWN#35;95#59;RECEIVER"]';
+  assert.equal(
+    pdfRendererInternals.normalizeMermaidUnderscores(underscoreLabel),
+    'flowchart LR\n  A["UNKNOWN_RECEIVER"]',
+  );
+  assert.equal(
+    pdfRendererInternals.normalizeMermaidUnderscores(literalTokenLabel),
+    literalTokenLabel,
+    "escaped literal hash and semicolon tokens must not be recursively decoded",
+  );
+
+  const otherProjectionEscapes = 'flowchart LR\n  A["#60;script#62; #35; #59;"]';
+  assert.equal(pdfRendererInternals.normalizeMermaidUnderscores(otherProjectionEscapes), otherProjectionEscapes,
+    "other Mermaid/XML delimiter escapes remain unchanged");
+});
+
 test("evidence register deduplicates shared spans and assigns stable references across artifacts", () => {
   const document = emptyDocument();
   const spanA: EvidenceSpan = {

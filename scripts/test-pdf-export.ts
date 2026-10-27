@@ -191,7 +191,7 @@ async function loadFixture(): Promise<{ sources: Record<string, Uint8Array>; ccm
   const paths = ["src/model.ts", "src/endpoint.ts"];
   const entries = await Promise.all(paths.map(async path => [path, new Uint8Array(await readFile(new URL(path, fixtureDir)))] as const));
   const sources: Record<string, Uint8Array> = Object.fromEntries(entries);
-  sources["src/export-contract.ts"] = new Uint8Array(Buffer.from([
+  sources["src/export-contract#95;.ts"] = new Uint8Array(Buffer.from([
     "export interface MarkdownExportContract { render(input: string): string; }",
     "export class MarkdownExportService implements MarkdownExportContract {",
     "  render(input: string): string { return `${input}:${missingFormatter.format(input)}`; }",
@@ -217,7 +217,7 @@ async function loadFixture(): Promise<{ sources: Record<string, Uint8Array>; ccm
   }
   assert.ok(result.ccm.edges.some(edge => edge.resolution === "Unresolved"), "fixture must retain unresolved relation evidence");
   const limitation = {
-    path: "src/export-contract.ts",
+    path: "src/export-contract#95;.ts",
     reason: "Issue 21 fixture retains a partial-analysis caveat so the PDF can preserve limitation text.",
     stage: "STATIC_ANALYSIS",
   };

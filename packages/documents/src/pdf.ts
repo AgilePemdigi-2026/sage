@@ -59,6 +59,13 @@ function safeSvgViewBox(svg: string): ViewBox {
   return { x: x!, y: y!, width: width!, height: height! };
 }
 
+/** Restore the projection's underscore escape before Mermaid interprets label text. */
+function normalizeMermaidUnderscores(source: string): string {
+  // mermaidText encodes `_` as #95;. A literal `#95;` is encoded as #35;95#59;,
+  // so replacing only this exact token preserves that source text.
+  return source.replace(/#95;/g, "_");
+}
+
 function gridCoordinate(index: number): string {
   let value = index + 1;
   let label = "";
@@ -667,6 +674,7 @@ export async function renderPdfDocument(
       const diagrams = [document.softwareEngineeringDiagram, document.umlClassDiagram] as const;
       const results: Array<{ svg: string; viewBox: ViewBox }> = [];
       for (const [index, diagram] of diagrams.entries()) {
+        const source = normalizeMermaidUnderscores(diagram.mermaid);
         const renderedSvg = await page.evaluate(async ({ source, identifier, graphHash, maxSvgBytes }) => {
           const renderer = (window as unknown as { mermaid?: {
             initialize: (config: object) => void;
@@ -825,7 +833,7 @@ export async function renderPdfDocument(
           const serialized = new XMLSerializer().serializeToString(svg);
           if (new TextEncoder().encode(serialized).byteLength > maxSvgBytes) throw new Error("PDF_DIAGRAM_SVG_LIMIT_EXCEEDED");
           return serialized;
-        }, { source: diagram.mermaid, identifier: `sage-pdf-${document.ckgSha256.slice(0, 12)}-${index}`, graphHash: document.ckgSha256, maxSvgBytes: MAX_SVG_BYTES });
+        }, { source, identifier: `sage-pdf-${document.ckgSha256.slice(0, 12)}-${index}`, graphHash: document.ckgSha256, maxSvgBytes: MAX_SVG_BYTES });
         results.push({ svg: renderedSvg, viewBox: safeSvgViewBox(renderedSvg) });
       }
       if (blockedRequestCount !== 0) fail("PDF_RENDER_NETWORK_REQUEST_BLOCKED");
@@ -879,6 +887,7 @@ export const pdfRendererInternals = {
   errorCode,
   escapePdfHtml,
   makeDiagramLayout,
+  normalizeMermaidUnderscores,
   setSvgRootAttributes,
   validatePdfDocument,
 };
