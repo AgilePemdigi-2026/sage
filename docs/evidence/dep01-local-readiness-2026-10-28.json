@@ -16,9 +16,9 @@
   "coolifyDeployed": false,
   "offServerBackupVerified": false,
   "assessedLocalDate": "2026-10-28",
-  "configurationUnitTests": 7,
+  "configurationUnitTests": 9,
   "preMergeNode24UnitTests": 362,
-  "combinedNode24UnitTests": 368,
+  "combinedNode24UnitTests": 370,
   "preflightWithDummyDigests": "PASS",
   "runtimeSmokeAfterRestore": "PASS",
   "releaseImagesPublished": false,
@@ -31,5 +31,6 @@
     "PDF medium remains blocked by EXP-03 #101."
   ],
   "combinedLintTypecheck": "PASS",
-  "disposableContainersAndVolumesRemoved": true
+  "disposableContainersAndVolumesRemoved": true,
+  "reviewRegression": "Named volume driver options and cross-project aliases rejected; runtime local driver/options checked"
 }

@@ -27,6 +27,18 @@ function isRecord(value) {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
+/** Only project-scoped local managed volumes without host/network driver options are supported. */
+export function isPrivateNamedVolume(value, project) {
+  if (!isRecord(value) || value.external === true) return false;
+  if (value.driver !== undefined && value.driver !== "local") return false;
+  if (value.driver_opts !== undefined && (!isRecord(value.driver_opts) || Object.keys(value.driver_opts).length !== 0)) return false;
+  if (value.name !== undefined) {
+    if (typeof project !== "string" || typeof value.name !== "string"
+      || !(value.name.startsWith(`${project}_`) || value.name.startsWith(`${project}-`))) return false;
+  }
+  return true;
+}
+
 function envOf(service) {
   return isRecord(service?.environment) ? service.environment : {};
 }
@@ -125,8 +137,8 @@ export function validateDeploymentConfig(config) {
   const topVolumes = isRecord(config.volumes) ? config.volumes : {};
   const databaseVolume = topVolumes.database;
   const storageVolume = topVolumes.storage;
-  add(issues, isRecord(databaseVolume) && isRecord(storageVolume)
-    && databaseVolume.external !== true && storageVolume.external !== true, "NAMED_VOLUMES_REQUIRED");
+  add(issues, isPrivateNamedVolume(databaseVolume, config.name)
+    && isPrivateNamedVolume(storageVolume, config.name), "NAMED_VOLUMES_REQUIRED");
   for (const [serviceName, expectedMounts] of Object.entries(EXPECTED_MOUNTS)) {
     const mounts = services[serviceName].volumes;
     const actualMounts = Array.isArray(mounts) ? mounts : [];

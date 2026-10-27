@@ -1,3 +1,4 @@
+import { isPrivateNamedVolume } from "./check-deployment.mjs";
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -54,8 +55,8 @@ function hasSafeConfiguredStorage(config) {
     || !isRecord(config.volumes)) return false;
   const { db, migrate, web, worker } = config.services;
   if (![db, migrate, web, worker].every(isRecord)) return false;
-  if (!isRecord(config.volumes.database) || !isRecord(config.volumes.storage)
-    || config.volumes.database.external === true || config.volumes.storage.external === true) return false;
+  if (!isPrivateNamedVolume(config.volumes.database, config.name)
+    || !isPrivateNamedVolume(config.volumes.storage, config.name)) return false;
   if (!configMountMatches(db, "database", "/var/lib/postgresql/data", false)
     || !configMountMatches(web, "storage", "/app/storage", true)
     || !configMountMatches(worker, "storage", "/app/storage", false)
@@ -129,10 +130,14 @@ function isExpectedRuntimeVolume(mounts, destination, readWrite, project) {
   const mount = mounts[0];
   const name = mount.Name ?? mount.name;
   const projectPrefix = typeof name === "string" && (name.startsWith(`${project}_`) || name.startsWith(`${project}-`));
-  return mount.Type === "volume"
-    && mount.Destination === destination
-    && mount.RW === readWrite
-    && projectPrefix;
+  if (mount.Type !== "volume" || mount.Destination !== destination || mount.RW !== readWrite || !projectPrefix) return false;
+  const output = runDocker(["volume", "inspect", "--format", "{{json .}}", name]);
+  if (output === null) return false;
+  try {
+    const definition = JSON.parse(output);
+    return definition.Driver === "local" && (definition.Options === null
+      || (isRecord(definition.Options) && Object.keys(definition.Options).length === 0));
+  } catch { return false; }
 }
 
 function isHttpsOrigin(value) {

@@ -134,3 +134,22 @@ test("rejects disabled health, external volumes, host networking, and extra serv
   assert.ok(issues.includes("HOST_NETWORK_FORBIDDEN"));
   assert.ok(issues.includes("SERVICES_REQUIRED"));
 });
+
+
+test("rejects named volume host-bind options and unsupported storage drivers", () => {
+  const bound = validConfig();
+  Object.assign(bound.volumes.storage, { driver: "local", driver_opts: { type: "none", o: "bind", device: "/srv/unrelated" } });
+  assert.ok(validateDeploymentConfig(bound).includes("NAMED_VOLUMES_REQUIRED"));
+  const remote = validConfig();
+  Object.assign(remote.volumes.storage, { driver: "third-party" });
+  assert.ok(validateDeploymentConfig(remote).includes("NAMED_VOLUMES_REQUIRED"));
+});
+
+test("requires resolved explicit volume names to remain in their Compose project namespace", () => {
+  const aliased = validConfig();
+  Object.assign(aliased, { name: "sage-testing" });
+  Object.assign(aliased.volumes.storage, { name: "other-product_storage" });
+  assert.ok(validateDeploymentConfig(aliased).includes("NAMED_VOLUMES_REQUIRED"));
+  Object.assign(aliased.volumes.storage, { name: "sage-testing_storage", driver: "local" });
+  assert.deepEqual(validateDeploymentConfig(aliased), []);
+});

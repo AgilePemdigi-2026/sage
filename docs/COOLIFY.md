@@ -56,6 +56,7 @@ Untuk backup yang konsisten, hentikan penulisan aplikasi (web/worker) melalui re
 Contoh backup CLI berikut memerlukan file/environment dan project aktual yang sudah diverifikasi operator. Hentikan writer dahulu; jangan jalankan dengan project baru yang tidak sama dengan resource Coolify.
 
 ```sh
+set -eu
 umask 077
 mkdir -p "$SAGE_BACKUP_DIR"
 docker compose --project-name "$SAGE_PROJECT" --env-file "$SAGE_PRIVATE_ENV" -f "$SAGE_DEPLOY_FILE" stop web worker
