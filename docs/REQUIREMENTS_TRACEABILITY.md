@@ -146,3 +146,7 @@ UI-01 membuktikan komponen dasar, `*-S1` membuktikan hasil awal Sprint 1, dan DO
 Setelah issue nyata dibuat, tambahkan URL/nomor issue pada ID backlog terkait. Setelah pengujian, tautkan run yang memuat commit aplikasi, fixture/full SHA, versi config, serta hasil aktual. Requirement hanya menjadi Verified setelah bukti dan review sesuai [Definition of Done](DEFINITION_OF_DONE.md); persiapan, mock, atau screenshot saja tidak menutup seluruh requirement.
 
 UI-02 (#59) dan UI-03 (#60) menambah frontend Figma pada Sprint 1. Preview progres/history/graph/dokumen menggunakan fixture ReportService tervalidasi, bukan hasil pipeline pengguna. Karena itu perubahan tampilan tidak menutup requirement analisis, persistensi history, generator artefak, atau ekspor produk. Bukti UI dicatat di [UI-02_CHECKS.md](UI-02_CHECKS.md).
+
+## Optimasi storage sebelum deployment
+
+PERF-01 #96 merupakan paket teknis lokal pendukung persistensi dan efisiensi; tidak menambah requirement SRS atau menyatakan acceptance release selesai. T-PERF-01 membuktikan canonical/source/hash/owner tetap terjaga saat mirror lama dihapus, dengan regresi alur graph/dokumen dan ekspor layout 2. Pemetaan requirement yang ada tidak berubah. Hasil, pengukuran dan batas tercatat pada [PERF-01_CHECKS](PERF-01_CHECKS.md); REL-01/FIN-01 tetap memiliki gate sendiri.
