@@ -1,0 +1,130 @@
+{
+  "schemaVersion": 1,
+  "id": "resource-medium-php",
+  "repository": "nikic/PHP-Parser",
+  "commitSha": "9e33da9553fe7786f0962b35f4e4ecf01be89def",
+  "language": "php",
+  "selection": "Deterministic spread sample of 24 lexicographically path-sorted files (round(i*(N-1)/(24-1)), i=0..23) from the existing pinned php-parser corpus; partial-corpus workload, max 100000 source bytes.",
+  "files": [
+    {
+      "path": "lib/PhpParser/Builder.php",
+      "sha256": "3ad88dc8184305a97fe3f79aa632e6f6c5a6b9f7c2ec91bddf25eeee6958b72d",
+      "sizeBytes": 202
+    },
+    {
+      "path": "lib/PhpParser/Builder/Property.php",
+      "sha256": "f2942d1081065cba95dd9ed19dc90bbfbf340a8ffec4d36a2aa112a2777a3a68",
+      "sizeBytes": 5747
+    },
+    {
+      "path": "lib/PhpParser/Error.php",
+      "sha256": "65c32d6135c2b214eee37a7f00ccf1f2c8d01430c8e65af99ebe74359dffd9a9",
+      "sizeBytes": 4952
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/AsymmetricVisibilityTokenEmulator.php",
+      "sha256": "12544449a30282610c2f501cdf7ec741977e0fcd6ae4c41464c195559d2aa6a6",
+      "sizeBytes": 3344
+    },
+    {
+      "path": "lib/PhpParser/Lexer/TokenEmulator/ReverseEmulator.php",
+      "sha256": "c802f69a5319242aa03e3eed4656551ce8c18e535df4905299f0f2ab931aba46",
+      "sizeBytes": 1013
+    },
+    {
+      "path": "lib/PhpParser/Node/ComplexType.php",
+      "sha256": "cfadc646eda7cd40d4f7875a6d79e0ba9b66db75138eb32efba9592babf27180",
+      "sizeBytes": 323
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignOp/BitwiseOr.php",
+      "sha256": "ad8b684d06df61651bfa49823637a41d6a60188578411e431f2f9b952738dda5",
+      "sizeBytes": 233
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/AssignRef.php",
+      "sha256": "efb318cc50eca7d859113fa9424ff760e09bd055ffcf730dd713a339d1e6f94d",
+      "sizeBytes": 823
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/GreaterOrEqual.php",
+      "sha256": "31af8b1c279b8da9e3bbdff08e7f7917e304c67fba09c00d56cdbf51d7b36a4a",
+      "sizeBytes": 320
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/BinaryOp/Pow.php",
+      "sha256": "3ec873b8bd0ddb264ab476596c00399ad7270c2c5760046c9698e28364d142b1",
+      "sizeBytes": 298
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Cast/Bool_.php",
+      "sha256": "fabf29bd0da462da76e4e020d0b8a0128811aa5821433fa3b7bcc4f3e0abf18b",
+      "sizeBytes": 348
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Empty_.php",
+      "sha256": "74a11a97db8cf6d25387ddf95fb9070eaac4fa7e28dbc42005e389fec6e6bbfa",
+      "sizeBytes": 640
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/New_.php",
+      "sha256": "4743ba9e1be19a7095a7d8f6b223311a6fb351e99749868255604d77d72a6e73",
+      "sizeBytes": 1166
+    },
+    {
+      "path": "lib/PhpParser/Node/Expr/Ternary.php",
+      "sha256": "c4303f9ccdd63cb1001a887fd64138989abc12524f54636f43afae33394b52a9",
+      "sizeBytes": 967
+    },
+    {
+      "path": "lib/PhpParser/Node/MatchArm.php",
+      "sha256": "7e481afc9a9ac55d689620bf02bd2ec040b0020948c0b45022721e0eb2e8c990",
+      "sizeBytes": 652
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/Float_.php",
+      "sha256": "770cf182c04670e0aa79e26e09ab9e8912353e5e26f5e615da5f265ab040ba4b",
+      "sizeBytes": 2299
+    },
+    {
+      "path": "lib/PhpParser/Node/Scalar/MagicConst/Property.php",
+      "sha256": "62c4415867806827e52ffcd0e3affed3bd15a12d226508d5e0ece12b89e43533",
+      "sizeBytes": 323
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Class_.php",
+      "sha256": "fb97e2c0b38f92bc9768c6f7dc6f6b60d68e2470f9552d87953da27218f81959",
+      "sizeBytes": 3215
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Expression.php",
+      "sha256": "f60d9c98244467319fe31d428604880199c863b1b9d174f563be389615db5a9d",
+      "sizeBytes": 726
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/Label.php",
+      "sha256": "596174c16909c9e927f0960d65e9432055030ab6e324956cc2617c115721a4ac",
+      "sizeBytes": 719
+    },
+    {
+      "path": "lib/PhpParser/Node/Stmt/TraitUseAdaptation/Precedence.php",
+      "sha256": "189b04dde1ac4e47fa13234313317e75cebefe038919f0c021091c5a9fca2012",
+      "sizeBytes": 1053
+    },
+    {
+      "path": "lib/PhpParser/NodeDumper.php",
+      "sha256": "ac5c06e19b3e75e192a3a701a60ccd4dc57d739b65029765b4f5944088f19cae",
+      "sizeBytes": 10485
+    },
+    {
+      "path": "lib/PhpParser/NodeVisitor/ParentConnectingVisitor.php",
+      "sha256": "8661e95d4bdae96b7c0163fd27040e50f34232785198b6c3605a2ecd93aa517b",
+      "sizeBytes": 1341
+    },
+    {
+      "path": "lib/PhpParser/compatibility_tokens.php",
+      "sha256": "74083e705700d25d140ea74b0cf3973c2198bfbdd94a5376a38f915dd4a2d59b",
+      "sizeBytes": 2515
+    }
+  ]
+}

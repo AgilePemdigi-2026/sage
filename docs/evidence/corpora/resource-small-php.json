@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "resource-small-php",
+  "repository": "AgilePemdigi-2026/sage",
+  "commitSha": "ee121c16d13b92c02e6fb0b46653819c0ede6796",
+  "language": "php",
+  "selection": "All fixed PHP namespace source fixtures in tests/fixtures/php-namespaces; composer metadata is excluded.",
+  "files": [
+    {
+      "path": "contracts.php",
+      "sha256": "f08ce7f0b69b2bb838516cc6c72a62892cbdd9ae63d6a5d82470fbb5a2f40035",
+      "sizeBytes": 138
+    },
+    {
+      "path": "service.php",
+      "sha256": "3ca7f74201f92a91cd8b86b26f6629a9cc927d2a06c47b8b2bcb85eb7bb39d3d",
+      "sizeBytes": 310
+    }
+  ]
+}

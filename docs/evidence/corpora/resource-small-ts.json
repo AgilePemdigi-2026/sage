@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "id": "resource-small-ts",
+  "repository": "AgilePemdigi-2026/sage",
+  "commitSha": "ee121c16d13b92c02e6fb0b46653819c0ede6796",
+  "language": "javascript",
+  "selection": "One fixed, hand-authored TypeScript source fixture from packages/contracts/examples/minimum-ccm.source.ts.",
+  "files": [
+    {
+      "path": "minimum-ccm.source.ts",
+      "sha256": "1baccc79a196f530ad1ac14bafb98b5b0c219f7a6bc386b6fe5e5e2b21d9d9b7",
+      "sizeBytes": 23
+    }
+  ]
+}
