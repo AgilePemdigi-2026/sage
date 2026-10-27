@@ -32,5 +32,17 @@
   ],
   "combinedLintTypecheck": "PASS",
   "disposableContainersAndVolumesRemoved": true,
-  "reviewRegression": "Named volume driver options and cross-project aliases rejected; runtime local driver/options checked"
+  "reviewRegression": "Named volume driver options and cross-project aliases rejected; runtime local driver/options checked",
+  "standardDockerBuildStage": {
+    "status": "PASS",
+    "target": "build",
+    "architecture": "linux/arm64",
+    "unitTests": 370,
+    "databaseFoundationTests": 8,
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "nextProductionBuild": "PASS",
+    "logSha256": "ffa349bcb33896934bd14e6cf3329e26eee4062426d041d556d40259431cb4a9",
+    "scope": "Build stage only; final web/worker release images and linux/amd64 not built"
+  }
 }
