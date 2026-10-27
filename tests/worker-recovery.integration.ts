@@ -9,6 +9,7 @@ import test from "node:test";
 import {
   database, disconnectDatabase, enqueueAnalysis, enqueueAnalysisRetry,
   getAnalysisRetryTargetForUser, storeGitHubCredential,
+  ANALYSIS_RUNTIME_LEASE_DURATION_MS,
 } from "../packages/database/src/index.ts";
 
 const enabled = process.env.SAGE_PIPELINE_TESTS === "1" && process.env.SAGE_PIPELINE_RECOVERY_TESTS === "1";
@@ -49,7 +50,7 @@ async function poll<T>(read: () => Promise<T | null>, timeoutMs: number, worker?
   throw new Error(`Timed out waiting for worker state${worker ? `: ${worker.output}` : ""}.`);
 }
 
-test("T-ANA06 actual worker recovers a killed claim and publishes the same target on retry", { skip: !enabled, timeout: 90_000 }, async () => {
+test("T-ANA06 actual worker recovers a killed claim and publishes the same target on retry", { skip: !enabled, timeout: ANALYSIS_RUNTIME_LEASE_DURATION_MS + 90_000 }, async () => {
   const url = new URL(process.env.DATABASE_URL ?? "");
   assert.ok(url.protocol === "postgresql:" || url.protocol === "postgres:");
   assert.equal(decodeURIComponent(url.pathname.slice(1)), "sage_pipeline16", "recovery test only uses its isolated database");
@@ -95,7 +96,7 @@ test("T-ANA06 actual worker recovers a killed claim and publishes the same targe
     await poll(async () => {
       const rows = await db.$queryRaw<Array<{ expired: boolean }>>`SELECT slot."leaseUntil" <= clock_timestamp() AND job."leaseExpiresAt" <= clock_timestamp() AS expired FROM "WorkerSlot" slot JOIN "Job" job ON job."id" = slot."jobId" WHERE slot."jobId" = ${parent.jobId}`;
       return rows[0]?.expired ? true : null;
-    }, 35_000);
+    }, ANALYSIS_RUNTIME_LEASE_DURATION_MS + 5_000);
 
     restarted = startWorker(storageRoot);
     const recovered = await poll(async () => {

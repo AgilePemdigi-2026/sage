@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
+import { setTimeout as delay } from "node:timers/promises";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { pack } from "tar-stream";
@@ -52,7 +53,7 @@ interface Fixture {
   archive: Uint8Array;
 }
 
-async function prepareFixture(db: PrismaClient): Promise<Fixture> {
+async function prepareFixture(db: PrismaClient, leaseDurationMs = 300_000): Promise<Fixture> {
   const suffix = randomUUID();
   const owner = await db.user.create({ data: { githubUserId: `doc-stage-${suffix}`, login: `doc-stage-${suffix}` } });
   const repository = await db.repository.create({ data: { githubRepositoryId: `doc-stage-${suffix}`, ownerLogin: "fixture", name: suffix, fullName: `fixture/${suffix}`, visibility: "PUBLIC" } });
@@ -65,7 +66,7 @@ async function prepareFixture(db: PrismaClient): Promise<Fixture> {
     analyzerVersion: "document-stage-integration",
     schemaVersion: "1",
   });
-  const claim = await claimAnalysisJob(db, { leaseDurationMs: 300_000 });
+  const claim = await claimAnalysisJob(db, { leaseDurationMs });
   assert.ok(claim);
   assert.equal(claim.analysisId, enqueued.analysisId);
 
@@ -78,6 +79,20 @@ async function prepareFixture(db: PrismaClient): Promise<Fixture> {
   const archive = await createArchive(sources);
   const storageRoot = await mkdtemp(join(tmpdir(), "sage-document15-"));
   return { db, claim, analysisId: enqueued.analysisId, ownerId: owner.id, repositoryId: repository.id, storageRoot, sources, archive };
+}
+
+/** Start document persistence just before the runner's next 10s default heartbeat. */
+async function waitForHeartbeatContentionWindow(db: PrismaClient): Promise<Date> {
+  const deadline = Date.now() + 60_000;
+  while (Date.now() < deadline) {
+    const slot = await db.workerSlot.findUniqueOrThrow({ where: { slotKey: "analysis" }, select: { heartbeatAt: true } });
+    if (!slot.heartbeatAt) throw new Error("The analysis heartbeat timestamp is missing.");
+    const elapsedMs = Date.now() - slot.heartbeatAt.getTime();
+    if (elapsedMs >= 9_300 && elapsedMs <= 9_700) return slot.heartbeatAt;
+    if (elapsedMs < 9_300) await delay(Math.min(100, 9_300 - elapsedMs));
+    else await delay(20);
+  }
+  throw new Error("The analysis heartbeat did not reach the document-persistence contention window.");
 }
 
 function stageHandlers(fixture: Fixture, failAtDiagram = false) {
@@ -208,6 +223,61 @@ test("a failure before stage 9 leaves no architecture document row", {
     assert.equal(await db.architectureDocument.count({ where: { analysisId: fixture.analysisId } }), 0);
     assert.equal((await db.analysis.findUniqueOrThrow({ where: { id: fixture.analysisId }, select: { status: true } })).status, "FAILED");
   } finally {
+    await cleanupFixture(fixture);
+    await disconnectDatabase();
+  }
+});
+
+test("the default lease heartbeat waits through slow document persistence without interrupting the stage", {
+  skip: !documentTestsEnabled,
+}, async () => {
+  assert.equal(new URL(process.env.DATABASE_URL!).pathname, "/sage_document15", "only the isolated DOC01 integration database is allowed");
+  const db = database();
+  let fixture: Fixture | null = null;
+  const suffix = randomUUID().replaceAll("-", "");
+  const functionName = `doc15_heartbeat_${suffix}`;
+  const triggerName = `${functionName}_trigger`;
+  let observerFinished = false;
+  let observedBlockedHeartbeat = false;
+  let heartbeatObserver: Promise<void> | undefined;
+  try {
+    // Exercise the actual 30s queue lease and the runner's 10s heartbeat cadence.
+    fixture = await prepareFixture(db, 30_000);
+    const { handlers } = stageHandlers(fixture);
+    const architectureDocumentHandler = handlers.ARCHITECTURE_DOCUMENT;
+    handlers.ARCHITECTURE_DOCUMENT = async (context, signal) => {
+      await waitForHeartbeatContentionWindow(db);
+      return architectureDocumentHandler(context, signal);
+    };
+
+    await db.$executeRawUnsafe(`CREATE FUNCTION "${functionName}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(6); RETURN NEW; END $$`);
+    await db.$executeRawUnsafe(`CREATE TRIGGER "${triggerName}" BEFORE INSERT ON "ArchitectureDocument" FOR EACH ROW EXECUTE FUNCTION "${functionName}"()`);
+    heartbeatObserver = (async () => {
+      while (!observerFinished) {
+        const rows = await db.$queryRaw<Array<{ waiting: boolean }>>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_stat_activity
+            WHERE datname = current_database() AND pid <> pg_backend_pid()
+              AND wait_event_type = 'Lock'
+              AND query LIKE '%"WorkerSlot"%' AND query LIKE '%"leaseTokenHash"%' AND query LIKE '%FOR UPDATE%'
+          ) AS "waiting"
+        `;
+        if (rows[0]?.waiting) observedBlockedHeartbeat = true;
+        await delay(25);
+      }
+    })();
+
+    const result = await runAnalysisStages(db, fixture.claim, handlers, { leaseDurationMs: 30_000 });
+    observerFinished = true;
+    await heartbeatObserver;
+    assert.equal(result.stagesFinished, true, JSON.stringify(result.stages));
+    assert.equal(observedBlockedHeartbeat, true, "the 10s heartbeat must wait behind the document transaction's WorkerSlot lock");
+    assert.equal(await db.architectureDocument.count({ where: { analysisId: fixture.analysisId } }), 1);
+  } finally {
+    observerFinished = true;
+    await heartbeatObserver?.catch(() => undefined);
+    await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${triggerName}" ON "ArchitectureDocument"`).catch(() => undefined);
+    await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${functionName}"()`).catch(() => undefined);
     await cleanupFixture(fixture);
     await disconnectDatabase();
   }

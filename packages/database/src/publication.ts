@@ -7,11 +7,9 @@ import { AnalysisQueueInvariantError, snapshotAnalysisJobClaim } from "./queue.t
 import type { AnalysisJobClaim } from "./queue.ts";
 import { Prisma } from "../generated/client.ts";
 import type { PrismaClient } from "../generated/client.ts";
+import { ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS } from "./analysis-timing.ts";
 
 const ANALYSIS_SLOT = "analysis";
-// Keep the bounded transaction below the queue's 30s default lease, including
-// connection acquisition, while allowing large canonical mirrors to be checked/written.
-const PUBLICATION_TRANSACTION_OPTIONS = { maxWait: 2_000, timeout: 15_000 } as const;
 const SHA256 = /^[a-f0-9]{64}$/;
 const COMMIT_SHA = /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/i;
 const LIMITATION_EXPLANATIONS = {
@@ -603,7 +601,7 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
       `;
       if (released.length !== 1) throw new PublicationLeaseLostError();
       return true;
-    }, PUBLICATION_TRANSACTION_OPTIONS);
+    }, ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS);
   } catch (error) {
     if (error instanceof PublicationLeaseLostError) return false;
     throw error;

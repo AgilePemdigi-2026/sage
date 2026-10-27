@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { AnalysisStatus } from "../generated/enums.ts";
 import type { Prisma, PrismaClient } from "../generated/client.ts";
+import { ANALYSIS_RENEWAL_TRANSACTION_OPTIONS } from "./analysis-timing.ts";
 
 const ANALYSIS_SLOT = "analysis";
 const DEFAULT_LEASE_DURATION_MS = 30_000;
@@ -733,7 +734,7 @@ export async function renewAnalysisLease(
     const result = rows[0];
     if (result.slotUpdated !== result.jobUpdated) throw new AnalysisQueueInvariantError();
     return result.slotUpdated ? result.leaseExpiresAt : null;
-  });
+  }, ANALYSIS_RENEWAL_TRANSACTION_OPTIONS);
 }
 
 /** Fails a running analysis only while its matching lease remains current. */

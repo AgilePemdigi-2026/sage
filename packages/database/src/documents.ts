@@ -8,11 +8,9 @@ import type { ArchitectureDocumentV1 } from "@sage/documents/model";
 import type { Prisma, PrismaClient } from "../generated/client.ts";
 import { snapshotAnalysisJobClaim } from "./queue.ts";
 import type { AnalysisJobClaim } from "./queue.ts";
+import { ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS } from "./analysis-timing.ts";
 
 const ANALYSIS_SLOT = "analysis";
-// A 15s interactive transaction, plus the 2s connection wait, remains below the
-// queue's 30s default lease. Database-clock fencing still decides whether writes commit.
-const DOCUMENT_TRANSACTION_OPTIONS = { maxWait: 2_000, timeout: 15_000 } as const;
 const DOCUMENT_STAGE_KEYS = [
   "KNOWLEDGE_GRAPH",
   "INTERFACE_CATALOG",
@@ -309,7 +307,7 @@ export async function persistCanonicalDocument(
       // ran past the lease deadline. Throwing aborts the transaction and rolls the write back.
       if (!await hasCurrentAnalysisLease(tx, claim, tokenHash)) throw new PersistLeaseLostError();
       return result;
-    }, DOCUMENT_TRANSACTION_OPTIONS);
+    }, ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS);
   } catch (error) {
     if (error instanceof PersistLeaseLostError) return null;
     throw error;

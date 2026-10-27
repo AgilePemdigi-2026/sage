@@ -156,7 +156,7 @@ test("document persistence derives canonical content synchronously and stores st
   assert.equal(created?.softwareEngineeringDiagram, JSON.stringify(value.document.value.softwareEngineeringDiagram));
   assert.equal(created?.umlClassDiagram, JSON.stringify(value.document.value.umlClassDiagram));
   assert.equal(created?.canonicalContent, value.document.json, "source bytes were copied before asynchronous database work");
-  assert.deepEqual(transactionOptions, { maxWait: 2_000, timeout: 15_000 });
+  assert.deepEqual(transactionOptions, { maxWait: 2_000, timeout: 45_000 });
 });
 
 test("document persistence validates canonical source before opening a transaction", async () => {
