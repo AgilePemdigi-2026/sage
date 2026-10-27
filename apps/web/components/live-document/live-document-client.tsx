@@ -7,7 +7,7 @@ import type { CcmEdge, CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { DocumentPayload } from "../../lib/documents/types.ts";
 import { diagramBudget, parseLiveDocumentPayload } from "./document-data.ts";
 import { diagramSvgObjectUrl, DiagramRenderError, renderCanonicalDiagramSvg } from "./diagram-renderer.ts";
-import { MarkdownExport } from "./markdown-export.tsx";
+import { MarkdownExport, PdfExport } from "./markdown-export.tsx";
 import styles from "./live-document.module.css";
 
 type DiagramProjection = ArchitectureDocumentV1["softwareEngineeringDiagram"];
@@ -463,11 +463,18 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
     {errorContent()}
     {visiblePayload ? <>
       <Metadata payload={visiblePayload} />
-      <MarkdownExport
-        key={`${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}`}
-        payload={visiblePayload}
-        onUnauthorized={() => refreshRef.current?.()}
-      />
+      <div className={styles.exportGrid}>
+        <MarkdownExport
+          key={`MARKDOWN:${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}`}
+          payload={visiblePayload}
+          onUnauthorized={() => refreshRef.current?.()}
+        />
+        <PdfExport
+          key={`PDF:${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}`}
+          payload={visiblePayload}
+          onUnauthorized={() => refreshRef.current?.()}
+        />
+      </div>
       <div className={styles.sectionLayout}>
         <nav className={styles.sectionNav} aria-label="Bagian dokumen">
           {sections.map((item) => <button
