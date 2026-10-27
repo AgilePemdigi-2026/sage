@@ -7,6 +7,7 @@ import { gzipSync } from "node:zlib";
 import { pack } from "tar-stream";
 import test from "node:test";
 import { canonicalizeCkg } from "@sage/contracts";
+import { analyzeReferences } from "@sage/analyzer-js";
 import { projectArchitectureDocument } from "@sage/documents/model";
 import { MARKDOWN_RENDERER_VERSION } from "../packages/documents/src/markdown.ts";
 import {
@@ -48,15 +49,18 @@ async function tarArchive(path: string, bytes: Uint8Array): Promise<Uint8Array> 
 
 async function createPublishedAnalysis(db: PrismaClient, input: {
   ownerUserId: string; repositoryId: string; repositoryFullName: string; suffix: string; storageRoot: string;
-  ccmTemplate: Record<string, unknown>; sourceBytes: Uint8Array;
+  sourceBytes: Uint8Array;
 }) {
   const commitSha = input.suffix.replaceAll("-", "").slice(0, 40).padEnd(40, "a").toLowerCase();
   const branchName = "main";
   const configurationHash = "b".repeat(64);
   const sourcePath = "examples/minimum-ccm.source.ts";
-  const ccm = structuredClone(input.ccmTemplate);
-  ccm.snapshot = { repository: input.repositoryFullName, branch: branchName, commitSha };
-  const canonicalGraph = canonicalizeCkg(ccm, { [sourcePath]: input.sourceBytes }, configurationHash);
+  const analyzed = await analyzeReferences({
+    snapshot: { repository: input.repositoryFullName, branch: branchName, commitSha },
+    sources: { [sourcePath]: input.sourceBytes },
+  });
+  assert.ok(analyzed.ccm, `Fixture analyzer failed: ${analyzed.errorCode}`);
+  const canonicalGraph = canonicalizeCkg(analyzed.ccm, { [sourcePath]: input.sourceBytes }, configurationHash);
   if (!canonicalGraph.ok) throw new Error(`Invalid test CKG: ${canonicalGraph.errorCode}`);
   const canonicalDocument = projectArchitectureDocument(canonicalGraph.json, { [sourcePath]: input.sourceBytes }, canonicalGraph.sha256);
   if (!canonicalDocument.ok) throw new Error(`Invalid test document: ${canonicalDocument.errorCode}`);
@@ -131,7 +135,6 @@ test("EXP-01 Markdown export deduplicates, persists private checksummed files, r
   try {
     storageRoot = await mkdtemp(join(tmpdir(), "sage-export20-"));
     const sourceBytes = new Uint8Array(await readFile(new URL("../packages/contracts/examples/minimum-ccm.source.ts", import.meta.url)));
-    const ccmTemplate = JSON.parse(await readFile(new URL("../packages/contracts/examples/minimum-ccm.json", import.meta.url), "utf8")) as Record<string, unknown>;
     const owner = await db.user.create({ data: { githubUserId: `exp20-owner-${suffix}`, login: `exp20-owner-${suffix}` } });
     ownerIds.push(owner.id);
     const outsider = await db.user.create({ data: { githubUserId: `exp20-outsider-${suffix}`, login: `exp20-outsider-${suffix}` } });
@@ -161,7 +164,7 @@ test("EXP-01 Markdown export deduplicates, persists private checksummed files, r
     const worker = createExportWorker({ db, storageRoot });
 
     const first = await createPublishedAnalysis(db, {
-      ownerUserId: owner.id, repositoryId, repositoryFullName: repository.fullName, suffix: `${suffix}a`, storageRoot, ccmTemplate, sourceBytes,
+      ownerUserId: owner.id, repositoryId, repositoryFullName: repository.fullName, suffix: `${suffix}a`, storageRoot, sourceBytes,
     });
     const firstRequest = { ownerUserId: owner.id, analysisId: first.analysisId, documentHash: first.documentHash, rendererVersion: MARKDOWN_RENDERER_VERSION };
     const enqueueResults = await Promise.all([enqueueMarkdownExport(db, firstRequest), enqueueMarkdownExport(db, firstRequest)]);
@@ -201,7 +204,7 @@ test("EXP-01 Markdown export deduplicates, persists private checksummed files, r
     }
 
     const second = await createPublishedAnalysis(db, {
-      ownerUserId: owner.id, repositoryId, repositoryFullName: repository.fullName, suffix: `${suffix}b`, storageRoot, ccmTemplate, sourceBytes,
+      ownerUserId: owner.id, repositoryId, repositoryFullName: repository.fullName, suffix: `${suffix}b`, storageRoot, sourceBytes,
     });
     const secondEnqueue = await enqueueMarkdownExport(db, {
       ownerUserId: owner.id, analysisId: second.analysisId, documentHash: second.documentHash, rendererVersion: MARKDOWN_RENDERER_VERSION,
