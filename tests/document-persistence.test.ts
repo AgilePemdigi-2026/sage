@@ -93,6 +93,7 @@ function transactionDatabase(
     existing?: ReturnType<typeof documentRow> | null;
     active?: () => boolean;
     onTransactionStart?: () => void;
+    onTransactionOptions?: (options: unknown) => void;
     onCreate?: (data: Record<string, unknown>) => void;
   } = {},
 ): PrismaClient {
@@ -122,8 +123,9 @@ function transactionDatabase(
     },
   };
   return {
-    $transaction: async (callback: (transaction: typeof tx) => Promise<unknown>) => {
+    $transaction: async (callback: (transaction: typeof tx) => Promise<unknown>, transactionOptions?: unknown) => {
       options.onTransactionStart?.();
+      options.onTransactionOptions?.(transactionOptions);
       return callback(tx);
     },
   } as unknown as PrismaClient;
@@ -132,10 +134,12 @@ function transactionDatabase(
 test("document persistence derives canonical content synchronously and stores string mirrors", async () => {
   const value = await fixture();
   let created: Record<string, unknown> | undefined;
+  let transactionOptions: unknown;
   const db = transactionDatabase(value, {
     onTransactionStart: () => {
       value.sourceBytes["examples/minimum-ccm.source.ts"]![0] ^= 1;
     },
+    onTransactionOptions: options => { transactionOptions = options; },
     onCreate: data => { created = data; },
   });
   const result = await persistCanonicalDocument(db, {
@@ -152,6 +156,7 @@ test("document persistence derives canonical content synchronously and stores st
   assert.equal(created?.softwareEngineeringDiagram, JSON.stringify(value.document.value.softwareEngineeringDiagram));
   assert.equal(created?.umlClassDiagram, JSON.stringify(value.document.value.umlClassDiagram));
   assert.equal(created?.canonicalContent, value.document.json, "source bytes were copied before asynchronous database work");
+  assert.deepEqual(transactionOptions, { maxWait: 2_000, timeout: 15_000 });
 });
 
 test("document persistence validates canonical source before opening a transaction", async () => {

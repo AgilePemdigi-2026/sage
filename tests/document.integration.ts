@@ -186,7 +186,19 @@ test("DOC01 persistence is canonical, owner and lease fenced, immutable and hidd
       data: { nodes: JSON.stringify(canonicalGraph.value.ccm.nodes) },
     });
 
-    const storedDocument = await persistCanonicalDocument(db, documentInput);
+    // A database trigger makes document storage exceed Prisma's previous 5s default
+    // while the worker still owns its 300s lease. Persistence must complete atomically.
+    const slowFunctionName = `doc15_slow_${suffix.replaceAll("-", "")}`;
+    const slowTriggerName = `${slowFunctionName}_trigger`;
+    let storedDocument: Awaited<ReturnType<typeof persistCanonicalDocument>>;
+    try {
+      await db.$executeRawUnsafe(`CREATE FUNCTION "${slowFunctionName}"() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN PERFORM pg_sleep(6); RETURN NEW; END $$`);
+      await db.$executeRawUnsafe(`CREATE TRIGGER "${slowTriggerName}" BEFORE INSERT ON "ArchitectureDocument" FOR EACH ROW EXECUTE FUNCTION "${slowFunctionName}"()`);
+      storedDocument = await persistCanonicalDocument(db, documentInput);
+    } finally {
+      await db.$executeRawUnsafe(`DROP TRIGGER IF EXISTS "${slowTriggerName}" ON "ArchitectureDocument"`);
+      await db.$executeRawUnsafe(`DROP FUNCTION IF EXISTS "${slowFunctionName}"()`);
+    }
     assert.ok(storedDocument);
     assert.equal(storedDocument.contentHash.length, 64);
     assert.deepEqual(await persistCanonicalDocument(db, documentInput), storedDocument, "identical replay preserves the same row and hash");
