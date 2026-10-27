@@ -22,7 +22,22 @@ def extract(path):
         # interleaving text from adjacent columns on the same physical line.
         pages = [page.extract_text(use_text_flow=True) or "" for page in document.pages]
         sizes = [(page.width, page.height) for page in document.pages]
-    return pages, sizes
+        attribute_fragments = []
+        for page, page_text in zip(document.pages, pages):
+            if "Attributes (JSON)" not in page_text:
+                continue
+            for table in page.find_tables():
+                attribute_column = None
+                for row in table.extract():
+                    headers = [compact(cell) if cell else "" for cell in row]
+                    if "Attributes(JSON)" in headers:
+                        attribute_column = headers.index("Attributes(JSON)")
+                        continue
+                    if "CanonicaledgeID" in headers:
+                        attribute_column = None
+                    if attribute_column is not None and attribute_column < len(row):
+                        attribute_fragments.append(row[attribute_column] or "")
+    return pages, sizes, "".join(attribute_fragments)
 
 
 def main():
@@ -31,14 +46,14 @@ def main():
     folder = parser.parse_args().directory
     pdf = folder / "sage-pdf21-browser-390.pdf"
     expected = json.loads((folder / "expected-document.json").read_text())
-    pages, sizes = extract(pdf)
+    pages, sizes, attribute_text = extract(pdf)
     text = "\n".join(pages)
     normalized = compact(text)
     checks, missing = {}, []
 
-    def required(category, values):
+    def required(category, values, haystack=normalized):
         values = list(dict.fromkeys(str(value) for value in values if value is not None and str(value)))
-        absent = [value for value in values if compact(value) not in normalized]
+        absent = [value for value in values if compact(value) not in haystack]
         checks[category] = {"expected": len(values), "matched": len(values) - len(absent)}
         missing.extend({"category": category, "value": value} for value in absent)
 
@@ -50,7 +65,7 @@ def main():
     required("nodeNames", [node["name"] for node in nodes] + [node["qualifiedName"] for node in nodes])
     required("nodeSignatures", [node.get("signature") for node in nodes])
     required("nodeAttributes", [json.dumps(node["attributes"], sort_keys=True, ensure_ascii=False,
-                                           separators=(",", ":")) for node in nodes])
+                                           separators=(",", ":")) for node in nodes], compact(attribute_text))
     required("edgeIds", [edge["id"] for edge in edges])
     required("relationFields", [edge["kind"] for edge in edges] + [edge["resolution"] for edge in edges]
              + [edge["unresolvedReason"] for edge in edges])
@@ -78,7 +93,7 @@ def main():
     assert all(f"{index} / {len(pages)}" in page for index, page in enumerate(pages, 1))
     retry = folder / "sage-pdf21-browser-retry.pdf"
     assert retry.is_file(), "The real retry PDF is required"
-    retry_pages, _ = extract(retry)
+    retry_pages, _, _ = extract(retry)
     assert compact("\n".join(retry_pages)) == normalized, "Retry changed the canonical PDF text"
     (folder / "extracted-text.txt").write_text(text)
     report = {
