@@ -128,7 +128,7 @@ test("retry enqueue locks and validates the failed immutable parent before inser
     $queryRaw: async () => {
       queryNumber += 1;
       if (queryNumber === 1) return [{ jobId: null, ownerUserId: null, leaseUntil: null, heartbeatAt: null, leaseTokenHash: null, lastEnqueueSequence: 4n }];
-      if (queryNumber === 2) return [{ status: "FAILED", repositoryId: validEnqueue.repositoryId, branchName: validEnqueue.branchName, commitSha: validEnqueue.commitSha, configurationHash, analyzerVersion: validEnqueue.analyzerVersion, schemaVersion: validEnqueue.schemaVersion, repositoryFullNameSnapshot: "example/repository" }];
+      if (queryNumber === 2) return [{ status: "FAILED", repositoryId: validEnqueue.repositoryId, branchName: validEnqueue.branchName, commitSha: validEnqueue.commitSha, configurationHash, analyzerVersion: validEnqueue.analyzerVersion, schemaVersion: validEnqueue.schemaVersion, repositoryFullNameSnapshot: "example/repository", deletionRequestedAt: null }];
       if (queryNumber === 3) return [{ sequence: 5n }];
       return [{ fullName: "renamed/repository" }];
     },

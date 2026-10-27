@@ -1,5 +1,6 @@
 import type { Prisma, PrismaClient } from "../generated/client.ts";
 import type { AnalysisStatus } from "../generated/enums.ts";
+import type { CleanupSnapshot } from "./cleanup.ts";
 
 export class HistoryQueryError extends Error {
   constructor(message: string) {
@@ -52,6 +53,7 @@ export interface HistoryListItem {
   id: string; repositoryFullName: string; branchName: string; commitSha: string;
   status: string; errorCode: string | null; queuedAt: Date; startedAt: Date | null;
   completedAt: Date | null; retryOfAnalysisId: string | null;
+  deletion?: CleanupSnapshot | null;
 }
 export interface HistoryListResult {
   items: HistoryListItem[];
@@ -95,11 +97,22 @@ export async function listAnalysesForUser(db: PrismaClient, userId: string, opti
     select: {
       id: true, branchName: true, commitSha: true, status: true, errorCode: true,
       queuedAt: true, startedAt: true, completedAt: true, retryParentId: true, createdAt: true,
+      deletionRequestedAt: true,
       repository: { select: { fullName: true } },
     },
   });
   const hasMore = rows.length > PAGE_SIZE;
   const page = hasMore ? rows.slice(0, PAGE_SIZE) : rows;
+  const cleanupJobs = page.length === 0 ? [] : await db.job.findMany({
+    where: { ownerUserId: userId, type: "CLEANUP", cleanupAnalysisId: { in: page.map(row => row.id) } },
+    select: { id: true, analysisId: true, cleanupAnalysisId: true, status: true, errorCode: true },
+  });
+  const cleanupByAnalysis = new Map(cleanupJobs.map(job => [job.cleanupAnalysisId, {
+    jobId: job.id,
+    analysisId: job.analysisId ?? job.cleanupAnalysisId!,
+    status: job.status,
+    errorCode: job.errorCode,
+  }] as const));
   const items = page.map(pageRow => ({
     id: pageRow.id,
     repositoryFullName: pageRow.repository.fullName,
@@ -111,6 +124,7 @@ export async function listAnalysesForUser(db: PrismaClient, userId: string, opti
     startedAt: pageRow.startedAt,
     completedAt: pageRow.completedAt,
     retryOfAnalysisId: pageRow.retryParentId ?? null,
+    ...(pageRow.deletionRequestedAt ? { deletion: cleanupByAnalysis.get(pageRow.id) ?? null } : {}),
   }));
   const last = page.at(-1);
   return {
@@ -139,7 +153,7 @@ export async function getAnalysisDetailForUser(db: PrismaClient, userId: string,
   requireOwner(userId);
   if (typeof analysisId !== "string" || analysisId.trim().length === 0) throw new HistoryQueryError("ID analisis tidak valid.");
   const row = await db.analysis.findFirst({
-    where: { id: analysisId, ownerUserId: userId },
+    where: { id: analysisId, ownerUserId: userId, deletionRequestedAt: null },
     select: {
       id: true, branchName: true, commitSha: true, status: true, errorCode: true, retryParentId: true,
       queuedAt: true, startedAt: true, completedAt: true, updatedAt: true,

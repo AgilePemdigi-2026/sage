@@ -12,6 +12,7 @@ function fakeDb(rows: Record<string, unknown>[], findFirst: (args: unknown) => P
       findMany: async (args: { where: Record<string, unknown> }) => { void args; return rows; },
       findFirst,
     },
+    job: { findMany: async () => [] },
   } as unknown as Parameters<typeof listAnalysesForUser>[0];
 }
 function row(overrides: Record<string, unknown> = {}) {

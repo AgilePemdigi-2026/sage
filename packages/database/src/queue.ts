@@ -313,15 +313,16 @@ async function validateRetryParent(
     analyzerVersion: string;
     schemaVersion: string;
     repositoryFullNameSnapshot: string | null;
+    deletionRequestedAt: Date | null;
   }>>`
     SELECT "status"::text AS "status", "repositoryId", "branchName", "commitSha",
-      "configurationHash", "analyzerVersion", "schemaVersion", "repositoryFullNameSnapshot"
+      "configurationHash", "analyzerVersion", "schemaVersion", "repositoryFullNameSnapshot", "deletionRequestedAt"
     FROM "Analysis"
     WHERE "id" = ${input.retryParentId} AND "ownerUserId" = ${input.ownerUserId}
     FOR UPDATE
   `;
   const parent = parents[0];
-  if (!parent || parent.status !== "FAILED"
+  if (!parent || parent.deletionRequestedAt !== null || parent.status !== "FAILED"
     || parent.repositoryId !== input.repositoryId
     || parent.branchName !== input.branchName
     || parent.commitSha !== input.commitSha
@@ -824,7 +825,7 @@ export async function getOwnerAnalysisProgress(db: PrismaClient, ownerUserId: st
   requireNonEmpty(ownerUserId, "Pemilik analisis");
   requireNonEmpty(analysisId, "ID analisis");
   return db.analysis.findFirst({
-    where: { id: analysisId, ownerUserId },
+    where: { id: analysisId, ownerUserId, deletionRequestedAt: null },
     select: {
       id: true,
       branchName: true,
