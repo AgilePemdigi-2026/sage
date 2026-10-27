@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { ArchitectureDocumentV1 } from "../packages/documents/src/architecture-document.ts";
 import { PDF_RENDERER_VERSION } from "../packages/documents/src/pdf-version.ts";
 import { escapePdfHtml, pdfRendererInternals, renderPdfDocument } from "../packages/documents/src/pdf.ts";
@@ -41,37 +40,21 @@ function emptyDocument(): ArchitectureDocumentV1 {
 }
 
 test("PDF renderer version is stable and HTML escaping keeps source labels inert", () => {
-  assert.equal(PDF_RENDERER_VERSION, "1.0.0");
+  assert.equal(PDF_RENDERER_VERSION, "2.0.0");
   assert.equal(escapePdfHtml(`</td><script>alert('x')</script>&`), "&lt;/td&gt;&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;&amp;");
   assert.equal(escapePdfHtml("nul\u0000name"), "nul\\u0000name");
   assert.equal(pdfRendererInternals.errorCode(new Error("page.evaluate: Error: PDF_DIAGRAM_FILTER_REJECTED\n    at eval")), "PDF_DIAGRAM_FILTER_REJECTED");
   assert.equal(pdfRendererInternals.errorCode(new Error("an unrelated browser failure")), "PDF_RENDER_FAILED");
 });
 
-test("diagram tile planner keeps page-sized overlaps while covering every edge of a large diagram", () => {
-  const layout = pdfRendererInternals.makeDiagramLayout({ x: 0, y: 0, width: 3_600, height: 2_000 });
-  assert.equal(layout.overview, true);
-  assert.ok(layout.tiles.length > 1 && layout.tiles.length <= 24);
-  assert.equal(layout.tiles[0]!.label, "A1");
-  assert.ok(layout.tiles.every(tile => tile.width > 0 && tile.height > 0 && tile.width <= 1_040 && tile.height <= 600));
-
-  const covered = (axis: "x" | "y", size: number) => {
-    const intervals = layout.tiles.map(tile => [tile[axis] - layout.viewBox[axis], tile[axis] - layout.viewBox[axis] + tile[axis === "x" ? "width" : "height"]] as const)
-      .sort((left, right) => left[0] - right[0]);
-    assert.equal(intervals[0]![0], 0);
-    assert.ok(intervals.at(-1)![1] >= size, `${axis} tiles reach the last graph coordinate`);
-    for (let index = 1; index < intervals.length; index += 1) {
-      assert.ok(intervals[index]![0] <= intervals[index - 1]![1], `${axis} tiles overlap without a gap`);
-    }
-  };
-  covered("x", layout.viewBox.width);
-  covered("y", layout.viewBox.height);
-
-  assert.throws(
-    () => pdfRendererInternals.makeDiagramLayout({ x: 0, y: 0, width: 40_000, height: 40_000 }),
-    /PDF_DIAGRAM_TILE_LIMIT_EXCEEDED/,
-    "oversized diagrams fail at the page budget instead of omitting nodes",
-  );
+test("compact PDF embeds each diagram once and omits machine registers and hashes", () => {
+  const document = emptyDocument();
+  const html = pdfRendererInternals.renderDocumentHtml(document, ['<svg viewBox="0 0 3600 2000"><text>Structure</text></svg>', '<svg viewBox="0 0 320 200"><text>Classes</text></svg>']);
+  assert.equal((html.match(/<svg /g) ?? []).length, 2);
+  assert.ok(!html.includes(document.ckgSha256));
+  assert.ok(!html.includes(document.snapshot.commitSha));
+  assert.doesNotMatch(html, /data-grid|Detail A1|Canonical node and edge register/);
+  assert.match(html, /preserveAspectRatio="xMidYMid meet"/);
 });
 
 test("SVG viewport sizing updates root attributes without changing child rectangle dimensions", () => {
@@ -106,37 +89,6 @@ test("PDF source restores projection underscores while preserving literal #95; l
   const otherProjectionEscapes = 'flowchart LR\n  A["#60;script#62; #35; #59;"]';
   assert.equal(pdfRendererInternals.normalizeMermaidUnderscores(otherProjectionEscapes), otherProjectionEscapes,
     "other Mermaid/XML delimiter escapes remain unchanged");
-});
-
-test("evidence register deduplicates shared spans and assigns stable references across artifacts", () => {
-  const document = emptyDocument();
-  const spanA: EvidenceSpan = {
-    filePath: "src/a.ts", fileSha256: "a".repeat(64), startByte: 1, endByte: 4,
-    startLine: 1, endLine: 1, startColumn: 2, endColumn: 5, role: "declaration",
-  };
-  const spanB: EvidenceSpan = {
-    filePath: "src/z.ts", fileSha256: "z".repeat(64), startByte: 8, endByte: 12,
-    startLine: 3, endLine: 3, startColumn: 1, endColumn: 5, role: "reference",
-  };
-  const node: CcmNode = {
-    id: "node_fixture", kind: "Class", name: "A", qualifiedName: "src.A", language: "typescript",
-    filePath: "src/a.ts", location: spanA, parentId: null, origin: "source", signature: null, attributes: {},
-  };
-  document.interfaceCatalog.entries = [{
-    declaration: node, nodeIds: [node.id], edgeIds: [], evidence: [spanA, spanB, spanA], exportEdgeIds: [],
-  }];
-  document.softwareEngineeringDiagram.nodes = [node];
-  document.softwareEngineeringDiagram.nodeMappings = [{
-    nodeId: node.id, mermaidId: "N_fixture", mermaidLine: 2, evidence: spanA,
-  }];
-  document.umlClassDiagram.edgeMappings = [{
-    edgeId: "edge_fixture", mermaidLine: 3, sourceMermaidId: "A", targetMermaidId: "B", evidence: [spanB],
-  }];
-
-  const registry = pdfRendererInternals.buildEvidenceRegistry(document);
-  assert.deepEqual(registry.spans.map(span => span.filePath), ["src/a.ts", "src/z.ts"]);
-  assert.deepEqual([...registry.idBySpan.values()], ["EV-0001", "EV-0002"]);
-  assert.equal(registry.idBySpan.size, 2, "catalog and diagram references share one canonical evidence row per span");
 });
 
 test("PDF preflight rejects unsafe, oversized, or incomplete diagram data before Chromium starts", async () => {

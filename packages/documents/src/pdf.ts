@@ -2,10 +2,9 @@ import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { chromium } from "playwright";
-import type { CcmEdge, CcmFile, CcmLimitation, CcmNode, CcmProvenance, CcmSnapshot, EvidenceSpan } from "@sage/contracts";
+import { HUMAN_DIAGRAM_THEME, humanNodeName, projectHumanDiagram } from "./human-diagrams.ts";
 import type { ArchitectureDocumentV1 } from "./architecture-document.ts";
 import type { DiagramProjection } from "./diagrams.ts";
-import { PDF_RENDERER_VERSION } from "./pdf-version.ts";
 
 const MAX_MERMAID_SOURCE_CHARS = 50_000;
 const MAX_MERMAID_SOURCE_BYTES = 50_000;
@@ -14,20 +13,9 @@ const MAX_DIAGRAM_EDGES = 500;
 const MAX_SVG_BYTES = 4 * 1024 * 1024;
 const MAX_HTML_BYTES = 12 * 1024 * 1024;
 const MAX_PDF_BYTES = 32 * 1024 * 1024;
-const MAX_TILES_PER_DIAGRAM = 24;
 const RENDER_TIMEOUT_MS = 45_000;
-const MAX_TILE_WIDTH = 1_040;
-const MAX_TILE_HEIGHT = 600;
-const TILE_OVERLAP = 48;
-const MIN_OVERVIEW_SCALE = 0.9;
-const EVIDENCE_RANGE_NOTE = "Byte ranges are zero-based and end-exclusive. Line numbers and Unicode-code-point columns are one-based; end positions are exclusive.";
-
 export type PdfRenderOptions = { signal?: AbortSignal };
-
 type ViewBox = { x: number; y: number; width: number; height: number };
-type DiagramTile = ViewBox & { row: number; column: number; label: string };
-type DiagramLayout = { viewBox: ViewBox; tiles: DiagramTile[]; overview: boolean; overviewScale: number };
-type EvidenceRegistry = { spans: EvidenceSpan[]; idBySpan: Map<string, string> };
 
 function fail(code: string): never {
   throw new Error(code);
@@ -66,59 +54,6 @@ function normalizeMermaidUnderscores(source: string): string {
   return source.replace(/#95;/g, "_");
 }
 
-function gridCoordinate(index: number): string {
-  let value = index + 1;
-  let label = "";
-  while (value > 0) {
-    value -= 1;
-    label = String.fromCharCode(65 + value % 26) + label;
-    value = Math.floor(value / 26);
-  }
-  return label;
-}
-
-function axisTileStarts(total: number, maxSize: number, overlap: number): number[] {
-  if (total <= maxSize) return [0];
-  const count = Math.ceil((total - overlap) / (maxSize - overlap));
-  if (!Number.isSafeInteger(count) || count < 1 || count > MAX_TILES_PER_DIAGRAM) fail("PDF_DIAGRAM_TILE_LIMIT_EXCEEDED");
-  const lastStart = total - maxSize;
-  if (count === 1) return [0];
-  return Array.from({ length: count }, (_, index) => Math.round(lastStart * index / (count - 1)));
-}
-
-function makeDiagramLayout(viewBox: ViewBox): DiagramLayout {
-  const overviewScale = Math.min(1, MAX_TILE_WIDTH / viewBox.width, MAX_TILE_HEIGHT / viewBox.height);
-  if (overviewScale >= MIN_OVERVIEW_SCALE) {
-    return {
-      viewBox,
-      overview: false,
-      overviewScale,
-      tiles: [{ ...viewBox, row: 0, column: 0, label: "A1" }],
-    };
-  }
-
-  const xStarts = axisTileStarts(viewBox.width, MAX_TILE_WIDTH, TILE_OVERLAP);
-  const yStarts = axisTileStarts(viewBox.height, MAX_TILE_HEIGHT, TILE_OVERLAP);
-  if (xStarts.length * yStarts.length > MAX_TILES_PER_DIAGRAM) fail("PDF_DIAGRAM_TILE_LIMIT_EXCEEDED");
-  const tiles: DiagramTile[] = [];
-  for (const [row, yOffset] of yStarts.entries()) {
-    for (const [column, xOffset] of xStarts.entries()) {
-      const width = Math.min(MAX_TILE_WIDTH, viewBox.width - xOffset);
-      const height = Math.min(MAX_TILE_HEIGHT, viewBox.height - yOffset);
-      tiles.push({
-        x: viewBox.x + xOffset,
-        y: viewBox.y + yOffset,
-        width,
-        height,
-        row,
-        column,
-        label: `${gridCoordinate(row)}${column + 1}`,
-      });
-    }
-  }
-  return { viewBox, tiles, overview: tiles.length > 1, overviewScale };
-}
-
 function visibleText(value: string): string {
   let result = "";
   for (const character of value) {
@@ -144,231 +79,8 @@ export function escapePdfHtml(value: string): string {
   })[character]!);
 }
 
-function text(value: string | number | boolean | null | undefined): string {
-  return `<span class="source-text">${escapePdfHtml(value === undefined ? "undefined" : String(value))}</span>`;
-}
-
 function stableJson(value: unknown): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value) ?? "null";
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(",")}]`;
-  const record = value as Record<string, unknown>;
-  return `{${Object.keys(record).sort().map(key => `${JSON.stringify(key)}:${stableJson(record[key])}`).join(",")}}`;
-}
-
-function prettyJson(value: unknown): string {
-  return JSON.stringify(JSON.parse(stableJson(value)), null, 2);
-}
-
-function arrayValue(values: readonly string[]): string {
-  return values.length === 0
-    ? `<span class="muted">None</span>`
-    : `<div class="id-list">${values.map(value => `<code>${escapePdfHtml(value)}</code>`).join("")}</div>`;
-}
-
-function field(label: string, value: string): string {
-  return `<div class="field"><dt>${label}</dt><dd>${value}</dd></div>`;
-}
-
-function jsonField(label: string, value: unknown): string {
-  return field(label, `<pre>${escapePdfHtml(prettyJson(value))}</pre>`);
-}
-
-function fieldsTable(fields: string[]): string {
-  return `<dl class="fields">${fields.join("")}</dl>`;
-}
-
-function compareEvidence(left: EvidenceSpan, right: EvidenceSpan): number {
-  const compareText = (a: string, b: string) => a < b ? -1 : a > b ? 1 : 0;
-  return compareText(left.filePath, right.filePath) || left.startByte - right.startByte ||
-    left.endByte - right.endByte || compareText(left.role, right.role) ||
-    compareText(left.fileSha256, right.fileSha256) || left.startLine - right.startLine ||
-    left.endLine - right.endLine || left.startColumn - right.startColumn || left.endColumn - right.endColumn;
-}
-
-function buildEvidenceRegistry(document: ArchitectureDocumentV1): EvidenceRegistry {
-  const spans = new Map<string, EvidenceSpan>();
-  const add = (span: EvidenceSpan | null) => {
-    if (span !== null) spans.set(stableJson(span), span);
-  };
-  const addMany = (items: readonly EvidenceSpan[]) => items.forEach(add);
-  for (const entry of document.interfaceCatalog.entries) addMany(entry.evidence);
-  for (const edge of document.interfaceCatalog.relations) addMany(edge.evidence);
-  for (const diagram of [document.softwareEngineeringDiagram, document.umlClassDiagram]) {
-    for (const node of diagram.nodes) add(node.location);
-    for (const edge of diagram.edges) addMany(edge.evidence);
-    for (const mapping of diagram.nodeMappings) add(mapping.evidence);
-    for (const mapping of diagram.edgeMappings) addMany(mapping.evidence);
-  }
-  const ordered = [...spans.values()].sort(compareEvidence);
-  const idBySpan = new Map(ordered.map((span, index) => [stableJson(span), `EV-${String(index + 1).padStart(4, "0")}`]));
-  return { spans: ordered, idBySpan };
-}
-
-function evidenceRefs(spans: readonly EvidenceSpan[], registry: EvidenceRegistry): string {
-  const ids = spans.map(span => registry.idBySpan.get(stableJson(span))).filter((id): id is string => id !== undefined);
-  return ids.length === 0 ? `<span class="muted">None</span>` : arrayValue(ids);
-}
-
-function compactTable(headers: string[], rows: string[], className = "compact-table"): string {
-  return `<table class="${className}"><thead><tr>${headers.map(header => `<th>${header}</th>`).join("")}</tr></thead>
-    <tbody>${rows.length > 0 ? rows.join("") : `<tr><td colspan="${headers.length}" class="muted">No records.</td></tr>`}</tbody></table>`;
-}
-
-function canonicalNodeRow(node: CcmNode, registry: EvidenceRegistry): string {
-  return `<tr>
-    <td><code>${escapePdfHtml(node.id)}</code></td>
-    <td>${text(`${node.kind} / ${node.origin} / ${node.language}`)}</td>
-    <td><strong>${text(node.name)}</strong><br><span>${text(node.qualifiedName)}</span></td>
-    <td>${text(node.filePath)}</td>
-    <td>${text(node.parentId)}</td>
-    <td>${text(node.signature)}</td>
-    <td><code class="compact-json">${escapePdfHtml(stableJson(node.attributes))}</code></td>
-    <td>${evidenceRefs(node.location ? [node.location] : [], registry)}</td>
-  </tr>`;
-}
-
-function canonicalEdgeRow(edge: CcmEdge, registry: EvidenceRegistry): string {
-  return `<tr>
-    <td><code>${escapePdfHtml(edge.id)}</code></td>
-    <td><code>${escapePdfHtml(edge.sourceId)}</code><br>→<br><code>${escapePdfHtml(edge.targetId)}</code></td>
-    <td>${text(edge.kind)}</td>
-    <td><span class="resolution ${edge.resolution === "Exact" ? "exact" : "unresolved"}">${escapePdfHtml(edge.resolution)}</span></td>
-    <td>${text(edge.unresolvedReason)}</td>
-    <td>${evidenceRefs(edge.evidence, registry)}</td>
-  </tr>`;
-}
-
-function evidenceRegistryTable(registry: EvidenceRegistry): string {
-  const rows = registry.spans.map((span, index) => `<tr>
-    <td><code>EV-${String(index + 1).padStart(4, "0")}</code></td>
-    <td>${text(span.role)}</td>
-    <td>${text(span.filePath)}</td>
-    <td><code>${escapePdfHtml(span.fileSha256)}</code></td>
-    <td><code>[${span.startByte}, ${span.endByte})</code></td>
-    <td><code>${span.startLine}:${span.startColumn}–${span.endLine}:${span.endColumn}</code></td>
-  </tr>`);
-  return compactTable(["Evidence ID", "Role", "Source file", "File SHA-256", "Byte range", "Line:column range"], rows);
-}
-
-function sectionHeading(title: string, description?: string): string {
-  return `<header class="section-heading"><h1>${escapePdfHtml(title)}</h1>${description ? `<p>${escapePdfHtml(description)}</p>` : ""}</header>`;
-}
-
-function itemSection(title: string, content: string, className = "record"): string {
-  return `<section class="${className}"><h3>${escapePdfHtml(title)}</h3>${content}</section>`;
-}
-
-function renderCover(document: ArchitectureDocumentV1): string {
-  const provenance: CcmProvenance = document.provenance;
-  const snapshot: CcmSnapshot = document.snapshot;
-  return `<section class="cover">
-    <p class="eyebrow">SAGE · ARCHITECTURE EXPORT</p>
-    <h1>${escapePdfHtml(document.title)}</h1>
-    <p class="cover-summary">Source-grounded architecture facts, diagram projections, and evidence boundaries.</p>
-    ${fieldsTable([
-      field("Document schema", text(document.schemaVersion)),
-      field("PDF renderer", text(PDF_RENDERER_VERSION)),
-      field("Repository", text(snapshot.repository)),
-      field("Branch", text(snapshot.branch)),
-      field("Commit", `<code>${escapePdfHtml(snapshot.commitSha)}</code>`),
-      field("Canonical CKG SHA-256", `<code>${escapePdfHtml(document.ckgSha256)}</code>`),
-      field("Configuration SHA-256", `<code>${escapePdfHtml(document.configurationHash)}</code>`),
-      jsonField("Canonical counts", document.canonicalCounts),
-      jsonField("Provenance", provenance),
-    ])}
-  </section>`;
-}
-
-function renderSourceFiles(files: readonly CcmFile[]): string {
-  const rows = files.map(file => `<tr>
-    <td>${text(file.path)}</td>
-    <td>${text(file.language)}</td>
-    <td>${text(file.status)}</td>
-    <td>${text(file.sizeBytes)}</td>
-    <td><code>${escapePdfHtml(file.sha256)}</code></td>
-  </tr>`);
-  return `<section class="section-block">${sectionHeading("Source files", "Source inventory with canonical byte sizes and SHA-256 values.")}
-    ${compactTable(["Path", "Language", "Status", "Size (bytes)", "SHA-256"], rows)}
-  </section>`;
-}
-
-function renderLimitations(limitations: readonly CcmLimitation[]): string {
-  return `<section class="section-block">${sectionHeading("Limitations", "Analyzer and resolver limitations carried by the canonical snapshot.")}
-    ${limitations.length === 0 ? `<p class="muted">No limitations are recorded.</p>` : limitations.map((limitation, index) => itemSection(`Limitation ${index + 1}`, fieldsTable([
-      field("Stage", text(limitation.stage)),
-      field("Path", text(limitation.path)),
-      field("Reason", text(limitation.reason)),
-    ]), "record limitation")).join("")}
-  </section>`;
-}
-
-function renderInterfaceCatalog(document: ArchitectureDocumentV1, registry: EvidenceRegistry): string {
-  const catalog = document.interfaceCatalog;
-  const rows = catalog.entries.map(entry => `<tr>
-    <td><code>${escapePdfHtml(entry.declaration.id)}</code><br>${text(entry.declaration.qualifiedName || entry.declaration.name)}<br><span class="muted">Full declaration facts: canonical node register.</span></td>
-    <td>${arrayValue(entry.nodeIds)}</td>
-    <td>${arrayValue(entry.edgeIds)}</td>
-    <td>${arrayValue(entry.exportEdgeIds)}</td>
-    <td>${evidenceRefs(entry.evidence, registry)}</td>
-  </tr>`);
-  return `<section class="section-block">${sectionHeading("Interface Catalog", "Catalog scope, declarations, canonical IDs, explicit exports, and source evidence.")}
-    ${fieldsTable([field("Catalog scope", text(catalog.scope))])}
-    <h2>Source declarations (${catalog.entries.length})</h2>
-    ${compactTable(["Declaration", "Associated node IDs", "Incident edge IDs", "Export edge IDs", "Catalog evidence IDs"], rows, "compact-table catalog-table")}
-    <h2>Canonical relations (${catalog.relations.length})</h2>
-    <p>Canonical relation records are preserved in source order in the shared edge register, with each edge ID, endpoint, kind, resolution, unresolved reason, and evidence reference.</p>
-  </section>`;
-}
-
-function renderCanonicalRegister(document: ArchitectureDocumentV1, registry: EvidenceRegistry): string {
-  const nodes = document.softwareEngineeringDiagram.nodes;
-  const edges = document.interfaceCatalog.relations;
-  return `<section class="section-block">${sectionHeading("Canonical node and edge register", "Complete shared node and edge facts. Diagram mappings below point back to these canonical IDs and evidence.")}
-    <h2>Nodes (${nodes.length})</h2>
-    ${compactTable(["Canonical node ID", "Kind / origin / language", "Name / qualified name", "File path", "Parent ID", "Signature", "Attributes (JSON)", "Location evidence IDs"], nodes.map(node => canonicalNodeRow(node, registry)), "compact-table node-table")}
-    <h2>Edges (${edges.length})</h2>
-    ${compactTable(["Canonical edge ID", "Source / target node IDs", "Kind", "Resolution", "Unresolved reason", "Evidence IDs"], edges.map(edge => canonicalEdgeRow(edge, registry)), "compact-table edge-table")}
-    <h2>Evidence register (${registry.spans.length})</h2>
-    <p>Each evidence ID is a stable reference to one unique span. Catalog and diagram mappings reuse these IDs. ${EVIDENCE_RANGE_NOTE}</p>
-    ${evidenceRegistryTable(registry)}
-  </section>`;
-}
-
-function renderNodeMappings(diagram: DiagramProjection, registry: EvidenceRegistry): string {
-  const mappingById = new Map(diagram.nodeMappings.map(mapping => [mapping.nodeId, mapping]));
-  const rows = diagram.nodes.map(node => {
-    const mapping = mappingById.get(node.id);
-    return `<tr>
-      <td><code>${escapePdfHtml(node.id)}</code></td>
-      <td>${mapping ? text(mapping.mermaidId) : `<span class="missing">No mapping</span>`}</td>
-      <td>${mapping ? text(mapping.mermaidLine) : `<span class="missing">No mapping</span>`}</td>
-      <td>${mapping ? text(mapping.parentMermaidId ?? null) : `<span class="missing">No mapping</span>`}</td>
-      <td>${mapping ? arrayValue(mapping.parentContainmentEdgeIds ?? []) : `<span class="missing">No mapping</span>`}</td>
-      <td>${mapping ? evidenceRefs(mapping.evidence ? [mapping.evidence] : [], registry) : ""}</td>
-    </tr>`;
-  }).join("");
-  return `<h2>Node mappings (${diagram.nodes.length})</h2>
-    <table class="mapping-table"><thead><tr><th>Canonical node ID</th><th>Mermaid node ID</th><th>Line</th><th>Parent Mermaid ID</th><th>Parent containment edge IDs</th><th>Mapping evidence IDs</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="6" class="muted">No included nodes.</td></tr>`}</tbody></table>
-    <section class="subsection"><h3>Excluded canonical node IDs</h3>${arrayValue(diagram.excludedNodeIds)}</section>`;
-}
-
-function renderEdgeMappings(diagram: DiagramProjection, registry: EvidenceRegistry): string {
-  const mappingById = new Map(diagram.edgeMappings.map(mapping => [mapping.edgeId, mapping]));
-  const rows = diagram.edges.map(edge => {
-    const mapping = mappingById.get(edge.id);
-    return `<tr>
-      <td><code>${escapePdfHtml(edge.id)}</code></td>
-      <td>${mapping ? text(mapping.mermaidLine) : `<span class="missing">No mapping</span>`}</td>
-      <td>${mapping ? text(mapping.sourceMermaidId) : `<span class="missing">No mapping</span>`}</td>
-      <td>${mapping ? text(mapping.targetMermaidId) : `<span class="missing">No mapping</span>`}</td>
-      <td>${mapping ? evidenceRefs(mapping.evidence, registry) : `<span class="muted">None</span>`}</td>
-    </tr>`;
-  }).join("");
-  return `<h2>Edge mappings (${diagram.edges.length})</h2>
-    <table class="mapping-table"><thead><tr><th>Canonical edge ID</th><th>Line</th><th>Source Mermaid ID</th><th>Target Mermaid ID</th><th>Mapping evidence IDs</th></tr></thead>
-    <tbody>${rows || `<tr><td colspan="5" class="muted">No included edges.</td></tr>`}</tbody></table>
-    <section class="subsection"><h3>Excluded canonical edge IDs</h3>${arrayValue(diagram.excludedEdgeIds)}</section>`;
+  return JSON.stringify(value);
 }
 
 function setSvgRootAttributes(svg: string, attributes: Record<string, string>): string {
@@ -386,145 +98,28 @@ function setSvgRootAttributes(svg: string, attributes: Record<string, string>): 
   return `${svg.slice(0, openingTag.index)}${updatedRoot}${svg.slice(openingTag.index + openingTag[0].length)}`;
 }
 
-function tileSvgMarkup(svg: string, tile: DiagramTile): string {
-  const tileSvg = setSvgRootAttributes(svg, {
-    viewBox: `${tile.x} ${tile.y} ${tile.width} ${tile.height}`,
-    width: `${tile.width}px`,
-    height: `${tile.height}px`,
-  });
-  return `<div class="diagram-svg" data-grid="${escapePdfHtml(tile.label)}">${tileSvg}</div>`;
-}
-
-function overviewSvgMarkup(svg: string, layout: DiagramLayout): string {
-  const markers = layout.tiles.map(tile => {
-    const labelX = tile.x + 10;
-    const labelY = tile.y + 25;
-    return `<g aria-label="Detail tile ${escapePdfHtml(tile.label)}">
-      <rect x="${tile.x}" y="${tile.y}" width="${tile.width}" height="${tile.height}" fill="none" stroke="#b45309" stroke-width="4"/>
-      <rect x="${labelX - 4}" y="${labelY - 19}" width="52" height="28" rx="3" fill="#ffffff" stroke="#b45309" stroke-width="1"/>
-      <text x="${labelX}" y="${labelY}" fill="#7c2d12" font-family="Arial, sans-serif" font-size="20" font-weight="700">${tile.label}</text>
-    </g>`;
+function renderDocumentHtml(document: ArchitectureDocumentV1, svgs: [string, string]): string {
+  const e = escapePdfHtml;
+  const declarationIds = new Set(document.interfaceCatalog.entries.map(row => row.declaration.id));
+  const rows = document.interfaceCatalog.entries.filter(({ declaration: node }) =>
+    !(["Method", "Property"].includes(node.kind) && node.parentId && declarationIds.has(node.parentId))).sort((a, b) =>
+    (a.declaration.filePath ?? "").localeCompare(b.declaration.filePath ?? "") ||
+    (a.declaration.location?.startLine ?? 0) - (b.declaration.location?.startLine ?? 0));
+  const limitations = [...new Set(document.limitations.map(item => item.reason))].map(reason => ({
+    reason, paths: [...new Set(document.limitations.filter(item => item.reason === reason).flatMap(item => item.path ? [item.path] : []))],
+  }));
+  const catalog = rows.map(({ declaration: node }) => {
+    const members = document.softwareEngineeringDiagram.nodes.filter(n => n.parentId === node.id && ["Property", "Method"].includes(n.kind));
+    const contract = node.signature ?? (members.length ? members.map(n => n.signature ?? n.name).join("; ") : "Kontrak tidak tercatat");
+    const location = node.location ? `${node.location.filePath}:${node.location.startLine}–${node.location.endLine}` : "Lokasi tidak tersedia";
+    return `<tr><td><strong>${e(humanNodeName(node))}</strong><small>${e(node.kind)} · ${e(node.language)}</small></td><td><code>${e(contract)}</code></td><td><code>${e(location)}</code></td></tr>`;
   }).join("");
-  const tileSvg = setSvgRootAttributes(svg, {
-    width: `${MAX_TILE_WIDTH}px`,
-    height: `${MAX_TILE_HEIGHT}px`,
-    "aria-label": "Full diagram overview; use the detail grid for readable labels",
-  })
-    .replace(/<\/svg>\s*$/i, `${markers}</svg>`);
-  return `<div class="diagram-overview">${tileSvg}</div>`;
-}
-
-function renderDiagramSection(
-  title: string,
-  description: string,
-  diagram: DiagramProjection,
-  renderedSvg: string,
-  layout: DiagramLayout,
-  registry: EvidenceRegistry,
-): string {
-  const diagramPages: string[] = [];
-  const projectionNote = `<p class="projection-note">Projection kind: <code>${escapePdfHtml(diagram.kind)}</code> · Projection title: ${escapePdfHtml(diagram.title)} · Included nodes: ${diagram.nodes.length} · Included edges: ${diagram.edges.length}</p>`;
-  if (layout.overview) {
-    diagramPages.push(`<section class="diagram-page overview-page">
-      <div class="figure-heading"><h2>${escapePdfHtml(title)} · Overview</h2><p>This overview preserves the graph shape. Diagram labels are readable in the matching grid tiles.</p>${projectionNote}</div>
-      ${overviewSvgMarkup(renderedSvg, layout)}
-      <p class="grid-index">Detail tiles: ${layout.tiles.map(tile => `<code>${tile.label}</code>`).join(" ")}. Adjacent tiles overlap to keep relations visible at boundaries.</p>
-    </section>`);
-  }
-  for (const tile of layout.tiles) {
-    diagramPages.push(`<section class="diagram-page detail-page">
-      <div class="figure-heading"><h2>${escapePdfHtml(title)} · Detail ${tile.label}</h2><p>Diagram coordinates: x=${tile.x}, y=${tile.y}, width=${tile.width}, height=${tile.height}; tiles overlap adjacent areas.</p>${!layout.overview && tile.row === 0 && tile.column === 0 ? projectionNote : ""}</div>
-      ${tileSvgMarkup(renderedSvg, tile)}
-      <p class="figure-caption">${escapePdfHtml(description)} · Grid ${tile.label}</p>
-    </section>`);
-  }
-  return `<section class="section-block diagram-section">
-    <div class="diagram-pages">${diagramPages.join("")}</div>
-    ${renderNodeMappings(diagram, registry)}
-    ${renderEdgeMappings(diagram, registry)}
-  </section>`;
-}
-
-function renderDocumentHtml(
-  document: ArchitectureDocumentV1,
-  renderedSvgs: [string, string],
-  layouts: [DiagramLayout, DiagramLayout],
-): string {
-  const title = visibleText(document.title).slice(0, 200);
-  const registry = buildEvidenceRegistry(document);
-  return `<!doctype html>
-  <html lang="en"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'"><title>${escapePdfHtml(title)}</title>
-  <style>
-    :root { color-scheme: light; font-family: Arial, "Liberation Sans", sans-serif; color: #172033; background: #fff; font-size: 10pt; line-height: 1.32; }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: #fff; }
-    body { font-family: Arial, "Liberation Sans", sans-serif; font-size: 10pt; }
-    h1, h2, h3, h4, p { margin: 0; }
-    h1 { font-size: 22pt; line-height: 1.15; }
-    h2 { margin: 8mm 0 3mm; font-size: 15pt; line-height: 1.2; break-after: avoid; }
-    h3 { margin: 0 0 2.5mm; font-size: 11pt; line-height: 1.25; break-after: avoid; }
-    h4 { margin: 0 0 1.5mm; font-size: 9pt; color: #334155; break-after: avoid; }
-    p { line-height: 1.4; }
-    code, pre { font-family: "Liberation Mono", Consolas, monospace; font-size: 8.2pt; }
-    code { overflow-wrap: anywhere; white-space: pre-wrap; }
-    pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
-    .source-text { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
-    .cover { min-height: 165mm; display: flex; flex-direction: column; justify-content: center; }
-    .eyebrow { margin-bottom: 8mm; color: #1d4ed8; font-size: 9pt; font-weight: 700; letter-spacing: .1em; }
-    .cover-summary { margin: 4mm 0 8mm; color: #475569; font-size: 12pt; }
-    .evidence-note { margin-top: 7mm; color: #475569; font-size: 8.5pt; }
-    .section-block { break-before: page; }
-    .section-heading { margin: 0 0 5mm; padding-bottom: 3mm; border-bottom: 1px solid #cbd5e1; }
-    .section-heading p { margin-top: 2mm; color: #475569; }
-    .fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 1px solid #d7dee9; border-radius: 2mm; margin: 0; }
-    .field { min-width: 0; padding: 2mm 2.5mm; border-bottom: 1px solid #e2e8f0; }
-    .field:nth-child(odd) { border-right: 1px solid #e2e8f0; }
-    .field dt { color: #475569; font-size: 8pt; font-weight: 700; }
-    .field dd { margin: .8mm 0 0; min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
-    .field dd .fields { border: 0; border-radius: 0; }
-    .field dd .field { padding-left: 0; padding-right: 1mm; }
-    .field dd .field:nth-child(odd) { border-right: 0; }
-    .record { margin: 0 0 4mm; padding: 3mm; border: 1px solid #d7dee9; border-radius: 2mm; break-inside: auto; }
-    .record > h3 { padding-bottom: 1.5mm; border-bottom: 1px solid #e2e8f0; }
-    .source-file, .limitation, .catalog-entry, .canonical-node, .canonical-edge { break-inside: auto; }
-    .subsection { margin: 3mm 0; break-inside: auto; }
-    .evidence-item { margin: 1.5mm 0 0; padding: 2mm; background: #f8fafc; border-left: 2px solid #94a3b8; break-inside: auto; }
-    .muted { color: #64748b; }
-    .missing { color: #b91c1c; font-weight: 700; }
-    .resolution { display: inline-block; padding: .4mm 1.5mm; border-radius: 1mm; font-weight: 700; }
-    .resolution.exact { background: #dcfce7; color: #166534; }
-    .resolution.unresolved { background: #fef3c7; color: #92400e; }
-    .id-list { display: flex; flex-wrap: wrap; gap: 1mm 2mm; }
-    .compact-table, .mapping-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 9pt; line-height: 1.2; }
-    .compact-table th, .compact-table td, .mapping-table th, .mapping-table td { padding: 1.2mm 1.4mm; border: 1px solid #d7dee9; vertical-align: top; text-align: left; overflow-wrap: anywhere; word-break: break-word; }
-    .compact-table th, .mapping-table th { background: #eff6ff; color: #1e3a8a; }
-    .compact-table thead, .mapping-table thead { display: table-header-group; }
-    .compact-table tr, .mapping-table tr { break-inside: auto; }
-    .compact-json { white-space: pre-wrap; overflow-wrap: anywhere; word-break: break-word; }
-    .diagram-pages { margin: 0; }
-    .diagram-page { width: 100%; height: 169mm; break-before: page; break-inside: avoid; display: flex; flex-direction: column; justify-content: flex-start; }
-    .diagram-page:first-child { break-before: auto; }
-    .figure-heading { flex: 0 0 auto; margin-bottom: 2mm; }
-    .figure-heading h2 { margin: 0 0 1mm; font-size: 14pt; }
-    .figure-heading p, .figure-caption, .grid-index { color: #475569; font-size: 8.5pt; }
-    .projection-note { margin-top: 1mm; }
-    .diagram-svg { flex: 0 0 auto; max-width: 100%; max-height: 158mm; overflow: hidden; display: flex; align-items: center; justify-content: center; }
-    .diagram-svg svg { display: block; max-width: 100%; max-height: 158mm; }
-    .diagram-overview { width: 100%; height: 150mm; display: flex; align-items: center; justify-content: center; }
-    .diagram-overview svg { display: block; width: 100%; height: 145mm; }
-    .grid-index, .figure-caption { margin-top: 2mm; overflow-wrap: anywhere; }
-    .overview-page { break-before: page; }
-    .mapping-table + .subsection { margin-top: 4mm; }
-    @media print { .section-block { break-before: page; } }
-  </style></head><body>
-    ${renderCover(document)}
-    ${renderSourceFiles(document.files)}
-    ${renderLimitations(document.limitations)}
-    ${renderInterfaceCatalog(document, registry)}
-    ${renderCanonicalRegister(document, registry)}
-    ${renderDiagramSection("Software Engineering Diagram", "Software structure projection", document.softwareEngineeringDiagram, renderedSvgs[0], layouts[0], registry)}
-    ${renderDiagramSection("UML Class Diagram", "Class and interface projection", document.umlClassDiagram, renderedSvgs[1], layouts[1], registry)}
-  </body></html>`;
+  const diagramPage = (title: string, svg: string, uml: boolean) => `<section class="diagram-page"><p class="eyebrow">SAGE / ARSITEKTUR KODE</p><h1>${title}</h1><p>${uml ? "Class, interface, anggota, dan pewarisan yang tercatat pada source." : "Struktur deklarasi dan ketergantungan kode; anggota ditampilkan melalui pemiliknya."}</p><div class="figure">${setSvgRootAttributes(svg, { width: "100%", height: "100%", preserveAspectRatio: "xMidYMid meet" })}</div><div class="legend"><span>Teal: class</span><span>Ungu: interface</span><span>Biru: function</span><span>Abu: module</span><span>Amber / putus-putus: Unresolved</span></div><p class="caption">${uml ? "Segitiga kosong: extends; garis putus-putus dengan segitiga: implements. Dependensi Unresolved tidak menyatakan pewarisan yang pasti." : "Panah mengikuti arah relasi source → target. Label contains menyatakan kepemilikan; × menunjukkan jumlah observasi sejenis. Anggota class diringkas ke class pemilik; relasi internal pemilik tidak ditampilkan."} Tidak menyimpulkan layanan bisnis, endpoint runtime, atau cardinality. Detail penuh tersedia dalam Markdown.</p></section>`;
+  return `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; object-src 'none'; base-uri 'none'"><title>${e(document.title)}</title><style>
+  *{box-sizing:border-box}body{margin:0;color:#061e42;font:10pt/1.45 Arial,sans-serif}h1{font-size:22pt;line-height:1.2;margin:2mm 0 4mm}h2{font-size:14pt;margin:5mm 0 3mm}p{margin:0 0 3mm}.eyebrow{color:#08796e;font-size:9pt;font-weight:bold;letter-spacing:.12em}.identity{padding:4mm;background:#e6faf6;border-left:4px solid #098577;margin:4mm 0}.stats{display:flex;gap:7mm;color:#506783;margin:3mm 0}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9pt}th,td{padding:2mm;border:1px solid #dde5ec;vertical-align:top;text-align:left;overflow-wrap:anywhere}th{background:#eef3f7}th:first-child{width:27%}th:last-child{width:30%}thead{display:table-header-group}tr{break-inside:avoid}small{display:block;color:#506783;margin-top:1mm}code{font:8.5pt/1.4 monospace;white-space:pre-wrap;overflow-wrap:anywhere}.note{padding:3mm;background:#fff4d9;color:#78350f}.diagram-page{break-before:page;height:178mm;display:flex;flex-direction:column;break-inside:avoid}.diagram-page h1{font-size:20pt}.figure{flex:1;min-height:0;width:100%;margin:2mm 0;border:1px solid #dde5ec;border-radius:2mm;padding:3mm}.figure svg{display:block;width:100%;height:100%}.legend{display:flex;flex-wrap:wrap;gap:2mm 6mm;font-size:8pt;padding:2mm;background:#eef3f7}.caption{font-size:8pt;color:#506783;margin-top:2mm}li{overflow-wrap:anywhere}strong{overflow-wrap:anywhere}
+  </style></head><body><p class="eyebrow">SAGE / RINGKASAN ARSITEKTUR</p><h1>${e(document.title)}</h1><div class="identity"><strong>${e(document.snapshot.repository)}</strong> · ${e(document.snapshot.branch ?? "Branch tidak tersedia")}<div class="stats"><span>${document.files.length} file</span><span>${document.canonicalCounts.nodes} deklarasi/node</span><span>${document.canonicalCounts.exactEdges} relasi Exact</span><span>${document.canonicalCounts.unresolvedEdges} Unresolved</span></div></div><p>Dokumen ringkas untuk mempelajari kontrak kode, struktur software, dan model class dari snapshot yang dianalisis. Markdown menyimpan register teknis, hash, atribut, dan seluruh evidence.</p>
+  ${document.limitations.length ? `<div class="note"><strong>Batasan analisis</strong><ul>${limitations.map(l => `<li>${l.paths.length ? e(l.paths.join(", ")) + ": " : ""}${e(l.reason)}</li>`).join("")}</ul></div>` : ""}<h2>Interface Catalog</h2><p>Katalog deklarasi source: simbol, kontrak yang tersedia, dan lokasi bukti. Method/property diringkas di kontrak class/interface pemilik. Interface kode tidak otomatis berarti interface integrasi atau endpoint HTTP.</p><table><thead><tr><th>Symbol</th><th>Contract</th><th>Evidence</th></tr></thead><tbody>${catalog || '<tr><td colspan="3">Tidak ada deklarasi source yang tercatat.</td></tr>'}</tbody></table>
+  ${diagramPage("Software Engineering Diagram", svgs[0], false)}${diagramPage("UML Class Diagram", svgs[1], true)}</body></html>`;
 }
 
 function validatePdfDocument(document: ArchitectureDocumentV1): string | null {
@@ -671,11 +266,11 @@ export async function renderPdfDocument(
       await page.addScriptTag({ content: "globalThis.__name = (value) => value;" });
       await page.addScriptTag({ content: mermaidScript });
       await page.evaluate(() => window.document.fonts.ready);
-      const diagrams = [document.softwareEngineeringDiagram, document.umlClassDiagram] as const;
+      const diagrams = [document.softwareEngineeringDiagram, document.umlClassDiagram].map(projectHumanDiagram);
       const results: Array<{ svg: string; viewBox: ViewBox }> = [];
       for (const [index, diagram] of diagrams.entries()) {
         const source = normalizeMermaidUnderscores(diagram.mermaid);
-        const renderedSvg = await page.evaluate(async ({ source, identifier, graphHash, maxSvgBytes }) => {
+        const renderedSvg = await page.evaluate(async ({ source, identifier, graphHash, maxSvgBytes, theme }) => {
           const renderer = (window as unknown as { mermaid?: {
             initialize: (config: object) => void;
             render: (id: string, text: string) => Promise<{ svg: string }>;
@@ -690,9 +285,10 @@ export async function renderPdfDocument(
             maxTextSize: 50_000,
             maxEdges: 500,
             htmlLabels: false,
-            theme: "neutral",
-            themeVariables: { fontFamily: 'Arial, "Liberation Sans", sans-serif', fontSize: "16px" },
-            flowchart: { htmlLabels: false, curve: "linear" },
+            theme: "base",
+            look: "classic",
+            themeVariables: theme,
+            flowchart: { htmlLabels: false, curve: "linear", wrappingWidth: 240 },
             class: { htmlLabels: false, useMaxWidth: false },
           });
           const rendered = await renderer.render(identifier, source);
@@ -706,19 +302,58 @@ export async function renderPdfDocument(
           if (parsed.querySelector("parsererror") || svg.localName !== "svg" || svg.namespaceURI !== "http://www.w3.org/2000/svg") {
             throw new Error("PDF_DIAGRAM_SVG_INVALID");
           }
-          for (const textElement of Array.from(svg.querySelectorAll("text"))) {
-            const rows = Array.from(textElement.querySelectorAll(".text-outer-tspan"));
-            for (const row of rows.length > 0 ? rows : [textElement]) {
-              const label = row.textContent ?? "";
-              if (!/&#[0-9]+;/.test(label)) continue;
-              row.textContent = label.replace(/&#([0-9]+);/g, (entity, digits: string) => {
-                const codePoint = Number(digits);
-                return Number.isSafeInteger(codePoint) && codePoint >= 0x20 && codePoint <= 0x10ffff &&
-                  !(codePoint >= 0xd800 && codePoint <= 0xdfff) && codePoint !== 0xfffe && codePoint !== 0xffff
-                  ? String.fromCodePoint(codePoint) : entity;
-              });
-            }
-          }
+function decodeMermaidTextRows(textElement: Element): void {
+  const positionedRows = Array.from(textElement.querySelectorAll(".text-outer-tspan"));
+  const rows = positionedRows.length > 0 ? positionedRows : [textElement];
+  const original = rows.map((row) => row.textContent ?? "");
+  const offsets: number[] = [];
+  let length = 0;
+  for (const row of original) {
+    offsets.push(length);
+    length += row.length;
+  }
+
+  const joined = original.join("");
+  const matches = Array.from(joined.matchAll(/&#([0-9]+);/g));
+  for (const match of matches.reverse()) {
+    const start = match.index;
+    const entity = match[0];
+    const end = start + entity.length;
+    const codePoint = Number(match[1]);
+    if (!Number.isSafeInteger(codePoint) || codePoint < 0x20 || codePoint > 0x10ffff ||
+        (codePoint >= 0xd800 && codePoint <= 0xdfff) || codePoint === 0xfffe || codePoint === 0xffff) {
+      continue;
+    }
+
+    let startRow = -1;
+    let endRow = -1;
+    for (let index = 0; index < original.length; index += 1) {
+      const rowStart = offsets[index]!;
+      const rowEnd = rowStart + original[index]!.length;
+      if (start >= rowStart && start < rowEnd) startRow = index;
+      if (end > rowStart && end <= rowEnd) endRow = index;
+    }
+    if (startRow < 0 || endRow < startRow) continue;
+
+    const startInRow = start - offsets[startRow]!;
+    const endInRow = end - offsets[endRow]!;
+    const decoded = String.fromCodePoint(codePoint);
+    if (startRow === endRow) {
+      const rowText = rows[startRow]!.textContent ?? "";
+      rows[startRow]!.textContent = rowText.slice(0, startInRow) + decoded + rowText.slice(endInRow);
+      continue;
+    }
+
+    const firstRowText = rows[startRow]!.textContent ?? "";
+    rows[startRow]!.textContent = firstRowText.slice(0, startInRow) + decoded;
+    for (let index = startRow + 1; index <= endRow; index += 1) {
+      const rowText = rows[index]!.textContent ?? "";
+      rows[index]!.textContent = index === endRow ? rowText.slice(endInRow) : "";
+    }
+  }
+}
+
+          for (const textElement of Array.from(svg.querySelectorAll("text"))) decodeMermaidTextRows(textElement);
           const allowedTags = new Set([
             "svg", "defs", "marker", "path", "g", "rect", "circle", "ellipse", "line", "polygon", "polyline",
             "text", "tspan", "style", "title", "desc", "clipPath", "linearGradient", "stop",
@@ -833,7 +468,7 @@ export async function renderPdfDocument(
           const serialized = new XMLSerializer().serializeToString(svg);
           if (new TextEncoder().encode(serialized).byteLength > maxSvgBytes) throw new Error("PDF_DIAGRAM_SVG_LIMIT_EXCEEDED");
           return serialized;
-        }, { source, identifier: `sage-pdf-${document.ckgSha256.slice(0, 12)}-${index}`, graphHash: document.ckgSha256, maxSvgBytes: MAX_SVG_BYTES });
+        }, { source, identifier: `sage-pdf-${document.ckgSha256.slice(0, 12)}-${index}`, graphHash: document.ckgSha256, maxSvgBytes: MAX_SVG_BYTES, theme: HUMAN_DIAGRAM_THEME });
         results.push({ svg: renderedSvg, viewBox: safeSvgViewBox(renderedSvg) });
       }
       if (blockedRequestCount !== 0) fail("PDF_RENDER_NETWORK_REQUEST_BLOCKED");
@@ -841,8 +476,7 @@ export async function renderPdfDocument(
     };
 
     const diagrams = await control.race(renderDiagrams());
-    const layouts: [DiagramLayout, DiagramLayout] = [makeDiagramLayout(diagrams[0].viewBox), makeDiagramLayout(diagrams[1].viewBox)];
-    const html = renderDocumentHtml(document, [diagrams[0].svg, diagrams[1].svg], layouts);
+    const html = renderDocumentHtml(document, [diagrams[0].svg, diagrams[1].svg]);
     if (Buffer.byteLength(html, "utf8") > MAX_HTML_BYTES) fail("PDF_DOCUMENT_LIMIT_EXCEEDED");
 
     const page = await control.race(context!.newPage());
@@ -855,8 +489,8 @@ export async function renderPdfDocument(
       printBackground: true,
       preferCSSPageSize: false,
       displayHeaderFooter: true,
-      headerTemplate: `<div style="width:100%;padding:0 8mm;color:#64748b;font:8px Arial,sans-serif"><span>SAGE Architecture Definition Document</span><span style="float:right">CKG ${escapePdfHtml(document.ckgSha256.slice(0, 12))}</span></div>`,
-      footerTemplate: `<div style="width:100%;padding:0 8mm;color:#64748b;font:8px Arial,sans-serif"><span>PDF renderer ${PDF_RENDERER_VERSION}</span><span style="float:right"><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
+      headerTemplate: `<div style="width:100%;padding:0 8mm;color:#64748b;font:8px Arial,sans-serif"><span>SAGE Architecture Definition Document</span></div>`,
+      footerTemplate: `<div style="width:100%;padding:0 8mm;color:#64748b;font:8px Arial,sans-serif"><span>SAGE · Ringkasan untuk developer</span><span style="float:right"><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`,
       margin: { top: "13mm", right: "8mm", bottom: "14mm", left: "8mm" },
     }));
     if (pdf.byteLength < 8 || pdf.byteLength > MAX_PDF_BYTES || Buffer.from(pdf).subarray(0, 5).toString("ascii") !== "%PDF-") {
@@ -882,11 +516,9 @@ export async function renderPdfDocument(
 
 /** Browser-free helpers used by focused PDF-renderer unit tests. */
 export const pdfRendererInternals = {
-  axisTileStarts,
-  buildEvidenceRegistry,
   errorCode,
   escapePdfHtml,
-  makeDiagramLayout,
+  renderDocumentHtml,
   normalizeMermaidUnderscores,
   setSvgRootAttributes,
   validatePdfDocument,
