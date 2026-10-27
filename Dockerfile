@@ -33,6 +33,7 @@ COPY packages ./packages
 COPY scripts ./scripts
 COPY tests ./tests
 COPY config ./config
+COPY docs/evidence/corpora ./docs/evidence/corpora
 RUN composer install --working-dir=packages/analyzer-php --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist && composer clear-cache
 RUN npm run db:generate && npm run check && npm run build
 
