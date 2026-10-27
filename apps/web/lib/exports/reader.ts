@@ -3,13 +3,14 @@ import { lstat, open, realpath } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import type { PrismaClient } from "../../../../packages/database/generated/client.ts";
+import type { ExportFormat } from "../../../../packages/database/src/exports.ts";
 
 const MAX_EXPORT_BYTES = 32 * 1024 * 1024;
 const SHA256_PATTERN = /^[a-f0-9]{64}$/;
-const STORAGE_KEY_PATTERN = /^export-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/document\.md$/i;
+const STORAGE_KEY_PATTERN = /^export-[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\/document\.(?:md|pdf)$/i;
 
 export type ExportDownloadState =
-  | { kind: "ready"; value: { bytes: Uint8Array; filename: string } }
+  | { kind: "ready"; value: { bytes: Uint8Array; filename: string; format: ExportFormat } }
   | { kind: "not-found" }
   | { kind: "not-ready" };
 
@@ -17,23 +18,23 @@ function sha256(value: Uint8Array): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-function filename(repositoryFullName: string | null, commitSha: string): string {
+function filename(repositoryFullName: string | null, commitSha: string, format: ExportFormat): string {
   const rawSlug = repositoryFullName?.split("/").at(-1) ?? "analysis";
   const slug = rawSlug.toLowerCase().replace(/[^a-z0-9_-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "analysis";
   const shortSha = /^[a-f0-9]{40,64}$/i.test(commitSha) ? commitSha.slice(0, 7).toLowerCase() : "snapshot";
-  return `sage-${slug}-${shortSha}.md`;
+  return `sage-${slug}-${shortSha}.${format === "PDF" ? "pdf" : "md"}`;
 }
 
-/** Read only a READY owner-bound Markdown file and verify its private storage checksum. */
-export async function loadExportDownloadForUser(
+async function loadExportDownload(
   db: PrismaClient,
   storageRoot: string,
   ownerUserId: string,
   analysisId: string,
   exportId: string,
+  expectedFormat?: ExportFormat,
 ): Promise<ExportDownloadState> {
   const record = await db.export.findFirst({
-    where: { id: exportId, ownerUserId, analysisId, format: "MARKDOWN" },
+    where: { id: exportId, ownerUserId, analysisId, ...(expectedFormat ? { format: expectedFormat } : {}) },
     select: {
       id: true,
       format: true,
@@ -51,13 +52,15 @@ export async function loadExportDownloadForUser(
   });
   if (!record) return { kind: "not-found" };
   if (record.status !== "READY") return { kind: "not-ready" };
+  if (record.format !== "MARKDOWN" && record.format !== "PDF") throw new Error("Export format is invalid.");
+  const extension = record.format === "PDF" ? "pdf" : "md";
 
   const object = record.storageObject;
   if (!object || object.type !== "EXPORT" || object.status !== "ACTIVE"
     || !record.contentHash || !SHA256_PATTERN.test(record.contentHash)
     || !SHA256_PATTERN.test(object.sha256) || object.sha256 !== record.contentHash
     || object.byteLength < 0n || object.byteLength > BigInt(MAX_EXPORT_BYTES)
-    || !STORAGE_KEY_PATTERN.test(object.storageKey)) {
+    || !STORAGE_KEY_PATTERN.test(object.storageKey) || !object.storageKey.endsWith(`/document.${extension}`)) {
     throw new Error("Export storage metadata failed integrity checks.");
   }
 
@@ -82,5 +85,27 @@ export async function loadExportDownloadForUser(
   if (sha256(bytes) !== object.sha256) throw new Error("Export storage checksum does not match.");
 
   const repositoryFullName = record.analysis.repositoryFullNameSnapshot ?? record.analysis.repository.fullName;
-  return { kind: "ready", value: { bytes, filename: filename(repositoryFullName, record.analysis.commitSha) } };
+  return { kind: "ready", value: { bytes, filename: filename(repositoryFullName, record.analysis.commitSha, record.format), format: record.format } };
+}
+
+/** Read a READY owner-bound export of either supported format. */
+export async function loadAnyExportDownloadForUser(
+  db: PrismaClient,
+  storageRoot: string,
+  ownerUserId: string,
+  analysisId: string,
+  exportId: string,
+): Promise<ExportDownloadState> {
+  return loadExportDownload(db, storageRoot, ownerUserId, analysisId, exportId);
+}
+
+/** Preserve the Markdown-specific reader for callers that need it. */
+export async function loadExportDownloadForUser(
+  db: PrismaClient,
+  storageRoot: string,
+  ownerUserId: string,
+  analysisId: string,
+  exportId: string,
+): Promise<ExportDownloadState> {
+  return loadExportDownload(db, storageRoot, ownerUserId, analysisId, exportId, "MARKDOWN");
 }

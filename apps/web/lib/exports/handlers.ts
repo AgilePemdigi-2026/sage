@@ -1,6 +1,8 @@
 import { randomUUID } from "node:crypto";
 import { MARKDOWN_RENDERER_VERSION } from "../../../../packages/documents/src/markdown.ts";
 import type { ExportSnapshot } from "@sage/database";
+import type { ExportFormat } from "@sage/database";
+import { PDF_RENDERER_VERSION } from "../../../../packages/documents/src/pdf-version.ts";
 import { isSameOriginPost, parseAuthBaseConfig } from "../auth/config.ts";
 import type { AnalysisSession } from "../analyses/handlers.ts";
 import type { DocumentReadState } from "../documents/types.ts";
@@ -10,7 +12,7 @@ export interface ExportHandlerDependencies {
   env: Record<string, string | undefined>;
   readSession(request: Request): Promise<AnalysisSession | null>;
   readDocument(ownerUserId: string, analysisId: string): Promise<DocumentReadState>;
-  enqueue(input: { ownerUserId: string; analysisId: string; documentHash: string; rendererVersion: string }): Promise<{ export: ExportSnapshot; created: boolean }>;
+  enqueue(input: { ownerUserId: string; analysisId: string; format: ExportFormat; documentHash: string; rendererVersion: string }): Promise<{ export: ExportSnapshot; created: boolean }>;
   find(ownerUserId: string, analysisId: string, exportId: string): Promise<ExportSnapshot | null>;
   retry(input: { ownerUserId: string; analysisId: string; exportId: string }): Promise<ExportSnapshot>;
   readDownload(ownerUserId: string, analysisId: string, exportId: string): Promise<ExportDownloadState>;
@@ -104,15 +106,17 @@ export function createExportHandlers(deps: ExportHandlerDependencies) {
         if (!body || Reflect.ownKeys(body).length !== 1 || !Object.hasOwn(body, "format")) {
           return error("INVALID_INPUT", "Permintaan ekspor harus berisi format yang didukung.", 400);
         }
-        if (body.format !== "MARKDOWN") return error("EXPORT_FORMAT_UNSUPPORTED", "Saat ini hanya ekspor Markdown yang tersedia.", 422);
+        if (body.format !== "MARKDOWN" && body.format !== "PDF") return error("EXPORT_FORMAT_UNSUPPORTED", "Format ekspor tidak didukung.", 422);
+        const format = body.format;
         const document = await deps.readDocument(identity.userId, analysisId);
         if (document.kind === "not-found") return error("ANALYSIS_NOT_FOUND", "Analisis tidak ditemukan.", 404);
         if (document.kind === "not-ready") return error("RESULT_NOT_READY", "Hasil analisis belum siap untuk diekspor.", 409);
         const result = await deps.enqueue({
           ownerUserId: identity.userId,
           analysisId,
+          format,
           documentHash: document.value.contentHash,
-          rendererVersion: MARKDOWN_RENDERER_VERSION,
+          rendererVersion: format === "PDF" ? PDF_RENDERER_VERSION : MARKDOWN_RENDERER_VERSION,
         });
         return json(exportPayload(analysisId, identity.githubUserId, result.export), result.created ? 202 : 200);
       } catch (cause) {
@@ -179,7 +183,7 @@ export function createExportHandlers(deps: ExportHandlerDependencies) {
           status: 200,
           headers: {
             ...RESPONSE_HEADERS,
-            "Content-Type": "text/markdown; charset=utf-8",
+            "Content-Type": result.value.format === "PDF" ? "application/pdf" : "text/markdown; charset=utf-8",
             "Content-Length": String(result.value.bytes.byteLength),
             "Content-Disposition": `attachment; filename="${result.value.filename}"`,
           },

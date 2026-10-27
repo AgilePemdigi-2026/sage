@@ -96,10 +96,13 @@ export { CanonicalDocumentIntegrityError, persistCanonicalDocument, readCanonica
 export {
   completeExportJob,
   claimExportJob,
+  enqueueExport,
   enqueueMarkdownExport,
+  findExportSnapshotForUser,
   failExportJob,
   findMarkdownExportForUser,
   renewExportLease,
+  retryExport,
   retryMarkdownExport,
   snapshotExportJobClaim,
   ExportAnalysisNotFoundError,
@@ -108,4 +111,4 @@ export {
   ExportResultNotReadyError,
   ExportRetryConflictError,
 } from "./exports.ts";
-export type { ExportJobClaim, ExportLeaseOptions, ExportSnapshot } from "./exports.ts";
+export type { EnqueueExportInput, ExportFormat, ExportJobClaim, ExportLeaseOptions, ExportSnapshot } from "./exports.ts";
