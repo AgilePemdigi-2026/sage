@@ -687,6 +687,14 @@ async function runLivePdfExportRegression(): Promise<void> {
 
     const context1440 = await createBrowserContext(browser, base, owner, 1440);
     const page1440 = await openDocumentPage(context1440, base, readyAnalysis.analysisId, browserAudit, parsedBase.origin, "PDF export 1440px");
+    for (const label of ["Software Engineering Diagram", "UML Class Diagram"]) {
+      await page1440.getByRole("button", { name: label, exact: true }).click();
+      await page1440.getByRole("img", { name: label, exact: true }).waitFor({ timeout: 30_000 });
+      await page1440.locator("summary", { hasText: "Bukti node pada diagram" }).click();
+      assert.equal(await page1440.locator("details[open] summary", { hasText: "Bukti node pada diagram" }).count(), 1);
+      await page1440.screenshot({ path: join(resultDir, `human-${label.startsWith("UML") ? "uml" : "structure"}-1440.png`), fullPage: true });
+    }
+    await page1440.getByRole("button", { name: "Interface Catalog", exact: true }).click();
     const create1440Promise = waitForApiResponse(page1440, createPath, "POST");
     await page1440.getByRole("button", { name: "Ekspor PDF", exact: true }).click();
     const create1440Response = await create1440Promise;

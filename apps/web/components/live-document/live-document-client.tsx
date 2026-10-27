@@ -74,7 +74,7 @@ function InterfaceCatalog({ document }: { document: ArchitectureDocumentV1 }) {
       <table className={styles.catalogTable}>
         <thead><tr><th scope="col">Symbol</th><th scope="col">Contract</th><th scope="col">Evidence</th></tr></thead>
         <tbody>{interfaceCatalog.entries.map((entry) => <tr key={entry.declaration.id}>
-          <td data-label="Symbol"><code>{entry.declaration.qualifiedName || entry.declaration.name}</code></td>
+          <td data-label="Symbol"><code>{humanNodeName(entry.declaration)}</code></td>
           <td data-label="Kind / contract"><span className={styles.kind}>{entry.declaration.kind} · {entry.declaration.language}</span>{entry.declaration.signature ? <code>{entry.declaration.signature}</code> : document.softwareEngineeringDiagram.nodes.some(node => node.parentId === entry.declaration.id && ["Method", "Property"].includes(node.kind)) ? <code>{document.softwareEngineeringDiagram.nodes.filter(node => node.parentId === entry.declaration.id && ["Method", "Property"].includes(node.kind)).map(node => node.signature ?? node.name).join("; ")}</code> : <span className={styles.muted}>Kontrak tidak tersedia di CCM</span>}</td>
           <td data-label="Evidence"><span className={styles.sourceEvidence}>{locationText(entry.declaration.location)}</span>{entry.evidence.filter(item => item.role !== "declaration").map((item, index) => <span key={`${item.filePath}:${item.startLine}:${item.role}:${index}`} className={styles.sourceEvidence}><br />{locationText(item)} · {item.role}</span>)}</td>
 
@@ -198,8 +198,8 @@ function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload
       <span>Teal: class · Ungu: interface · Biru: function · Abu: module · Amber: unresolved</span>
     </div>
     <DiagramSection diagram={diagram} label={label} ckgSha256={payload.document.ckgSha256} accountKey={payload.accountKey} />
-    {diagram.nodeMappings.length ? <section aria-labelledby="diagram-evidence-title">
-      <h3 id="diagram-evidence-title" className={styles.evidenceHeading}>Bukti node pada diagram</h3>
+    {diagram.nodeMappings.length ? <details className={styles.evidenceDetails}>
+      <summary id="diagram-evidence-title">Bukti node pada diagram</summary>
       <div className={styles.tableScroll}><table className={styles.mappingTable}>
         <thead><tr><th scope="col">Node</th><th scope="col">Kind</th><th scope="col">Evidence source</th></tr></thead>
         <tbody>{diagram.nodeMappings.map((mapping, index) => {
@@ -212,9 +212,9 @@ function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload
           </tr>;
         })}</tbody>
       </table></div>
-    </section> : <p className={styles.emptyMessage}>Diagram tidak memiliki mapping node.</p>}
-    {diagram.edgeMappings.length ? <section aria-labelledby="diagram-relations-title">
-      <h3 id="diagram-relations-title" className={styles.evidenceHeading}>Relasi dan evidence</h3>
+    </details> : <p className={styles.emptyMessage}>Diagram tidak memiliki mapping node.</p>}
+    {diagram.edgeMappings.length ? <details className={styles.evidenceDetails}>
+      <summary id="diagram-relations-title">Relasi dan evidence</summary>
       <div className={styles.tableScroll}><table className={styles.mappingTable}>
         <thead><tr><th scope="col">Relasi</th><th scope="col">Status</th><th scope="col">Evidence source</th></tr></thead>
         <tbody>{diagram.edgeMappings.map((mapping) => {
@@ -226,7 +226,7 @@ function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload
           </tr>;
         })}</tbody>
       </table></div>
-    </section> : <p className={styles.emptyMessage}>Diagram tidak mencatat edge.</p>}
+    </details> : <p className={styles.emptyMessage}>Diagram tidak mencatat edge.</p>}
     {unresolvedEdges.length ? <p className={styles.emptyMessage}>{unresolvedEdges.length} relasi Unresolved; alasan dan evidence tetap dicantumkan di atas.</p> : null}
   </section>;
 }
