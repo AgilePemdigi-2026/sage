@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { ANALYSIS_STAGE_DEFINITIONS, ANALYSIS_STAGE_STATUSES } from "../packages/contracts/src/stages.ts";
-import { AnalysisStageExecutionError, runAnalysisStages, type AnalysisStageHandlers } from "../apps/worker/src/stage-runner.ts";
+import { AnalysisStageExecutionError, stageFailureDiagnosticCode, runAnalysisStages, type AnalysisStageHandlers } from "../apps/worker/src/stage-runner.ts";
 import type { PrismaClient } from "../packages/database/generated/client.ts";
 
 const validClaim = {
@@ -41,4 +41,11 @@ test("runner rejects incomplete or unsafe handler registries before database acc
 test("trusted stage failures expose only fixed safe codes", () => {
   assert.equal(new AnalysisStageExecutionError("NO_SUPPORTED_SOURCE").code, "NO_SUPPORTED_SOURCE");
   assert.throws(() => new AnalysisStageExecutionError("private-source-content" as never), /tidak valid/);
+});
+
+test("stage diagnostics expose only safe Prisma codes without invoking getters or leaking messages", () => {
+  assert.equal(stageFailureDiagnosticCode(Object.assign(new Error("secret source and SQL"), { code: "P2028" })), "P2028");
+  assert.equal(stageFailureDiagnosticCode({ get code() { throw new Error("must not invoke"); } }), "UNCLASSIFIED");
+  assert.equal(stageFailureDiagnosticCode({ code: "private token" }), "UNCLASSIFIED");
+  assert.equal(stageFailureDiagnosticCode(new RangeError("private value")), "RANGE_ERROR");
 });
