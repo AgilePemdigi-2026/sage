@@ -197,9 +197,10 @@ function validatePdfDocument(document: ArchitectureDocumentV1): string | null {
   return null;
 }
 
+/** Fresh human mappings count rendered boxes; nodes also retain member evidence used for aggregation. */
 function validateRendererDiagram(diagram: DiagramProjection): string | null {
   if (diagram.mermaid.length > MAX_MERMAID_SOURCE_CHARS || Buffer.byteLength(diagram.mermaid, "utf8") > MAX_MERMAID_SOURCE_BYTES ||
-      diagram.nodes.length > MAX_DIAGRAM_NODES || diagram.edges.length > MAX_DIAGRAM_EDGES) {
+      diagram.nodeMappings.length > MAX_DIAGRAM_NODES || diagram.edges.length > MAX_DIAGRAM_EDGES) {
     return "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED";
   }
   if (hasUnsafeMermaidDirective(diagram.mermaid)) return "PDF_DIAGRAM_SOURCE_INVALID";

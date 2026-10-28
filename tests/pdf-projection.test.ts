@@ -138,3 +138,23 @@ test("many unresolved targets do not displace real UML classifiers and their mem
   assert.ok(result.uml.edges.some(item => item.resolution === "Unresolved"));
   assert.equal(pdfRendererInternals.validateRendererDiagram(result.uml), null);
 });
+
+
+test("member evidence records do not count as rendered boxes after owner aggregation", () => {
+  const owners = [node("owner_a", "Class", "Caller"), node("owner_b", "Class", "Callee")];
+  const members = owners.flatMap(owner => Array.from({ length: 300 }, (_, index) =>
+    node(`${owner.id}_member_${index}`, "Method", `method${index}`, owner.id)));
+  const edges = Array.from({ length: 300 }, (_, index) =>
+    edge(`call_${index}`, `owner_a_member_${index}`, `owner_b_member_${index}`, "Exact"));
+  const input = diagram("software-structure", [...owners, ...members], edges);
+  const result = projectCompactPdfDiagrams(input, diagram("uml-class", [], []));
+  assert.equal(result.software.nodes.length, 602, "retain original member endpoint evidence");
+  assert.equal(result.software.nodeMappings.length, 2, "only owning class boxes are rendered");
+  assert.equal(result.softwareSummary.shownRelations, 1);
+  assert.equal(result.softwareSummary.shownEdges, 300);
+  assert.deepEqual(result.software.edges, edges.slice().sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0));
+  assert.ok(result.software.mermaid.length < 1000);
+  assert.equal(pdfRendererInternals.validateRendererDiagram(result.software), null);
+  const overBudget = { ...result.software, nodeMappings: Array.from({ length: 501 }, () => result.software.nodeMappings[0]!) };
+  assert.equal(pdfRendererInternals.validateRendererDiagram(overBudget), "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED");
+});
