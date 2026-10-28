@@ -1,0 +1,810 @@
+{
+  "status": "PASS",
+  "assessedLocalDate": "2026-10-28",
+  "sourceRevision": "25ef0167ba9e0f226c486ed7393e75a4f46c2ce6",
+  "pdfRendererVersion": "2.1.0",
+  "scope": "Fresh-container local benchmark of direct analyzer adapters, canonical CCM/CKG generation, architecture document projection, Markdown rendering, and sequential offline PDF rendering. It excludes analyzeSnapshotSources scanning/merge, database, queue, network fetch, persistence, and UI stages.",
+  "environment": {
+    "image": "sage-worker:exp03-local",
+    "imageId": "sha256:cef5d3b377695ab9e6b1b5828bce4fbfd5a76fef9e0d5b18ab1f6781d508349a",
+    "architecture": "arm64",
+    "gitHead": "25ef0167ba9e0f226c486ed7393e75a4f46c2ce6",
+    "scriptFingerprintsSha256": {
+      "runner": "22d7ee34bdf1e0f1872c3e012d6dda4c015a015ffd125451978810ed79180330",
+      "workload": "423579411b8ff91ea696edd5f73c4fb7889d2b78eefa3bbdddf754e9ce8566e5",
+      "benchmarkInputLoader": "d1b4e65b9dd1e72d835e981fbab564586f7048eeeb05f59db835fe41f2fd91b1"
+    },
+    "limits": {
+      "cpus": 1,
+      "memoryBytes": 2147483648,
+      "swapBytes": 0,
+      "pids": 256,
+      "shmBytes": 268435456,
+      "tmpfsBytes": 268435456,
+      "network": "none",
+      "rootFilesystem": "read-only",
+      "freshContainerPerSample": true,
+      "externalDeadlineMs": 180000
+    }
+  },
+  "plan": {
+    "cases": [
+      "medium-ts",
+      "medium-php"
+    ],
+    "iterationsPerCase": 3,
+    "caseMode": "small plus deterministic partial-corpus workloads"
+  },
+  "summaries": [
+    {
+      "corpus": "medium-ts",
+      "iterations": 3,
+      "pdfSuccesses": 3,
+      "coreElapsedMsRange": [
+        2241.8667480000004,
+        11247.462002
+      ],
+      "cgroupPeakChargedBytesRange": [
+        524447744,
+        654077952
+      ],
+      "pdfBytesRange": [
+        79289,
+        79305
+      ]
+    },
+    {
+      "corpus": "medium-php",
+      "iterations": 3,
+      "pdfSuccesses": 3,
+      "coreElapsedMsRange": [
+        2410.677615,
+        3193.136559
+      ],
+      "cgroupPeakChargedBytesRange": [
+        501616640,
+        507834368
+      ],
+      "pdfBytesRange": [
+        89560,
+        89705
+      ]
+    }
+  ],
+  "baselineComparisons": [
+    {
+      "corpus": "medium-ts",
+      "matchesBaseline": {
+        "inputFingerprint": true,
+        "ccmContentSha256": true,
+        "ckgContentSha256": true,
+        "documentSha256": true,
+        "markdownSha256": true
+      }
+    },
+    {
+      "corpus": "medium-php",
+      "matchesBaseline": {
+        "inputFingerprint": true,
+        "ccmContentSha256": true,
+        "ckgContentSha256": true,
+        "documentSha256": true,
+        "markdownSha256": true
+      }
+    }
+  ],
+  "baselineFailures": [
+    {
+      "corpus": "medium-ts",
+      "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED",
+      "nodes": 799,
+      "edges": 982
+    },
+    {
+      "corpus": "medium-php",
+      "failureCode": "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED",
+      "nodes": 352,
+      "edges": 448
+    }
+  ],
+  "samples": [
+    {
+      "corpus": "medium-ts",
+      "manifestId": "resource-medium-ts",
+      "iteration": 1,
+      "manifestSha256": "1ef9b6240d0b38670761c78bf06b4ca23dfb3342bf98a462547d1b66f2270b3f",
+      "fixtureSetSha256": "936612830396b1d28cda1887004e2a03f12e31a2f83d183bc0279612396b9e36",
+      "inputFileCount": 12,
+      "declaredInputBytes": 53099,
+      "wallElapsedMs": 16587.272292,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-medium-ts",
+        "language": "javascript",
+        "stageTimingsMs": {
+          "loadInput": 71.930354,
+          "adapter": 562.352665,
+          "canonicalCcm": 65.338218,
+          "canonicalCkg": 43.742567,
+          "documentProjection": 191.228764,
+          "markdownRender": 163.91656,
+          "pdfRender": 10148.952874
+        },
+        "coreElapsedMs": 11247.462002,
+        "nodePeakRssBytes": 419631104,
+        "cgroupPeakChargedBytes": 654077952,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 4414853,
+          "user_usec": 1287369,
+          "system_usec": 3127484,
+          "nr_periods": 42,
+          "nr_throttled": 21,
+          "throttled_usec": 464459
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 15227045,
+          "user_usec": 5884113,
+          "system_usec": 9342932,
+          "nr_periods": 155,
+          "nr_throttled": 82,
+          "throttled_usec": 2753650
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 10812192,
+          "user_usec": 4596744,
+          "system_usec": 6215448,
+          "nr_periods": 113,
+          "nr_throttled": 61,
+          "throttled_usec": 2289191
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "df90bfce8e5c4b06392a461502456555c81f0729352dde91db2e3da230be6a4a",
+          "inputFileCount": 12,
+          "inputBytes": 53099,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "1b0e30378c4cfbf38c1c88dbf3c79c65ecd91a4e5fa46ccbb7d3d88c7081a82d",
+          "ccmBytes": 944765,
+          "ckgContentSha256": "166c7f84ce327f0e9f4894ef1e92c91b36d2f8e762bdb4916d840fd5785bd5ec",
+          "ckgBytes": 945008,
+          "documentSha256": "27553438610f17e7f5c59a048e01356c0d826f704a57bd0311e00430b9621632",
+          "documentBytes": 3314811,
+          "markdownSha256": "e094a98e6236df0be63453afe29039d1aa5a6e627fc8c7cf364d6c8472a86558",
+          "markdownBytes": 3503221,
+          "pdfSha256": "8abb3818a1515bbdfd29630cc8fd7fbf85e965a2a736aacf1d635b89d4f8bc3e",
+          "pdfBytes": 79289,
+          "nodeCount": 799,
+          "edgeCount": 982,
+          "limitationCount": 40
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-ts",
+      "manifestId": "resource-medium-ts",
+      "iteration": 2,
+      "manifestSha256": "1ef9b6240d0b38670761c78bf06b4ca23dfb3342bf98a462547d1b66f2270b3f",
+      "fixtureSetSha256": "936612830396b1d28cda1887004e2a03f12e31a2f83d183bc0279612396b9e36",
+      "inputFileCount": 12,
+      "declaredInputBytes": 53099,
+      "wallElapsedMs": 3933.615750000001,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-medium-ts",
+        "language": "javascript",
+        "stageTimingsMs": {
+          "loadInput": 58.717107,
+          "adapter": 302.894645,
+          "canonicalCcm": 30.809619,
+          "canonicalCkg": 50.484649,
+          "documentProjection": 113.572305,
+          "markdownRender": 98.511393,
+          "pdfRender": 1586.87703
+        },
+        "coreElapsedMs": 2241.8667480000004,
+        "nodePeakRssBytes": 410107904,
+        "cgroupPeakChargedBytes": 524447744,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1431668,
+          "user_usec": 1045986,
+          "system_usec": 385682,
+          "nr_periods": 14,
+          "nr_throttled": 11,
+          "throttled_usec": 284023
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 3665748,
+          "user_usec": 2738208,
+          "system_usec": 927539,
+          "nr_periods": 37,
+          "nr_throttled": 30,
+          "throttled_usec": 876336
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 2234080,
+          "user_usec": 1692222,
+          "system_usec": 541857,
+          "nr_periods": 23,
+          "nr_throttled": 19,
+          "throttled_usec": 592313
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "df90bfce8e5c4b06392a461502456555c81f0729352dde91db2e3da230be6a4a",
+          "inputFileCount": 12,
+          "inputBytes": 53099,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "1b0e30378c4cfbf38c1c88dbf3c79c65ecd91a4e5fa46ccbb7d3d88c7081a82d",
+          "ccmBytes": 944765,
+          "ckgContentSha256": "166c7f84ce327f0e9f4894ef1e92c91b36d2f8e762bdb4916d840fd5785bd5ec",
+          "ckgBytes": 945008,
+          "documentSha256": "27553438610f17e7f5c59a048e01356c0d826f704a57bd0311e00430b9621632",
+          "documentBytes": 3314811,
+          "markdownSha256": "e094a98e6236df0be63453afe29039d1aa5a6e627fc8c7cf364d6c8472a86558",
+          "markdownBytes": 3503221,
+          "pdfSha256": "ff0c5b95cca06505fe44f725b401233f49e580ca71963532b956a74eb76ab65b",
+          "pdfBytes": 79305,
+          "nodeCount": 799,
+          "edgeCount": 982,
+          "limitationCount": 40
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-ts",
+      "manifestId": "resource-medium-ts",
+      "iteration": 3,
+      "manifestSha256": "1ef9b6240d0b38670761c78bf06b4ca23dfb3342bf98a462547d1b66f2270b3f",
+      "fixtureSetSha256": "936612830396b1d28cda1887004e2a03f12e31a2f83d183bc0279612396b9e36",
+      "inputFileCount": 12,
+      "declaredInputBytes": 53099,
+      "wallElapsedMs": 3931.8845420000034,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-medium-ts",
+        "language": "javascript",
+        "stageTimingsMs": {
+          "loadInput": 52.056718,
+          "adapter": 326.301631,
+          "canonicalCcm": 41.658315,
+          "canonicalCkg": 32.14882,
+          "documentProjection": 111.739165,
+          "markdownRender": 92.181412,
+          "pdfRender": 1802.704861
+        },
+        "coreElapsedMs": 2458.790922,
+        "nodePeakRssBytes": 413073408,
+        "cgroupPeakChargedBytes": 538824704,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1139225,
+          "user_usec": 916743,
+          "system_usec": 222481,
+          "nr_periods": 12,
+          "nr_throttled": 6,
+          "throttled_usec": 206996
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 3600620,
+          "user_usec": 2752296,
+          "system_usec": 848324,
+          "nr_periods": 37,
+          "nr_throttled": 27,
+          "throttled_usec": 826909
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 2461395,
+          "user_usec": 1835553,
+          "system_usec": 625843,
+          "nr_periods": 25,
+          "nr_throttled": 21,
+          "throttled_usec": 619913
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "df90bfce8e5c4b06392a461502456555c81f0729352dde91db2e3da230be6a4a",
+          "inputFileCount": 12,
+          "inputBytes": 53099,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "1b0e30378c4cfbf38c1c88dbf3c79c65ecd91a4e5fa46ccbb7d3d88c7081a82d",
+          "ccmBytes": 944765,
+          "ckgContentSha256": "166c7f84ce327f0e9f4894ef1e92c91b36d2f8e762bdb4916d840fd5785bd5ec",
+          "ckgBytes": 945008,
+          "documentSha256": "27553438610f17e7f5c59a048e01356c0d826f704a57bd0311e00430b9621632",
+          "documentBytes": 3314811,
+          "markdownSha256": "e094a98e6236df0be63453afe29039d1aa5a6e627fc8c7cf364d6c8472a86558",
+          "markdownBytes": 3503221,
+          "pdfSha256": "c64749b1a2fc6240c0def662a07abf4e909aa3a6fb2a82ce0731aa80b58a3743",
+          "pdfBytes": 79294,
+          "nodeCount": 799,
+          "edgeCount": 982,
+          "limitationCount": 40
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-php",
+      "manifestId": "resource-medium-php",
+      "iteration": 1,
+      "manifestSha256": "60832c5d2ab74f012b641136500781108a35b8563becc987230a184fb5afbc31",
+      "fixtureSetSha256": "3d6406e68b45843550bf6bd1857e86ae28c4f87966ccf69315ebd330a7d0e737",
+      "inputFileCount": 24,
+      "declaredInputBytes": 43704,
+      "wallElapsedMs": 4389.835999999999,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-medium-php",
+        "language": "php",
+        "stageTimingsMs": {
+          "loadInput": 96.947808,
+          "adapter": 865.209541,
+          "canonicalCcm": 11.804463,
+          "canonicalCkg": 33.497672,
+          "documentProjection": 49.655418,
+          "markdownRender": 62.179256,
+          "pdfRender": 1536.591479
+        },
+        "coreElapsedMs": 2655.885637,
+        "nodePeakRssBytes": 370724864,
+        "cgroupPeakChargedBytes": 507834368,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1390312,
+          "user_usec": 1066104,
+          "system_usec": 324207,
+          "nr_periods": 14,
+          "nr_throttled": 11,
+          "throttled_usec": 272883
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 4008405,
+          "user_usec": 2910746,
+          "system_usec": 1097658,
+          "nr_periods": 40,
+          "nr_throttled": 29,
+          "throttled_usec": 670083
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 2618093,
+          "user_usec": 1844642,
+          "system_usec": 773451,
+          "nr_periods": 26,
+          "nr_throttled": 18,
+          "throttled_usec": 397200
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "6d429f9c76fd12cfb12ba0827d0c59e18d0dd516ca65a0d2157a8d76a7daf3f9",
+          "inputFileCount": 24,
+          "inputBytes": 43704,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "fd0c5737e9da825f6fbd68287c07601f47ee559f6f98292a9150f21a91427c1a",
+          "ccmBytes": 465688,
+          "ckgContentSha256": "2649ac6c32d3be6652f8245fd9f22528fd76a5aa6c57418bac399bcafb77f29d",
+          "ckgBytes": 465929,
+          "documentSha256": "f3a7e0caae76374e771e743dcb97201b822b9c7ee74ee7a292ce8e9f4ffc0ce2",
+          "documentBytes": 1885316,
+          "markdownSha256": "bc7c98030a8aa0071f0703a349f6148e64298a98b547cc4ad48f276f220c429d",
+          "markdownBytes": 2006937,
+          "pdfSha256": "bbbf118806a6a00ae963d6b468c576ff55d9910d532eee53f02a9f5690d87c62",
+          "pdfBytes": 89560,
+          "nodeCount": 352,
+          "edgeCount": 448,
+          "limitationCount": 4
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-php",
+      "manifestId": "resource-medium-php",
+      "iteration": 2,
+      "manifestSha256": "60832c5d2ab74f012b641136500781108a35b8563becc987230a184fb5afbc31",
+      "fixtureSetSha256": "3d6406e68b45843550bf6bd1857e86ae28c4f87966ccf69315ebd330a7d0e737",
+      "inputFileCount": 24,
+      "declaredInputBytes": 43704,
+      "wallElapsedMs": 5011.324541000002,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-medium-php",
+        "language": "php",
+        "stageTimingsMs": {
+          "loadInput": 124.867203,
+          "adapter": 877.768502,
+          "canonicalCcm": 20.050809,
+          "canonicalCkg": 18.19634,
+          "documentProjection": 75.231083,
+          "markdownRender": 55.625913,
+          "pdfRender": 2021.396709
+        },
+        "coreElapsedMs": 3193.136559,
+        "nodePeakRssBytes": 369246208,
+        "cgroupPeakChargedBytes": 501616640,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1390711,
+          "user_usec": 1056148,
+          "system_usec": 334562,
+          "nr_periods": 15,
+          "nr_throttled": 0,
+          "throttled_usec": 0
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 4331543,
+          "user_usec": 3083185,
+          "system_usec": 1248357,
+          "nr_periods": 47,
+          "nr_throttled": 12,
+          "throttled_usec": 206660
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 2940832,
+          "user_usec": 2027037,
+          "system_usec": 913795,
+          "nr_periods": 32,
+          "nr_throttled": 12,
+          "throttled_usec": 206660
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "6d429f9c76fd12cfb12ba0827d0c59e18d0dd516ca65a0d2157a8d76a7daf3f9",
+          "inputFileCount": 24,
+          "inputBytes": 43704,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "fd0c5737e9da825f6fbd68287c07601f47ee559f6f98292a9150f21a91427c1a",
+          "ccmBytes": 465688,
+          "ckgContentSha256": "2649ac6c32d3be6652f8245fd9f22528fd76a5aa6c57418bac399bcafb77f29d",
+          "ckgBytes": 465929,
+          "documentSha256": "f3a7e0caae76374e771e743dcb97201b822b9c7ee74ee7a292ce8e9f4ffc0ce2",
+          "documentBytes": 1885316,
+          "markdownSha256": "bc7c98030a8aa0071f0703a349f6148e64298a98b547cc4ad48f276f220c429d",
+          "markdownBytes": 2006937,
+          "pdfSha256": "5a387211194f1dd6bbad09d54d20acd21489a078d17a877d114fb555a18da5ff",
+          "pdfBytes": 89705,
+          "nodeCount": 352,
+          "edgeCount": 448,
+          "limitationCount": 4
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    },
+    {
+      "corpus": "medium-php",
+      "manifestId": "resource-medium-php",
+      "iteration": 3,
+      "manifestSha256": "60832c5d2ab74f012b641136500781108a35b8563becc987230a184fb5afbc31",
+      "fixtureSetSha256": "3d6406e68b45843550bf6bd1857e86ae28c4f87966ccf69315ebd330a7d0e737",
+      "inputFileCount": 24,
+      "declaredInputBytes": 43704,
+      "wallElapsedMs": 3899.2498330000017,
+      "containerExitCode": 0,
+      "oomKilled": false,
+      "result": {
+        "schemaVersion": 1,
+        "status": "COMPLETE",
+        "manifestId": "resource-medium-php",
+        "language": "php",
+        "stageTimingsMs": {
+          "loadInput": 74.848499,
+          "adapter": 586.301042,
+          "canonicalCcm": 11.47065,
+          "canonicalCkg": 12.339761,
+          "documentProjection": 60.62129,
+          "markdownRender": 31.997309,
+          "pdfRender": 1633.099064
+        },
+        "coreElapsedMs": 2410.677615,
+        "nodePeakRssBytes": 370151424,
+        "cgroupPeakChargedBytes": 504524800,
+        "cgroupPeakReason": null,
+        "cgroupCpuStatStart": {
+          "usage_usec": 1284597,
+          "user_usec": 993915,
+          "system_usec": 290682,
+          "nr_periods": 13,
+          "nr_throttled": 9,
+          "throttled_usec": 207920
+        },
+        "cgroupCpuStatEnd": {
+          "usage_usec": 3703837,
+          "user_usec": 2671283,
+          "system_usec": 1032553,
+          "nr_periods": 37,
+          "nr_throttled": 33,
+          "throttled_usec": 668491
+        },
+        "cgroupCpuStatDelta": {
+          "usage_usec": 2419240,
+          "user_usec": 1677368,
+          "system_usec": 741871,
+          "nr_periods": 24,
+          "nr_throttled": 24,
+          "throttled_usec": 460571
+        },
+        "cgroupCpuStatReason": null,
+        "metrics": {
+          "inputFingerprint": "6d429f9c76fd12cfb12ba0827d0c59e18d0dd516ca65a0d2157a8d76a7daf3f9",
+          "inputFileCount": 24,
+          "inputBytes": 43704,
+          "adapterStatus": "partial",
+          "ccmContentSha256": "fd0c5737e9da825f6fbd68287c07601f47ee559f6f98292a9150f21a91427c1a",
+          "ccmBytes": 465688,
+          "ckgContentSha256": "2649ac6c32d3be6652f8245fd9f22528fd76a5aa6c57418bac399bcafb77f29d",
+          "ckgBytes": 465929,
+          "documentSha256": "f3a7e0caae76374e771e743dcb97201b822b9c7ee74ee7a292ce8e9f4ffc0ce2",
+          "documentBytes": 1885316,
+          "markdownSha256": "bc7c98030a8aa0071f0703a349f6148e64298a98b547cc4ad48f276f220c429d",
+          "markdownBytes": 2006937,
+          "pdfSha256": "78c8c422c544060daa35e7abbbe1e6241d2dcd662615e2072587036bd1d2b256",
+          "pdfBytes": 89695,
+          "nodeCount": 352,
+          "edgeCount": 448,
+          "limitationCount": 4
+        },
+        "failureStage": null,
+        "failureCode": null
+      },
+      "failureCode": null,
+      "cleanupFailure": false
+    }
+  ],
+  "replayChecks": [
+    {
+      "corpus": "medium-ts",
+      "status": "PASS",
+      "successfulIterations": 3,
+      "expectedIterations": 3
+    },
+    {
+      "corpus": "medium-php",
+      "status": "PASS",
+      "successfulIterations": 3,
+      "expectedIterations": 3
+    }
+  ],
+  "visualInspection": {
+    "status": "PASS",
+    "checks": [
+      {
+        "corpus": "medium-ts",
+        "pages": 6,
+        "pageSizesPt": [
+          [
+            842.88,
+            595.91998
+          ],
+          [
+            842.88,
+            595.91998
+          ],
+          [
+            842.88,
+            595.91998
+          ],
+          [
+            842.88,
+            595.91998
+          ],
+          [
+            842.88,
+            595.91998
+          ],
+          [
+            842.88,
+            595.91998
+          ]
+        ],
+        "rasterImages": 0,
+        "diagramMinimumTextPt": [
+          5.999999750000001,
+          5.999999750000001
+        ],
+        "canonicalMarkdownMatch": {
+          "inputFingerprint": true,
+          "documentSha256": true,
+          "markdownSha256": true,
+          "ckgSha256": true
+        },
+        "pdfBytes": 79308,
+        "pdfSha256": "907706261e19b8e71bddd9a09d5fb546fb85d9e1e15c2338663f6db3e510b199",
+        "diagramLabelMinimumTextPt": [
+          8.52,
+          10.387
+        ]
+      },
+      {
+        "corpus": "medium-php",
+        "pages": 5,
+        "pageSizesPt": [
+          [
+            842.88,
+            595.91998
+          ],
+          [
+            842.88,
+            595.91998
+          ],
+          [
+            842.88,
+            595.91998
+          ],
+          [
+            842.88,
+            595.91998
+          ],
+          [
+            842.88,
+            595.91998
+          ]
+        ],
+        "rasterImages": 0,
+        "diagramMinimumTextPt": [
+          5.999999750000001,
+          5.999999750000001
+        ],
+        "canonicalMarkdownMatch": {
+          "inputFingerprint": true,
+          "documentSha256": true,
+          "markdownSha256": true,
+          "ckgSha256": true
+        },
+        "pdfBytes": 89616,
+        "pdfSha256": "105e4dca5498371cc094f860cf06c109148021fd4a335ee174635750d356624d",
+        "diagramLabelMinimumTextPt": [
+          9.555,
+          8.752
+        ]
+      }
+    ],
+    "visualReview": "PASS: all 11 page PNGs inspected via contact sheet; four diagram pages also inspected in detail, no clipped/overlapping table or diagram text"
+  },
+  "node24Checks": {
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "unitTests": 375,
+    "databaseFoundationTests": 8,
+    "markdownIntegrationTests": 2,
+    "pdfIntegrationTests": 1,
+    "nextProductionBuild": "PASS"
+  },
+  "browser": {
+    "pdf": {
+      "status": "PASS",
+      "checks": [
+        "real Next API and PostgreSQL health",
+        "20-node / 27-edge analyzer fixture projected to a canonical, public expected-document.json with one explicit limitation",
+        "POST rejects unsupported formats, extra body fields, query parameters, and off-origin requests",
+        "human document hides hashes and renders both colored SVG diagrams with zoom at 390px",
+        "stale selected-account and unauthenticated nested status requests are rejected with 401",
+        "390px browser created PDF through real POST, downloaded the worker-produced attachment, and repeated READY downloads were byte-identical",
+        "1440px browser created a deduplicated PDF and downloaded the same READY bytes as the 390px browser",
+        "nested status/retry/download paths enforce owner scope: owner reads READY; foreign account receives 404",
+        "PDF attachment is application/pdf, starts with %PDF-, and matches owner-bound ACTIVE private storage checksum/length/0600 file",
+        "legacy Markdown path still creates/downloads through the production worker and exactly matches renderMarkdownDocument",
+        "delayed real PDF attachment revalidates the session after body transfer; account switch exposes no old-account download",
+        "actual source archive checksum fault reaches production PDF worker and fails as EXPORT_FAILED; source hash restored before retry POST",
+        "retry uses the real API and production consumer, keeps format/document hash/renderer version, and downloads a valid PDF",
+        "real consumer recovered the expired test lease, failed the archive-integrity export, and completed its real retry",
+        "tested browser paths make no off-origin/provider requests and have no uncaught page errors"
+      ],
+      "failures": []
+    },
+    "markdown": {
+      "status": "PASS",
+      "checks": [
+        "real Next API and PostgreSQL health",
+        "real analyzer fixture seeded as four identical canonical GraphBundle, ArchitectureDocument, limitation, and private source archive snapshots",
+        "test-only live export lease holds the production queue slot to make duplicate-POST and failure timings deterministic",
+        "strict same-origin POST, exact request body, MARKDOWN format, and authenticated owner checks",
+        "foreign owner create returns 404 without revealing or creating an export",
+        "390px live document page: real Ekspor Markdown click creates a QUEUED export through same-origin HTTP",
+        "two concurrent API POSTs and the browser POST deduplicate to one owner/analysis/document/renderer export and job",
+        "status/download owner isolation and EXPORT_NOT_READY behavior before the worker publishes a file",
+        "390px browser download: real attachment bytes verify against the stored SHA-256 and canonical Markdown renderer output",
+        "API GET download: content type, private attachment filename, no-store headers, and exact SHA-256 verified",
+        "clean offline Chromium Markdown viewer using the locked Mermaid dependency's Marked parser: three document sections, two full Mermaid source blocks, no active/external HTML resources",
+        "1440px browser page: real create click and actual private Markdown download match the 390px byte hash",
+        "delayed READY response: account switch to B rejects A identity, clears the document, and never publishes A's stale download control",
+        "delayed real attachment response: account switch during Blob transfer is rejected after session recheck and produces no old-account download",
+        "controlled storage-integrity fault reached the real worker and failed safely as EXPORT_FAILED; test-only archive digest restored before retry",
+        "real UI retry requeues the same export/document hash, worker returns READY, and the retried browser download is byte-for-byte identical",
+        "production lease recovery records WORKER_INTERRUPTED, real archive-integrity failure is retryable, and retry succeeds without changing the document hash",
+        "analysis status/result hash, canonical graph hash, and architecture document hash are unchanged after failure and retry",
+        "foreign account cannot inspect or retry another account's ready export",
+        "all UI/download/race flows remain same-origin, make no GitHub/provider request, and produce no uncaught browser errors"
+      ],
+      "failures": []
+    }
+  },
+  "rawEvidenceSha256": {
+    "baseline": "c2bd5138cb3abf05e38ab8455a86a7710f7301629409f92d0325f5507049a03c",
+    "sequentialResources": "1934298ca211312b228c45a33d49848529ab35b930f7b12981c84cfb4a8e704a",
+    "pdfBrowser": "357734fe8a5e82d61c08d30ffe575736e96900753caabf8176b358baaf3493ca",
+    "markdownBrowser": "6fe81c95950874b1907bf2c2bb3db8afef329be50434bd0589ef1ae7231b2afd",
+    "fullQaLog": "bbd902ba0abeed19871e70eebb59472259be2395baea3182dd4248e8fbd650e0"
+  },
+  "limitations": [
+    "Local ARM64 Colima 2CPU VM; product stack remained running, not a dedicated x86_64 server benchmark.",
+    "Direct adapter/CCM/CKG/ADD/Markdown/PDF workload excludes queue, persistence, archive scanning/merge, repeated full-pipeline validations and GitHub network.",
+    "CPU deltas exclude module imports; charged peak includes page cache, Node, PHP and Chromium; PDF byte/hash equality across independent renders is not asserted.",
+    "Complete document above 12MiB or other renderer guards may still reject larger repositories. Selected subsets do not claim business importance or complete diagram coverage.",
+    "No Coolify deployment, image registry publication, live OAuth or shared-host load/capacity acceptance."
+  ],
+  "earlierAttempts": [
+    "Read-only next-env.d.ts mount prevented Next build; corrected private QA harness.",
+    "Old QA image migration SQL was missing from file overlay; replaced with a complete source snapshot, fresh disposable databases and final passing run.",
+    "An overlapping QA/resource run was interrupted and excluded: five samples had been recorded, including one small-TS PDF_RENDER_FAILED. Raw partial report and cleanup note retained locally; final medium samples were rerun sequentially."
+  ],
+  "productDataCountsBefore": {
+    "users": 2,
+    "analyses": 7,
+    "exports": 0
+  },
+  "operationalFollowUp": {
+    "issue": 104,
+    "status": "OPEN",
+    "observation": "Legacy product worker RestartCount increased from6 to7 during local QA/build; generic ENVIRONMENT_UNAVAILABLE logged, later healthy. Specific cause not verified; not claimed as OOM or database timeout."
+  },
+  "standardLocalDockerBuild": {
+    "status": "PASS",
+    "architecture": "linux/arm64",
+    "targets": [
+      "web",
+      "worker"
+    ],
+    "images": {
+      "web": {
+        "id": "sha256:9dce54740d8b8a12ec9cd7d215dcbc95c1988642063682ed132209e858f51a8e",
+        "architecture": "arm64"
+      },
+      "worker": {
+        "id": "sha256:b7fdebf886f57d855e22f327e972a09bd100407af5fa38c848108cf380002789",
+        "architecture": "arm64"
+      }
+    },
+    "lint": "PASS",
+    "typecheck": "PASS",
+    "unitTests": 375,
+    "databaseFoundationTests": 8,
+    "nextProductionBuild": "PASS",
+    "webBuildLogSha256": "a94a76f6e480ec67f0c04cb36dd75073f9dd36a33fd739a9ff541f46dd93526a",
+    "workerBuildLogSha256": "95eaeccd4d5cdb5139bd3357d1557d1d3e06c24669dee932953aad79d18404e0",
+    "registryPublished": false,
+    "linuxAmd64Tested": false
+  }
+}

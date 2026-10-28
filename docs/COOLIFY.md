@@ -36,7 +36,7 @@ Tambahkan callback **https://<domain>/auth/github/callback** pada GitHub App dan
 
 Batas runtime mempertahankan konfigurasi lokal: web 768 MiB/0,75 CPU, worker 2 GiB/1,5 CPU, database 1 GiB/0,5 CPU. Worker mempunyai shm 256 MiB. Migrasi sementara dibatasi terpisah dan selesai sebelum web/worker mulai. CPU/memory cap bukan reservasi host atau jaminan kapasitas; shm/tmpfs juga memakai memori, bukan tambahan memori gratis.
 
-[Bukti benchmark core lokal PERF-02](PERF-02_CHECKS.md) mencatat peak tertinggi sekitar 655 MiB pada sampel serta penolakan PDF medium; cap dipertahankan. Ia tidak mengukur database, antrean/duplikasi validasi sembilan tahap atau perebutan resource dari kelompok lain. Jangan mengurangi RAM hanya berdasarkan idle, atau menyatakan ceiling 2.000 file sebagai kapasitas deployment teruji. Batas PDF dapat menolak hasil analisis besar. Operator perlu menyepakati quota runtime dan disk/backups sebelum deploy.
+[Bukti benchmark core lokal PERF-02](PERF-02_CHECKS.md) mencatat peak tertinggi sekitar 655 MiB pada sampel serta penolakan PDF medium; cap dipertahankan. Tindak lanjut [EXP-03](EXP-03_CHECKS.md) meluluskan PDF kedua corpus menengah dengan proyeksi terbatas dan peak tertinggi sekitar 624 MiB; dokumen di atas 12 MiB/guard lain masih dapat ditolak. Ia tidak mengukur database, antrean/duplikasi validasi sembilan tahap atau perebutan resource dari kelompok lain. Jangan mengurangi RAM hanya berdasarkan idle, atau menyatakan ceiling 2.000 file sebagai kapasitas deployment teruji. Batas PDF dapat menolak hasil analisis besar. Operator perlu menyepakati quota runtime dan disk/backups sebelum deploy.
 
 ## Pemeriksaan dan urutan rollout
 

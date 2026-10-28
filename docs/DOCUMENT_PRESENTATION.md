@@ -16,7 +16,7 @@ Hash dan ID teknis dipertahankan di data/API/Markdown untuk integritas, tidak di
 
 Diagram struktur merangkum Method/Property ke pemiliknya. Relasi antar pemilik dengan kind dan status sama digabung dengan jumlah observasi; relasi internal satu pemilik tidak digambar. Relasi Exact dan Unresolved tidak digabung. Ini merupakan tampilan ringkas yang dijelaskan pada caption; Markdown tetap memuat semua relasi asli. UML mempertahankan anggota yang tersedia dan pewarisan yang teramati.
 
-PDF renderer 2.0.0 menggunakan A4 landscape dengan satu SVG utuh per diagram. Tidak ada potongan A1/A2 atau register mentah berulang. SVG tetap vektor saat diperbesar; teks diagram besar dapat memerlukan zoom. Katalog bisa berlanjut ke halaman berikutnya tanpa membuang deklarasi. Tidak ada batas halaman tetap untuk repository berukuran sembarang.
+PDF menggunakan A4 landscape dengan satu SVG utuh per diagram. Tidak ada potongan A1/A2 atau register mentah berulang. Proyeksi PDF memilih bagian graph yang terhubung dan bersumber dari model, dengan batas simbol, relasi serta anggota untuk keterbacaan. Caption menyatakan jumlah yang ditampilkan dan tidak ditampilkan; pilihan ini bukan penentuan kepentingan bisnis. Katalog menampilkan maksimal 30 simbol, kontrak 400 karakter dan 6 anggota per ringkasan; label panjang serta batasan analisis juga diringkas dengan keterangan. Markdown tetap menyimpan seluruh deklarasi, relasi dan evidence. Lihat [EXP-03](EXP-03_CHECKS.md) untuk versi renderer, pengukuran dan hasil inspeksi aktual.
 
 ## Batas pengujian
 
@@ -24,7 +24,7 @@ Fixture ekspor membuktikan alur HTTP/worker/PDF dan regresi Markdown dengan data
 
 ## Kapasitas dan kegagalan eksplisit
 
-Batas pengaman renderer tetap berlaku: source Mermaid 50.000 karakter/byte, 500 node/500 relasi per diagram, SVG 4 MiB, HTML 12 MiB, PDF 32 MiB, dan deadline 45 detik. Melebihi batas menghasilkan pesan gagal eksplisit, bukan diagram atau Markdown yang dipotong diam-diam. Keberhasilan pipeline analisis tidak menjamin diagram repository besar dapat dirender pada batas ini. Ringkasan lintas folder untuk repository besar memerlukan proyeksi tersendiri; menaikkan batas saja tidak menjamin keterbacaan pada satu A4.
+Batas pengaman renderer tetap berlaku: source Mermaid 50.000 karakter/byte dan 500 node/500 relasi pada proyeksi PDF yang benar-benar dirender, SVG 4 MiB, full document/HTML 12 MiB, PDF 32 MiB, dan deadline 45 detik. Melebihi batas tetap menghasilkan kegagalan eksplisit. Pemilihan tampilan PDF tidak memotong model canonical atau Markdown; isi yang tidak masuk ringkasan disebutkan secara eksplisit. Keberhasilan pipeline analisis tidak menjamin PDF untuk ukuran repository sembarang. Proyeksi terbatas membantu penyajian, tetapi bukan alasan menaikkan guard atau menyatakan kapasitas tanpa pengujian.
 
 Penyimpanan dokumen dan publikasi hasil memakai transaksi maksimal 45 detik dengan acquisition wait 2 detik, lease worker produksi 120 detik, dan renewal maksimal 50 detik. Persiapan mirror JSON dilakukan sebelum transaksi; pemeriksaan owner, canonical content, checksum, immutable row, dan lease berdasarkan jam database tetap dijalankan. Pengujian harus mencakup transaksi lebih lama dari default Prisma lima detik serta renewal heartbeat yang bertabrakan dengan kunci transaksi.
 
@@ -34,6 +34,6 @@ Runtime lama memakai image worker yang hanya heartbeat. Setelah diperbarui, uji 
 
 Uji ulang provider nyata menyelesaikan **9/9 tahap**, publikasi atomik berstatus `COMPLETED_WITH_LIMITATIONS`, serta pembacaan graph dan dokumen dengan HTTP 200. Model memuat 6.656 node dan 8.563 relasi. Pengujian memakai credential GitHub App pengguna yang sudah tersimpan serta sesi lokal sementara yang dihapus sesudah tes; login OAuth baru tidak diuji ulang. Analisis berhasil tetap ada pada history pemiliknya.
 
-Model besar tersebut melampaui kapasitas renderer diagram/PDF di atas. Keberhasilan analyzer ini tidak diklaim sebagai keberhasilan ekspor PDF untuk repository sebesar itu; bukti PDF 4 halaman memakai fixture ekspor yang ukurannya berada dalam budget. Markdown lengkap tetap tidak dipotong untuk memaksa ekspor berhasil.
+Pada audit 27 Oktober dengan renderer 2.0.0, model besar tersebut melampaui kapasitas renderer diagram/PDF saat itu. Keberhasilan analyzer ini tidak diklaim sebagai keberhasilan ekspor PDF untuk repository sebesar itu; bukti PDF 4 halaman memakai fixture ekspor yang ukurannya berada dalam budget. Markdown lengkap tetap tidak dipotong untuk memaksa ekspor berhasil.
 
 Regresi PostgreSQL lulus untuk delayed insert >5 detik, rollback saat lease hilang, heartbeat yang benar-benar menunggu kunci dokumen pada lease 30 detik, serta SIGKILL worker produksi. Pemulihan SIGKILL menunggu expiry alami lease 120 detik, kemudian retry menyelesaikan sembilan tahap pada snapshot yang sama.
