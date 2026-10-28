@@ -8,37 +8,20 @@ import styles from "./ui.module.css";
 type AssetRecord = { src: string; width: string; height: string };
 const assets = assetManifest as Record<string, Record<string, AssetRecord>>;
 
-export function DesignFrame({ children, active = "none", preview = false }: {
+export function DesignFrame({ children, active = "none" }: {
   children: React.ReactNode;
   active?: "repositories" | "history" | "none";
-  preview?: boolean;
 }) {
-  const prefix = preview ? "/preview" : "/workspace";
   return <div className={styles.frame}>
     <a className={styles.skip} href="#main-content">Lewati navigasi</a>
     <header className={styles.header}>
-      <Link className={styles.brand} href={preview ? "/" : "/workspace"} aria-label="SAGE, halaman utama">SAGE<span>.</span></Link>
+      <Link className={styles.brand} href="/workspace" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link>
       <nav className={styles.nav} aria-label="Navigasi utama">
-        {preview ? <>
-          <Link href="/preview/progress">Progres</Link>
-          <Link href="/preview/history" aria-current={active === "history" ? "page" : undefined}>Riwayat</Link>
-          <Link href="/preview/graph?analysis=fixture-report">Knowledge Graph</Link>
-          <Link href="/preview/document?analysis=fixture-report">Dokumentasi</Link>
-        </> : <>
-          <Link href={`${prefix}/repositories`} aria-current={active === "repositories" ? "page" : undefined}>Repositories</Link>
-          <Link href={`${prefix}/history`} aria-current={active === "history" ? "page" : undefined}>Riwayat</Link>
-          <Link href="/preview/progress">Pratinjau</Link>
-        </>}
+        <Link href="/workspace/repositories" aria-current={active === "repositories" ? "page" : undefined}>Repository</Link>
+        <Link href="/workspace/history" aria-current={active === "history" ? "page" : undefined}>Riwayat</Link>
       </nav>
-      {preview ? <span className={styles.headerTag}>Mode pratinjau</span> : null}
     </header>
-    <main className={styles.main} id="main-content" tabIndex={-1}>
-      {preview ? <div className={styles.fixtureNotice} role="note">
-        <span className={styles.noticeMark} aria-hidden="true">i</span>
-        <p><strong>Data contoh, bukan hasil analisis.</strong> Layar ini memakai fixture lokal yang tidak terhubung ke GitHub dan tidak menjalankan job.</p>
-      </div> : null}
-      {children}
-    </main>
+    <main className={styles.main} id="main-content" tabIndex={-1}>{children}</main>
   </div>;
 }
 

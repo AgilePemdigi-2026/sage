@@ -1,13 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArchitectureDocumentV1 } from "@sage/documents/model";
 import { humanNodeName } from "@sage/documents/human";
 import type { CcmEdge, CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { DocumentPayload } from "../../lib/documents/types.ts";
-import { diagramBudget, parseLiveDocumentPayload } from "./document-data.ts";
-import { diagramSvgObjectUrl, DiagramRenderError, renderCanonicalDiagramSvg } from "./diagram-renderer.ts";
+import { boundedDiagramOverview, interactiveDiagramBudget, parseLiveDocumentPayload, projectInteractiveDiagram } from "./document-data.ts";
+import { diagramSvgObjectUrl, DiagramRenderError, renderInteractiveDiagramSvg } from "./diagram-renderer.ts";
+import { EvidenceLink } from "./evidence-links.tsx";
+import type { DiagramOverviewSummary } from "@sage/documents/overview";
 import { MarkdownExport, PdfExport } from "./markdown-export.tsx";
 import styles from "./live-document.module.css";
 
@@ -32,14 +34,6 @@ function responseMessage(value: unknown): string | null {
   return typeof value.error.message === "string" ? value.error.message : null;
 }
 
-function locationText(evidence: Pick<EvidenceSpan, "filePath" | "startLine" | "endLine"> | null): string {
-  if (!evidence) return "Bukti lokasi tidak tersedia";
-  const lineRange = evidence.startLine === evidence.endLine
-    ? String(evidence.startLine)
-    : `${evidence.startLine}–${evidence.endLine}`;
-  return `${evidence.filePath}:${lineRange}`;
-}
-
 function nodeName(node: CcmNode | undefined, _fallbackId: string): string {
   void _fallbackId;
   return node ? humanNodeName(node) : "Referensi tidak tersedia";
@@ -47,6 +41,14 @@ function nodeName(node: CcmNode | undefined, _fallbackId: string): string {
 
 function Metadata({ payload }: { payload: DocumentPayload }) {
   const document = payload.document;
+  const limitations = new Map<string, { stage: string; reason: string; paths: string[]; count: number }>();
+  for (const item of document.limitations) {
+    const key = `${item.stage}\u0000${item.reason}`;
+    const group = limitations.get(key) ?? { stage: item.stage, reason: item.reason, paths: [], count: 0 };
+    group.count += 1;
+    if (item.path) group.paths.push(item.path);
+    limitations.set(key, group);
+  }
   return <section className={styles.snapshotCard} aria-labelledby="document-snapshot-title">
     <h2 id="document-snapshot-title">Snapshot analisis</h2>
     <dl className={styles.metadataGrid}>
@@ -55,13 +57,100 @@ function Metadata({ payload }: { payload: DocumentPayload }) {
       <div><dt>Cakupan</dt><dd>{document.files.length} file · {document.canonicalCounts.nodes} node</dd></div>
       <div><dt>Hasil</dt><dd>{document.canonicalCounts.exactEdges} Exact · {document.canonicalCounts.unresolvedEdges} Unresolved</dd></div>
     </dl>
-    {document.limitations.length ? <details className={styles.unresolvedBox}><summary>Batasan analisis ({document.limitations.length})</summary><ul>{document.limitations.map((item, index) => <li key={index}>{item.path ? <code>{item.path}: </code> : null}{item.reason}</li>)}</ul></details> : null}
+    {document.limitations.length ? <Limitations groups={[...limitations.values()]} total={document.limitations.length} /> : null}
   </section>;
 }
 
-function InterfaceCatalog({ document }: { document: ArchitectureDocumentV1 }) {
+function Limitations({ groups, total }: { groups: Array<{ stage: string; reason: string; paths: string[]; count: number }>; total: number }) {
+  const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(groups.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  return <details className={styles.unresolvedBox} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary>Batasan analisis ({total}) · {groups.length} kategori</summary>
+    {open ? <div className={styles.limitationGroups}>
+      <PageControls page={currentPage} pageCount={pageCount} total={groups.length} pageSize={pageSize} onPage={setPage} />
+      {groups.slice(currentPage * pageSize, currentPage * pageSize + pageSize).map((group, index) => <LimitationGroup key={`${group.stage}:${currentPage * pageSize + index}`} group={group} />)}
+    </div> : null}
+  </details>;
+}
+
+function LimitationGroup({ group }: { group: { stage: string; reason: string; paths: string[]; count: number } }) {
+  const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(group.paths.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  return <details className={styles.limitationGroup} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary><strong>{group.count}</strong> · {group.stage} · {group.reason}</summary>
+    {open && group.paths.length ? <><PageControls page={currentPage} pageCount={pageCount} total={group.paths.length} pageSize={pageSize} onPage={setPage} /><ul>{group.paths.slice(currentPage * pageSize, currentPage * pageSize + pageSize).map((path, index) => <li key={`${path}:${currentPage * pageSize + index}`}><code>{path}</code></li>)}</ul></> : null}
+  </details>;
+}
+
+function PageControls({ page, pageCount, total, pageSize, onPage }: { page: number; pageCount: number; total: number; pageSize: number; onPage: (page: number) => void }) {
+  if (pageCount < 2) return <p className={styles.resultCount}>Menampilkan {total} item</p>;
+  const first = page * pageSize + 1;
+  const last = Math.min(total, first + pageSize - 1);
+  return <div className={styles.pagination} aria-label="Navigasi halaman">
+    <span className={styles.resultCount}>Menampilkan {first}–{last} dari {total}</span>
+    <div>
+      <button type="button" disabled={page === 0} onClick={() => onPage(page - 1)}>Sebelumnya</button>
+      <span aria-live="polite">Halaman {page + 1} dari {pageCount}</span>
+      <button type="button" disabled={page + 1 >= pageCount} onClick={() => onPage(page + 1)}>Berikutnya</button>
+    </div>
+  </div>;
+}
+
+function EvidenceDisclosure({ evidence, repository, commitSha, label }: { evidence: EvidenceSpan[]; repository: string; commitSha: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(evidence.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  return <details className={styles.inlineDetails} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary>{label} ({evidence.length})</summary>
+    {open ? <><PageControls page={currentPage} pageCount={pageCount} total={evidence.length} pageSize={pageSize} onPage={setPage} /><ul>{evidence.slice(currentPage * pageSize, currentPage * pageSize + pageSize).map((item, index) => <li key={`${item.filePath}:${item.startLine}:${item.endLine}:${item.role}:${currentPage * pageSize + index}`}><EvidenceLink repository={repository} commitSha={commitSha} evidence={item} role={item.role} /></li>)}</ul></> : null}
+  </details>;
+}
+
+function MemberDisclosure({ members }: { members: CcmNode[] }) {
+  const [open, setOpen] = useState(false);
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(members.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  return <details className={styles.inlineDetails} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary>{members.length} anggota · lihat kontrak</summary>
+    {open ? <><PageControls page={currentPage} pageCount={pageCount} total={members.length} pageSize={pageSize} onPage={setPage} /><ul>{members.slice(currentPage * pageSize, currentPage * pageSize + pageSize).map(member => <li key={member.id}><code>{member.signature ?? member.name}</code></li>)}</ul></> : null}
+  </details>;
+}
+
+function InterfaceCatalog({ payload }: { payload: DocumentPayload }) {
+  const document = payload.document;
   const { interfaceCatalog } = document;
   const nodeById = new Map(document.softwareEngineeringDiagram.nodes.map(node => [node.id, node]));
+  const membersByParent = new Map<string, CcmNode[]>();
+  for (const node of document.softwareEngineeringDiagram.nodes) {
+    if (node.parentId && ["Method", "Property"].includes(node.kind)) {
+      const members = membersByParent.get(node.parentId) ?? [];
+      members.push(node);
+      membersByParent.set(node.parentId, members);
+    }
+  }
+  const [query, setQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState("all");
+  const [fileFilter, setFileFilter] = useState("");
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const normalizedFile = fileFilter.trim().toLocaleLowerCase();
+  const visibleEntries = interfaceCatalog.entries.filter(entry => {
+    const declaration = entry.declaration;
+    const members = membersByParent.get(declaration.id) ?? [];
+    const searchText = [humanNodeName(declaration), declaration.kind, declaration.language, declaration.signature ?? "", declaration.filePath ?? "", ...members.map(member => `${member.name} ${member.signature ?? ""}`)].join(" ").toLocaleLowerCase();
+    return (kindFilter === "all" || declaration.kind === kindFilter) &&
+      (!normalizedFile || (declaration.filePath ?? "").toLocaleLowerCase().includes(normalizedFile)) &&
+      (!normalizedQuery || searchText.includes(normalizedQuery));
+  });
   const unresolved = interfaceCatalog.relations.filter(edge => edge.resolution === "Unresolved");
   return <section className={styles.contentCard} aria-labelledby="catalog-heading">
     <div className={styles.sectionHeading}><div><h2 id="catalog-heading">Interface Catalog</h2><p>Deklarasi source dan relasi yang tercatat pada model canonical, dilengkapi bukti file dan baris.</p></div></div>
@@ -70,44 +159,93 @@ function InterfaceCatalog({ document }: { document: ArchitectureDocumentV1 }) {
       <span><i className={styles.exactMark} aria-hidden="true" />Exact — relasi sesuai evidence yang terpetakan</span>
       <span><i className={styles.unresolvedMark} aria-hidden="true" />Unresolved — alasan belum terpecahkan dipertahankan</span>
     </div>
-    {interfaceCatalog.entries.length === 0 ? <p className={styles.emptyMessage}>CCM tidak mencatat deklarasi source untuk katalog.</p> : <div className={styles.tableScroll}>
-      <table className={styles.catalogTable}>
-        <thead><tr><th scope="col">Symbol</th><th scope="col">Contract</th><th scope="col">Evidence</th></tr></thead>
-        <tbody>{interfaceCatalog.entries.map((entry) => <tr key={entry.declaration.id}>
-          <td data-label="Symbol"><code>{humanNodeName(entry.declaration)}</code></td>
-          <td data-label="Kind / contract"><span className={styles.kind}>{entry.declaration.kind} · {entry.declaration.language}</span>{entry.declaration.signature ? <code>{entry.declaration.signature}</code> : document.softwareEngineeringDiagram.nodes.some(node => node.parentId === entry.declaration.id && ["Method", "Property"].includes(node.kind)) ? <code>{document.softwareEngineeringDiagram.nodes.filter(node => node.parentId === entry.declaration.id && ["Method", "Property"].includes(node.kind)).map(node => node.signature ?? node.name).join("; ")}</code> : <span className={styles.muted}>Kontrak tidak tersedia di CCM</span>}</td>
-          <td data-label="Evidence"><span className={styles.sourceEvidence}>{locationText(entry.declaration.location)}</span>{entry.evidence.filter(item => item.role !== "declaration").map((item, index) => <span key={`${item.filePath}:${item.startLine}:${item.role}:${index}`} className={styles.sourceEvidence}><br />{locationText(item)} · {item.role}</span>)}</td>
-
-        </tr>)}</tbody>
-      </table>
-    </div>}
-    {interfaceCatalog.relations.length > 0 ? <details className={styles.unresolvedBox}><summary id="catalog-relations-title">Relasi dan evidence lengkap</summary>
-      <div className={styles.tableScroll}><table className={styles.relationTable}>
-        <thead><tr><th scope="col">Source</th><th scope="col">Relasi</th><th scope="col">Target</th><th scope="col">Status / alasan</th><th scope="col">Evidence</th></tr></thead>
-        <tbody>{interfaceCatalog.relations.map((edge) => <RelationRow key={edge.id} edge={edge} nodeById={nodeById} />)}</tbody>
-      </table></div>
-    </details> : <p className={styles.emptyMessage}>CCM tidak mencatat relasi.</p>}
+    <div className={styles.catalogFilters}>
+      <label> Cari simbol <input type="search" value={query} onChange={event => setQuery(event.currentTarget.value)} placeholder="Nama, kontrak, bahasa…" /></label>
+      <label> Jenis <select value={kindFilter} onChange={event => setKindFilter(event.currentTarget.value)}><option value="all">Semua jenis</option>{[...new Set(interfaceCatalog.entries.map(entry => entry.declaration.kind))].sort().map(kind => <option key={kind} value={kind}>{kind}</option>)}</select></label>
+      <label> File <input type="search" value={fileFilter} onChange={event => setFileFilter(event.currentTarget.value)} placeholder="Filter path file" /></label>
+    </div>
+    {interfaceCatalog.entries.length === 0 ? <p className={styles.emptyMessage}>CCM tidak mencatat deklarasi source untuk katalog.</p> : visibleEntries.length === 0 ? <p className={styles.emptyMessage}>Tidak ada deklarasi yang cocok dengan filter.</p> : <CatalogPage key={`${query}:${kindFilter}:${fileFilter}`} entries={visibleEntries} membersByParent={membersByParent} repository={document.snapshot.repository} commitSha={document.snapshot.commitSha} />}
+    {/* CatalogPage owns the page state so filters never leave stale rows mounted. */}
+    {interfaceCatalog.relations.length > 0 ? <RelationsDisclosure edges={interfaceCatalog.relations} nodeById={nodeById} repository={document.snapshot.repository} commitSha={document.snapshot.commitSha} /> : <p className={styles.emptyMessage}>CCM tidak mencatat relasi.</p>}
     {unresolved.length ? <p className={styles.emptyMessage}>{unresolved.length} relasi belum terpecahkan; alasan dan evidence tercantum pada tabel relasi.</p> : null}
   </section>;
 }
 
-function RelationRow({ edge, nodeById }: { edge: CcmEdge; nodeById: Map<string, CcmNode> }) {
+function CatalogPage({ entries, membersByParent, repository, commitSha }: { entries: ArchitectureDocumentV1["interfaceCatalog"]["entries"]; membersByParent: Map<string, CcmNode[]>; repository: string; commitSha: string }) {
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(entries.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const visible = entries.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
+  return <>
+    <PageControls page={currentPage} pageCount={pageCount} total={entries.length} pageSize={pageSize} onPage={setPage} />
+    <div className={styles.tableScroll}>
+      <table className={styles.catalogTable}>
+        <thead><tr><th scope="col">Symbol</th><th scope="col">Contract</th><th scope="col">Evidence</th></tr></thead>
+        <tbody>{visible.map((entry) => {
+          const members = membersByParent.get(entry.declaration.id) ?? [];
+          const extraEvidence = entry.evidence.filter(item => item.role !== "declaration");
+          return <tr key={entry.declaration.id}>
+          <td data-label="Symbol"><code>{humanNodeName(entry.declaration)}</code></td>
+          <td data-label="Kind / contract"><span className={styles.kind}>{entry.declaration.kind} · {entry.declaration.language}</span>{entry.declaration.signature ? <ContractText value={entry.declaration.signature} /> : members.length ? <MemberDisclosure members={members} /> : <span className={styles.muted}>Kontrak tidak tersedia di CCM</span>}</td>
+          <td data-label="Evidence">{entry.declaration.location ? <EvidenceLink repository={repository} commitSha={commitSha} evidence={entry.declaration.location} role="deklarasi" /> : <span className={styles.muted}>Bukti lokasi tidak tersedia</span>}{extraEvidence.length ? <EvidenceDisclosure evidence={extraEvidence} repository={repository} commitSha={commitSha} label="Bukti terkait" /> : null}</td>
+        </tr>;
+        })}</tbody>
+      </table>
+    </div>
+  </>;
+}
+
+function ContractText({ value }: { value: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const limit = 180;
+  return value.length <= limit ? <code>{value}</code> : <details className={styles.inlineDetails} onToggle={event => setExpanded(event.currentTarget.open)}><summary>{expanded ? "Sembunyikan kontrak" : "Lihat kontrak lengkap"}</summary><code>{expanded ? value : `${value.slice(0, limit)}…`}</code></details>;
+}
+
+function RelationsDisclosure({ edges, nodeById, repository, commitSha }: { edges: CcmEdge[]; nodeById: Map<string, CcmNode>; repository: string; commitSha: string }) {
+  const [open, setOpen] = useState(false);
+  return <details className={styles.unresolvedBox} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary id="catalog-relations-title">Relasi dan evidence ({edges.length})</summary>
+    {open ? <RelationsTable edges={edges} nodeById={nodeById} repository={repository} commitSha={commitSha} /> : null}
+  </details>;
+}
+
+function RelationsTable({ edges, nodeById, repository, commitSha }: { edges: CcmEdge[]; nodeById: Map<string, CcmNode>; repository: string; commitSha: string }) {
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(edges.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const visible = edges.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
+  return <>
+    <PageControls page={currentPage} pageCount={pageCount} total={edges.length} pageSize={pageSize} onPage={setPage} />
+    <div className={styles.tableScroll}><table className={styles.relationTable}>
+      <thead><tr><th scope="col">Source</th><th scope="col">Relasi</th><th scope="col">Target</th><th scope="col">Status / alasan</th><th scope="col">Evidence</th></tr></thead>
+      <tbody>{visible.map(edge => <RelationRow key={edge.id} edge={edge} nodeById={nodeById} repository={repository} commitSha={commitSha} />)}</tbody>
+    </table></div>
+  </>;
+}
+
+function RelationRow({ edge, nodeById, repository, commitSha }: { edge: CcmEdge; nodeById: Map<string, CcmNode>; repository: string; commitSha: string }) {
   return <tr>
     <td data-label="Source"><code>{nodeName(nodeById.get(edge.sourceId), edge.sourceId)}</code></td>
     <td data-label="Relasi"><code>{edge.kind}</code></td>
     <td data-label="Target"><code>{nodeName(nodeById.get(edge.targetId), edge.targetId)}</code></td>
     <td data-label="Status / alasan"><strong>{edge.resolution}</strong>{edge.unresolvedReason ? <><br /><span>{edge.unresolvedReason}</span></> : null}</td>
-    <td data-label="Evidence">{edge.evidence.length ? edge.evidence.map((item, index) => <span key={`${item.filePath}:${item.startLine}:${index}`} className={styles.sourceEvidence}>{index > 0 ? <br /> : null}{locationText(item)} · {item.role}</span>) : <span className={styles.muted}>Bukti lokasi tidak tersedia</span>}</td>
+    <td data-label="Evidence">{edge.evidence.length ? <EvidenceDisclosure evidence={edge.evidence} repository={repository} commitSha={commitSha} label="Lihat evidence" /> : <span className={styles.muted}>Bukti lokasi tidak tersedia</span>}</td>
   </tr>;
 }
 
 function DiagramSection({
   diagram,
+  overview,
+  overviewSummary,
   label,
   ckgSha256,
   accountKey,
 }: {
   diagram: DiagramProjection;
+  overview: DiagramProjection;
+  overviewSummary: DiagramOverviewSummary;
   label: string;
   ckgSha256: string;
   accountKey: string;
@@ -115,10 +253,17 @@ function DiagramSection({
   const [result, setResult] = useState<{ key: string; state: "ready" | "error" | "unavailable"; url?: string } | null>(null);
   const [attempt, setAttempt] = useState(0);
   const [zoomState, setZoomState] = useState<{ key: string; percent: number } | null>(null);
+  const [forcedOverview, setForcedOverview] = useState<{ key: string } | null>(null);
   const generation = useRef(0);
   const currentUrl = useRef<string | null>(null);
-  const budget = diagramBudget(diagram);
+  const fullProjection = useMemo(() => projectInteractiveDiagram(diagram), [diagram]);
+  const fullBudget = interactiveDiagramBudget(fullProjection);
   const renderKey = `${accountKey}:${ckgSha256}:${label}:${diagram.kind}:${attempt}`;
+  const fallbackProjection = useMemo(() => projectInteractiveDiagram(overview), [overview]);
+  const fallbackBudget = interactiveDiagramBudget(fallbackProjection);
+  const useOverview = fullBudget.kind === "unavailable" || forcedOverview?.key === renderKey;
+  const projection = useOverview ? fallbackProjection : fullProjection;
+  const budget = useOverview ? fallbackBudget : fullBudget;
   const currentResult = result?.key === renderKey ? result : null;
   const state = budget.kind === "unavailable" ? "unavailable" : currentResult?.state ?? "loading";
   const url = currentResult?.url ?? null;
@@ -133,7 +278,7 @@ function DiagramSection({
     void (async () => {
       try {
         const seed = `${ckgSha256}-${label}-${accountKey}`;
-        const svg = await renderCanonicalDiagramSvg(diagram, seed, () => active && generation.current === renderGeneration);
+        const svg = await renderInteractiveDiagramSvg(projection, seed, () => active && generation.current === renderGeneration);
         if (!active || generation.current !== renderGeneration || !svg) return;
         const nextUrl = diagramSvgObjectUrl(svg);
         if (!active || generation.current !== renderGeneration) {
@@ -144,6 +289,10 @@ function DiagramSection({
         setResult({ key: renderKey, state: "ready", url: nextUrl });
       } catch (cause) {
         if (!active || generation.current !== renderGeneration) return;
+        if (cause instanceof DiagramRenderError && cause.code === "OVER_BUDGET" && !useOverview && fallbackBudget.kind === "ready") {
+          setForcedOverview({ key: renderKey });
+          return;
+        }
         setResult({ key: renderKey, state: cause instanceof DiagramRenderError && cause.code === "OVER_BUDGET" ? "unavailable" : "error" });
       }
     })();
@@ -154,11 +303,12 @@ function DiagramSection({
       if (currentUrl.current) URL.revokeObjectURL(currentUrl.current);
       currentUrl.current = null;
     };
-  }, [accountKey, attempt, budget.kind, ckgSha256, diagram, label, renderKey]);
+  }, [accountKey, attempt, budget.kind, ckgSha256, fallbackBudget.kind, label, projection, renderKey, useOverview]);
 
   if (budget.kind === "unavailable") return <p className={styles.diagramStatus} role="status">Diagram tidak tersedia: {budget.reason} Katalog dan evidence tetap tersedia.</p>;
 
   return <>
+    {useOverview ? <p className={styles.projectionSummary} role="note">Ikhtisar terpilih menampilkan {overviewSummary.shownNodes} dari {overviewSummary.totalNodes} deklarasi dan {overviewSummary.shownRelations} dari {overviewSummary.totalRelations} kelompok relasi. Detail lengkap dapat ditelusuri di katalog dan tabel evidence.</p> : projection.sourceNodeCount !== projection.displayNodeCount || projection.sourceEdgeCount !== projection.displayEdgeCount ? <p className={styles.projectionSummary} role="note">Tampilan diringkas dari {projection.sourceNodeCount} node dan {projection.sourceEdgeCount} relasi menjadi {projection.displayNodeCount} elemen visual dan {projection.displayEdgeCount} garis. Katalog dan bukti sumber di bawah tetap memuat detail lengkap.</p> : null}
     {state === "loading" ? <p className={styles.diagramStatus} role="status">Merender diagram canonical secara lokal…</p> : null}
     {state === "unavailable" ? <p className={styles.diagramStatus} role="status">Diagram tidak tersedia karena hasil SVG melewati batas keamanan 4 MiB. Katalog dan evidence tetap tersedia.</p> : null}
     {state === "error" ? <div className={styles.diagramStatus} role="alert">
@@ -187,8 +337,10 @@ function DiagramSection({
 
 function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload; section: Exclude<SectionId, "catalog"> }) {
   const diagram = section === "structure" ? payload.document.softwareEngineeringDiagram : payload.document.umlClassDiagram;
+  const overview = useMemo(() => boundedDiagramOverview(payload.document.softwareEngineeringDiagram, payload.document.umlClassDiagram, diagram.kind), [payload.document, diagram.kind]);
   const label = section === "structure" ? sections[1].label : sections[2].label;
   const nodeById = new Map(diagram.nodes.map(node => [node.id, node]));
+  const edgeById = new Map(diagram.edges.map(edge => [edge.id, edge]));
   const unresolvedEdges = diagram.edges.filter(edge => edge.resolution === "Unresolved");
   return <section className={styles.contentCard} aria-labelledby="diagram-heading">
     <div className={styles.sectionHeading}><div><h2 id="diagram-heading">{label}</h2><p>Diagram source untuk mempelajari struktur dan ketergantungan kode. Anggota class diringkas ke pemiliknya pada diagram struktur; detail bukti tersedia di bawah.</p></div></div>
@@ -197,38 +349,92 @@ function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload
       <span><i className={styles.unresolvedMark} aria-hidden="true" />Unresolved</span>
       <span>Teal: class · Ungu: interface · Biru: function · Abu: module · Amber: unresolved</span>
     </div>
-    <DiagramSection diagram={diagram} label={label} ckgSha256={payload.document.ckgSha256} accountKey={payload.accountKey} />
-    {diagram.nodeMappings.length ? <details className={styles.evidenceDetails}>
-      <summary id="diagram-evidence-title">Bukti node pada diagram</summary>
-      <div className={styles.tableScroll}><table className={styles.mappingTable}>
-        <thead><tr><th scope="col">Node</th><th scope="col">Kind</th><th scope="col">Evidence source</th></tr></thead>
-        <tbody>{diagram.nodeMappings.map((mapping, index) => {
-          const node = nodeById.get(mapping.nodeId);
-          const evidence = mapping.evidence ?? node?.location ?? null;
-          return <tr key={`${mapping.nodeId}:${mapping.mermaidLine}:${index}`}>
-            <td data-label="Node"><code>{nodeName(node, mapping.nodeId)}</code></td>
-            <td data-label="Kind">{node?.kind ?? "Member"}</td>
-            <td data-label="Evidence source"><span className={styles.sourceEvidence}>{locationText(evidence)}</span></td>
-          </tr>;
-        })}</tbody>
-      </table></div>
-    </details> : <p className={styles.emptyMessage}>Diagram tidak memiliki mapping node.</p>}
-    {diagram.edgeMappings.length ? <details className={styles.evidenceDetails}>
-      <summary id="diagram-relations-title">Relasi dan evidence</summary>
-      <div className={styles.tableScroll}><table className={styles.mappingTable}>
-        <thead><tr><th scope="col">Relasi</th><th scope="col">Status</th><th scope="col">Evidence source</th></tr></thead>
-        <tbody>{diagram.edgeMappings.map((mapping) => {
-          const edge = diagram.edges.find(item => item.id === mapping.edgeId);
-          return <tr key={mapping.edgeId}>
-            <td data-label="Relasi"><code>{edge?.kind ?? mapping.edgeId}</code>{edge ? <span><br />{nodeName(nodeById.get(edge.sourceId), edge.sourceId)} → {nodeName(nodeById.get(edge.targetId), edge.targetId)}</span> : null}</td>
-            <td data-label="Status">{edge?.resolution ?? "Tidak diketahui"}{edge?.unresolvedReason ? <><br />{edge.unresolvedReason}</> : null}</td>
-            <td data-label="Evidence source">{mapping.evidence.length ? mapping.evidence.map((item, index) => <span key={`${item.filePath}:${item.startLine}:${index}`} className={styles.sourceEvidence}>{index ? <br /> : null}{locationText(item)}</span>) : <span className={styles.muted}>Bukti lokasi tidak tersedia</span>}</td>
-          </tr>;
-        })}</tbody>
-      </table></div>
-    </details> : <p className={styles.emptyMessage}>Diagram tidak mencatat edge.</p>}
+    <DiagramSection diagram={diagram} overview={overview.diagram} overviewSummary={overview.summary} label={label} ckgSha256={payload.document.ckgSha256} accountKey={payload.accountKey} />
+    {diagram.nodeMappings.length ? <NodeEvidenceDisclosure mappings={diagram.nodeMappings} nodeById={nodeById} repository={payload.document.snapshot.repository} commitSha={payload.document.snapshot.commitSha} /> : <p className={styles.emptyMessage}>Diagram tidak memiliki mapping node.</p>}
+    {diagram.edgeMappings.length ? <EdgeEvidenceDisclosure mappings={diagram.edgeMappings} edgeById={edgeById} nodeById={nodeById} repository={payload.document.snapshot.repository} commitSha={payload.document.snapshot.commitSha} /> : <p className={styles.emptyMessage}>Diagram tidak mencatat edge.</p>}
     {unresolvedEdges.length ? <p className={styles.emptyMessage}>{unresolvedEdges.length} relasi Unresolved; alasan dan evidence tetap dicantumkan di atas.</p> : null}
   </section>;
+}
+
+function NodeEvidenceDisclosure({ mappings, nodeById, repository, commitSha }: {
+  mappings: DiagramProjection["nodeMappings"];
+  nodeById: Map<string, CcmNode>;
+  repository: string;
+  commitSha: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return <details className={styles.evidenceDetails} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary id="diagram-evidence-title">Bukti node pada diagram ({mappings.length})</summary>
+    {open ? <NodeEvidenceTable mappings={mappings} nodeById={nodeById} repository={repository} commitSha={commitSha} /> : null}
+  </details>;
+}
+
+function NodeEvidenceTable({ mappings, nodeById, repository, commitSha }: {
+  mappings: DiagramProjection["nodeMappings"];
+  nodeById: Map<string, CcmNode>;
+  repository: string;
+  commitSha: string;
+}) {
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(mappings.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const visible = mappings.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
+  return <><PageControls page={currentPage} pageCount={pageCount} total={mappings.length} pageSize={pageSize} onPage={setPage} />
+    <div className={styles.tableScroll}><table className={styles.mappingTable}>
+      <thead><tr><th scope="col">Node</th><th scope="col">Jenis</th><th scope="col">Evidence</th></tr></thead>
+      <tbody>{visible.map((mapping, index) => {
+        const node = nodeById.get(mapping.nodeId);
+        const evidence = mapping.evidence ?? node?.location ?? null;
+        return <tr key={`${mapping.nodeId}:${mapping.mermaidLine}:${currentPage * pageSize + index}`}>
+          <td data-label="Node"><code>{nodeName(node, mapping.nodeId)}</code></td>
+          <td data-label="Jenis">{node?.kind ?? "Member"}</td>
+          <td data-label="Evidence">{evidence ? <EvidenceLink repository={repository} commitSha={commitSha} evidence={evidence} role="node" /> : <span className={styles.muted}>Bukti lokasi tidak tersedia</span>}</td>
+        </tr>;
+      })}</tbody>
+    </table></div>
+  </>;
+}
+
+function EdgeEvidenceDisclosure({ mappings, edgeById, nodeById, repository, commitSha }: {
+  mappings: DiagramProjection["edgeMappings"];
+  edgeById: Map<string, CcmEdge>;
+  nodeById: Map<string, CcmNode>;
+  repository: string;
+  commitSha: string;
+}) {
+  const [open, setOpen] = useState(false);
+  return <details className={styles.evidenceDetails} onToggle={event => setOpen(event.currentTarget.open)}>
+    <summary id="diagram-relations-title">Relasi dan evidence ({mappings.length})</summary>
+    {open ? <EdgeEvidenceTable mappings={mappings} edgeById={edgeById} nodeById={nodeById} repository={repository} commitSha={commitSha} /> : null}
+  </details>;
+}
+
+function EdgeEvidenceTable({ mappings, edgeById, nodeById, repository, commitSha }: {
+  mappings: DiagramProjection["edgeMappings"];
+  edgeById: Map<string, CcmEdge>;
+  nodeById: Map<string, CcmNode>;
+  repository: string;
+  commitSha: string;
+}) {
+  const [page, setPage] = useState(0);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(mappings.length / pageSize));
+  const currentPage = Math.min(page, pageCount - 1);
+  const visible = mappings.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
+  return <><PageControls page={currentPage} pageCount={pageCount} total={mappings.length} pageSize={pageSize} onPage={setPage} />
+    <div className={styles.tableScroll}><table className={styles.mappingTable}>
+      <thead><tr><th scope="col">Relasi</th><th scope="col">Status</th><th scope="col">Evidence</th></tr></thead>
+      <tbody>{visible.map(mapping => {
+        const edge = edgeById.get(mapping.edgeId);
+        return <tr key={mapping.edgeId}>
+          <td data-label="Relasi"><code>{edge?.kind ?? mapping.edgeId}</code>{edge ? <span><br />{nodeName(nodeById.get(edge.sourceId), edge.sourceId)} → {nodeName(nodeById.get(edge.targetId), edge.targetId)}</span> : null}</td>
+          <td data-label="Status">{edge?.resolution ?? "Tidak diketahui"}{edge?.unresolvedReason ? <><br />{edge.unresolvedReason}</> : null}</td>
+          <td data-label="Evidence">{mapping.evidence.length ? <EvidenceDisclosure evidence={mapping.evidence} repository={repository} commitSha={commitSha} label="Lihat evidence" /> : <span className={styles.muted}>Bukti lokasi tidak tersedia</span>}</td>
+        </tr>;
+      })}</tbody>
+    </table></div>
+  </>;
 }
 
 export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: string; accountKey: string }) {
@@ -455,7 +661,7 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
         />
       </div>
 
-          {section === "catalog" ? <InterfaceCatalog document={visiblePayload.document} /> :
+          {section === "catalog" ? <InterfaceCatalog payload={visiblePayload} /> :
             <DiagramDocumentSection key={`${accountKey}:${visiblePayload.document.ckgSha256}:${section}`} payload={visiblePayload} section={section} />}
         </div>
       </div>

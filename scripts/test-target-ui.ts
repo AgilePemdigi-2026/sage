@@ -70,21 +70,42 @@ try {
     });
     await page.goto(`${base}/workspace/repositories`);
     await page.getByRole("heading", { name: `Repository public milik @${user.login}`, exact: true }).waitFor();
-    await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).waitFor();
+    await page.getByRole("button", { name: "Pilih repository", exact: true }).first().waitFor();
     await page.getByRole("button", { name: "Repository public berikutnya", exact: true }).click();
-    await page.getByRole("button", { name: `Pilih ${secondOwnedPublicRepo.fullName}`, exact: true }).waitFor();
-    await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).click();
+    await page.getByRole("button", { name: "Pilih repository", exact: true }).first().waitFor();
+    await page.getByText(secondOwnedPublicRepo.fullName, { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Pilih repository", exact: true }).first().click();
+    const selectedPublicHeading = page.getByRole("heading", { name: `Siapkan analisis: ${ownedPublicRepo.fullName}`, exact: true });
+    await selectedPublicHeading.waitFor();
+    await page.waitForFunction(() => {
+      const heading = document.querySelector<HTMLElement>("#analysis-target-heading");
+      return document.activeElement === heading && Boolean(heading && heading.getBoundingClientRect().top >= 0 && heading.getBoundingClientRect().top < innerHeight);
+    });
+    assert.equal(await page.getByRole("heading", { name: `Repository public milik @${user.login}`, exact: true }).count(), 0, "after selection the target step replaces the long repository list");
     await page.getByRole("button", { name: "Periksa target", exact: true }).click();
     await page.getByText("Target tervalidasi", { exact: true }).waitFor();
     assert.deepEqual(submittedTargets.at(-1), { repository: ownedPublicRepo.fullName, branch: "main", commit: null });
+    await page.getByRole("button", { name: "Pilih repository lain", exact: true }).click();
+    await page.getByRole("heading", { name: `Repository public milik @${user.login}`, exact: true }).waitFor();
     await page.getByRole("button", { name: "Instalasi berikutnya", exact: true }).click();
     await page.getByRole("button", { name: "other", exact: true }).waitFor();
     await page.getByRole("button", { name: "example", exact: true }).click();
     await page.getByRole("button", { name: "Repository berikutnya", exact: true }).click();
-    await page.getByRole("button", { name: "Pilih example/private", exact: true }).waitFor();
+    await page.getByRole("button", { name: "Pilih repository", exact: true }).last().waitFor();
+    await page.getByRole("listitem").filter({ has: page.getByText("example/private", { exact: true }) }).getByRole("button", { name: "Pilih repository", exact: true }).click();
+    await page.getByRole("heading", { name: "Siapkan analisis: example/private", exact: true }).waitFor();
+    await page.waitForFunction(() => document.activeElement?.id === "analysis-target-heading");
+    assert.ok(await page.getByText("Private · berizin", { exact: false }).isVisible());
+    await page.getByRole("button", { name: "Pilih repository lain", exact: true }).click();
     const search = page.getByLabel("Cari pada repository App yang sudah dimuat");
     await search.fill("missing"); await page.getByText("Tidak ada hasil pencarian pada halaman yang dimuat.").waitFor();
-    await search.fill("sample"); await page.getByRole("button", { name: "Pilih example/sample", exact: true }).click();
+    await search.fill("sample"); await page.getByRole("button", { name: "Pilih repository", exact: true }).last().click();
+    const selectedPrivateHeading = page.getByRole("heading", { name: `Siapkan analisis: ${repo.fullName}`, exact: true });
+    await selectedPrivateHeading.waitFor();
+    await page.waitForFunction(() => {
+      const heading = document.querySelector<HTMLElement>("#analysis-target-heading");
+      return document.activeElement === heading && Boolean(heading && heading.getBoundingClientRect().top >= 0 && heading.getBoundingClientRect().top < innerHeight);
+    });
     await page.getByRole("button", { name: "Muat branch berikutnya", exact: true }).click();
     await page.getByLabel("Branch", { exact: true }).locator('option[value="release"]').waitFor({ state: "attached" });
     assert.equal(await page.getByLabel("Branch", { exact: true }).locator('option[value="feature/demo"]').count(), 1);
@@ -100,13 +121,20 @@ try {
     assert.equal(await page.getByRole("button", { name: "Periksa target", exact: true }).isDisabled(), true);
     mode = "empty"; await page.getByRole("button", { name: "Muat ulang branch" }).click(); await page.getByText("Repository ini belum memiliki branch.", { exact: false }).waitFor();
     mode = "ready"; await page.getByRole("button", { name: "Muat ulang branch" }).click(); await page.getByLabel("Branch", { exact: true }).selectOption("main");
+    await page.getByRole("button", { name: "Pilih repository lain", exact: true }).click();
     const publicInput = page.getByLabel("Nama atau URL GitHub");
     resolveFails = true; await publicInput.fill("https://127.0.0.1/private");
     await page.getByRole("button", { name: "Periksa repository", exact: true }).click();
     await page.getByRole("alert").filter({ hasText: "Gunakan URL github.com" }).waitFor();
     resolveFails = false; await publicInput.fill("https://github.com/octocat/Hello-World");
     await page.getByRole("button", { name: "Periksa repository", exact: true }).click();
-    await page.getByRole("button", { name: "Pilih octocat/Hello-World", exact: true }).click();
+    await page.getByRole("listitem").filter({ has: page.getByText(publicRepo.fullName, { exact: true }) }).getByRole("button", { name: "Pilih repository", exact: true }).click();
+    const selectedOtherHeading = page.getByRole("heading", { name: `Siapkan analisis: ${publicRepo.fullName}`, exact: true });
+    await selectedOtherHeading.waitFor();
+    await page.waitForFunction(() => {
+      const heading = document.querySelector<HTMLElement>("#analysis-target-heading");
+      return document.activeElement === heading && Boolean(heading && heading.getBoundingClientRect().top >= 0 && heading.getBoundingClientRect().top < innerHeight);
+    });
     await page.getByRole("button", { name: "Periksa target", exact: true }).click();
     await page.getByText("Target tervalidasi", { exact: true }).waitFor();
     assert.deepEqual(submittedTargets.at(-1), { repository: publicRepo.fullName, branch: "main", commit: null });
@@ -116,6 +144,7 @@ try {
     assert.equal(await page.getByText("Target tervalidasi", { exact: true }).count(), 0);
     targetFails = false; await page.getByRole("button", { name: "Periksa target", exact: true }).click();
     await page.getByText("Target tervalidasi", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Pilih repository lain", exact: true }).click();
     providerUnauthorized = true;
     await page.getByRole("button", { name: "Muat ulang repository public", exact: true }).click();
     await page.getByRole("alert").filter({ hasText: "akses GitHub perlu diperbarui" }).waitFor();
@@ -132,7 +161,7 @@ try {
     await page.getByRole("button", { name: "example", exact: true }).waitFor();
     assert.equal(analysisRequests, 0, "Target validation must not submit analysis jobs");
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
-    assert.deepEqual(errors, []); checks.push(`${width}: account-bound identity, own public listing/pagination/direct branch-target selection, installation/repository/branch pagination, branch deduplication, search, private card, public form and invalid URL feedback, slash branch, explicit/empty commit payload, stale reset, target error/retry, branch/installation error/empty/retry, no analysis submission, no overflow or JS errors`);
+    assert.deepEqual(errors, []); checks.push(`${width}: account-bound identity, own public listing/pagination, public/private/public-other repository selection moves to a focused visible target step, alternate repository navigation, installation/repository/branch pagination, branch deduplication, search, public form and invalid URL feedback, slash branch, explicit/empty commit payload, stale reset, target error/retry, branch/installation error/empty/retry, no analysis submission, no overflow or JS errors`);
     await page.screenshot({ path: `${output}/target-${width}.png`, fullPage: true });
     await context.close();
   }

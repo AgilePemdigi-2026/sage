@@ -304,8 +304,13 @@ async function selectFixtureRepository(page: Page): Promise<void> {
   await page.getByRole("heading", { name: "Pilih repository", exact: true }).waitFor();
   await page.getByRole("button", { name: fixtureOwner, exact: true }).waitFor();
   await page.getByRole("button", { name: fixtureOwner, exact: true }).click();
-  await page.getByRole("button", { name: `Pilih ${fixtureFullName}`, exact: true }).waitFor();
-  await page.getByRole("button", { name: `Pilih ${fixtureFullName}`, exact: true }).click();
+  await page.getByRole("button", { name: "Pilih repository", exact: true }).last().waitFor();
+  await page.getByRole("button", { name: "Pilih repository", exact: true }).last().click();
+  await page.getByRole("heading", { name: `Siapkan analisis: ${fixtureFullName}`, exact: true }).waitFor();
+  await page.waitForFunction(() => {
+    const heading = document.querySelector<HTMLElement>("#analysis-target-heading");
+    return document.activeElement === heading && Boolean(heading && heading.getBoundingClientRect().top >= 0 && heading.getBoundingClientRect().top < innerHeight);
+  });
   await page.getByLabel("Branch", { exact: true }).locator('option[value="main"]').waitFor({ state: "attached" });
 }
 
@@ -535,6 +540,14 @@ async function runLivePipelineRegression(): Promise<void> {
     await page.waitForURL(`${base}/analyses/${mainAnalysisId}`);
     assert.equal(new URL(page.url()).pathname, `/analyses/${mainAnalysisId}`, "successful submission redirects to live analysis progress");
     await page.getByRole("heading", { name: fixtureFullName, exact: true }).waitFor();
+    const elapsedTimer = page.getByRole("timer");
+    await elapsedTimer.waitFor();
+    const firstElapsedValue = await elapsedTimer.locator("strong").innerText();
+    assert.match(firstElapsedValue, /^\d{2,}:\d{2}:\d{2}$/);
+    await page.waitForFunction(previous => {
+      const value = document.querySelector('[role="timer"] strong')?.textContent;
+      return Boolean(value && value !== previous);
+    }, firstElapsedValue, { timeout: 5000 });
     const submitted = await db.analysis.findUnique({
       where: { id: mainAnalysisId },
       select: { ownerUserId: true, repositoryId: true, repositoryFullNameSnapshot: true, branchName: true, commitSha: true, configurationHash: true, status: true, jobs: { where: { type: "ANALYSIS" }, select: { id: true, status: true } } },
@@ -547,7 +560,7 @@ async function runLivePipelineRegression(): Promise<void> {
     assert.equal(submitted.commitSha, fixtureCommit);
     assert.ok(["QUEUED", "RUNNING", "COMPLETED", "COMPLETED_WITH_LIMITATIONS"].includes(submitted.status), "worker may claim and finish the queue row immediately after live submission");
     assert.equal(submitted.jobs.length, 1);
-    checks.push("production repository UI validates the selected private target and POSTs a real idempotent analysis job to PostgreSQL");
+    checks.push("production repository UI validates the selected private target, focuses the compact target step, shows advancing elapsed time, and POSTs a real idempotent analysis job to PostgreSQL");
 
     const replay = await apiCall<QueuedResponse>("/api/analyses", {
       account: owner, method: "POST", body: submittedPayload, idempotencyKey: submissionKey, origin,

@@ -16,10 +16,6 @@ const suites = [
   { name: "auth-workspace", script: "scripts/test-auth-ui.ts", evidence: "auth" },
   { name: "repository-target", script: "scripts/test-target-ui.ts", evidence: "repository" },
   { name: "account-isolation", script: "scripts/test-account-ui.ts", evidence: "accounts" },
-  { name: "figma-preview", script: "scripts/test-figma-ui.ts", evidence: "figma" },
-  { name: "ui-foundation", script: "scripts/test-ui-foundation.ts", evidence: "ui-foundation" },
-  { name: "graph-foundation", script: "scripts/test-graph-foundation.ts", evidence: "graph-foundation" },
-  { name: "ui-baseline", script: "scripts/test-ui-baseline.ts", evidence: "ui-baseline" },
 ];
 const results: object[] = [];
 let failed = false;
@@ -54,8 +50,8 @@ const report = {
   applicationBaseCommitSha: process.env.QA_APP_COMMIT_SHA ?? null,
   lockfileSha256: createHash("sha256").update(await readFile("package-lock.json")).digest("hex"),
   runtime: { node: process.version, platform: process.platform, arch: process.arch },
-  scope: "Current landing/auth/workspace/repository UI and fixture previews; controlled responses and disposable sessions are labelled in suite reports.",
-  limitations: ["No live GitHub approval or token exchange in this aggregate run.", "Repository responses are controlled; real provider requires a separate opted-in live test.", "Consumer pipeline is disabled. Product analysis results, PDF export, history and deletion remain NOT_IMPLEMENTED; fixture behavior does not close their acceptance."],
+  scope: "Current landing/auth/workspace/repository UI and retired preview route checks; controlled responses and disposable sessions are labelled in suite reports.",
+  limitations: ["No live GitHub approval or token exchange in this aggregate run.", "Repository responses are controlled; real provider requires a separate opted-in live test.", "Graph, document, worker publication and export are covered by separate opted-in live suites; this aggregate does not claim those checks."],
   results,
 };
 await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2) + "\n");

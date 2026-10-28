@@ -4,7 +4,8 @@ import test from "node:test";
 import { canonicalizeCkg } from "@sage/contracts";
 import { projectArchitectureDocument } from "@sage/documents/model";
 import type { DocumentPayload } from "../apps/web/lib/documents/types.ts";
-import { diagramBudget, parseLiveDocumentPayload } from "../apps/web/components/live-document/document-data.ts";
+import { boundedDiagramOverview, diagramBudget, interactiveDiagramBudget, parseLiveDocumentPayload, projectInteractiveDiagram } from "../apps/web/components/live-document/document-data.ts";
+import { githubEvidenceHref } from "../apps/web/components/live-document/evidence-link-data.ts";
 
 async function fixture(): Promise<DocumentPayload> {
   const [source, ccmJson] = await Promise.all([
@@ -70,4 +71,54 @@ test("document diagrams respect both character and byte budgets without truncati
   assert.deepEqual(diagramBudget(tooManyEdges), {
     kind: "unavailable", reason: "Diagram melewati batas 500 node atau 500 relasi.",
   });
+});
+
+test("evidence links use the immutable snapshot and reject unsafe repository paths", () => {
+  const sha = "0123456789abcdef0123456789abcdef01234567";
+  const evidence = { filePath: "src/space here/a#b.ts", startLine: 12, endLine: 18 };
+  assert.equal(
+    githubEvidenceHref("owner/repo", sha, evidence),
+    `https://github.com/owner/repo/blob/${sha}/src/space%20here/a%23b.ts#L12-L18`,
+  );
+  assert.equal(githubEvidenceHref("owner/repo", sha, { ...evidence, endLine: 12 }),
+    `https://github.com/owner/repo/blob/${sha}/src/space%20here/a%23b.ts#L12`);
+  assert.equal(githubEvidenceHref("owner/repo", sha, { ...evidence, filePath: "../secret.ts" }), null);
+  assert.equal(githubEvidenceHref("owner/repo", sha, { ...evidence, filePath: "/secret.ts" }), null);
+  assert.equal(githubEvidenceHref("owner/repo", sha, { ...evidence, filePath: "src\\secret.ts" }), null);
+  assert.equal(githubEvidenceHref("owner/repo", sha, { ...evidence, filePath: "src/file.ts", startLine: 0 }), null);
+  assert.equal(githubEvidenceHref("owner/repo", "branch-name", evidence), null);
+  assert.equal(githubEvidenceHref("owner/../repo", sha, evidence), null);
+});
+
+test("interactive diagrams apply renderer budgets after the human projection collapses members", async () => {
+  const value = await fixture();
+  const source = value.document.softwareEngineeringDiagram;
+  const owner = { ...source.nodes[0]!, id: "overview-owner", kind: "Class" as const, parentId: null, name: "Owner", qualifiedName: "Owner", signature: null };
+  const methods = Array.from({ length: 600 }, (_, index) => ({
+    ...owner, id: `overview-method-${index}`, kind: "Method" as const, parentId: owner.id, name: `method${index}`, qualifiedName: `Owner.method${index}`,
+  }));
+  const raw = { ...source, nodes: [owner, ...methods], edges: [], mermaid: "flowchart LR" };
+  const projected = projectInteractiveDiagram(raw);
+  assert.equal(projected.sourceNodeCount, 601);
+  assert.equal(projected.displayNodeCount, 1);
+  assert.deepEqual(interactiveDiagramBudget(projected), { kind: "ready" });
+});
+
+test("oversized interactive diagrams have a bounded, source-backed overview fallback", async () => {
+  const value = await fixture();
+  const source = value.document.softwareEngineeringDiagram;
+  const classes = Array.from({ length: 1_000 }, (_, index) => ({
+    ...source.nodes[0]!, id: `overview-class-${index}`, kind: "Class" as const, parentId: null,
+    name: `Class${index}`, qualifiedName: `Class${index}`, signature: null,
+  }));
+  const full = { ...source, nodes: classes, edges: [], mermaid: "flowchart LR" };
+  const fullProjection = projectInteractiveDiagram(full);
+  assert.equal(interactiveDiagramBudget(fullProjection).kind, "unavailable");
+
+  const overview = boundedDiagramOverview(full, value.document.umlClassDiagram, "software-structure");
+  const compactProjection = projectInteractiveDiagram(overview.diagram);
+  assert.equal(overview.summary.totalNodes, 1_000);
+  assert.ok(overview.summary.shownNodes <= 8);
+  assert.deepEqual(interactiveDiagramBudget(compactProjection), { kind: "ready" });
+  assert.ok(compactProjection.diagram.nodeMappings.every(mapping => classes.some(node => node.id === mapping.nodeId)));
 });

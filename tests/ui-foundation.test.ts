@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { normalizeRepository, validateTarget } from "../apps/web/components/ui-foundation/target-validation.ts";
-import { progressFixture, stageDefinitions } from "../apps/web/app/ui-preview/fixture-data.ts";
+import { progressFixture, stageDefinitions } from "./fixtures/ui/progress.ts";
 
 test("repository syntax: normalize slug/HTTPS without silently accepting another host or path", () => {
   for (const value of ["contoh/repository", "  contoh/repository  ", "https://github.com/contoh/repository", "https://github.com/contoh/repository/", "https://github.com/contoh/repository.git"]) assert.equal(normalizeRepository(value), "contoh/repository", value);

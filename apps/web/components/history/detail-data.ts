@@ -9,6 +9,36 @@ export function shouldPollAnalysisDetail(status: string): boolean {
   return (POLLING_STATUSES as readonly string[]).includes(status);
 }
 
+/** Seconds since the job was queued. Terminal states use the persisted finish time,
+ * so the value remains stable after polling stops. When a legacy terminal record has
+ * no finish time, the caller supplies the instant the terminal state was observed. */
+export function elapsedAnalysisSeconds(
+  timestamps: { queuedAt: string; completedAt: string | null },
+  status: string,
+  nowMs: number,
+): number | null {
+  const start = Date.parse(timestamps.queuedAt);
+  if (!Number.isFinite(start)) return null;
+  const completed = isTerminalAnalysisStatus(status) && timestamps.completedAt
+    ? Date.parse(timestamps.completedAt)
+    : Number.NaN;
+  const end = Number.isFinite(completed) ? completed : nowMs;
+  if (!Number.isFinite(end)) return null;
+  return Math.max(0, Math.floor((end - start) / 1000));
+}
+
+function isTerminalAnalysisStatus(status: string): boolean {
+  return !shouldPollAnalysisDetail(status);
+}
+
+export function formatElapsedDuration(totalSeconds: number): string {
+  const safeSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(safeSeconds / 3600);
+  const minutes = Math.floor((safeSeconds % 3600) / 60);
+  const seconds = safeSeconds % 60;
+  return [hours, minutes, seconds].map(value => String(value).padStart(2, "0")).join(":");
+}
+
 /** Profil fetch yang dipakai klien detail: cukup `ok` + `json()` agar test bisa memalsukan respons. */
 export type DetailFetch = (input: string, init: RequestInit) => Promise<{ ok: boolean; json: () => Promise<unknown> }>;
 

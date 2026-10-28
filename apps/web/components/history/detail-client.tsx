@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { AssetIcon, Badge, DesignFrame, Panel } from "../design-system/ui.tsx";
 import { formatDateTime, statusLabel, statusTone } from "./format.ts";
-import { createDetailPoller, shouldPollAnalysisDetail } from "./detail-data.ts";
+import { createDetailPoller, elapsedAnalysisSeconds, formatElapsedDuration, shouldPollAnalysisDetail } from "./detail-data.ts";
 import type { AnalysisDetailView } from "../../lib/analyses/presenters.ts";
-import styles from "../sprint-ui/preview-client.module.css";
+import styles from "../design-system/workspace.module.css";
+import progressStyles from "./detail.module.css";
 
 /** Bentuk payload server (presenters.ts) — di-derive, tidak ditulis manual. */
 export type DetailView = AnalysisDetailView;
@@ -31,6 +32,12 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
   const [fetchError, setFetchError] = useState(false);
   const [retryBusy, setRetryBusy] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  // Seed from the server snapshot so the timer's first HTML is deterministic and
+  // does not differ between server render and browser hydration.
+  const [clockNow, setClockNow] = useState(() => {
+    const snapshotTime = initial ? Date.parse(initial.updatedAt) : 0;
+    return Number.isFinite(snapshotTime) ? snapshotTime : 0;
+  });
   const sequenceRef = useRef(0);
   const retryKeyRef = useRef("");
   const retrySequenceRef = useRef(0);
@@ -64,6 +71,13 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
   useEffect(() => {
     return () => { retrySequenceRef.current += 1; };
   }, [analysisId, accountKey]);
+
+  const detailStatus = detail?.status;
+  useEffect(() => {
+    if (!shouldPollAnalysisDetail(detailStatus ?? "")) return;
+    const interval = window.setInterval(() => setClockNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [detailStatus]);
 
   async function retryFailedAnalysis() {
     if (!detail || detail.status !== "FAILED" || retryBusy) return;
@@ -199,6 +213,19 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
         <Badge tone={statusTone(detail.status) ?? "neutral"}>{statusLabel(detail.status) ?? detail.status}</Badge>
         <span aria-hidden="true" />
       </div>
+      {(() => {
+        const elapsedSeconds = elapsedAnalysisSeconds(detail.timestamps, detail.status, clockNow);
+        const active = !isTerminal(detail.status);
+        const duration = elapsedSeconds === null ? "--:--:--" : formatElapsedDuration(elapsedSeconds);
+        return <div className={progressStyles.elapsedCard} data-active={active} role="timer" aria-label={`${active ? "Waktu berjalan" : "Durasi analisis"}: ${duration}`}>
+          <span className={progressStyles.activityMark} aria-hidden="true" />
+          <span className={progressStyles.elapsedCopy}>
+            <small>{active ? "WAKTU BERJALAN" : "DURASI TOTAL"}</small>
+            <strong aria-live="off">{duration}</strong>
+          </span>
+          <span className={progressStyles.elapsedHint}>{active ? "Dihitung sejak analisis dikirim" : "Waktu berhenti mengikuti status akhir"}</span>
+        </div>;
+      })()}
       {detail.errorCode ? <div className={styles.historyMessage} role="alert">
         <AssetIcon group="history-error" name="imgIcon2" />
         <div><strong>Analisis gagal</strong><p><code>{detail.errorCode}</code> — tahap berikutnya tetap menunggu. Ulangi dari snapshot target yang sama.</p></div>

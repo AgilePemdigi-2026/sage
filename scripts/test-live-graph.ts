@@ -1183,8 +1183,38 @@ async function runLiveGraphRegression(): Promise<void> {
         assert.equal((await page.getByTestId("node-inspector-title").innerText()).trim(), endpointNode.name);
         const inspectorText = await inspector.innerText();
         assert.ok(inspectorText.includes(endpointNode.location.filePath), "inspector displays the canonical source path");
-        for (const relation of expectedIncoming) assert.ok((await page.getByTestId("node-inspector-incoming").innerText()).includes(relation.peer.name));
-        for (const relation of expectedOutgoing) assert.ok((await page.getByTestId("node-inspector-outgoing").innerText()).includes(relation.peer.name));
+        const declarationLink = inspector.locator("a.sageEvidenceLink").first();
+        const declarationFragment: string = endpointNode.location.startLine === endpointNode.location.endLine
+          ? `#L${endpointNode.location.startLine}`
+          : `#L${endpointNode.location.startLine}-L${endpointNode.location.endLine}`;
+        assert.equal(await declarationLink.getAttribute("href"), `https://github.com/${fixtureRepository}/blob/${fixtureCommit}/${endpointNode.location.filePath}${declarationFragment}`,
+          "node evidence links to the exact immutable GitHub source lines");
+        assert.equal(await declarationLink.getAttribute("target"), "_blank");
+        const evidenceDetails = page.getByTestId("node-inspector-evidence-technical").first();
+        assert.equal(await evidenceDetails.getAttribute("open"), null, "byte and column bounds stay collapsed in the main inspector");
+        const technicalDetails = page.getByTestId("node-inspector-technical");
+        assert.equal(await technicalDetails.getAttribute("open"), null, "hashes and full technical metadata stay collapsed by default");
+        await technicalDetails.locator("summary").click();
+        await technicalDetails.getByText(ready.canonical.sha256, { exact: true }).waitFor();
+        await technicalDetails.getByText(configurationHash, { exact: true }).waitFor();
+        await technicalDetails.locator("summary").click();
+        for (const direction of ["incoming", "outgoing"] as const) {
+          const list = page.getByTestId(`node-inspector-${direction}`);
+          const expected = direction === "incoming" ? expectedIncoming : expectedOutgoing;
+          let visible = await list.getByTestId(`node-inspector-${direction}-edge`).count();
+          assert.ok(visible <= 6, `${direction} relation list starts with a bounded number of rows`);
+          while (visible < expected.length) {
+            const more = page.getByTestId(`node-inspector-${direction}-more`);
+            await more.click();
+            const next = Math.min(expected.length, visible + 6);
+            await page.waitForFunction(({ direction, next }) =>
+              document.querySelectorAll(`[data-testid="node-inspector-${direction}-edge"]`).length >= next,
+            { direction, next });
+            visible = await list.getByTestId(`node-inspector-${direction}-edge`).count();
+          }
+          const relationText = await list.innerText();
+          for (const relation of expected) assert.ok(relationText.includes(relation.peer.name), `${direction} disclosure includes ${relation.peer.name}`);
+        }
         await takeScreenshot(page, "graph-inspector-390.png");
 
         const sourceTrigger = page.getByTestId("node-inspector-source").first();
@@ -1452,24 +1482,9 @@ async function runLiveGraphRegression(): Promise<void> {
     checks.push("browser-only controlled case: one intercepted 503 exposes retry and then recovers from the real database-backed API");
     checks.push("390px account switch: focus identity recheck replaces A with B, gets real 404, and removes old graph/count data");
 
-    // Keep GraphCanvas's checked-in preview fixture covered too: this route is
-    // static/local and must never call the API or a provider.
-    const previewContext = await browser.newContext({ viewport: { width: 390, height: 1000 }, reducedMotion: "reduce" });
-    const previewPage = await previewContext.newPage();
-    const previewProductRequests: string[] = [];
-    previewPage.on("pageerror", error => pageErrors.push(`graph preview: ${error.message}`));
-    previewPage.on("request", req => {
-      const url = new URL(req.url());
-      if (url.pathname.startsWith("/api/") || url.hostname === "github.com" || url.hostname === "api.github.com") {
-        previewProductRequests.push(req.url());
-      }
-    });
-    await previewPage.goto(`${base}/graph-preview`, { waitUntil: "networkidle" });
-    await previewPage.getByText("Fixture tervalidasi · Tidak terhubung ke GitHub", { exact: true }).waitFor();
-    await previewPage.getByRole("region", { name: "Kanvas knowledge graph", exact: true }).locator("canvas").first().waitFor();
-    assert.deepEqual(previewProductRequests, [], "the graph-preview fixture must render without product/API requests");
-    await previewContext.close();
-    checks.push("graph-preview shared GraphCanvas renders its local fixture and sends no product/API/provider requests");
+    const retiredPreview = await api.get(`${base}/graph-preview`);
+    assert.equal(retiredPreview.status(), 404, "the retired graph preview must not be publicly available");
+    checks.push("retired graph preview returns 404; graph checks use owner-scoped real routes");
 
     // Reproduce a delayed owner-A response while the real identity endpoint sees
     // owner B. The underlying A graph response is fetched from the real route,

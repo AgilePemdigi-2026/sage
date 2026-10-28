@@ -5,10 +5,10 @@ import { chromium, type Page, type Request } from "playwright";
 
 const baseUrl = process.env.BASE_URL ?? "http://web:3000";
 const baseOrigin = new URL(baseUrl).origin;
-const output = join(process.env.STORAGE_ROOT ?? "artifacts", "environment");
+const output = process.env.BROWSER_SMOKE_EVIDENCE_DIR ?? join(process.env.STORAGE_ROOT ?? "artifacts", "environment");
 const assetTypes = new Set(["font", "image", "script", "stylesheet"]);
 const outputScope =
-  "Real landing, login CTA destination, fixture-only preview labels, responsive assets and overflow, browser errors, and API health; full acceptance not run.";
+  "Real landing, login CTA destination, removed preview routes, responsive assets and overflow, browser errors, and API health; full acceptance not run.";
 
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
@@ -75,18 +75,11 @@ try {
     await assertNoHorizontalOverflow(page, "login");
 
     await page.goto(baseUrl, { waitUntil: "networkidle" });
-    const previewCta = page.getByRole("link", { name: "Lihat pratinjau", exact: true });
-    assert.equal(await previewCta.getAttribute("href"), "/preview/progress");
-    await previewCta.click();
-    await page.waitForURL((url) => url.pathname === "/preview/progress");
-    assert.equal(await page.getByRole("heading", { level: 1 }).innerText(), "Progres analisis");
-    assert.ok(await page.getByText("Mode pratinjau", { exact: true }).isVisible());
-    const fixtureNotice = page.getByRole("note");
-    assert.ok(await fixtureNotice.isVisible());
-    assert.ok(await fixtureNotice.getByText("Data contoh, bukan hasil analisis.", { exact: true }).isVisible());
-    assert.ok(await fixtureNotice.getByText("tidak terhubung ke GitHub dan tidak menjalankan job.").isVisible());
-    await page.evaluate(() => document.fonts.ready);
-    await assertNoHorizontalOverflow(page, "fixture preview");
+    assert.equal(await page.getByRole("link", { name: /pratinjau/i }).count(), 0);
+    for (const route of ["/preview/progress", "/preview/history", "/preview/graph", "/preview/document", "/graph-preview", "/ui-preview"]) {
+      const retired = await page.request.get(`${baseUrl}${route}`);
+      assert.equal(retired.status(), 404, `${route} must be removed`);
+    }
 
     const health = await page.request.get(`${baseUrl}/api/health`);
     assert.equal(health.status(), 200);
@@ -101,7 +94,7 @@ try {
       width,
       status: "PASS",
       loginCta: "navigated to /login",
-      previewCta: "navigated to labelled fixture-only /preview/progress",
+      previewRoutes: "all six removed routes return 404",
       loadedAssetTypes: [...loadedAssetTypes].sort(),
       horizontalOverflow: false,
       pageErrors: 0,
