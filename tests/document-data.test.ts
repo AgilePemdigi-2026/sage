@@ -122,3 +122,22 @@ test("oversized interactive diagrams have a bounded, source-backed overview fall
   assert.deepEqual(interactiveDiagramBudget(compactProjection), { kind: "ready" });
   assert.ok(compactProjection.diagram.nodeMappings.every(mapping => classes.some(node => node.id === mapping.nodeId)));
 });
+
+test("interactive edge budget counts labeled unresolved and aggregated relation groups", async () => {
+  const value = await fixture();
+  const source = value.document.softwareEngineeringDiagram;
+  const template = source.nodes[0]!;
+  const nodes = Array.from({ length: 26 }, (_, index) => ({ ...template, id: `budget-node-${index}`, kind: "Class" as const, parentId: null, name: `Class${index}`, qualifiedName: `Class${index}`, signature: null }));
+  const edges = nodes.flatMap((from, i) => nodes.flatMap((to, j) => i === j ? [] : [{
+    id: `budget-edge-${i}-${j}`, sourceId: from.id, targetId: to.id, kind: "CALLS" as const,
+    resolution: "Unresolved" as const, unresolvedReason: "UNKNOWN_RECEIVER" as const, evidence: [],
+  }]));
+  const raw = { ...source, nodes, edges, mermaid: "flowchart LR" };
+  const projection = projectInteractiveDiagram(raw);
+  assert.equal(projection.displayEdgeCount, 650);
+  assert.equal(interactiveDiagramBudget(projection).kind, "unavailable");
+  const duplicated = { ...raw, edges: edges.flatMap(edge => [edge, { ...edge, id: `${edge.id}-duplicate` }]) };
+  assert.equal(projectInteractiveDiagram(duplicated).displayEdgeCount, 650);
+  const overview = boundedDiagramOverview(raw, value.document.umlClassDiagram, "software-structure");
+  assert.equal(interactiveDiagramBudget(projectInteractiveDiagram(overview.diagram)).kind, "ready");
+});

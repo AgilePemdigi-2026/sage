@@ -331,7 +331,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
     return <li key={item.id} className={`${design.repositoryCard} break-words`}>
       <strong>{item.fullName}</strong><span className="ml-2 text-xs">{item.private ? "Private · berizin" : "Public"}</span>
       <p className="mt-2 text-sm">Branch default: {item.defaultBranch || "Belum ada commit"}</p>
-      <button disabled={busy || !scopeVerified} onClick={() => void choose(item)} className="mt-3 rounded border border-ink/40 px-4 py-2">Pilih repository</button>
+      <button aria-label={`Pilih ${item.fullName}`} disabled={busy || !scopeVerified} onClick={() => void choose(item)} className="mt-3 rounded border border-ink/40 px-4 py-2">Pilih repository</button>
     </li>;
   }
   if (!scopeVerified) return <div className={design.accessPanel} role="status">

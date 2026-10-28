@@ -70,11 +70,11 @@ try {
     });
     await page.goto(`${base}/workspace/repositories`);
     await page.getByRole("heading", { name: `Repository public milik @${user.login}`, exact: true }).waitFor();
-    await page.getByRole("button", { name: "Pilih repository", exact: true }).first().waitFor();
+    await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).waitFor();
     await page.getByRole("button", { name: "Repository public berikutnya", exact: true }).click();
-    await page.getByRole("button", { name: "Pilih repository", exact: true }).first().waitFor();
+    await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).waitFor();
     await page.getByText(secondOwnedPublicRepo.fullName, { exact: true }).waitFor();
-    await page.getByRole("button", { name: "Pilih repository", exact: true }).first().click();
+    await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).click();
     const selectedPublicHeading = page.getByRole("heading", { name: `Siapkan analisis: ${ownedPublicRepo.fullName}`, exact: true });
     await selectedPublicHeading.waitFor();
     await page.waitForFunction(() => {
@@ -91,15 +91,15 @@ try {
     await page.getByRole("button", { name: "other", exact: true }).waitFor();
     await page.getByRole("button", { name: "example", exact: true }).click();
     await page.getByRole("button", { name: "Repository berikutnya", exact: true }).click();
-    await page.getByRole("button", { name: "Pilih repository", exact: true }).last().waitFor();
-    await page.getByRole("listitem").filter({ has: page.getByText("example/private", { exact: true }) }).getByRole("button", { name: "Pilih repository", exact: true }).click();
+    await page.getByRole("button", { name: "Pilih example/private", exact: true }).waitFor();
+    await page.getByRole("listitem").filter({ has: page.getByText("example/private", { exact: true }) }).getByRole("button").click();
     await page.getByRole("heading", { name: "Siapkan analisis: example/private", exact: true }).waitFor();
     await page.waitForFunction(() => document.activeElement?.id === "analysis-target-heading");
     assert.ok(await page.getByText("Private · berizin", { exact: false }).isVisible());
     await page.getByRole("button", { name: "Pilih repository lain", exact: true }).click();
     const search = page.getByLabel("Cari pada repository App yang sudah dimuat");
     await search.fill("missing"); await page.getByText("Tidak ada hasil pencarian pada halaman yang dimuat.").waitFor();
-    await search.fill("sample"); await page.getByRole("button", { name: "Pilih repository", exact: true }).last().click();
+    await search.fill("sample"); await page.getByRole("button", { name: "Pilih example/sample", exact: true }).click();
     const selectedPrivateHeading = page.getByRole("heading", { name: `Siapkan analisis: ${repo.fullName}`, exact: true });
     await selectedPrivateHeading.waitFor();
     await page.waitForFunction(() => {
@@ -128,7 +128,7 @@ try {
     await page.getByRole("alert").filter({ hasText: "Gunakan URL github.com" }).waitFor();
     resolveFails = false; await publicInput.fill("https://github.com/octocat/Hello-World");
     await page.getByRole("button", { name: "Periksa repository", exact: true }).click();
-    await page.getByRole("listitem").filter({ has: page.getByText(publicRepo.fullName, { exact: true }) }).getByRole("button", { name: "Pilih repository", exact: true }).click();
+    await page.getByRole("listitem").filter({ has: page.getByText(publicRepo.fullName, { exact: true }) }).getByRole("button").click();
     const selectedOtherHeading = page.getByRole("heading", { name: `Siapkan analisis: ${publicRepo.fullName}`, exact: true });
     await selectedOtherHeading.waitFor();
     await page.waitForFunction(() => {
@@ -152,7 +152,7 @@ try {
     assert.equal(page.url(), `${base}/workspace/repositories`);
     providerUnauthorized = false;
     await page.getByRole("button", { name: "Coba lagi", exact: true }).click();
-    await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).waitFor();
+    await page.getByRole("listitem").filter({ has: page.getByText(ownedPublicRepo.fullName, { exact: true }) }).getByRole("button").waitFor();
     installationMode = "error"; await page.getByRole("button", { name: "Muat ulang instalasi", exact: true }).click();
     await page.getByRole("alert").filter({ hasText: "Instalasi belum tersedia" }).waitFor();
     installationMode = "empty"; await page.getByRole("button", { name: "Muat ulang instalasi", exact: true }).click();

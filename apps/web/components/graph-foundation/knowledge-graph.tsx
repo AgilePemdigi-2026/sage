@@ -109,7 +109,7 @@ function focusNeighborhood(core: Core, selectedId: string | null): void {
   selected.removeClass("sage-dimmed").addClass("sage-selected");
   const incident = selected.connectedEdges();
   incident.removeClass("sage-dimmed").addClass("sage-connected");
-  incident.connectedNodes().removeClass("sage-dimmed").addClass("sage-neighbor");
+  incident.connectedNodes().not(selected).removeClass("sage-dimmed").addClass("sage-neighbor");
 }
 
 export function GraphCanvas({ graph, selectedId, onSelect }: {

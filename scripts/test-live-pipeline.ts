@@ -304,8 +304,8 @@ async function selectFixtureRepository(page: Page): Promise<void> {
   await page.getByRole("heading", { name: "Pilih repository", exact: true }).waitFor();
   await page.getByRole("button", { name: fixtureOwner, exact: true }).waitFor();
   await page.getByRole("button", { name: fixtureOwner, exact: true }).click();
-  await page.getByRole("button", { name: "Pilih repository", exact: true }).last().waitFor();
-  await page.getByRole("button", { name: "Pilih repository", exact: true }).last().click();
+  await page.getByRole("button", { name: `Pilih ${fixtureFullName}`, exact: true }).waitFor();
+  await page.getByRole("button", { name: `Pilih ${fixtureFullName}`, exact: true }).click();
   await page.getByRole("heading", { name: `Siapkan analisis: ${fixtureFullName}`, exact: true }).waitFor();
   await page.waitForFunction(() => {
     const heading = document.querySelector<HTMLElement>("#analysis-target-heading");
