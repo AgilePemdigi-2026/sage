@@ -2,9 +2,10 @@ import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { chromium } from "playwright";
-import { HUMAN_DIAGRAM_THEME, humanNodeName, projectHumanDiagram } from "./human-diagrams.ts";
+import { HUMAN_DIAGRAM_THEME, humanNodeName } from "./human-diagrams.ts";
 import type { ArchitectureDocumentV1 } from "./architecture-document.ts";
 import type { DiagramProjection } from "./diagrams.ts";
+import { projectCompactPdfDiagrams, type CompactPdfDiagrams, type PdfDiagramSummary } from "./pdf-projection.ts";
 
 const MAX_MERMAID_SOURCE_CHARS = 50_000;
 const MAX_MERMAID_SOURCE_BYTES = 50_000;
@@ -98,28 +99,62 @@ function setSvgRootAttributes(svg: string, attributes: Record<string, string>): 
   return `${svg.slice(0, openingTag.index)}${updatedRoot}${svg.slice(openingTag.index + openingTag[0].length)}`;
 }
 
-function renderDocumentHtml(document: ArchitectureDocumentV1, svgs: [string, string]): string {
+function compactText(value: string, maxCharacters: number): string {
+  const characters = Array.from(value);
+  return characters.length <= maxCharacters ? value : `${characters.slice(0, maxCharacters - 1).join("")}…`;
+}
+
+function renderDocumentHtml(document: ArchitectureDocumentV1, svgs: [string, string], views: CompactPdfDiagrams): string {
   const e = escapePdfHtml;
   const declarationIds = new Set(document.interfaceCatalog.entries.map(row => row.declaration.id));
-  const rows = document.interfaceCatalog.entries.filter(({ declaration: node }) =>
+  const allRows = document.interfaceCatalog.entries.filter(({ declaration: node }) =>
     !(["Method", "Property"].includes(node.kind) && node.parentId && declarationIds.has(node.parentId))).sort((a, b) =>
     (a.declaration.filePath ?? "").localeCompare(b.declaration.filePath ?? "") ||
     (a.declaration.location?.startLine ?? 0) - (b.declaration.location?.startLine ?? 0));
-  const limitations = [...new Set(document.limitations.map(item => item.reason))].map(reason => ({
-    reason, paths: [...new Set(document.limitations.filter(item => item.reason === reason).flatMap(item => item.path ? [item.path] : []))],
-  }));
+  const rows = allRows.slice(0, 30);
+  const membersByParent = new Map<string, Array<(typeof document.softwareEngineeringDiagram.nodes)[number]>>();
+  for (const member of document.softwareEngineeringDiagram.nodes) {
+    if (!["Method", "Property"].includes(member.kind) || member.parentId === null) continue;
+    const members = membersByParent.get(member.parentId) ?? [];
+    members.push(member);
+    membersByParent.set(member.parentId, members);
+  }
   const catalog = rows.map(({ declaration: node }) => {
-    const members = document.softwareEngineeringDiagram.nodes.filter(n => n.parentId === node.id && ["Property", "Method"].includes(n.kind));
-    const contract = node.signature ?? (members.length ? members.map(n => n.signature ?? n.name).join("; ") : "Kontrak tidak tercatat");
+    const members = membersByParent.get(node.id) ?? [];
+    const shownMembers = members.slice(0, 6);
+    const contractSource = node.signature ?? (shownMembers.length ? shownMembers.map(member => member.signature ?? member.name).join("; ") : "Kontrak tidak tercatat");
+    const contract = compactText(contractSource, 400);
+    const notes = [
+      members.length > shownMembers.length ? `+${members.length - shownMembers.length} anggota` : "",
+      contract !== contractSource ? "kontrak dipotong" : "",
+    ].filter(Boolean).join(" · ");
     const location = node.location ? `${node.location.filePath}:${node.location.startLine}–${node.location.endLine}` : "Lokasi tidak tersedia";
-    return `<tr><td><strong>${e(humanNodeName(node))}</strong><small>${e(node.kind)} · ${e(node.language)}</small></td><td><code>${e(contract)}</code></td><td><code>${e(location)}</code></td></tr>`;
+    return `<tr><td><strong>${e(compactText(humanNodeName(node), 120))}</strong><small>${e(node.kind)} · ${e(node.language)}</small></td><td><code>${e(contract)}</code>${notes ? `<small>${e(notes)}</small>` : ""}</td><td><code>${e(compactText(location, 180))}</code></td></tr>`;
   }).join("");
-  const diagramPage = (title: string, svg: string, uml: boolean) => `<section class="diagram-page"><p class="eyebrow">SAGE / ARSITEKTUR KODE</p><h1>${title}</h1><p>${uml ? "Class, interface, anggota, dan pewarisan yang tercatat pada source." : "Struktur deklarasi dan ketergantungan kode; anggota ditampilkan melalui pemiliknya."}</p><div class="figure">${setSvgRootAttributes(svg, { width: "100%", height: "100%", preserveAspectRatio: "xMidYMid meet" })}</div><div class="legend"><span>Teal: class</span><span>Ungu: interface</span><span>Biru: function</span><span>Abu: module</span><span>Amber / putus-putus: Unresolved</span></div><p class="caption">${uml ? "Segitiga kosong: extends; garis putus-putus dengan segitiga: implements. Dependensi Unresolved tidak menyatakan pewarisan yang pasti." : "Panah mengikuti arah relasi source → target. Label contains menyatakan kepemilikan; × menunjukkan jumlah observasi sejenis. Anggota class diringkas ke class pemilik; relasi internal pemilik tidak ditampilkan."} Tidak menyimpulkan layanan bisnis, endpoint runtime, atau cardinality. Detail penuh tersedia dalam Markdown.</p></section>`;
+  const limitationGroups = new Map<string, Set<string>>();
+  for (const item of document.limitations) {
+    const paths = limitationGroups.get(item.reason) ?? new Set<string>();
+    if (item.path) paths.add(item.path);
+    limitationGroups.set(item.reason, paths);
+  }
+  const allLimitations = [...limitationGroups.entries()].sort(([left], [right]) => left.localeCompare(right));
+  const limitations = allLimitations.slice(0, 20).map(([reason, pathSet]) => {
+    const paths = [...pathSet].sort().slice(0, 4);
+    const remainingPaths = pathSet.size - paths.length;
+    return `<li>${paths.length ? e(paths.map(path => compactText(path, 120)).join(", ")) + ": " : ""}${e(compactText(reason, 220))}${remainingPaths > 0 ? ` (+${remainingPaths} paths)` : ""}</li>`;
+  }).join("");
+  const summaryText = (summary: PdfDiagramSummary, uml: boolean) => {
+    const nodeLabel = uml ? "class/interface/target Unresolved" : "node";
+    const memberText = uml ? ` Menampilkan ${summary.shownMembers} dari ${summary.totalMembers} anggota; paling banyak 3 per class terpilih.` : "";
+    const clipText = summary.clippedValues ? ` ${summary.clippedValues} label atau signature dipendekkan.` : "";
+    return `<p class="caption"><strong>Proyeksi ringkas:</strong> menampilkan ${summary.shownNodes} dari ${summary.totalNodes} ${nodeLabel}, ${summary.shownRelations} dari ${summary.totalRelations} kelompok relasi, mencakup ${summary.shownEdges} dari ${summary.totalEdges} catatan relasi source.${memberText}${clipText} Kelompok dibedakan menurut endpoint, kind, dan status Exact/Unresolved. Diagram ini bukan keseluruhan graph; Markdown memuat bukti lengkap.</p>`;
+  };
+  const diagramPage = (title: string, svg: string, uml: boolean, summary: PdfDiagramSummary) => `<section class="diagram-page"><p class="eyebrow">SAGE / ARSITEKTUR KODE</p><h1>${title}</h1><p>${uml ? "Class, interface, anggota, dan pewarisan yang tercatat pada source." : "Struktur deklarasi dan ketergantungan kode; anggota ditampilkan melalui pemiliknya."}</p><div class="figure">${setSvgRootAttributes(svg, { width: "100%", height: "100%", preserveAspectRatio: "xMidYMid meet" })}</div><div class="legend"><span>Teal: class</span><span>Ungu: interface</span><span>Biru: function</span><span>Abu: module</span><span>Amber / putus-putus: Unresolved</span></div>${summaryText(summary, uml)}<p class="caption">${uml ? "Segitiga kosong: extends; garis putus-putus dengan segitiga: implements. Dependensi Unresolved tidak menyatakan pewarisan yang pasti." : "Panah mengikuti arah relasi source → target. Label contains menyatakan kepemilikan; × menunjukkan jumlah observasi sejenis. Anggota class diringkas ke class pemilik; relasi internal pemilik tidak ditampilkan."} Tidak menyimpulkan layanan bisnis, endpoint runtime, atau cardinality.</p></section>`;
   return `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; object-src 'none'; base-uri 'none'"><title>${e(document.title)}</title><style>
   *{box-sizing:border-box}body{margin:0;color:#061e42;font:10pt/1.45 Arial,sans-serif}h1{font-size:22pt;line-height:1.2;margin:2mm 0 4mm}h2{font-size:14pt;margin:5mm 0 3mm}p{margin:0 0 3mm}.eyebrow{color:#08796e;font-size:9pt;font-weight:bold;letter-spacing:.12em}.identity{padding:4mm;background:#e6faf6;border-left:4px solid #098577;margin:4mm 0}.stats{display:flex;gap:7mm;color:#506783;margin:3mm 0}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9pt}th,td{padding:2mm;border:1px solid #dde5ec;vertical-align:top;text-align:left;overflow-wrap:anywhere}th{background:#eef3f7}th:first-child{width:27%}th:last-child{width:30%}thead{display:table-header-group}tr{break-inside:avoid}small{display:block;color:#506783;margin-top:1mm}code{font:8.5pt/1.4 monospace;white-space:pre-wrap;overflow-wrap:anywhere}.note{padding:3mm;background:#fff4d9;color:#78350f}.diagram-page{break-before:page;height:178mm;display:flex;flex-direction:column;break-inside:avoid}.diagram-page h1{font-size:20pt}.figure{flex:1;min-height:0;width:100%;margin:2mm 0;border:1px solid #dde5ec;border-radius:2mm;padding:3mm}.figure svg{display:block;width:100%;height:100%}.legend{display:flex;flex-wrap:wrap;gap:2mm 6mm;font-size:8pt;padding:2mm;background:#eef3f7}.caption{font-size:8pt;color:#506783;margin-top:2mm}li{overflow-wrap:anywhere}strong{overflow-wrap:anywhere}
   </style></head><body><p class="eyebrow">SAGE / RINGKASAN ARSITEKTUR</p><h1>${e(document.title)}</h1><div class="identity"><strong>${e(document.snapshot.repository)}</strong> · ${e(document.snapshot.branch ?? "Branch tidak tersedia")}<div class="stats"><span>${document.files.length} file</span><span>${document.canonicalCounts.nodes} deklarasi/node</span><span>${document.canonicalCounts.exactEdges} relasi Exact</span><span>${document.canonicalCounts.unresolvedEdges} Unresolved</span></div></div><p>Dokumen ringkas untuk mempelajari kontrak kode, struktur software, dan model class dari snapshot yang dianalisis. Markdown menyimpan register teknis, hash, atribut, dan seluruh evidence.</p>
-  ${document.limitations.length ? `<div class="note"><strong>Batasan analisis</strong><ul>${limitations.map(l => `<li>${l.paths.length ? e(l.paths.join(", ")) + ": " : ""}${e(l.reason)}</li>`).join("")}</ul></div>` : ""}<h2>Interface Catalog</h2><p>Katalog deklarasi source: simbol, kontrak yang tersedia, dan lokasi bukti. Method/property diringkas di kontrak class/interface pemilik. Interface kode tidak otomatis berarti interface integrasi atau endpoint HTTP.</p><table><thead><tr><th>Symbol</th><th>Contract</th><th>Evidence</th></tr></thead><tbody>${catalog || '<tr><td colspan="3">Tidak ada deklarasi source yang tercatat.</td></tr>'}</tbody></table>
-  ${diagramPage("Software Engineering Diagram", svgs[0], false)}${diagramPage("UML Class Diagram", svgs[1], true)}</body></html>`;
+  ${document.limitations.length ? `<div class="note"><strong>Batasan analisis (${Math.min(allLimitations.length, 20)} dari ${allLimitations.length} jenis; maksimal 4 path per jenis)</strong><ul>${limitations}</ul></div>` : ""}<h2>Interface Catalog</h2><p>Katalog deklarasi source: simbol, kontrak yang tersedia, dan lokasi bukti. Menampilkan ${rows.length} dari ${allRows.length} simbol; kontrak maksimal 400 karakter dan maksimal 6 anggota untuk ringkasan. Interface kode tidak otomatis berarti interface integrasi atau endpoint HTTP. Detail lengkap tersedia di Markdown.</p><table><thead><tr><th>Symbol</th><th>Contract</th><th>Evidence</th></tr></thead><tbody>${catalog || '<tr><td colspan="3">Tidak ada deklarasi source yang tercatat.</td></tr>'}</tbody></table>
+  ${diagramPage("Software Engineering Diagram", svgs[0], false, views.softwareSummary)}${diagramPage("UML Class Diagram", svgs[1], true, views.umlSummary)}</body></html>`;
 }
 
 function validatePdfDocument(document: ArchitectureDocumentV1): string | null {
@@ -152,8 +187,6 @@ function validatePdfDocument(document: ArchitectureDocumentV1): string | null {
         !Array.isArray(diagram.nodes) || !Array.isArray(diagram.edges) ||
         !Array.isArray(diagram.nodeMappings) || !Array.isArray(diagram.edgeMappings) ||
         !isStringArray(diagram.excludedNodeIds) || !isStringArray(diagram.excludedEdgeIds)) return "PDF_DOCUMENT_INVALID";
-    if (diagram.mermaid.length > MAX_MERMAID_SOURCE_CHARS || Buffer.byteLength(diagram.mermaid, "utf8") > MAX_MERMAID_SOURCE_BYTES ||
-        diagram.nodes.length > MAX_DIAGRAM_NODES || diagram.edges.length > MAX_DIAGRAM_EDGES) return "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED";
     if (hasUnsafeMermaidDirective(diagram.mermaid)) return "PDF_DIAGRAM_SOURCE_INVALID";
   }
   try {
@@ -161,6 +194,15 @@ function validatePdfDocument(document: ArchitectureDocumentV1): string | null {
   } catch {
     return "PDF_DOCUMENT_INVALID";
   }
+  return null;
+}
+
+function validateRendererDiagram(diagram: DiagramProjection): string | null {
+  if (diagram.mermaid.length > MAX_MERMAID_SOURCE_CHARS || Buffer.byteLength(diagram.mermaid, "utf8") > MAX_MERMAID_SOURCE_BYTES ||
+      diagram.nodes.length > MAX_DIAGRAM_NODES || diagram.edges.length > MAX_DIAGRAM_EDGES) {
+    return "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED";
+  }
+  if (hasUnsafeMermaidDirective(diagram.mermaid)) return "PDF_DIAGRAM_SOURCE_INVALID";
   return null;
 }
 
@@ -230,6 +272,9 @@ export async function renderPdfDocument(
   if (signal?.aborted) fail("PDF_RENDER_ABORTED");
   const validationError = validatePdfDocument(document);
   if (validationError) fail(validationError);
+  const compactViews = projectCompactPdfDiagrams(document.softwareEngineeringDiagram, document.umlClassDiagram);
+  const projectedError = validateRendererDiagram(compactViews.software) ?? validateRendererDiagram(compactViews.uml);
+  if (projectedError) fail(projectedError);
 
   const control = createRenderControl(signal);
   let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
@@ -266,7 +311,7 @@ export async function renderPdfDocument(
       await page.addScriptTag({ content: "globalThis.__name = (value) => value;" });
       await page.addScriptTag({ content: mermaidScript });
       await page.evaluate(() => window.document.fonts.ready);
-      const diagrams = [document.softwareEngineeringDiagram, document.umlClassDiagram].map(projectHumanDiagram);
+      const diagrams = [compactViews.software, compactViews.uml];
       const results: Array<{ svg: string; viewBox: ViewBox }> = [];
       for (const [index, diagram] of diagrams.entries()) {
         const source = normalizeMermaidUnderscores(diagram.mermaid);
@@ -476,7 +521,7 @@ function decodeMermaidTextRows(textElement: Element): void {
     };
 
     const diagrams = await control.race(renderDiagrams());
-    const html = renderDocumentHtml(document, [diagrams[0].svg, diagrams[1].svg]);
+    const html = renderDocumentHtml(document, [diagrams[0].svg, diagrams[1].svg], compactViews);
     if (Buffer.byteLength(html, "utf8") > MAX_HTML_BYTES) fail("PDF_DOCUMENT_LIMIT_EXCEEDED");
 
     const page = await control.race(context!.newPage());
@@ -522,4 +567,5 @@ export const pdfRendererInternals = {
   normalizeMermaidUnderscores,
   setSvgRootAttributes,
   validatePdfDocument,
+  validateRendererDiagram,
 };

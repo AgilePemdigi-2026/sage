@@ -1,2 +1,2 @@
 /** Bump when the stable PDF layout, escaping rules, or render policy changes. */
-export const PDF_RENDERER_VERSION = "2.0.0";
+export const PDF_RENDERER_VERSION = "2.1.0";
