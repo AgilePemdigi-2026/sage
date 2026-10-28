@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ArchitectureDocumentV1 } from "../packages/documents/src/architecture-document.ts";
 import { PDF_RENDERER_VERSION } from "../packages/documents/src/pdf-version.ts";
+import { projectCompactPdfDiagrams } from "../packages/documents/src/pdf-projection.ts";
 import { escapePdfHtml, pdfRendererInternals, renderPdfDocument } from "../packages/documents/src/pdf.ts";
 
 function diagram(kind: "software-structure" | "uml-class") {
@@ -40,7 +41,7 @@ function emptyDocument(): ArchitectureDocumentV1 {
 }
 
 test("PDF renderer version is stable and HTML escaping keeps source labels inert", () => {
-  assert.equal(PDF_RENDERER_VERSION, "2.0.0");
+  assert.equal(PDF_RENDERER_VERSION, "2.1.0");
   assert.equal(escapePdfHtml(`</td><script>alert('x')</script>&`), "&lt;/td&gt;&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;&amp;");
   assert.equal(escapePdfHtml("nul\u0000name"), "nul\\u0000name");
   assert.equal(pdfRendererInternals.errorCode(new Error("page.evaluate: Error: PDF_DIAGRAM_FILTER_REJECTED\n    at eval")), "PDF_DIAGRAM_FILTER_REJECTED");
@@ -49,12 +50,14 @@ test("PDF renderer version is stable and HTML escaping keeps source labels inert
 
 test("compact PDF embeds each diagram once and omits machine registers and hashes", () => {
   const document = emptyDocument();
-  const html = pdfRendererInternals.renderDocumentHtml(document, ['<svg viewBox="0 0 3600 2000"><text>Structure</text></svg>', '<svg viewBox="0 0 320 200"><text>Classes</text></svg>']);
+  const compactViews = projectCompactPdfDiagrams(document.softwareEngineeringDiagram, document.umlClassDiagram);
+  const html = pdfRendererInternals.renderDocumentHtml(document, ['<svg viewBox="0 0 3600 2000"><text>Structure</text></svg>', '<svg viewBox="0 0 320 200"><text>Classes</text></svg>'], compactViews);
   assert.equal((html.match(/<svg /g) ?? []).length, 2);
   assert.ok(!html.includes(document.ckgSha256));
   assert.ok(!html.includes(document.snapshot.commitSha));
   assert.doesNotMatch(html, /data-grid|Detail A1|Canonical node and edge register/);
   assert.match(html, /preserveAspectRatio="xMidYMid meet"/);
+  assert.match(html, /menampilkan 0 dari 0 node, 0 dari 0 kelompok relasi/);
 });
 
 test("SVG viewport sizing updates root attributes without changing child rectangle dimensions", () => {
@@ -91,14 +94,17 @@ test("PDF source restores projection underscores while preserving literal #95; l
     "other Mermaid/XML delimiter escapes remain unchanged");
 });
 
-test("PDF preflight rejects unsafe, oversized, or incomplete diagram data before Chromium starts", async () => {
+test("PDF preflight leaves renderer caps for the bounded projection and rejects unsafe or incomplete data", async () => {
   const document = emptyDocument();
   assert.equal(pdfRendererInternals.validatePdfDocument(document), null);
 
   const oversized = structuredClone(document);
   oversized.softwareEngineeringDiagram.mermaid = `flowchart LR\n${"x".repeat(50_000)}`;
-  assert.equal(pdfRendererInternals.validatePdfDocument(oversized), "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED");
-  await assert.rejects(renderPdfDocument(oversized), /PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED/);
+  assert.equal(pdfRendererInternals.validatePdfDocument(oversized), null,
+    "the saved source rendering may exceed renderer limits when the actual bounded view remains small");
+  const projected = projectCompactPdfDiagrams(oversized.softwareEngineeringDiagram, oversized.umlClassDiagram);
+  assert.equal(pdfRendererInternals.validateRendererDiagram(projected.software), null);
+  assert.ok(projected.software.mermaid.length < 50_000);
 
   const unsafe = structuredClone(document);
   unsafe.umlClassDiagram.mermaid = "classDiagram\n  click A \"https://example.invalid\"";
@@ -107,6 +113,10 @@ test("PDF preflight rejects unsafe, oversized, or incomplete diagram data before
   const incomplete = structuredClone(document);
   incomplete.canonicalCounts.nodes = 1;
   assert.equal(pdfRendererInternals.validatePdfDocument(incomplete), "PDF_DOCUMENT_INVALID");
+
+  const actualRendererOversized = structuredClone(document.softwareEngineeringDiagram);
+  actualRendererOversized.mermaid = `flowchart LR\n${"x".repeat(50_000)}`;
+  assert.equal(pdfRendererInternals.validateRendererDiagram(actualRendererOversized), "PDF_DIAGRAM_SOURCE_LIMIT_EXCEEDED");
 });
 
 test("pre-aborted render requests fail promptly without launching a browser", async () => {
