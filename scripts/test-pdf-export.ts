@@ -1,3 +1,4 @@
+import { checkWorkspaceExperience } from "./workspace-ui-checks.ts";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
@@ -635,9 +636,16 @@ async function runLivePdfExportRegression(): Promise<void> {
     assert.equal(badQuery.status(), 400);
     checks.push("POST rejects unsupported formats, extra body fields, query parameters, and off-origin requests");
 
+    const originalClockRecord = await db.analysis.findUniqueOrThrow({ where: { id: readyAnalysis.analysisId }, select: { status: true, queuedAt: true, startedAt: true, completedAt: true } });
+    const clockProbe = {
+      start: async () => { await db.analysis.update({ where: { id: readyAnalysis!.analysisId }, data: { status: "RUNNING", queuedAt: new Date(Date.now() - 61_000), startedAt: new Date(Date.now() - 60_000), completedAt: null } }); },
+      finish: async () => { await db.analysis.update({ where: { id: readyAnalysis!.analysisId }, data: originalClockRecord }); },
+    };
     browser = await chromium.launch({ headless: true });
     const context390 = await createBrowserContext(browser, base, owner, 390);
     const page390 = await openDocumentPage(context390, base, readyAnalysis.analysisId, browserAudit, parsedBase.origin, "PDF export 390px");
+    await checkWorkspaceExperience(page390, base, readyAnalysis.analysisId, readyAnalysis.document, resultDir, 390, clockProbe);
+    checks.push("390px real workspace: centered geometry, bounded searchable catalog, commit-pinned evidence, graph controls, progress and removed preview navigation");
     const humanText = await page390.locator("body").innerText();
     assert.ok(!humanText.includes(readyAnalysis.document.ckgSha256));
     assert.ok(!humanText.includes(readyAnalysis.documentHash));
@@ -693,6 +701,8 @@ async function runLivePdfExportRegression(): Promise<void> {
 
     const context1440 = await createBrowserContext(browser, base, owner, 1440);
     const page1440 = await openDocumentPage(context1440, base, readyAnalysis.analysisId, browserAudit, parsedBase.origin, "PDF export 1440px");
+    await checkWorkspaceExperience(page1440, base, readyAnalysis.analysisId, readyAnalysis.document, resultDir, 1440, clockProbe);
+    checks.push("1440px real workspace: centered geometry, bounded searchable catalog, commit-pinned evidence, graph controls, progress and removed preview navigation");
     for (const label of ["Software Engineering Diagram", "UML Class Diagram"]) {
       await page1440.getByRole("button", { name: label, exact: true }).click();
       await page1440.getByRole("img", { name: label, exact: true }).waitFor({ timeout: 30_000 });
