@@ -362,6 +362,9 @@ async function assertDisplayedGraphCounts(
   testId: string,
   expected: { nodes: readonly unknown[]; edges: readonly unknown[] },
 ): Promise<void> {
+  if (!await page.getByTestId(testId).isVisible()) {
+    await page.getByRole("group", { name: "Ringkasan jumlah graph", exact: true }).locator("summary").click();
+  }
   const expectedNodes = expected.nodes.length;
   const expectedEdges = expected.edges.length;
   await page.waitForFunction(({ id, nodes, edges }) => {
@@ -1238,7 +1241,7 @@ async function runLiveGraphRegression(): Promise<void> {
         await sourceDialog.waitFor();
         const sourceDialogText = await sourceDialog.innerText();
         assert.ok(sourceDialogText.includes(endpointFile.path), "source dialog identifies its repository-relative path");
-        assert.ok(sourceDialogText.includes(endpointFile.sha256), "source dialog identifies the exact canonical file hash");
+        assert.equal(sourceDialogText.includes(endpointFile.sha256), false, "source dialog keeps hashes out of the reading view; canonical file hashes are verified by API and inspector metadata checks");
         assert.ok(sourceDialogText.includes("export class Endpoint extends Base implements Payload"), "source dialog renders the snapshot declaration");
         await assertRenderedSourceRange(sourceDialog);
         const sourceEvidenceLine = sourceDialog.locator(`[data-source-line="${endpointNode.location.startLine}"]`);
@@ -1326,6 +1329,7 @@ async function runLiveGraphRegression(): Promise<void> {
         await page.getByTestId("node-inspector-close").click();
         await desktopInspector.waitFor({ state: "detached" });
         await page.getByLabel("Cari node", { exact: true }).fill("Endpoint");
+        await page.getByTestId("graph-kind-filters-disclosure").locator("summary").click();
         await page.getByLabel("Class", { exact: true }).check();
         const oneClassMatch = expectedGraphFilter(data.graph, "Endpoint", ["Class"]);
         assert.deepEqual(oneClassMatch.nodes.map(node => node.id), [endpointNode.id], "desktop canvas fixture filter leaves only the Endpoint class");
