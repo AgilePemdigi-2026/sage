@@ -1034,11 +1034,15 @@ async function runLiveGraphRegression(): Promise<void> {
       await canvas.locator("canvas").first().waitFor();
       await page.getByTestId("canonical-counts").waitFor();
       await page.getByTestId("visible-counts").waitFor();
+      assert.equal(await page.getByRole("button", { name: "Esensial", exact: true }).getAttribute("aria-pressed"), "true", "architecture essentials are the initial graph view");
+      assert.match(await page.getByTestId("visible-counts").innerText(), /proyeksi esensial/);
+      await takeScreenshot(page, `graph-essential-${width}.png`);
+      await page.getByRole("button", { name: "Detail AST", exact: true }).click();
       const canonicalCounts = await page.getByTestId("canonical-counts").innerText();
       const overviewVisibleCounts = await page.getByTestId("visible-counts").innerText();
       assert.match(canonicalCounts, /Kanonik:/);
       assert.match(overviewVisibleCounts, /Tampilan:/);
-      assert.equal(await page.getByRole("button", { name: "Ikhtisar", exact: true }).getAttribute("aria-pressed"), "true");
+      assert.equal(await page.getByRole("button", { name: "Detail AST", exact: true }).getAttribute("aria-pressed"), "true");
       const legend = page.getByLabel("Kategori node dan jenis relasi", { exact: true });
       const legendText = await legend.innerText();
       for (const label of ["Belum terpecahkan", "Exact", "Unresolved"]) assert.ok(legendText.includes(label));
@@ -1104,7 +1108,7 @@ async function runLiveGraphRegression(): Promise<void> {
         await kindDisclosure.locator("summary").click();
         assert.equal(await kindDisclosure.getAttribute("open"), null, "AST kind filters can be collapsed again");
 
-        await page.getByRole("button", { name: "Ikhtisar", exact: true }).click();
+        await page.getByRole("button", { name: "Detail AST", exact: true }).click();
         const graphRequestsBeforeFilter = pageGraphRequests.length;
         const queryInput = page.getByLabel("Cari node", { exact: true });
         await queryInput.focus();
@@ -1335,7 +1339,7 @@ async function runLiveGraphRegression(): Promise<void> {
         assert.deepEqual(oneClassMatch.nodes.map(node => node.id), [endpointNode.id], "desktop canvas fixture filter leaves only the Endpoint class");
         await assertDisplayedGraphCounts(page, "query-filter-counts", oneClassMatch);
         await assertDisplayedGraphCounts(page, "filtered-counts", oneClassMatch);
-        await page.getByRole("button", { name: "Ikhtisar", exact: true }).click();
+        await page.getByRole("button", { name: "Detail AST", exact: true }).click();
         await assertDisplayedGraphCounts(page, "visible-counts", oneClassMatch);
         const singleCanvasChoiceIds = await page.getByTestId("graph-node-picker").locator("option").evaluateAll(options => options
           .map(option => (option as HTMLOptionElement).value).filter(Boolean));

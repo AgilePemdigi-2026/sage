@@ -1,0 +1,6 @@
+.quality { margin-top: 14px; padding: 12px 14px; border: 1px solid #cddbdc; border-radius: 8px; background: #f4faf9; color: #344b68; font-size: 12px; line-height: 1.6; }
+.quality summary { cursor: pointer; color: #075b52; font-weight: 600; }
+.quality summary:focus-visible { outline: 3px solid #08796e; outline-offset: 3px; }
+.quality p { margin: 10px 0 0; }
+.quality ul { display: grid; gap: 8px; padding-left: 18px; }
+.quality li span { display: block; }

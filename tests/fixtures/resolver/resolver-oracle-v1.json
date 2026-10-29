@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "reviewStatus": "DRAFT_AWAITING_TEAM_REVIEW",
   "reviewedBy": null,
-  "scope": "Hand-authored static resolver expectations for small cross-file JavaScript, TypeScript, and PHP source fixtures, including aliased CommonJS bindings, class-member access versus conservative UNKNOWN_RECEIVER for local instance aliases, ambiguous extensionless modules, and parse-only execution canaries. Expected semantics and evidence are specified from source; this manifest remains a draft oracle, not semantic acceptance.",
+  "scope": "Hand-authored static resolver expectations for small cross-file JavaScript, TypeScript, and PHP source fixtures, including aliased CommonJS bindings, class-member access on stable local instances, conservative UNKNOWN_RECEIVER and external-dependency cases, ambiguous extensionless modules, and parse-only execution canaries. Expected semantics and evidence are specified from source; this manifest remains a draft oracle, not semantic acceptance.",
   "files": [
     {
       "path": "tests/fixtures/resolver/javascript/src/app.js",
@@ -865,17 +865,17 @@
       }
     },
     {
-      "id": "ts-write-local-record-label-unresolved",
-      "scenario": "uncertain-local-instance",
+      "id": "ts-write-local-record-label",
+      "scenario": "local-const-instance",
       "kind": "WRITES",
       "source": {
         "path": "tests/fixtures/resolver/typescript/src/construction.ts",
         "qualifiedName": "tests/fixtures/resolver/typescript/src/construction.ts.updateLocalRecord"
       },
-      "resolution": "Unresolved",
-      "unresolved": {
-        "name": "local.label",
-        "reason": "UNKNOWN_RECEIVER"
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/typescript/src/model-node.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model-node.ts.RecordNode.label"
       },
       "evidence": {
         "path": "tests/fixtures/resolver/typescript/src/construction.ts",
@@ -889,17 +889,17 @@
       }
     },
     {
-      "id": "ts-read-local-record-label-unresolved",
-      "scenario": "uncertain-local-instance",
+      "id": "ts-read-local-record-label",
+      "scenario": "local-const-instance",
       "kind": "READS",
       "source": {
         "path": "tests/fixtures/resolver/typescript/src/construction.ts",
         "qualifiedName": "tests/fixtures/resolver/typescript/src/construction.ts.updateLocalRecord"
       },
-      "resolution": "Unresolved",
-      "unresolved": {
-        "name": "local.label",
-        "reason": "UNKNOWN_RECEIVER"
+      "resolution": "Exact",
+      "target": {
+        "path": "tests/fixtures/resolver/typescript/src/model-node.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model-node.ts.RecordNode.label"
       },
       "evidence": {
         "path": "tests/fixtures/resolver/typescript/src/construction.ts",
@@ -910,6 +910,54 @@
         "endLine": 8,
         "startColumn": 16,
         "endColumn": 21
+      }
+    },
+    {
+      "id": "ts-read-string-trim-unknown",
+      "scenario": "unknown-receiver",
+      "kind": "CALLS",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/model.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/model.ts.describe"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "value.trim",
+        "reason": "UNKNOWN_RECEIVER"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/model.ts",
+        "snippet": "trim",
+        "startByte": 145,
+        "endByte": 149,
+        "startLine": 3,
+        "endLine": 3,
+        "startColumn": 64,
+        "endColumn": 68
+      }
+    },
+    {
+      "id": "ts-import-node-fs-external",
+      "scenario": "external-dependency",
+      "kind": "IMPORTS",
+      "source": {
+        "path": "tests/fixtures/resolver/typescript/src/unsafe.ts",
+        "qualifiedName": "tests/fixtures/resolver/typescript/src/unsafe.ts"
+      },
+      "resolution": "Unresolved",
+      "unresolved": {
+        "name": "node:fs",
+        "reason": "EXTERNAL_DEPENDENCY"
+      },
+      "evidence": {
+        "path": "tests/fixtures/resolver/typescript/src/unsafe.ts",
+        "snippet": "node:fs",
+        "startByte": 56,
+        "endByte": 63,
+        "startLine": 2,
+        "endLine": 2,
+        "startColumn": 12,
+        "endColumn": 19
       }
     }
   ],
@@ -941,7 +989,8 @@
         "unknown-receiver",
         "construction-and-members",
         "ambiguous-module",
-        "uncertain-local-instance"
+        "local-const-instance",
+        "external-dependency"
       ]
     },
     {

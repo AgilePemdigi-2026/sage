@@ -7,9 +7,10 @@ import type { NodeKind } from "@sage/contracts";
 import type { GraphPayload } from "../../lib/graphs/types.ts";
 import { GraphCanvas } from "../graph-foundation/knowledge-graph.tsx";
 import type { GraphMode } from "./graph-modes.ts";
-import { projectGraphMode } from "./graph-modes.ts";
+import { ESSENTIAL_RENDER_LIMITS, GRAPH_RENDER_LIMITS, projectGraphMode } from "./graph-modes.ts";
 import { filterGraph } from "./graph-filters.ts";
 import { parseLiveGraphPayload } from "./graph-data.ts";
+import { AnalysisQuality } from "../analysis-quality/analysis-quality.tsx";
 import { NodeInspector } from "./node-inspector.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
 import ui from "../ui-foundation/ui-foundation.module.css";
@@ -18,7 +19,8 @@ type RequestError = { status: number | null; message: string };
 type SessionIdentity = { accountKey?: string };
 
 const modes: { id: GraphMode; label: string }[] = [
-  { id: "overview", label: "Ikhtisar" },
+  { id: "essential", label: "Esensial" },
+  { id: "overview", label: "Detail AST" },
   { id: "focus", label: "Fokus node" },
   { id: "all-references", label: "Semua referensi" },
 ];
@@ -35,7 +37,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
   const [payload, setPayload] = useState<GraphPayload | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<RequestError | null>(null);
-  const [mode, setMode] = useState<GraphMode>("overview");
+  const [mode, setMode] = useState<GraphMode>("essential");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selectedKinds, setSelectedKinds] = useState<NodeKind[]>([]);
@@ -253,6 +255,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
     const focusId = projectionFocusId && filterResult.graph.nodes.some((node) => node.id === projectionFocusId) ? projectionFocusId : null;
     return projectGraphMode(filterResult.graph, mode, focusId);
   }, [filterResult, mode, projectionFocusId]);
+  const renderLimits = mode === "essential" ? ESSENTIAL_RENDER_LIMITS : GRAPH_RENDER_LIMITS;
   const canonicalCounts = visiblePayload?.canonicalCounts ?? null;
   const availableKinds = useMemo(() => {
     if (!visiblePayload) return [];
@@ -379,18 +382,20 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
 
         <section className={styles.graphCounts} role="group" aria-label="Ringkasan jumlah graph">
           <p data-testid="canonical-counts">Kanonik: {canonicalCounts.nodes} node · {canonicalCounts.edges} relasi</p>
-          <p data-testid="visible-counts">Tampilan: {projection.visibleCounts.nodes} node · {projection.visibleCounts.edges} relasi</p>
+          <p data-testid="visible-counts">{mode === "essential" ? "Tampilan proyeksi esensial" : "Tampilan"}: {projection.visibleCounts.nodes} node · {projection.visibleCounts.edges} relasi</p>
           <details className={styles.compactGraphDetails}>
             <summary>Rincian jumlah dan filter</summary>
           <p className={styles.countDetails}>CONTAINS {canonicalCounts.containmentEdges} · Referensi {canonicalCounts.referenceEdges} · Exact {canonicalCounts.exactEdges} · Unresolved {canonicalCounts.unresolvedEdges}</p>
           <p data-testid="query-filter-counts" aria-live="polite">Hasil pencarian dan jenis node: {filterResult.counts.nodes} node · {filterResult.counts.edges} relasi</p>
-          <p data-testid="filtered-counts">Hasil mode: {projection.filteredCounts.nodes} node · {projection.filteredCounts.edges} relasi</p>
-          <p className={styles.countDetails}>Hasil mode · CONTAINS {projection.filteredCounts.containmentEdges} · Referensi {projection.filteredCounts.referenceEdges} · Exact {projection.filteredCounts.exactEdges} · Unresolved {projection.filteredCounts.unresolvedEdges}</p>
+          <p data-testid="filtered-counts">{mode === "essential" ? "Proyeksi esensial" : "Hasil mode"}: {projection.filteredCounts.nodes} node · {projection.filteredCounts.edges} relasi</p>
+          <p className={styles.countDetails}>{mode === "essential" ? "Proyeksi esensial" : "Hasil mode"} · CONTAINS {projection.filteredCounts.containmentEdges} · Referensi {projection.filteredCounts.referenceEdges} · Exact {projection.filteredCounts.exactEdges} · Unresolved {projection.filteredCounts.unresolvedEdges}</p>
           <p className={styles.countDetails}>Tampilan · CONTAINS {projection.visibleCounts.containmentEdges} · Referensi {projection.visibleCounts.referenceEdges} · Exact {projection.visibleCounts.exactEdges} · Unresolved {projection.visibleCounts.unresolvedEdges}</p>
           </details>
-          {projection.omittedCounts.nodes > 0 || projection.omittedCounts.edges > 0 ? <p className={styles.subsetNotice} role="note">Batas render antarmuka: maksimal 200 node dan 500 relasi. Mode ini memuat {projection.visibleCounts.nodes} dari {projection.filteredCounts.nodes} node dan {projection.visibleCounts.edges} dari {projection.filteredCounts.edges} relasi.</p> : null}
+          {mode === "essential" ? <p className={styles.subsetNotice} role="note">Esensial merangkum source Module, Class, Interface, dan fungsi tingkat atas. Metode/properti diringkas ke pemilik; relasi Exact lintas pemilik digabung. “Detail AST” membuka deklarasi kanonik dengan batas render yang ditampilkan.</p> : null}
+          {projection.omittedCounts.nodes > 0 || projection.omittedCounts.edges > 0 ? <p className={styles.subsetNotice} role="note">Batas render antarmuka: maksimal {renderLimits.nodes} node dan {renderLimits.edges} relasi. Mode ini memuat {projection.visibleCounts.nodes} dari {projection.filteredCounts.nodes} node dan {projection.visibleCounts.edges} dari {projection.filteredCounts.edges} relasi.</p> : null}
         </section>
 
+        <AnalysisQuality edges={visiblePayload.graph.edges} />
         {busy ? <p className={ui.loading} role="status">Memeriksa akun sebelum memuat ulang graph…</p> : null}
         {visiblePayload.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Graph tidak memiliki node untuk ditampilkan.</p> : null}
         {visiblePayload.graph.nodes.length > 0 && filterResult.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Tidak ada node yang sesuai dengan kueri dan jenis node yang dipilih.</p> : null}
@@ -408,7 +413,8 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           onIdentityFailure={handleInspectorIdentityFailure}
         /> : null}
         <p className={styles.modeDescription} aria-live="polite">
-          {mode === "overview" ? "Ikhtisar menampilkan node kanonik sebagai jaringan. Relasi CONTAINS menjadi garis titik-titik; arahkan pointer ke node untuk melihat jenis relasi lainnya." : null}
+          {mode === "essential" ? "Esensial menampilkan ringkasan node arsitektural dan dependency Exact lintas pemilik." : null}
+          {mode === "overview" ? "Detail AST menampilkan node kanonik sebagai jaringan. Relasi CONTAINS menjadi garis titik-titik; arahkan pointer ke node untuk melihat jenis relasi lainnya." : null}
           {mode === "focus" ? "Fokus menampilkan node terpilih, tetangga langsung, dan relasi yang bersentuhan dengan node terpilih." : null}
           {mode === "all-references" ? "Semua referensi menampilkan endpoint dari relasi selain CONTAINS, termasuk referensi yang belum terpecahkan." : null}
         </p>

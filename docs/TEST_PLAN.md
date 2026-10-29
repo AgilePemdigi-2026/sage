@@ -153,3 +153,10 @@ Regresi PDF memeriksa pemilihan deterministik, source-backed groups, anggota/evi
 ## Revisi workspace UI-05
 
 Mode pratinjau publik dihapus. Fixture graph/progres berada di `tests/fixtures/ui` dan bukan halaman produk. Perintah browser lama untuk preview tetap menjadi alias smoke landing/login dan 404; laporan historis UI-01/UI-02 tidak membuktikan workspace saat ini. `test:pdf:live` juga memeriksa workspace nyata pada 390/1440 px (evidence commit, katalog bertahap, graph, dan layout); `test:target:ui` memeriksa perpindahan fokus setelah pemilihan repository dengan provider yang dikontrol. Lihat [UI-05_CHECKS](UI-05_CHECKS.md) untuk hasil run dan batasnya.
+
+
+## ANA-08: resolusi lokal, graph esensial, UML BCE
+
+Uji positif mencakup binding lokal `new`, field/parameter property bertipe, pewarisan aman, dan alias TS tanpa `baseUrl`. Uji negatif mencakup receiver dinamis, union, generic shadowing, mutasi, scope loop, destructuring, dispatch class PHP terbuka serta alias/by-reference. Oracle source harus memeriksa target dan rentang evidence, bukan hanya penurunan jumlah Unresolved.
+
+Proyeksi graph diuji deterministik, bebas mutasi canonical, mengangkat anggota ke pemilik dan memprioritaskan node terhubung. UML diuji dengan lima class BCE yang semuanya tampil beserta dependency dan pewarisan; role convention tetap eksplisit dan yang ambigu tidak dipaksakan. Browser 390/1440 memeriksa SVG nyata, garis hubungan, susunan atas-ke-bawah dan overflow. Ekspor PDF melewati HTTP/worker dengan fixture yang sama, menjaga canonical/Markdown dan replay hasil lama. Hasil aktual dan batas run dicatat di [ANA-08_CHECKS](ANA-08_CHECKS.md).

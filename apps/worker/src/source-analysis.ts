@@ -20,7 +20,7 @@ import {
 import type { SnapshotFile } from "./snapshot/archive.ts";
 
 export const SOURCE_POLICY_VERSION = "sage-source-policy-v1";
-export const SOURCE_ANALYSIS_VERSION = "0.2.0";
+export const SOURCE_ANALYSIS_VERSION = "0.3.0";
 export const DEFAULT_MAX_SOURCE_FILE_BYTES = 1024 * 1024;
 const MAX_SNAPSHOT_FILES = 2_000;
 const MAX_SNAPSHOT_PATH_BYTES = 4_096;

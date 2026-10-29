@@ -78,7 +78,8 @@ test("compact PDF projections are deterministic, source-backed, bounded, and lea
   assert.ok(result.uml.mermaid.length < 50_000);
   assert.equal(pdfRendererInternals.validateRendererDiagram(result.uml), null);
   assert.ok(result.uml.edges.some(item => item.resolution === "Exact"));
-  assert.ok(result.uml.edges.some(item => item.resolution === "Unresolved"));
+  assert.ok((result.umlSummary.omittedUnresolved ?? 0) > 0, "uncertain target references remain recorded outside the main UML");
+  assert.ok(result.uml.nodes.every(item => item.kind !== "UnresolvedReference"));
 });
 
 test("compact projections do not depend on canonical array order", () => {
@@ -133,9 +134,10 @@ test("many unresolved targets do not displace real UML classifiers and their mem
   assert.ok(shownClasses.length >= 3);
   assert.ok(shownMembers.length >= 3);
   const shownIds = new Set(result.uml.nodes.map(item => item.id));
-  assert.ok(result.uml.edges.length > 0);
-  assert.ok(result.uml.edges.every(item => shownIds.has(item.sourceId) && shownIds.has(item.targetId)));
-  assert.ok(result.uml.edges.some(item => item.resolution === "Unresolved"));
+  assert.equal(shownClasses.length, classes.length, "all five source classes fit the main UML");
+  assert.equal(result.uml.edges.length, 0, "unknown interfaces are not fabricated as source classifiers");
+  assert.equal(result.umlSummary.omittedUnresolved, relations.length);
+  assert.ok(result.uml.nodes.every(item => shownIds.has(item.id) && item.kind !== "UnresolvedReference"));
   assert.equal(pdfRendererInternals.validateRendererDiagram(result.uml), null);
 });
 

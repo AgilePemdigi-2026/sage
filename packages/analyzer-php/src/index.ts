@@ -744,10 +744,10 @@ function resolvePhpReferences(
   }
 
   nodes.push(...unresolvedNodes.values());
-  const configHash = sha256(`sage-analyzer-php-static-resolver-v2\n${ccm.provenance.configHash}\n${configuration.hash}\nnikic-php-parser-static-ast-v1\ncomposer-psr4-static-hints-v1`);
+  const configHash = sha256(`sage-analyzer-php-static-resolver-v3\n${ccm.provenance.configHash}\n${configuration.hash}\nnikic-php-parser-static-ast-v1\ncomposer-psr4-static-hints-v1`);
   return {
     ...ccm,
-    provenance: { ...ccm.provenance, resolver: { name: "sage-analyzer-php-static-resolver", version: "0.2.0" }, configHash },
+    provenance: { ...ccm.provenance, resolver: { name: "sage-analyzer-php-static-resolver", version: "0.3.0" }, configHash },
     nodes,
     edges,
     limitations: [...limitations, ...ccm.limitations].filter((item, index, all) =>

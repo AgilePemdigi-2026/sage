@@ -1,5 +1,42 @@
-import type { CcmNode } from "@sage/contracts";
+import type { CcmEdge, CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { DiagramProjection } from "./diagrams.ts";
+
+export type HumanUmlRole = "boundary" | "control" | "entity";
+
+/** Display-only BCE classification. It records the convention that caused a label, not CCM fact. */
+export interface HumanUmlRoleMetadata {
+  role: HumanUmlRole | null;
+  basis: "name-convention" | "path-convention" | "name-and-path" | "ambiguous" | "none";
+  nameConvention: string | null;
+  pathConvention: string | null;
+}
+
+/** A rendered dependency can stand for several exact source edges. */
+export interface HumanUmlDependencyMetadata {
+  sourceId: string;
+  targetId: string;
+  kind: CcmEdge["kind"];
+  resolution: CcmEdge["resolution"];
+  representativeEdgeId: string;
+  sourceEdgeIds: string[];
+  evidence: EvidenceSpan[];
+  sourceEdges: CcmEdge[];
+}
+
+/** Human/PDF reading hints never change canonical CCM facts or their identifiers. */
+export interface HumanUmlMetadata {
+  direction: "TB";
+  roles: Record<string, HumanUmlRoleMetadata>;
+  dependencies: HumanUmlDependencyMetadata[];
+  inheritanceRelations: HumanUmlDependencyMetadata[];
+  /** Number of relationship statements in the rendered class diagram after display grouping. */
+  displayEdgeCount?: number;
+  unresolvedReferenceCount: number;
+  unresolvedSourceEdgeIds: string[];
+  omittedUnresolved: number;
+}
+
+export type HumanUmlProjection = DiagramProjection & { humanMetadata?: HumanUmlMetadata };
 
 /** Display only: canonical projections and the exhaustive Markdown remain unchanged. */
 export const HUMAN_DIAGRAM_THEME = {
@@ -28,18 +65,35 @@ const colors: Record<string, string> = {
   UnresolvedReference: "fill:#fff4d9,stroke:#b45309,color:#78350f,stroke-dasharray:5 3",
 };
 
+const roleColors: Record<HumanUmlRole, string> = {
+  boundary: "fill:#fff4d9,stroke:#b45309,color:#78350f",
+  control: "fill:#e0eaff,stroke:#4f61c6,color:#162f67",
+  entity: "fill:#d5f5ed,stroke:#098577,color:#061e42",
+};
+
+const dependencyLabels: Partial<Record<CcmEdge["kind"], string>> = {
+  CALLS: "calls",
+  INSTANTIATES: "new",
+  TYPE_REFERENCES: "type",
+  READS: "reads",
+  WRITES: "writes",
+};
+
 /** A source-backed reading view. Members collapse into their owning classifier;
  * duplicate dependencies aggregate by kind and resolution, never across statuses.
  * Original evidence and IDs stay in the canonical model and Markdown.
  */
-export function projectHumanDiagram(diagram: DiagramProjection): DiagramProjection {
+export function projectHumanDiagram<T extends HumanUmlProjection>(diagram: T): T {
   const aliases = new Map(diagram.nodes.map((node, i) => [node.id, `N${i + 1}`]));
   const byId = new Map(diagram.nodes.map(node => [node.id, node]));
   const nameCounts = new Map<string, number>();
   for (const node of diagram.nodes) nameCounts.set(humanNodeName(node), (nameCounts.get(humanNodeName(node)) ?? 0) + 1);
   const displayName = (node: CcmNode) => (nameCounts.get(humanNodeName(node)) ?? 0) > 1 ? `${humanNodeName(node)} · ${node.filePath ?? node.kind}` : humanNodeName(node);
   const lines = [diagram.kind === "uml-class" ? "classDiagram" : "flowchart LR"];
+  if (diagram.kind === "uml-class" && diagram.humanMetadata?.direction === "TB") lines.push("  direction TB");
   const mappings: DiagramProjection["nodeMappings"] = [];
+  const edgeMappings: DiagramProjection["edgeMappings"] = [];
+  let displayEdgeCount = 0;
   if (diagram.kind === "uml-class") {
     const membersByParent = new Map<string, CcmNode[]>();
     for (const member of diagram.nodes) {
@@ -55,20 +109,65 @@ export function projectHumanDiagram(diagram: DiagramProjection): DiagramProjecti
       mappings.push({ nodeId: node.id, mermaidId: alias, mermaidLine: lines.length, evidence: node.location });
       if (node.kind === "Interface") lines.push("    <<interface>>");
       if (node.kind === "UnresolvedReference") lines.push("    <<unresolved>>");
+      const displayRole = diagram.humanMetadata?.roles[node.id]?.role;
+      if (displayRole) lines.push(`    <<${displayRole}>>`);
       for (const member of membersByParent.get(node.id) ?? []) {
         // Parentheses are trusted grammar only for declared methods. No invented visibility/type.
         let memberLabel = label((member.signature ?? member.name).replace(/\)\s*:\s*/, ") "));
         if (member.kind === "Method") memberLabel = memberLabel.replace(/#40;/g, "(").replace(/#41;/g, ")");
         lines.push(`    ${memberLabel}${member.kind === "Method" && !memberLabel.includes("(") ? "(parameter tidak tersedia)" : ""}`);
+        if (diagram.humanMetadata) {
+          mappings.push({ nodeId: member.id, mermaidId: null, mermaidLine: lines.length, parentMermaidId: alias, evidence: member.location });
+        }
       }
       lines.push("  }");
-      lines.push(`  style ${alias} ${colors[node.kind] ?? colors.Class}`);
+      lines.push(`  style ${alias} ${displayRole ? roleColors[displayRole] : colors[node.kind] ?? colors.Class}`);
     }
-    for (const edge of diagram.edges) {
-      const source = byId.get(edge.sourceId), target = byId.get(edge.targetId);
-      if (!source || !target || !["Class", "Interface", "UnresolvedReference"].includes(source.kind) || !["Class", "Interface", "UnresolvedReference"].includes(target.kind)) continue;
-      const arrow = edge.resolution === "Unresolved" ? "..>" : edge.kind === "EXTENDS" ? "--|>" : edge.kind === "IMPLEMENTS" ? "..|>" : "..>";
-      lines.push(`  ${aliases.get(edge.sourceId)} ${arrow} ${aliases.get(edge.targetId)} : ${edge.resolution === "Unresolved" ? "Unresolved" : edge.kind.toLowerCase()}`);
+    const renderedClassifiers = new Set(diagram.nodes.filter(node => node.kind === "Class" || node.kind === "Interface").map(node => node.id));
+    if (diagram.humanMetadata) {
+      for (const group of diagram.humanMetadata.inheritanceRelations) {
+        const sourceAlias = aliases.get(group.sourceId), targetAlias = aliases.get(group.targetId);
+        if (!sourceAlias || !targetAlias || !renderedClassifiers.has(group.sourceId) || !renderedClassifiers.has(group.targetId)) continue;
+        const relation = group.kind === "EXTENDS" ? "<|--" : "<|..";
+        lines.push(`  ${targetAlias} ${relation} ${sourceAlias} : ${group.kind.toLowerCase()}`);
+        displayEdgeCount += 1;
+        for (const edge of group.sourceEdges) {
+          edgeMappings.push({ edgeId: edge.id, mermaidLine: lines.length, sourceMermaidId: aliases.get(edge.sourceId)!, targetMermaidId: aliases.get(edge.targetId)!, evidence: edge.evidence });
+        }
+      }
+    } else {
+      for (const edge of diagram.edges) {
+        const source = byId.get(edge.sourceId), target = byId.get(edge.targetId);
+        if (!source || !target) continue;
+        if (!["Class", "Interface", "UnresolvedReference"].includes(source.kind) || !["Class", "Interface", "UnresolvedReference"].includes(target.kind)) continue;
+        const arrow = edge.resolution === "Unresolved" ? "..>" : edge.kind === "EXTENDS" ? "--|>" : edge.kind === "IMPLEMENTS" ? "..|>" : "..>";
+        lines.push(`  ${aliases.get(edge.sourceId)} ${arrow} ${aliases.get(edge.targetId)} : ${edge.resolution === "Unresolved" ? "Unresolved" : edge.kind.toLowerCase()}`);
+      }
+    }
+    const dependencyLines = new Map<string, { sourceId: string; targetId: string; resolution: CcmEdge["resolution"]; groups: HumanUmlDependencyMetadata[] }>();
+    for (const group of diagram.humanMetadata?.dependencies ?? []) {
+      const key = JSON.stringify([group.sourceId, group.targetId, group.resolution]);
+      const line = dependencyLines.get(key);
+      if (line) line.groups.push(group);
+      else dependencyLines.set(key, { sourceId: group.sourceId, targetId: group.targetId, resolution: group.resolution, groups: [group] });
+    }
+    const orderedDependencyLines = [...dependencyLines.entries()].sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0);
+    for (const [, line] of orderedDependencyLines) {
+      const sourceAlias = aliases.get(line.sourceId), targetAlias = aliases.get(line.targetId);
+      if (!sourceAlias || !targetAlias || line.sourceId === line.targetId) continue;
+      const groups = [...line.groups].sort((left, right) => left.kind < right.kind ? -1 : left.kind > right.kind ? 1 : 0);
+      const kindLabels = groups.map(group => {
+        const name = dependencyLabels[group.kind] ?? group.kind.toLowerCase();
+        return group.sourceEdgeIds.length > 1 ? `${name} ×${group.sourceEdgeIds.length}` : name;
+      });
+      const caption = `${kindLabels.join(" / ")} · ${line.resolution}`;
+      // Mermaid class diagrams accept the dotted UML dependency token `..>` for both
+      // statuses; resolution remains explicit in the caption instead of changing grammar.
+      lines.push(`  ${sourceAlias} ..> ${targetAlias} : ${label(caption)}`);
+      displayEdgeCount += 1;
+      for (const group of groups) for (const edge of group.sourceEdges) {
+        edgeMappings.push({ edgeId: edge.id, mermaidLine: lines.length, sourceMermaidId: sourceAlias, targetMermaidId: targetAlias, evidence: edge.evidence });
+      }
     }
     if (!mappings.length) lines.push('  note "Tidak ada deklarasi class atau interface"');
   } else {
@@ -107,5 +206,10 @@ export function projectHumanDiagram(diagram: DiagramProjection): DiagramProjecti
     }
     if (!visible.length) lines.push('  Empty["Tidak ada struktur kode yang tercatat"]');
   }
-  return { ...diagram, mermaid: lines.join("\n"), nodeMappings: mappings, edgeMappings: [] };
+  const humanMetadata = diagram.humanMetadata
+    ? diagram.humanMetadata.displayEdgeCount === displayEdgeCount
+      ? diagram.humanMetadata
+      : { ...diagram.humanMetadata, displayEdgeCount }
+    : undefined;
+  return { ...diagram, ...(humanMetadata ? { humanMetadata } : {}), mermaid: lines.join("\n"), nodeMappings: mappings, edgeMappings } as T;
 }

@@ -1,3 +1,4 @@
+import { checkBceWorkspace } from "./check-bce-workspace.ts";
 import { checkWorkspaceExperience } from "./workspace-ui-checks.ts";
 import assert from "node:assert/strict";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -906,6 +907,30 @@ async function runLivePdfExportRegression(): Promise<void> {
     assert.equal(browserAudit.offOrigin, 0, "browser regression must remain same-origin");
     assert.equal(browserAudit.provider, 0, "browser regression must not contact GitHub/provider APIs");
     assert.deepEqual(browserAudit.errors, [], "browser pages must finish without uncaught errors");
+    const bceSource = await readFile(new URL("../tests/fixtures/architecture-bce/order.ts", import.meta.url));
+    const bceSnapshot = { ...fixture.snapshot, commitSha: "c".repeat(40) };
+    const bceSources = { "src/order.ts": new Uint8Array(bceSource) };
+    const bceResolved = analyzeReferences({ snapshot: bceSnapshot, sources: bceSources });
+    assert.ok(bceResolved.ccm, "BCE source fixture must produce canonical CCM");
+    assert.equal(bceResolved.ccm.edges.filter(edge => edge.resolution === "Unresolved").length, 0, "supported BCE dependency/receiver fixture must resolve without guesses");
+    const bceAnalysis = await seedAnalysis(db, { ownerUserId: owner.userId, repositoryId,
+      fixture: { sources: bceSources, ccm: bceResolved.ccm, snapshot: bceSnapshot, configurationHash: digest("bce-v1") },
+      storageRoot, label: "bce-main-classes", storageObjectIds, createdFolders });
+    analysisIds.push(bceAnalysis.analysisId);
+    for (const width of [390, 1440]) {
+      const bceContext = await createBrowserContext(browser, base, owner, width);
+      try { await checkBceWorkspace(await bceContext.newPage(), base, bceAnalysis.analysisId, resultDir, width); }
+      finally { await bceContext.close(); }
+    }
+    const bceCreatedResponse = await api.post(exportCollectionPath(base, bceAnalysis.analysisId), {
+      headers: postHeaders(owner, parsedBase.origin), data: { format: "PDF" },
+    });
+    assert.equal(bceCreatedResponse.status(), 202);
+    const bceCreated = parseExportData(await readJson(bceCreatedResponse), "PDF");
+    await waitForExportStatus(api, base, bceAnalysis.analysisId, bceCreated.export.id, owner, "READY");
+    const bcePdf = await verifyPdfDownload(api, base, bceAnalysis, bceCreated.export.id, owner);
+    await writeFile(join(resultDir, "bce-main-classes.pdf"), bcePdf.bytes);
+    checks.push("BCE fixture: local/injected/inherited receivers resolve; all five main classifiers and dependency lines render on 390/1440 px with portrait aspect ratio; PDF exported by production worker");
     checks.push("tested browser paths make no off-origin/provider requests and have no uncaught page errors");
   } catch (error) {
     reportStatus = "FAIL";

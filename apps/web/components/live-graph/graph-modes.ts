@@ -1,8 +1,9 @@
 import type { GraphEdgeView, GraphNodeView, GraphViewModel } from "../graph-foundation/graph-projection.ts";
 
-export type GraphMode = "overview" | "focus" | "all-references";
+export type GraphMode = "essential" | "overview" | "focus" | "all-references";
 
 export const GRAPH_RENDER_LIMITS = { nodes: 200, edges: 500 } as const;
+export const ESSENTIAL_RENDER_LIMITS = { nodes: 60, edges: 150 } as const;
 
 export interface GraphModeProjection {
   mode: GraphMode;
@@ -52,6 +53,101 @@ function defaultAnchor(nodes: readonly GraphNodeView[]): GraphNodeView | null {
   })[0] ?? null;
 }
 
+function hasNoisyPath(node: GraphNodeView): boolean {
+  const noisySegment = /(?:^|[/\\])(?:__tests__|tests?|__fixtures__|fixtures?|generated|vendor|node_modules|dist|build|coverage|__mocks__|mocks?)(?:[/\\]|$)/i;
+  const noisyFileName = /(?:^|[/\\])[^/\\]+\.(?:test|spec|fixture|generated|mock)\.[^./\\]+$/i;
+  return noisySegment.test(node.filePath ?? "") || noisyFileName.test(node.filePath ?? "") || noisySegment.test(node.qualifiedName);
+}
+
+function isTopLevelFunction(node: GraphNodeView, nodesById: ReadonlyMap<string, GraphNodeView>): boolean {
+  if (node.kind !== "Function") return false;
+  const visited = new Set([node.id]);
+  let parentId = node.parentId ?? null;
+  while (parentId && !visited.has(parentId)) {
+    visited.add(parentId);
+    const parent = nodesById.get(parentId);
+    if (!parent || parent.kind !== "Module") return false;
+    parentId = parent.parentId ?? null;
+  }
+  return parentId === null;
+}
+
+function isEssentialNode(node: GraphNodeView, nodesById: ReadonlyMap<string, GraphNodeView>): boolean {
+  if (node.origin !== "source" || hasNoisyPath(node)) return false;
+  return node.kind === "Module" || node.kind === "Class" || node.kind === "Interface" || isTopLevelFunction(node, nodesById);
+}
+
+/** Map implementation details to the nearest visible architectural owner. */
+function essentialOwnerId(
+  node: GraphNodeView,
+  nodesById: ReadonlyMap<string, GraphNodeView>,
+  essentialIds: ReadonlySet<string>,
+): string | null {
+  if (essentialIds.has(node.id)) return node.id;
+  if (node.origin !== "source" || node.kind === "UnresolvedReference") return null;
+
+  const visited = new Set([node.id]);
+  let parentId = node.parentId ?? null;
+  while (parentId && !visited.has(parentId)) {
+    visited.add(parentId);
+    const parent = nodesById.get(parentId);
+    if (!parent) return null;
+    if ((parent.kind === "Class" || parent.kind === "Interface" || parent.kind === "Module") && essentialIds.has(parent.id)) {
+      return parent.id;
+    }
+    parentId = parent.parentId ?? null;
+  }
+  return null;
+}
+
+function essentialNodeOrder(
+  left: GraphNodeView,
+  right: GraphNodeView,
+  connectionCountByNodeId: ReadonlyMap<string, number>,
+): number {
+  const leftConnections = connectionCountByNodeId.get(left.id) ?? 0;
+  const rightConnections = connectionCountByNodeId.get(right.id) ?? 0;
+  const kindPriority = (node: GraphNodeView) => node.kind === "Class" || node.kind === "Interface" ? 0 : node.kind === "Function" ? 1 : 2;
+  return rightConnections - leftConnections || kindPriority(left) - kindPriority(right) ||
+    compareText(left.qualifiedName, right.qualifiedName) || byId(left, right);
+}
+
+interface EssentialEdgeGroup {
+  edge: GraphEdgeView;
+  count: number;
+}
+
+function essentialEdges(
+  edges: readonly GraphEdgeView[],
+  ownerByNodeId: ReadonlyMap<string, string | null>,
+): EssentialEdgeGroup[] {
+  const groups = new Map<string, EssentialEdgeGroup>();
+  for (const edge of edges) {
+    if (edge.kind === "CONTAINS" || edge.resolution !== "Exact") continue;
+    const source = ownerByNodeId.get(edge.source) ?? null;
+    const target = ownerByNodeId.get(edge.target) ?? null;
+    if (!source || !target || source === target) continue;
+
+    const key = JSON.stringify([source, target, edge.kind]);
+    const group = groups.get(key);
+    if (group) {
+      group.count += 1;
+      if (compareText(edge.id, group.edge.id) < 0) group.edge.id = edge.id;
+    } else {
+      groups.set(key, {
+        count: 1,
+        edge: { ...edge, source, target },
+      });
+    }
+  }
+
+  return [...groups.values()].map((group) => ({
+    ...group,
+    // The projected edge id is the id of a real canonical edge representing this aggregate.
+    edge: { ...group.edge, label: `${group.edge.kind} · Exact${group.count > 1 ? ` ×${group.count}` : ""}` },
+  }));
+}
+
 function nearestModuleId(node: GraphNodeView, nodesById: ReadonlyMap<string, GraphNodeView>): string | null {
   const visited = new Set([node.id]);
   let parentId = node.parentId ?? null;
@@ -84,12 +180,31 @@ export function projectGraphMode(
   for (const node of source.nodes) nearestModuleByNodeId.set(node.id, nearestModuleId(node, nodesById));
   const edges = [...source.edges].sort(byId);
   const chosen = selectedId ? nodesById.get(selectedId) : undefined;
-  const anchor = chosen ?? defaultAnchor(source.nodes);
-  const anchorId = anchor?.id ?? null;
+  let anchor = chosen ?? defaultAnchor(source.nodes);
+  let essentialEdgesValue: EssentialEdgeGroup[] = [];
+  let essentialOwnerByNodeId = new Map<string, string | null>();
+  const connectionCountByNodeId = new Map<string, number>();
 
   let filteredNodes: GraphNodeView[];
   let filteredEdges: GraphEdgeView[];
-  if (mode === "focus" && anchor) {
+  if (mode === "essential") {
+    const essentialNodes = source.nodes.filter((node) => isEssentialNode(node, nodesById));
+    const essentialIds = new Set(essentialNodes.map((node) => node.id));
+    essentialOwnerByNodeId = new Map<string, string | null>();
+    for (const node of source.nodes) {
+      essentialOwnerByNodeId.set(node.id, essentialOwnerId(node, nodesById, essentialIds));
+    }
+    essentialEdgesValue = essentialEdges(edges, essentialOwnerByNodeId);
+    for (const group of essentialEdgesValue) {
+      connectionCountByNodeId.set(group.edge.source, (connectionCountByNodeId.get(group.edge.source) ?? 0) + group.count);
+      connectionCountByNodeId.set(group.edge.target, (connectionCountByNodeId.get(group.edge.target) ?? 0) + group.count);
+    }
+    filteredNodes = [...essentialNodes].sort((left, right) => essentialNodeOrder(left, right, connectionCountByNodeId));
+    essentialEdgesValue.sort((left, right) => right.count - left.count || byId(left.edge, right.edge));
+    filteredEdges = essentialEdgesValue.map((group) => group.edge);
+    const chosenOwner = chosen ? essentialOwnerByNodeId.get(chosen.id) ?? null : null;
+    anchor = (chosenOwner ? nodesById.get(chosenOwner) : undefined) ?? filteredNodes[0] ?? null;
+  } else if (mode === "focus" && anchor) {
     const neighbors = new Set([anchor.id]);
     for (const edge of edges) {
       if (edge.source === anchor.id) neighbors.add(edge.target);
@@ -97,7 +212,8 @@ export function projectGraphMode(
     }
     filteredNodes = [...neighbors].map((id) => nodesById.get(id)).filter((node): node is GraphNodeView => !!node);
     // Focus shows only incident edges, including self-loops and parallel edges.
-    filteredEdges = edges.filter((edge) => edge.source === anchor.id || edge.target === anchor.id);
+    const focusId = anchor.id;
+    filteredEdges = edges.filter((edge) => edge.source === focusId || edge.target === focusId);
   } else if (mode === "all-references") {
     filteredEdges = edges.filter((edge) => edge.kind !== "CONTAINS");
     const endpoints = new Set(filteredEdges.flatMap((edge) => [edge.source, edge.target]));
@@ -106,6 +222,7 @@ export function projectGraphMode(
     filteredNodes = [...source.nodes];
     filteredEdges = edges;
   }
+  const anchorId = anchor?.id ?? null;
 
   const moduleById = (left: GraphNodeView, right: GraphNodeView) => {
     const leftModule = left.kind === "Module" ? 0 : 1;
@@ -117,15 +234,17 @@ export function projectGraphMode(
   };
   const nodeOrder = mode === "focus"
     ? [...filteredNodes].sort((left, right) => (left.id === anchorId ? -1 : right.id === anchorId ? 1 : byId(left, right)))
-    : [...filteredNodes].sort(moduleById);
-  const visibleNodes = nodeOrder.slice(0, GRAPH_RENDER_LIMITS.nodes);
+    : mode === "essential"
+      ? [...filteredNodes].sort((left, right) => essentialNodeOrder(left, right, connectionCountByNodeId))
+      : [...filteredNodes].sort(moduleById);
+  const limits = mode === "essential" ? ESSENTIAL_RENDER_LIMITS : GRAPH_RENDER_LIMITS;
+  const visibleNodes = nodeOrder.slice(0, limits.nodes);
   const visibleNodeIds = new Set(visibleNodes.map((node) => node.id));
-  const visibleEdges = filteredEdges
-    .filter((edge) => edgeEndpointsPresent(edge, visibleNodeIds))
-    .sort(byId)
-    .slice(0, GRAPH_RENDER_LIMITS.edges);
+  const visibleEdgeCandidates = filteredEdges.filter((edge) => edgeEndpointsPresent(edge, visibleNodeIds));
+  const visibleEdges = (mode === "essential" ? visibleEdgeCandidates : visibleEdgeCandidates.sort(byId))
+    .slice(0, limits.edges);
   const moduleParentByNodeId: Record<string, string> = {};
-  if (mode === "overview") {
+  if (mode === "overview" || mode === "essential") {
     for (const node of visibleNodes) {
       const moduleId = nearestModuleByNodeId.get(node.id) ?? null;
       if (moduleId && moduleId !== node.id && visibleNodeIds.has(moduleId)) moduleParentByNodeId[node.id] = moduleId;

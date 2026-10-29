@@ -1,3 +1,4 @@
+import "./architecture-uml.test.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
 import { projectHumanDiagram } from "../packages/documents/src/human-diagrams.ts";

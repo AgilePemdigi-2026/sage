@@ -141,12 +141,12 @@ export function boundedDiagramOverview(
 export function projectInteractiveDiagram(diagram: DiagramProjection): InteractiveDiagramProjection {
   const display = projectHumanDiagram(diagram);
   const displayEdgeCount = display.mermaid.split("\n").filter(line => /^\s*N\d+\s+.+\s+N\d+(?:\s|$)/u.test(line)).length;
-  const displayMemberCount = display.mermaid.split("\n").reduce((count, line) => count + (/^\s{4}\S/u.test(line) ? 1 : 0), 0);
+  const displayMemberCount = display.mermaid.split("\n").reduce((count, line) => count + (/^\s{4}(?!<<)\S/u.test(line) ? 1 : 0), 0);
   return {
     diagram: display,
     sourceNodeCount: diagram.nodes.length,
     sourceEdgeCount: diagram.edges.length,
-    displayNodeCount: display.nodeMappings.length + displayMemberCount,
+    displayNodeCount: display.nodeMappings.filter(mapping => mapping.mermaidId !== null).length + displayMemberCount,
     displayEdgeCount,
   };
 }
