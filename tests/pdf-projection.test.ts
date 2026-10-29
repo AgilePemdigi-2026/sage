@@ -134,7 +134,8 @@ test("many unresolved targets do not displace real UML classifiers and their mem
   assert.ok(shownClasses.length >= 3);
   assert.ok(shownMembers.length >= 3);
   const shownIds = new Set(result.uml.nodes.map(item => item.id));
-  assert.equal(shownClasses.length, classes.length, "all five source classes fit the main UML");
+  assert.equal(shownClasses.length, 4, "disconnected classes are shown in a readable four-class page");
+  assert.equal(result.umlSummary.totalNodes - result.umlSummary.shownNodes, 1, "remaining source classifier is explicitly omitted from compact PDF");
   assert.equal(result.uml.edges.length, 0, "unknown interfaces are not fabricated as source classifiers");
   assert.equal(result.umlSummary.omittedUnresolved, relations.length);
   assert.ok(result.uml.nodes.every(item => shownIds.has(item.id) && item.kind !== "UnresolvedReference"));

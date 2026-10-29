@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { CcmEdge, CcmNode, EvidenceSpan } from "@sage/contracts";
-import { buildArchitectureUml } from "../packages/documents/src/architecture-uml.ts";
+import { buildArchitectureUml, listArchitectureUmlScopes } from "../packages/documents/src/architecture-uml.ts";
 import type { DiagramProjection } from "../packages/documents/src/diagrams.ts";
 import { projectHumanDiagram } from "../packages/documents/src/human-diagrams.ts";
 
@@ -181,6 +181,84 @@ test("BCE role heuristics require an unambiguous name or path and unknown classe
   assert.equal(result.summary.classificationBasis.pathConvention, 1);
   assert.equal(result.summary.classificationBasis.ambiguous, 1);
   assert.equal(result.summary.classificationBasis.none, 1);
+});
+
+test("large disconnected class sets render as four-class pages with deterministic offsets", () => {
+  const interfaces = Array.from({ length: 12 }, (_, index) => node(
+    `interface-${String(index).padStart(2, "0")}`, "Interface", `Contract${String(index).padStart(2, "0")}`,
+    { filePath: `src/contracts/contract-${String(index).padStart(2, "0")}.ts` },
+  ));
+  const software = projection("software-structure", interfaces);
+  const uml = projection("uml-class", interfaces);
+  const original = JSON.stringify({ software, uml });
+
+  const first = buildArchitectureUml(software, uml);
+  const second = buildArchitectureUml(software, uml, { offset: 4 });
+  const last = buildArchitectureUml(software, uml, { offset: 8 });
+
+  assert.equal(first.summary.totalNodes, 12);
+  assert.equal(first.summary.shownNodes, 4);
+  assert.equal(first.summary.omittedClassifiers, 8);
+  assert.equal(second.summary.shownNodes, 4);
+  assert.equal(second.summary.omittedClassifiers, 8);
+  assert.equal(last.summary.shownNodes, 4);
+  assert.equal(last.summary.omittedClassifiers, 8);
+  assert.notEqual(first.projection.mermaid, second.projection.mermaid);
+  assert.notEqual(second.projection.mermaid, last.projection.mermaid);
+  assert.equal(first.projection.edgeMappings.length, 0);
+  assert.equal(JSON.stringify({ software, uml }), original, "page selection must not mutate source projections");
+});
+
+test("isolated class pages follow the connected relationship page", () => {
+  const source = node("source", "Class", "AccountsController", { filePath: "src/controller/AccountsController.ts" });
+  const target = node("target", "Class", "AccountsService", { filePath: "src/service/AccountsService.ts" });
+  const sourceMethod = node("source-method", "Method", "list", { parentId: source.id });
+  const targetMethod = node("target-method", "Method", "find", { parentId: target.id });
+  const related = [source, target];
+  const isolated = Array.from({ length: 6 }, (_, index) => node(`isolated-${index}`, "Interface", `Contract${index}`, {
+    filePath: `src/contracts/contract-${index}.ts`,
+  }));
+  const all = [...related, sourceMethod, targetMethod, ...isolated];
+  const software = projection("software-structure", all, [edge("calls", sourceMethod.id, targetMethod.id, "CALLS")]);
+  const uml = projection("uml-class", all);
+
+  const main = buildArchitectureUml(software, uml);
+  const disconnected = buildArchitectureUml(software, uml, { offset: main.summary.shownNodes });
+  const finalPage = buildArchitectureUml(software, uml, { offset: main.summary.shownNodes + disconnected.summary.shownNodes });
+
+  assert.deepEqual(main.projection.nodes.filter(item => item.kind === "Class").map(item => item.id).sort(), related.map(item => item.id).sort());
+  assert.equal(main.summary.shownRelations, 1);
+  assert.equal(disconnected.summary.shownNodes, 4);
+  assert.equal(disconnected.summary.shownRelations, 0);
+  assert.equal(finalPage.summary.shownNodes, 2);
+  assert.equal(finalPage.summary.omittedClassifiers, 6, "other pages remain explicitly outside this reading view");
+});
+
+test("source scopes group route classes by feature and filter only requested classifiers", () => {
+  const books = node("books", "Class", "BooksPage", { filePath: "apps/web/src/app/books/page.tsx" });
+  const booksController = node("books-controller", "Class", "BooksController", { filePath: "apps/web/src/app/books/controller.tsx" });
+  const users = node("users", "Class", "UsersPage", { filePath: "apps/web/src/app/users/page.tsx" });
+  const shared = node("shared", "Class", "SharedHeader", { filePath: "apps/web/src/components/header.tsx" });
+  const software = projection("software-structure", [books, booksController, users, shared]);
+  const uml = projection("uml-class", [books, booksController, users, shared]);
+
+  const scopes = listArchitectureUmlScopes(software, uml);
+  const booksScope = scopes.find(scope => scope.classifierIds.includes(books.id));
+  const usersScope = scopes.find(scope => scope.classifierIds.includes(users.id));
+  const sharedScope = scopes.find(scope => scope.classifierIds.includes(shared.id));
+  assert.ok(booksScope);
+  assert.ok(usersScope);
+  assert.ok(sharedScope);
+  assert.notEqual(booksScope.id, usersScope.id, "route areas stay independently readable");
+  assert.equal(booksScope.label, "Apps / Web / Src / App / Books");
+  assert.equal(booksScope.count, 2);
+  assert.deepEqual(booksScope.filePaths, ["apps/web/src/app/books/controller.tsx", "apps/web/src/app/books/page.tsx"]);
+
+  const focused = buildArchitectureUml(software, uml, { classifierIds: booksScope.classifierIds });
+  assert.deepEqual(focused.projection.nodes.filter(item => item.kind === "Class").map(item => item.id).sort(), [books.id, booksController.id].sort());
+  assert.equal(focused.summary.totalNodes, 2);
+  assert.equal(focused.summary.shownNodes, 2);
+  assert.equal(focused.summary.omittedClassifiers, 0);
 });
 
 test("selection, relation grouping, and escaping are deterministic under caps", () => {

@@ -8,5 +8,7 @@ export type {
   PdfDiagramSummary as DiagramOverviewSummary,
 } from "./pdf-projection.ts";
 
-export { buildArchitectureUml } from "./architecture-uml.ts";
+export { buildArchitectureUml, listArchitectureUmlScopes } from "./architecture-uml.ts";
 export type { ArchitectureUmlResult, ArchitectureUmlSummary } from "./architecture-uml.ts";
+
+export { buildSoftwareOverview } from "./software-overview.ts";

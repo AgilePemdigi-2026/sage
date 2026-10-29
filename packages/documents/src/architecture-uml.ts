@@ -19,6 +19,10 @@ const MEMBER_KINDS = new Set<CcmNode["kind"]>(["Method", "Property"]);
 const DEPENDENCY_KINDS = new Set<CcmEdge["kind"]>(["CALLS", "TYPE_REFERENCES", "INSTANTIATES", "READS", "WRITES"]);
 
 export interface ArchitectureUmlOptions {
+  /** Restrict this reading view to source class/interface IDs, as returned by listArchitectureUmlScopes. */
+  classifierIds?: readonly string[];
+  /** Start at this deterministic offset within the selected reading scope. */
+  offset?: number;
   maxClassifiers?: number;
   maxMembersPerClassifier?: number;
   maxRelations?: number;
@@ -63,7 +67,7 @@ export interface ArchitectureUmlSummary {
 export interface ArchitectureUmlResult {
   projection: HumanUmlProjection & { humanMetadata: NonNullable<HumanUmlProjection["humanMetadata"]> };
   summary: ArchitectureUmlSummary;
-  /** Includes a record for every source class/interface, including unselected classifiers. */
+  /** Includes a record for every classifier in the selected reading scope. */
   roles: Record<string, HumanUmlRoleMetadata>;
   /** All owner-resolved groups, including groups omitted from Mermaid by a display cap. */
   dependencies: HumanUmlDependencyMetadata[];
@@ -124,6 +128,65 @@ function compareNodes(left: CcmNode, right: CcmNode): number {
   return compareText(left.filePath ?? "", right.filePath ?? "") ||
     (left.location?.startLine ?? 0) - (right.location?.startLine ?? 0) ||
     compareText(displayName(left), displayName(right)) || compareText(left.id, right.id);
+}
+
+function sourceClassifiers(software: DiagramProjection, originalUml: DiagramProjection): CcmNode[] {
+  const byId = new Map<string, CcmNode>();
+  for (const node of software.nodes) byId.set(node.id, node);
+  for (const node of originalUml.nodes) byId.set(node.id, node);
+  return [...byId.values()].filter(node => CLASSIFIER_KINDS.has(node.kind) && node.origin === "source").sort(compareNodes);
+}
+
+function sourceArea(node: CcmNode): { id: string; label: string } {
+  const segments = (node.filePath ?? "").replaceAll("\\", "/").split("/").filter(Boolean);
+  const fileSegments = segments.slice(0, -1);
+  const sourceIndex = fileSegments.lastIndexOf("src");
+  let area: string[];
+  if (sourceIndex >= 0) {
+    const prefix = fileSegments.slice(0, sourceIndex + 1);
+    const relative = fileSegments.slice(sourceIndex + 1);
+    let selected: string[];
+    if (relative[0] === "app" && relative.length > 1) {
+      // Route files are easier to scan by feature than as one giant `app` area.
+      selected = relative.slice(0, 2);
+    } else if (["components", "domain", "entities", "features", "models", "modules", "services", "controllers", "views", "pages"].includes(relative[0] ?? "")) {
+      selected = relative.slice(0, Math.min(1, relative.length));
+    } else {
+      selected = relative.slice(0, Math.min(1, relative.length));
+    }
+    area = [...prefix, ...selected];
+  } else {
+    area = fileSegments.length > 1 ? fileSegments.slice(0, Math.min(2, fileSegments.length)) : fileSegments;
+  }
+  if (!area.length) area = ["source without a file path"];
+  const id = `scope:${area.join("/")}`;
+  const label = area.map(part => part.split(/[-_]+/u).map(word => word ? word[0]!.toUpperCase() + word.slice(1) : word).join(" ")).join(" / ");
+  return { id, label };
+}
+
+export interface ArchitectureUmlScope {
+  id: string;
+  label: string;
+  count: number;
+  classifierIds: string[];
+  filePaths: string[];
+}
+
+/** List deterministic source areas so a large class diagram can be read a section at a time. */
+export function listArchitectureUmlScopes(software: DiagramProjection, originalUml: DiagramProjection): ArchitectureUmlScope[] {
+  validateKind(software, "software-structure", "software");
+  validateKind(originalUml, "uml-class", "originalUml");
+  const scopes = new Map<string, ArchitectureUmlScope>();
+  for (const classifier of sourceClassifiers(software, originalUml)) {
+    const { id, label } = sourceArea(classifier);
+    const scope = scopes.get(id) ?? { id, label, count: 0, classifierIds: [], filePaths: [] };
+    scope.count += 1;
+    scope.classifierIds.push(classifier.id);
+    if (classifier.filePath && !scope.filePaths.includes(classifier.filePath)) scope.filePaths.push(classifier.filePath);
+    scopes.set(id, scope);
+  }
+  return [...scopes.values()].sort((left, right) => compareText(left.label, right.label) || compareText(left.id, right.id))
+    .map(scope => ({ ...scope, classifierIds: [...scope.classifierIds].sort(compareText), filePaths: [...scope.filePaths].sort(compareText) }));
 }
 
 function positiveLimit(value: number | undefined, fallback: number, name: string): number {
@@ -254,8 +317,7 @@ function groupDegrees(groups: readonly DependencyGroup[]): Map<string, number> {
   return degrees;
 }
 
-function selectClassifiers(classifiers: readonly CcmNode[], groups: readonly DependencyGroup[], roles: Readonly<Record<string, HumanUmlRoleMetadata>>, limit: number): CcmNode[] {
-  if (classifiers.length <= limit) return [...classifiers].sort(compareNodes);
+function selectClassifiers(classifiers: readonly CcmNode[], groups: readonly DependencyGroup[], roles: Readonly<Record<string, HumanUmlRoleMetadata>>, limit: number, offset: number): CcmNode[] {
   const byId = new Map(classifiers.map(node => [node.id, node]));
   const degree = groupDegrees(groups);
   const neighbors = new Map<string, Set<string>>();
@@ -305,11 +367,12 @@ function selectClassifiers(classifiers: readonly CcmNode[], groups: readonly Dep
   components.sort((left, right) => right.ids.length - left.ids.length || right.relationCount - left.relationCount ||
     left.roleRank - right.roleRank || compareNodes(left.first, right.first));
 
+  const ordered: string[] = [];
   const selected = new Set<string>();
   for (const component of components) {
     const componentIds = new Set(component.ids);
     const remaining = new Set(component.ids);
-    while (selected.size < limit && remaining.size > 0) {
+    while (remaining.size > 0) {
       const frontier = new Set<string>();
       for (const id of componentIds) {
         if (!selected.has(id)) continue;
@@ -319,11 +382,23 @@ function selectClassifiers(classifiers: readonly CcmNode[], groups: readonly Dep
         .map(id => byId.get(id)!).sort(compareCandidate);
       if (!candidates.length) break;
       selected.add(candidates[0]!.id);
+      ordered.push(candidates[0]!.id);
       remaining.delete(candidates[0]!.id);
     }
-    if (selected.size >= limit) break;
   }
-  return classifiers.filter(node => selected.has(node.id)).sort(compareNodes);
+  // Keep disconnected declarations off the main relationship page. They get their own
+  // compact four-class pages after the connected reading view has been exhausted.
+  const connectedOrder = ordered.filter(id => (degree.get(id) ?? 0) > 0);
+  const disconnectedOrder = ordered.filter(id => (degree.get(id) ?? 0) === 0);
+  let page: string[];
+  if (offset < connectedOrder.length) {
+    page = connectedOrder.slice(offset, offset + limit);
+  } else {
+    const disconnectedOffset = Math.max(0, offset - connectedOrder.length);
+    page = disconnectedOrder.slice(disconnectedOffset, disconnectedOffset + Math.min(limit, 4));
+  }
+  const pageIds = new Set(page);
+  return classifiers.filter(node => pageIds.has(node.id)).sort(compareNodes);
 }
 
 function selectGroups(dependencies: readonly DependencyGroup[], inheritance: readonly DependencyGroup[], selected: ReadonlySet<string>, limit: number, maxSourceRecords: number): {
@@ -385,7 +460,8 @@ export function buildArchitectureUml(
 ): ArchitectureUmlResult {
   validateKind(software, "software-structure", "software");
   validateKind(originalUml, "uml-class", "originalUml");
-  const maxClassifiers = positiveLimit(options.maxClassifiers, 40, "maxClassifiers");
+  const maxClassifiers = positiveLimit(options.maxClassifiers, 12, "maxClassifiers");
+  const offset = positiveLimit(options.offset, 0, "offset");
   const maxMembersPerClassifier = positiveLimit(options.maxMembersPerClassifier, 4, "maxMembersPerClassifier");
   const maxRelations = positiveLimit(options.maxRelations, 100, "maxRelations");
   const maxSourceRecords = positiveLimit(options.maxSourceRecords, 500, "maxSourceRecords");
@@ -395,8 +471,10 @@ export function buildArchitectureUml(
   for (const node of software.nodes) byId.set(node.id, node);
   for (const node of originalUml.nodes) byId.set(node.id, node);
   const allNodes = [...byId.values()];
-  const classifiers = allNodes.filter(node => CLASSIFIER_KINDS.has(node.kind) && node.origin === "source").sort(compareNodes);
-  const classifierIds = new Set(classifiers.map(node => node.id));
+  const allClassifiers = allNodes.filter(node => CLASSIFIER_KINDS.has(node.kind) && node.origin === "source").sort(compareNodes);
+  const requestedClassifierIds = options.classifierIds === undefined ? null : new Set(options.classifierIds);
+  const classifiers = requestedClassifierIds === null ? allClassifiers : allClassifiers.filter(node => requestedClassifierIds.has(node.id));
+  const classifierIds = new Set(allClassifiers.map(node => node.id));
   const roles: Record<string, HumanUmlRoleMetadata> = Object.fromEntries(classifiers.map(node => [node.id, classify(node)]));
   const dependencyEdges = software.edges.filter(edge => DEPENDENCY_KINDS.has(edge.kind));
   const sourceUmlEdges = originalUml.edges.filter(edge => edge.kind === "EXTENDS" || edge.kind === "IMPLEMENTS");
@@ -410,9 +488,13 @@ export function buildArchitectureUml(
   const inheritanceGrouping = relationGroups(inheritanceEdges, ownerById);
   const inheritanceGroups = inheritanceGrouping.groups;
   const connectivityGroups = [...groups, ...inheritanceGroups];
-  const selectedClassifiers = selectClassifiers(classifiers, connectivityGroups, roles, maxClassifiers);
+  const scopedIds = new Set(classifiers.map(node => node.id));
+  const scopedConnectivityGroups = connectivityGroups.filter(group => scopedIds.has(group.sourceId) && scopedIds.has(group.targetId));
+  const selectedClassifiers = selectClassifiers(classifiers, scopedConnectivityGroups, roles, maxClassifiers, offset);
   const selectedIds = new Set(selectedClassifiers.map(node => node.id));
-  const displayedRelations = selectGroups(groups, inheritanceGroups, selectedIds, maxRelations, maxSourceRecords);
+  const scopedDependencies = groups.filter(group => scopedIds.has(group.sourceId) && scopedIds.has(group.targetId));
+  const scopedInheritance = inheritanceGroups.filter(group => scopedIds.has(group.sourceId) && scopedIds.has(group.targetId));
+  const displayedRelations = selectGroups(scopedDependencies, scopedInheritance, selectedIds, maxRelations, maxSourceRecords);
   const displayedGroups = displayedRelations.dependencies;
   const displayedInheritance = displayedRelations.inheritance;
 
@@ -451,9 +533,9 @@ export function buildArchitectureUml(
   const renderedUnresolvedEdgeIds = new Set(displayedGroups.filter(group => group.resolution === "Unresolved").flatMap(group => group.sourceEdgeIds));
   const omittedUnresolved = unresolvedSourceEdgeIds.filter(edgeId => !renderedUnresolvedEdgeIds.has(edgeId)).length;
 
-  const totalEdges = connectivityGroups.reduce((sum, group) => sum + group.sourceEdgeIds.length, 0);
+  const totalEdges = scopedConnectivityGroups.reduce((sum, group) => sum + group.sourceEdgeIds.length, 0);
   const shownEdges = displayedRelationGroups.reduce((sum, group) => sum + group.sourceEdgeIds.length, 0);
-  const totalInheritanceEdges = inheritanceGroups.reduce((sum, group) => sum + group.sourceEdgeIds.length, 0);
+  const totalInheritanceEdges = scopedInheritance.reduce((sum, group) => sum + group.sourceEdgeIds.length, 0);
   const shownInheritanceEdges = displayedInheritance.reduce((sum, group) => sum + group.sourceEdgeIds.length, 0);
   const totalMembers = allMembers.length;
   const shownMembers = selectedMembers.length;
@@ -464,7 +546,7 @@ export function buildArchitectureUml(
     shownEdges,
     totalInheritanceEdges,
     shownInheritanceEdges,
-    totalRelations: connectivityGroups.length,
+    totalRelations: scopedConnectivityGroups.length,
     shownRelations: displayedRelationGroups.length,
     totalMembers,
     shownMembers,
@@ -477,7 +559,7 @@ export function buildArchitectureUml(
     internalInheritanceEdges: inheritanceGrouping.internalEdges,
     omittedClassifiers: classifiers.length - selectedClassifiers.length,
     omittedMembers: totalMembers - shownMembers,
-    omittedRelations: connectivityGroups.length - displayedRelationGroups.length,
+    omittedRelations: scopedConnectivityGroups.length - displayedRelationGroups.length,
     classificationBasis: optionBasisCounts(roles),
   };
 
