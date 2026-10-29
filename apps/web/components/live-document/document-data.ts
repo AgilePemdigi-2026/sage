@@ -1,4 +1,6 @@
 import type { ArchitectureDocumentV1 } from "@sage/documents/model";
+import { projectHumanDiagram } from "@sage/documents/human";
+import { projectBoundedDiagramOverview, type DiagramOverviewSummary } from "@sage/documents/overview";
 import type { CcmEdge, CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { DocumentPayload } from "../../lib/documents/types.ts";
 
@@ -116,6 +118,50 @@ export function parseLiveDocumentPayload(value: unknown, analysisId: string, acc
 }
 
 export type DiagramBudget = { kind: "ready" } | { kind: "unavailable"; reason: string };
+
+export interface InteractiveDiagramProjection {
+  diagram: DiagramProjection;
+  sourceNodeCount: number;
+  sourceEdgeCount: number;
+  displayNodeCount: number;
+  displayEdgeCount: number;
+}
+
+export function boundedDiagramOverview(
+  software: DiagramProjection,
+  uml: DiagramProjection,
+  kind: DiagramProjection["kind"],
+): { diagram: DiagramProjection; summary: DiagramOverviewSummary } {
+  const overview = projectBoundedDiagramOverview(software, uml);
+  return kind === "software-structure"
+    ? { diagram: overview.software, summary: overview.softwareSummary }
+    : { diagram: overview.uml, summary: overview.umlSummary };
+}
+
+export function projectInteractiveDiagram(diagram: DiagramProjection): InteractiveDiagramProjection {
+  const display = projectHumanDiagram(diagram);
+  const displayEdgeCount = display.mermaid.split("\n").filter(line => /^\s*N\d+\s+.+\s+N\d+(?:\s|$)/u.test(line)).length;
+  const displayMemberCount = display.mermaid.split("\n").reduce((count, line) => count + (/^\s{4}\S/u.test(line) ? 1 : 0), 0);
+  return {
+    diagram: display,
+    sourceNodeCount: diagram.nodes.length,
+    sourceEdgeCount: diagram.edges.length,
+    displayNodeCount: display.nodeMappings.length + displayMemberCount,
+    displayEdgeCount,
+  };
+}
+
+/** Apply browser-renderer caps to the human projection, after members and repeated relations are summarized. */
+export function interactiveDiagramBudget(projection: InteractiveDiagramProjection): DiagramBudget {
+  const bytes = new TextEncoder().encode(projection.diagram.mermaid).byteLength;
+  if (projection.diagram.mermaid.length > 50_000 || bytes > 50_000) {
+    return { kind: "unavailable", reason: "Diagram hasil ringkasan melewati batas 50.000 karakter atau byte." };
+  }
+  if (projection.displayNodeCount > 500 || projection.displayEdgeCount > 500) {
+    return { kind: "unavailable", reason: "Diagram hasil ringkasan melewati batas 500 elemen atau 500 relasi." };
+  }
+  return { kind: "ready" };
+}
 
 /** Mirror DOC-02's renderer limits, before the expensive browser renderer is loaded. */
 export function diagramBudget(diagram: DiagramProjection): DiagramBudget {

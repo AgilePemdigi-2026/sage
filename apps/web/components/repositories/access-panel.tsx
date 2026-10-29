@@ -46,6 +46,23 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
   const generation = useRef(0);
   const reloadStarted = useRef(false);
   const submissionKey = useRef<{ target: string; key: string } | null>(null);
+  const targetSection = useRef<HTMLElement>(null);
+  const targetHeading = useRef<HTMLHeadingElement>(null);
+  const repositoryListHeading = useRef<HTMLHeadingElement>(null);
+  const chosenId = chosen?.id;
+
+  // Move to the target step as soon as a public or App-authorized repository is
+  // chosen. Branch loading happens in place so even a slow or failed request
+  // leaves its status beside the controls; focus the heading for assistive tech.
+  useEffect(() => {
+    if (!chosenId) return;
+    const section = targetSection.current;
+    const heading = targetHeading.current;
+    if (!section || !heading) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    section.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "start" });
+    window.requestAnimationFrame(() => heading.focus({ preventScroll: true }));
+  }, [chosenId]);
 
   function reloadForSessionChange() {
     if (reloadStarted.current) return;
@@ -314,7 +331,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
     return <li key={item.id} className={`${design.repositoryCard} break-words`}>
       <strong>{item.fullName}</strong><span className="ml-2 text-xs">{item.private ? "Private · berizin" : "Public"}</span>
       <p className="mt-2 text-sm">Branch default: {item.defaultBranch || "Belum ada commit"}</p>
-      <button disabled={busy || !scopeVerified} onClick={() => void choose(item)} className="mt-3 rounded border border-ink/40 px-4 py-2">Pilih {item.fullName}</button>
+      <button aria-label={`Pilih ${item.fullName}`} disabled={busy || !scopeVerified} onClick={() => void choose(item)} className="mt-3 rounded border border-ink/40 px-4 py-2">Pilih repository</button>
     </li>;
   }
   if (!scopeVerified) return <div className={design.accessPanel} role="status">
@@ -324,10 +341,12 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
   const filteredPublic = publicRepositories.filter(item => item.fullName.toLowerCase().includes(publicQuery.trim().toLowerCase()));
   return <div className={design.accessPanel} aria-busy={busy || publicBusy}>
     {error ? <p role="alert" className="rounded-lg border border-red-700 p-4 text-red-900">{error}</p> : null}
-    {busy ? <p role="status">Memeriksa GitHub…</p> : null}
+    {busy && !chosen ? <p role="status">Memeriksa GitHub…</p> : null}
     {reauthRequired ? <form action="/auth/logout" method="post" className="mb-4"><button className="rounded border border-ink/40 px-4 py-2" type="submit">Keluar untuk menyambungkan ulang GitHub</button></form> : null}
+    {!chosen ? <>
+    <p className="font-mono text-xs tracking-wide text-[#0b7a6c]">LANGKAH 1 DARI 2</p>
     <section className="rounded-xl border border-ink/20 bg-white p-5">
-      <h2 className="text-xl font-semibold">Repository public milik @{accountLogin}</h2>
+      <h2 ref={repositoryListHeading} tabIndex={-1} className="text-xl font-semibold">Repository public milik @{accountLogin}</h2>
       <p className="mt-2 text-sm">Daftar repository public yang dimiliki akun GitHub-mu. Pilih repository untuk memuat branch.</p>
       {publicError ? <p role="alert" className="mt-3 rounded-lg border border-red-700 p-4 text-red-900">{publicError} <button className="ml-2 underline" onClick={() => void loadPublicRepositories()}>Coba lagi</button></p> : null}
       {publicBusy && !publicLoaded ? <p role="status" className="mt-3">Memuat repository publik…</p> : null}
@@ -363,8 +382,12 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
       <p className="mt-3 text-sm">Memasukkan URL private tidak menambah izin. Hanya github.com yang diterima.</p>
       {resolved ? <ul className="mt-4">{repoCard(resolved)}</ul> : null}
     </section>
-    {chosen ? <section className="rounded-xl border border-ink/20 bg-white p-5">
-      <h2 className="text-xl font-semibold">Versi kode: {chosen.fullName}</h2>
+    </> : <section ref={targetSection} aria-labelledby="analysis-target-heading" style={{ gridColumn: "1 / -1", width: "100%", maxWidth: 760, justifySelf: "center" }} className="rounded-xl border border-ink/20 bg-white p-5">
+      <p className="font-mono text-xs tracking-wide text-[#0b7a6c]">LANGKAH 2 DARI 2</p>
+      <h2 id="analysis-target-heading" ref={targetHeading} tabIndex={-1} className="mt-1 text-xl font-semibold">Siapkan analisis: {chosen.fullName}</h2>
+      <p className="mt-2 text-sm text-[#52637b]">{chosen.private ? "Private · berizin melalui GitHub App" : "Public · dapat dianalisis"}. Pilih branch dan commit yang akan dianalisis.</p>
+      <button type="button" disabled={busy} onClick={() => { setChosen(null); setBranches([]); setBranchPage(null); setBranchLoaded(false); setBranch(""); setCommit(""); setTarget(null); setError(""); setTimeout(() => repositoryListHeading.current?.focus(), 0); }} className="mt-3 rounded border border-ink/40 px-4 py-2">Pilih repository lain</button>
+      {busy && !branchLoaded ? <p className="mt-4" role="status">Memuat branch untuk {chosen.fullName}…</p> : null}
       <button disabled={busy} onClick={() => void choose(chosen)} className="mt-3 underline">Muat ulang branch</button>
       {branchLoaded && branches.length === 0 ? <p className="mt-4">Repository ini belum memiliki branch. Tambahkan commit di GitHub sebelum memilih target.</p> : null}
       <form onSubmit={validate} className="mt-4 space-y-4">
@@ -372,10 +395,12 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
         {branchPage ? <button type="button" disabled={busy} onClick={() => void choose(chosen, branchPage)} className="underline">Muat branch berikutnya</button> : null}
         <label className="block">Commit (opsional)<input disabled={busy} value={commit} maxLength={64} onChange={e => { setCommit(e.target.value); setTarget(null); }} placeholder="Kosongkan untuk commit terbaru branch" className="mt-2 block w-full rounded border border-ink/40 px-3 py-2 font-mono" /></label>
         <p className="text-sm">Commit harus berada dalam riwayat branch yang dipilih. Branch dan izin diperiksa kembali saat memeriksa target.</p>
-        <button disabled={busy || !branch} className="rounded bg-ink px-4 py-2 text-white disabled:opacity-50">Periksa target</button>
+        <button disabled={busy || !branch} className={design.primaryButton}>Periksa target</button>
       </form>
-      {target ? <div role="status" className="mt-5 rounded border border-green-700 p-4"><strong>Target tervalidasi</strong><p className="mt-2 break-all font-mono text-sm">{target.repository.fullName} · {target.branch}<br />{target.commitSha}</p><p className="mt-2 text-sm">Analisis akan disimpan untuk full SHA ini.</p><button type="button" disabled={busy || !scopeVerified} onClick={() => void startAnalysis()} className="mt-4 rounded bg-ink px-4 py-2 text-white disabled:opacity-50">{busy ? "Mengantrekan analisis…" : "Mulai analisis"}</button></div> : null}
-    </section> : <section aria-label="Target analisis"><h2>Target analisis</h2><p>Pilih repository untuk memuat branch dan memeriksa commit yang akan digunakan.</p></section>}
+      {target ? <div role="status" className="mt-5 rounded border border-green-700 p-4"><strong>Target tervalidasi</strong><p className="mt-2 break-all font-mono text-sm">{target.repository.fullName} · {target.branch}<br />{target.commitSha}</p><p className="mt-2 text-sm">Analisis akan disimpan untuk full SHA ini.</p><button type="button" disabled={busy || !scopeVerified} onClick={() => void startAnalysis()} className={`${design.primaryButton} mt-4`}>{busy ? "Mengantrekan analisis…" : "Mulai analisis"}</button></div> : null}
+    </section>}
+    {!chosen ? <>
     <p className="text-sm text-ink/70">Pemeriksaan akses tidak menjalankan job. Job dibuat setelah target tervalidasi dan tombol Mulai analisis dipilih.</p>
+    </> : null}
   </div>;
 }

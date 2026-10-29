@@ -1,0 +1,2 @@
+.link { display: inline-block; max-width: min(100%, 340px); overflow: hidden; color: #075f55; font-family: "JetBrains Mono", monospace; font-size: 11px; text-overflow: ellipsis; text-underline-offset: 3px; vertical-align: top; white-space: nowrap; }
+.link:focus-visible { outline: 3px solid #08796e; outline-offset: 2px; }

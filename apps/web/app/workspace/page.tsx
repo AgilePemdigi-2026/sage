@@ -32,7 +32,7 @@ export default async function WorkspacePage({ searchParams }: WorkspacePageProps
   }).format(workspace.sessionExpiresAt);
 
   return <DesignFrame>
-      <section className="flex min-h-[calc(100dvh-140px)] flex-col justify-center py-12">
+      <section className="mx-auto flex min-h-[calc(100dvh-180px)] max-w-3xl flex-col justify-center py-12">
         <p className="font-mono text-xs tracking-wide text-ink/55">WORKSPACE</p>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
           <h1 className="text-[28px] leading-9 font-semibold tracking-tight">Halo, {label}.</h1>

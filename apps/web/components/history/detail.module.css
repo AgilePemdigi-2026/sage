@@ -1,0 +1,66 @@
+.elapsedCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid #cfe4df;
+  border-radius: 8px;
+  background: linear-gradient(110deg, #eef9f5, #f5f9fc 72%);
+}
+
+.activityMark {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #b8d8d0;
+  border-top-color: #168675;
+  border-radius: 50%;
+}
+
+.elapsedCard[data-active="true"] .activityMark {
+  animation: activitySpin 1s linear infinite;
+}
+
+.elapsedCopy {
+  display: grid;
+  gap: 1px;
+}
+
+.elapsedCopy small {
+  color: #526b6b;
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 600;
+  letter-spacing: .8px;
+}
+
+.elapsedCopy strong {
+  color: #092b3c;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 20px;
+  line-height: 28px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.elapsedHint {
+  margin-left: auto;
+  color: #63738a;
+  font-size: 11px;
+  line-height: 17px;
+  text-align: right;
+}
+
+@keyframes activitySpin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 480px) {
+  .elapsedCard { align-items: flex-start; }
+  .elapsedHint { max-width: 120px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .elapsedCard[data-active="true"] .activityMark { animation: none; }
+}

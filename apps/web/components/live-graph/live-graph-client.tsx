@@ -247,11 +247,12 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
 
   const visiblePayload = payload?.analysisId === analysisId && payload.accountKey === accountKey ? payload : null;
   const filterResult = useMemo(() => visiblePayload ? filterGraph(visiblePayload.graph, query, selectedKinds) : null, [visiblePayload, query, selectedKinds]);
+  const projectionFocusId = mode === "focus" ? selectedId : null;
   const projection = useMemo(() => {
     if (!filterResult) return null;
-    const focusId = selectedId && filterResult.graph.nodes.some((node) => node.id === selectedId) ? selectedId : null;
+    const focusId = projectionFocusId && filterResult.graph.nodes.some((node) => node.id === projectionFocusId) ? projectionFocusId : null;
     return projectGraphMode(filterResult.graph, mode, focusId);
-  }, [filterResult, mode, selectedId]);
+  }, [filterResult, mode, projectionFocusId]);
   const canonicalCounts = visiblePayload?.canonicalCounts ?? null;
   const availableKinds = useMemo(() => {
     if (!visiblePayload) return [];
@@ -308,11 +309,11 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
     return <div className={`${ui.notice} ${ui.error}`} role="alert"><strong>Graph belum dapat dimuat.</strong><p>{error.message}</p><button type="button" className={styles.graphControl} onClick={() => refreshRef.current?.()}>Coba lagi</button></div>;
   }
 
-  return <div>
+  return <div className={styles.graphShell}>
     <div className={ui.pageHeading}>
       <p className={ui.eyebrow}>KNOWLEDGE GRAPH</p>
       <h1>Jelajahi relasi antar simbol</h1>
-      <p className={ui.muted}>Graph lengkap dari snapshot analisis, dengan konteks hash dan jumlah kanonik.</p>
+      <p className={ui.muted}>Jelajahi jaringan kode, pilih simbol, lalu telusuri file sumbernya.</p>
     </div>
 
     {!visiblePayload && (busy || payload) ? <p className={ui.loading} role="status">Memeriksa akun dan memuat knowledge graph…</p> : null}
@@ -345,14 +346,17 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           <label className={styles.searchLabel} htmlFor="graph-node-query">Cari node
             <input id="graph-node-query" className={styles.searchInput} type="search" value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="Nama, jenis, nama lengkap, atau berkas" aria-describedby="graph-node-query-help" />
           </label>
-          <p id="graph-node-query-help" className={styles.filterHelp}>Pencarian cocok dengan teks di nama, jenis node, nama lengkap, atau path berkas.</p>
-          <fieldset className={styles.kindFilters}>
-            <legend>Jenis node AST</legend>
-            {availableKinds.length ? availableKinds.map((kind) => <label key={kind}>
-              <input type="checkbox" checked={selectedKinds.includes(kind)} onChange={() => toggleKind(kind)} />
-              {kind}
-            </label>) : <p className={styles.filterHelp}>Graph tidak memiliki jenis node untuk difilter.</p>}
-          </fieldset>
+          <details className={styles.kindDisclosure} data-testid="graph-kind-filters-disclosure">
+            <summary>Filter jenis node AST{selectedKinds.length ? ` · ${selectedKinds.length} dipilih` : ""}</summary>
+            <p id="graph-node-query-help" className={styles.filterHelp}>Pencarian cocok dengan teks di nama, jenis node, nama lengkap, atau path berkas.</p>
+            <fieldset className={styles.kindFilters}>
+              <legend>Jenis node AST</legend>
+              {availableKinds.length ? availableKinds.map((kind) => <label key={kind}>
+                <input type="checkbox" checked={selectedKinds.includes(kind)} onChange={() => toggleKind(kind)} />
+                {kind}
+              </label>) : <p className={styles.filterHelp}>Graph tidak memiliki jenis node untuk difilter.</p>}
+            </fieldset>
+          </details>
           <div>
             <button type="button" className={styles.graphControl} onClick={resetFilters} disabled={!query && selectedKinds.length === 0}>Atur ulang filter</button>
           </div>
@@ -364,7 +368,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           </div>
           <div className={styles.nodePickerControls}>
             <label className={styles.nodePickerLabel}>Pilih node fokus
-              <select ref={nodePickerRef} className={styles.nodePicker} aria-label="Pilih node fokus" data-testid="graph-node-picker" value={projection.anchorId ?? ""} onChange={(event) => chooseNode(event.target.value)}>
+              <select ref={nodePickerRef} className={styles.nodePicker} aria-label="Pilih node fokus" data-testid="graph-node-picker" value={selectedId ?? projection.anchorId ?? ""} onChange={(event) => chooseNode(event.target.value)}>
                 {!projection.anchorId ? <option value="">Graph tidak memiliki node</option> : null}
                 {[...filterResult.graph.nodes].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)).map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
               </select>
@@ -374,14 +378,16 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         </section>
 
         <section className={styles.graphCounts} role="group" aria-label="Ringkasan jumlah graph">
-          <h3>Jumlah node dan relasi</h3>
           <p data-testid="canonical-counts">Kanonik: {canonicalCounts.nodes} node · {canonicalCounts.edges} relasi</p>
+          <p data-testid="visible-counts">Tampilan: {projection.visibleCounts.nodes} node · {projection.visibleCounts.edges} relasi</p>
+          <details className={styles.compactGraphDetails}>
+            <summary>Rincian jumlah dan filter</summary>
           <p className={styles.countDetails}>CONTAINS {canonicalCounts.containmentEdges} · Referensi {canonicalCounts.referenceEdges} · Exact {canonicalCounts.exactEdges} · Unresolved {canonicalCounts.unresolvedEdges}</p>
           <p data-testid="query-filter-counts" aria-live="polite">Hasil pencarian dan jenis node: {filterResult.counts.nodes} node · {filterResult.counts.edges} relasi</p>
           <p data-testid="filtered-counts">Hasil mode: {projection.filteredCounts.nodes} node · {projection.filteredCounts.edges} relasi</p>
           <p className={styles.countDetails}>Hasil mode · CONTAINS {projection.filteredCounts.containmentEdges} · Referensi {projection.filteredCounts.referenceEdges} · Exact {projection.filteredCounts.exactEdges} · Unresolved {projection.filteredCounts.unresolvedEdges}</p>
-          <p data-testid="visible-counts">Tampilan: {projection.visibleCounts.nodes} node · {projection.visibleCounts.edges} relasi</p>
           <p className={styles.countDetails}>Tampilan · CONTAINS {projection.visibleCounts.containmentEdges} · Referensi {projection.visibleCounts.referenceEdges} · Exact {projection.visibleCounts.exactEdges} · Unresolved {projection.visibleCounts.unresolvedEdges}</p>
+          </details>
           {projection.omittedCounts.nodes > 0 || projection.omittedCounts.edges > 0 ? <p className={styles.subsetNotice} role="note">Batas render antarmuka: maksimal 200 node dan 500 relasi. Mode ini memuat {projection.visibleCounts.nodes} dari {projection.filteredCounts.nodes} node dan {projection.visibleCounts.edges} dari {projection.filteredCounts.edges} relasi.</p> : null}
         </section>
 
@@ -389,7 +395,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         {visiblePayload.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Graph tidak memiliki node untuk ditampilkan.</p> : null}
         {visiblePayload.graph.nodes.length > 0 && filterResult.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Tidak ada node yang sesuai dengan kueri dan jenis node yang dipilih.</p> : null}
         {filterResult.graph.nodes.length > 0 && projection.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Mode ini tidak memiliki node untuk ditampilkan.</p> : null}
-        <GraphCanvas graph={projection.graph} selectedId={projection.anchorId} onSelect={setSelectedId} moduleParentByNodeId={projection.moduleParentByNodeId} />
+        <GraphCanvas graph={projection.graph} selectedId={selectedId} onSelect={setSelectedId} />
         {visiblePayload && selectedId && filterResult.graph.nodes.some((node) => node.id === selectedId) ? <NodeInspector
           key={`${analysisId}:${accountKey}:${visiblePayload.ckgSha256}:${visiblePayload.configurationHash}:${visiblePayload.snapshot.repository}:${visiblePayload.snapshot.branch ?? ""}:${visiblePayload.snapshot.commitSha}:${selectedId}`}
           analysisId={analysisId}
@@ -402,7 +408,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           onIdentityFailure={handleInspectorIdentityFailure}
         /> : null}
         <p className={styles.modeDescription} aria-live="polite">
-          {mode === "overview" ? "Ikhtisar menampilkan node kanonik dan mengelompokkan node di bawah Module yang tercatat." : null}
+          {mode === "overview" ? "Ikhtisar menampilkan node kanonik sebagai jaringan. Relasi CONTAINS menjadi garis titik-titik; arahkan pointer ke node untuk melihat jenis relasi lainnya." : null}
           {mode === "focus" ? "Fokus menampilkan node terpilih, tetangga langsung, dan relasi yang bersentuhan dengan node terpilih." : null}
           {mode === "all-references" ? "Semua referensi menampilkan endpoint dari relasi selain CONTAINS, termasuk referensi yang belum terpecahkan." : null}
         </p>

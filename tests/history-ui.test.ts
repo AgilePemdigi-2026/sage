@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { statusLabel, statusTone, formatDateTime } from "../apps/web/components/history/format.ts";
 import { applyHistoryPatch, createHistoryData } from "../apps/web/components/history/history-data.ts";
 import type { HistoryDataPatch, HistoryFetch, HistoryItem, HistoryPatchTarget } from "../apps/web/components/history/history-data.ts";
-import { createDetailPoller, shouldPollAnalysisDetail } from "../apps/web/components/history/detail-data.ts";
+import { createDetailPoller, elapsedAnalysisSeconds, formatElapsedDuration, shouldPollAnalysisDetail } from "../apps/web/components/history/detail-data.ts";
 import type { AnalysisDetailView } from "../apps/web/lib/analyses/presenters.ts";
 import { ANALYSIS_STAGE_DEFINITIONS } from "@sage/contracts";
 
@@ -31,6 +31,19 @@ test("formatDateTime tolerates null and invalid", () => {
   assert.equal(formatDateTime(null), "—");
   assert.equal(formatDateTime(undefined), "—");
   assert.equal(formatDateTime("not-a-date"), "—");
+});
+test("elapsed analysis duration follows queued time and freezes on persisted completion", () => {
+  const timestamps = { queuedAt: "2026-10-20T00:00:00.000Z", completedAt: null as string | null };
+  assert.equal(elapsedAnalysisSeconds(timestamps, "QUEUED", Date.parse("2026-10-20T00:01:05.000Z")), 65);
+  assert.equal(elapsedAnalysisSeconds(timestamps, "RUNNING", Date.parse("2026-10-20T01:00:00.000Z")), 3600);
+  timestamps.completedAt = "2026-10-20T00:04:12.000Z";
+  assert.equal(elapsedAnalysisSeconds(timestamps, "COMPLETED", Date.parse("2026-10-20T03:00:00.000Z")), 252);
+  assert.equal(elapsedAnalysisSeconds(timestamps, "FAILED", Date.parse("2026-10-20T03:00:00.000Z")), 252);
+  assert.equal(elapsedAnalysisSeconds({ queuedAt: "invalid", completedAt: null }, "RUNNING", 1000), null);
+  assert.equal(elapsedAnalysisSeconds({ queuedAt: "2026-10-20T00:01:00.000Z", completedAt: null }, "RUNNING", Date.parse("2026-10-20T00:00:00.000Z")), 0);
+  assert.equal(formatElapsedDuration(0), "00:00:00");
+  assert.equal(formatElapsedDuration(3661), "01:01:01");
+  assert.equal(formatElapsedDuration(90061), "25:01:01");
 });
 
 /** Harness ala reviewer: komponen dijalankan lewat mesin state hasil ekstraksi

@@ -37,3 +37,11 @@ Uji ulang provider nyata menyelesaikan **9/9 tahap**, publikasi atomik berstatus
 Pada audit 27 Oktober dengan renderer 2.0.0, model besar tersebut melampaui kapasitas renderer diagram/PDF saat itu. Keberhasilan analyzer ini tidak diklaim sebagai keberhasilan ekspor PDF untuk repository sebesar itu; bukti PDF 4 halaman memakai fixture ekspor yang ukurannya berada dalam budget. Markdown lengkap tetap tidak dipotong untuk memaksa ekspor berhasil.
 
 Regresi PostgreSQL lulus untuk delayed insert >5 detik, rollback saat lease hilang, heartbeat yang benar-benar menunggu kunci dokumen pada lease 30 detik, serta SIGKILL worker produksi. Pemulihan SIGKILL menunggu expiry alami lease 120 detik, kemudian retry menyelesaikan sembilan tahap pada snapshot yang sama.
+
+## Workspace interaktif UI-05
+
+Halaman nyata kini menggantikan route pratinjau. Katalog menyediakan pencarian simbol, jenis, dan file dengan halaman berisi lima item; evidence membuka file GitHub pada SHA snapshot dan rentang barisnya. Metadata hash tidak memenuhi tampilan awal. Detail relasi, anggota, batasan, dan mapping diagram dibuka bertahap; inspector graph memulai dengan enam relasi dan dua evidence per relasi.
+
+Budget browser diterapkan setelah proyeksi pembacaan menggabungkan anggota serta relasi yang berulang. Diagram yang masih melebihi 500 elemen/relasi atau 50.000 karakter/byte memakai ikhtisar source-backed terbatas dengan caption cakupan. Label Unresolved serta agregasi ikut dihitung; anggota UML diindeks berdasarkan parent agar proyeksi besar tidak memindai seluruh node untuk setiap classifier. SVG tetap disanitasi, dimuat sebagai image lokal, dibatasi 4 MiB, dan dibatalkan bila konteks akun berubah. Katalog dan Markdown mempertahankan detail yang tidak tampil pada ikhtisar.
+
+Graph menggunakan jaringan lingkaran berwarna dengan zoom, pan, pemilihan keyboard, dan sorotan tetangga. Ini tampilan struktur kode statis; SAGE tidak mengarang relasi bisnis atau runtime yang tidak didukung analyzer. Bukti pengujian dan batas run ada di [UI-05_CHECKS](UI-05_CHECKS.md).

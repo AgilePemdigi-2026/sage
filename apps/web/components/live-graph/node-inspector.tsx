@@ -14,6 +14,7 @@ import {
   parseSourcePayload,
   sourceRangeForEvidence,
 } from "./inspector-data.ts";
+import { EvidenceLink } from "../live-document/evidence-links.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
 
 type DetailState =
@@ -55,10 +56,32 @@ function formatSnapshot(snapshot: CcmSnapshot): string {
   return `${snapshot.repository} · ${snapshot.branch ?? "branch tidak diketahui"}`;
 }
 
-function EvidenceLocation({ evidence }: { evidence: EvidenceSpan }) {
-  return <span className={styles.inspectorEvidenceBounds}>
-    {evidence.filePath} · bytes {evidence.startByte}–{evidence.endByte} (akhir eksklusif) · baris {evidence.startLine}:{evidence.startColumn}–{evidence.endLine}:{evidence.endColumn}
-  </span>;
+function EvidenceLocation({ snapshot, evidence, role }: { snapshot: CcmSnapshot; evidence: EvidenceSpan; role?: string }) {
+  return <EvidenceLink repository={snapshot.repository} commitSha={snapshot.commitSha} evidence={evidence} role={role} />;
+}
+
+function EvidenceTechnicalDetails({ evidence }: { evidence: EvidenceSpan }) {
+  return <details className={styles.inspectorEvidenceTechnical} data-testid="node-inspector-evidence-technical">
+    <summary>Batas AST</summary>
+    <p>Byte {evidence.startByte}–{evidence.endByte} (akhir eksklusif) · kolom {evidence.startLine}:{evidence.startColumn}–{evidence.endLine}:{evidence.endColumn}.</p>
+  </details>;
+}
+
+function AdditionalRelationEvidence({ evidence, renderItem }: {
+  evidence: readonly EvidenceSpan[];
+  renderItem: (item: EvidenceSpan, index: number) => React.ReactNode;
+}) {
+  const [visibleCount, setVisibleCount] = useState(0);
+  const remainingCount = evidence.length - visibleCount;
+  return <details className={styles.inspectorAdditionalEvidence} onToggle={(event) => {
+    setVisibleCount(event.currentTarget.open ? Math.min(6, evidence.length) : 0);
+  }}>
+    <summary>Tampilkan {evidence.length} bukti lainnya</summary>
+    {visibleCount > 0 ? <>
+      <ul className={styles.inspectorEvidenceList}>{evidence.slice(0, visibleCount).map(renderItem)}</ul>
+      {remainingCount > 0 ? <button type="button" className={styles.inspectorMore} onClick={() => setVisibleCount((count) => Math.min(evidence.length, count + 6))}>Tampilkan {Math.min(6, remainingCount)} bukti lagi · {remainingCount} tersisa</button> : null}
+    </> : null}
+  </details>;
 }
 
 function SourceLines({ payload, evidence }: { payload: SourcePayload; evidence: EvidenceSpan }) {
@@ -116,6 +139,8 @@ export function NodeInspector({
   const [sourceTarget, setSourceTarget] = useState<SourceTarget | null>(null);
   const [sourceState, setSourceState] = useState<SourceState | null>(null);
   const [sourceAttempt, setSourceAttempt] = useState(0);
+  const [incomingVisible, setIncomingVisible] = useState(6);
+  const [outgoingVisible, setOutgoingVisible] = useState(6);
   const nodeController = useRef<AbortController | null>(null);
   const sourceController = useRef<AbortController | null>(null);
   const nodeGeneration = useRef(0);
@@ -312,12 +337,35 @@ export function NodeInspector({
     >Buka source, baris {evidence.startLine}–{evidence.endLine}</button>;
   }
 
+  function relationEvidence(edge: NodeInspectorRelation["edge"], files: readonly NodeInspectorFile[]) {
+    const renderEvidence = (evidence: EvidenceSpan, evidenceIndex: number) => <li key={`${evidence.filePath}:${evidence.startByte}:${evidenceIndex}`}>
+      <EvidenceLocation snapshot={snapshot} evidence={evidence} role={`${edge.kind} · ${evidence.role}`} />
+      <EvidenceTechnicalDetails evidence={evidence} />
+      {sourceButton(evidence, `${edge.kind} ${evidence.role}`, files, "relation-source-action")}
+    </li>;
+    const primaryEvidence = edge.evidence.slice(0, 2);
+    const additionalEvidence = edge.evidence.slice(primaryEvidence.length);
+    return <>
+      <ul className={styles.inspectorEvidenceList}>{primaryEvidence.map(renderEvidence)}</ul>
+      {additionalEvidence.length > 0 ? <AdditionalRelationEvidence
+        evidence={additionalEvidence}
+        renderItem={(evidence, index) => renderEvidence(evidence, index + primaryEvidence.length)}
+      /> : null}
+    </>;
+  }
+
   function relationList(title: string, direction: "incoming" | "outgoing", relations: readonly NodeInspectorRelation[], files: readonly NodeInspectorFile[]) {
     const incoming = direction === "incoming";
+    const visibleCount = incoming ? incomingVisible : outgoingVisible;
+    const visibleRelations = relations.slice(0, visibleCount);
+    const remainingCount = relations.length - visibleRelations.length;
+    const showMore = () => incoming
+      ? setIncomingVisible((count) => count + 6)
+      : setOutgoingVisible((count) => count + 6);
     return <section className={styles.inspectorRelationGroup} aria-labelledby={`node-inspector-${direction}-title`}>
       <h3 id={`node-inspector-${direction}-title`}>{title} <span>({relations.length})</span></h3>
       {relations.length === 0 ? <p className={styles.inspectorEmpty}>Tidak ada relasi {incoming ? "masuk" : "keluar"} langsung.</p> : <ul className={styles.inspectorRelations} data-testid={`node-inspector-${direction}`}>
-        {relations.map(({ edge, peer }, index) => <li key={`${edge.id}:${index}`} data-testid={`node-inspector-${direction}-edge`} data-edge-id={edge.id}>
+        {visibleRelations.map(({ edge, peer }, index) => <li key={`${edge.id}:${index}`} data-testid={`node-inspector-${direction}-edge`} data-edge-id={edge.id}>
           <p className={styles.inspectorRelationFlow}>
             <span>{incoming ? peer.name : node?.name}</span><span aria-hidden="true"> → </span><span>{incoming ? node?.name : peer.name}</span>
           </p>
@@ -326,18 +374,15 @@ export function NodeInspector({
             {edge.unresolvedReason ? <span>Alasan: {edge.unresolvedReason}</span> : null}
           </p>
           <p className={styles.inspectorPeer}>{peer.kind} · <code>{peer.qualifiedName}</code></p>
-          {edge.evidence.length ? <ul className={styles.inspectorEvidenceList}>
-            {edge.evidence.map((evidence, evidenceIndex) => <li key={`${evidence.filePath}:${evidence.startByte}:${evidenceIndex}`}>
-              <EvidenceLocation evidence={evidence} />
-              {sourceButton(evidence, `${edge.kind} ${evidence.role}`, files, "relation-source-action")}
-            </li>)}
-          </ul> : <p className={styles.inspectorUnavailable}>Bukti lokasi relasi tidak tersedia.</p>}
+          {edge.evidence.length ? relationEvidence(edge, files) : <p className={styles.inspectorUnavailable}>Bukti lokasi relasi tidak tersedia.</p>}
         </li>)}
       </ul>}
+      {remainingCount > 0 ? <button type="button" className={styles.inspectorMore} data-testid={`node-inspector-${direction}-more`} aria-controls={`node-inspector-${direction}`} onClick={showMore}>Tampilkan {Math.min(6, remainingCount)} relasi lagi · {remainingCount} tersisa</button> : null}
     </section>;
   }
 
   const ready = detail.kind === "ready" ? detail.value : null;
+  const nodeFile = ready?.files.find((file) => file.path === ready.node.filePath) ?? null;
   const currentSource = source?.kind === "ready" ? source.value : null;
   const sourceFullyCoversEvidence = !!currentSource && sourceTarget !== null &&
     currentSource.startLine <= sourceTarget.evidence.startLine && currentSource.endLine >= sourceTarget.evidence.endLine;
@@ -362,21 +407,32 @@ export function NodeInspector({
       {ready ? <>
         <dl className={styles.inspectorDetails}>
           <div><dt>Jenis</dt><dd>{ready.node.kind}</dd></div>
-          <div><dt>Nama lengkap</dt><dd><code>{ready.node.qualifiedName}</code></dd></div>
-          <div><dt>Bahasa</dt><dd>{ready.node.language}</dd></div>
           <div><dt>Origin</dt><dd>{ready.node.origin}</dd></div>
-          <div><dt>Berkas</dt><dd><code>{ready.node.filePath ?? "Tidak tersedia"}</code></dd></div>
+          <div><dt>Bahasa</dt><dd>{ready.node.language}</dd></div>
         </dl>
 
         <section className={styles.inspectorLocation} aria-label="Lokasi AST node">
           <h3>Lokasi AST</h3>
           {ready.node.location ? <>
-            <EvidenceLocation evidence={ready.node.location} />
+            <EvidenceLocation snapshot={snapshot} evidence={ready.node.location} role="deklarasi" />
+            <EvidenceTechnicalDetails evidence={ready.node.location} />
             {ready.node.origin === "unresolved" || ready.node.kind === "UnresolvedReference" ?
               <p className={styles.inspectorUnavailable}>Node belum memiliki deklarasi source.</p> :
               <div>{sourceButton(ready.node.location, "deklarasi node", ready.files, "node-inspector-source")}</div>}
           </> : <p className={styles.inspectorUnavailable}>Lokasi deklarasi tidak tersedia.</p>}
         </section>
+
+        <details className={styles.inspectorTechnical} data-testid="node-inspector-technical">
+          <summary>Metadata dan detail teknis</summary>
+          <dl className={styles.inspectorDetails}>
+            <div><dt>Nama lengkap</dt><dd><code>{ready.node.qualifiedName}</code></dd></div>
+            <div><dt>Berkas</dt><dd><code>{ready.node.filePath ?? "Tidak tersedia"}</code></dd></div>
+            <div><dt>Hash file</dt><dd><code>{nodeFile?.sha256 ?? "Tidak tersedia"}</code></dd></div>
+            <div><dt>Commit snapshot</dt><dd><code>{snapshot.commitSha}</code></dd></div>
+            <div><dt>Hash graph</dt><dd><code>{ready.ckgSha256}</code></dd></div>
+            <div><dt>Hash konfigurasi</dt><dd><code>{ready.configurationHash}</code></dd></div>
+          </dl>
+        </details>
 
         <p className={styles.inspectorCanonicalNote}>Relasi langsung berasal dari graph kanonik, terlepas dari kueri, filter jenis, dan mode tampilan.</p>
         <div className={styles.inspectorRelationColumns}>

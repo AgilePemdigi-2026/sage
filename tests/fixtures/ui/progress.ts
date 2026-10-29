@@ -1,4 +1,4 @@
-import type { AnalysisProgress, AnalysisStatus, Repository } from "../../components/ui-foundation/types";
+import type { AnalysisProgress, AnalysisStatus, Repository } from "../../../apps/web/components/ui-foundation/types";
 export const repositories: readonly Repository[] = [
   { fullName: "contoh/arsitektur-aplikasi", description: "Contoh struktur aplikasi untuk menjelajahi alur antarmuka.", visibility: "public", language: "TypeScript" },
   { fullName: "contoh/layanan-php", description: "Contoh repository private dengan akses yang disimulasikan.", visibility: "private", language: "PHP" },

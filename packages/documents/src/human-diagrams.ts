@@ -41,13 +41,21 @@ export function projectHumanDiagram(diagram: DiagramProjection): DiagramProjecti
   const lines = [diagram.kind === "uml-class" ? "classDiagram" : "flowchart LR"];
   const mappings: DiagramProjection["nodeMappings"] = [];
   if (diagram.kind === "uml-class") {
+    const membersByParent = new Map<string, CcmNode[]>();
+    for (const member of diagram.nodes) {
+      if (member.parentId && (member.kind === "Method" || member.kind === "Property")) {
+        const members = membersByParent.get(member.parentId) ?? [];
+        members.push(member);
+        membersByParent.set(member.parentId, members);
+      }
+    }
     for (const node of diagram.nodes.filter(n => ["Class", "Interface", "UnresolvedReference"].includes(n.kind))) {
       const alias = aliases.get(node.id)!;
       lines.push(`  class ${alias}["${label(displayName(node))}"] {`);
       mappings.push({ nodeId: node.id, mermaidId: alias, mermaidLine: lines.length, evidence: node.location });
       if (node.kind === "Interface") lines.push("    <<interface>>");
       if (node.kind === "UnresolvedReference") lines.push("    <<unresolved>>");
-      for (const member of diagram.nodes.filter(n => n.parentId === node.id && ["Method", "Property"].includes(n.kind))) {
+      for (const member of membersByParent.get(node.id) ?? []) {
         // Parentheses are trusted grammar only for declared methods. No invented visibility/type.
         let memberLabel = label((member.signature ?? member.name).replace(/\)\s*:\s*/, ") "));
         if (member.kind === "Method") memberLabel = memberLabel.replace(/#40;/g, "(").replace(/#41;/g, ")");

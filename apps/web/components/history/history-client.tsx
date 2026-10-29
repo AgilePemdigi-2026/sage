@@ -6,7 +6,7 @@ import { AssetIcon, Badge, DesignFrame, Panel } from "../design-system/ui.tsx";
 import { formatDateTime, statusLabel, statusTone } from "./format.ts";
 import { applyHistoryPatch, createHistoryData, historyDeletionControls } from "./history-data.ts";
 import type { HistoryDeletionAction, HistoryItem, HistoryPatchTarget } from "./history-data.ts";
-import styles from "../sprint-ui/preview-client.module.css";
+import styles from "../design-system/workspace.module.css";
 import deletionStyles from "./history-delete.module.css";
 
 const STATUS_OPTIONS = ["QUEUED", "RUNNING", "COMPLETED", "COMPLETED_WITH_LIMITATIONS", "FAILED"] as const;

@@ -6,7 +6,8 @@
   "exports": {
     ".": "./src/index.ts",
     "./model": "./src/architecture-document.ts",
-    "./human": "./src/human-diagrams.ts"
+    "./human": "./src/human-diagrams.ts",
+    "./overview": "./src/overview.ts"
   },
   "dependencies": {
     "mermaid": "12.2.0",

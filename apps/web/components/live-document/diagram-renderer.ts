@@ -1,6 +1,6 @@
 import type { ArchitectureDocumentV1 } from "@sage/documents/model";
-import { projectHumanDiagram, HUMAN_DIAGRAM_THEME } from "@sage/documents/human";
-import { diagramBudget } from "./document-data.ts";
+import { HUMAN_DIAGRAM_THEME } from "@sage/documents/human";
+import { interactiveDiagramBudget, projectInteractiveDiagram, type InteractiveDiagramProjection } from "./document-data.ts";
 
 type DiagramProjection = ArchitectureDocumentV1["softwareEngineeringDiagram"];
 
@@ -128,7 +128,16 @@ export async function renderCanonicalDiagramSvg(
   identitySeed: string,
   isCurrent: () => boolean = () => true,
 ): Promise<string> {
-  if (diagramBudget(diagram).kind !== "ready") throw new DiagramRenderError("OVER_BUDGET");
+  return renderInteractiveDiagramSvg(projectInteractiveDiagram(diagram), identitySeed, isCurrent);
+}
+
+/** Render a bounded, display-only projection without inserting SVG markup into the active DOM. */
+export async function renderInteractiveDiagramSvg(
+  projection: InteractiveDiagramProjection,
+  identitySeed: string,
+  isCurrent: () => boolean = () => true,
+): Promise<string> {
+  if (interactiveDiagramBudget(projection).kind !== "ready") throw new DiagramRenderError("OVER_BUDGET");
   try {
     const mermaid = (await import("mermaid")).default;
     mermaid.initialize({
@@ -147,8 +156,8 @@ export async function renderCanonicalDiagramSvg(
       class: { htmlLabels: false },
     });
     if (!isCurrent()) return "";
-    const id = `sage-document-${diagram.kind}-${identitySeed.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || "canonical"}`;
-    const result = await mermaid.render(id, projectHumanDiagram(diagram).mermaid.replace(/#95;/g, "_"));
+    const id = `sage-document-${projection.diagram.kind}-${identitySeed.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || "canonical"}`;
+    const result = await mermaid.render(id, projection.diagram.mermaid.replace(/#95;/g, "_"));
     if (!isCurrent()) return "";
     return sanitizeDiagramSvg(result.svg);
   } catch (error) {

@@ -17,3 +17,14 @@ test("human UML retains declared names and escapes untrusted Mermaid syntax", ()
  const diagram: DiagramProjection = { kind:"uml-class",title:"UML",mermaid:"classDiagram",nodes:[node("node_hash","Interface",'A\";click evil')],edges:[],nodeMappings:[],edgeMappings:[],excludedNodeIds:[],excludedEdgeIds:[] };
  const view=projectHumanDiagram(diagram); assert.doesNotMatch(view.mermaid,/node_hash/);assert.match(view.mermaid,/#34;#59;click/);assert.match(view.mermaid,/<<interface>>/);
 });
+
+test("large UML member index preserves each classifier's source member order", () => {
+ const classifiers = Array.from({ length: 2000 }, (_, i) => node(`class-${i}`, "Class", `Class${i}`));
+ const members = classifiers.flatMap((owner, i) => [node(`method-${i}`, "Method", `method${i}`, owner.id), node(`property-${i}`, "Property", `property${i}`, owner.id)]);
+ const input: DiagramProjection = { kind:"uml-class",title:"Large UML",mermaid:"classDiagram",nodes:[...classifiers,...members],edges:[],nodeMappings:[],edgeMappings:[],excludedNodeIds:[],excludedEdgeIds:[] };
+ const before = JSON.stringify(input);
+ const result = projectHumanDiagram(input);
+ assert.equal(result.nodeMappings.length, classifiers.length);
+ for (const i of [0, 999, 1999]) assert.match(result.mermaid, new RegExp(`method${i}\\(parameter tidak tersedia\\)\\n    property${i}\\n`));
+ assert.equal(JSON.stringify(input), before);
+});

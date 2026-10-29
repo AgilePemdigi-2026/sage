@@ -88,7 +88,7 @@ try {
     await page.goto(`${base}/workspace/repositories`);
     const oldName = `${a.login}/public-code`; const newName = `${b.login}/public-code`;
     await page.getByRole("button", { name: `Pilih ${oldName}`, exact: true }).click();
-    await page.getByRole("heading", { name: `Versi kode: ${oldName}`, exact: true }).waitFor();
+    await page.getByRole("heading", { name: `Siapkan analisis: ${oldName}`, exact: true }).waitFor();
     await page.getByLabel("Branch", { exact: true }).locator('option[value="main"]').waitFor({ state: "attached" });
     await page.getByLabel("Commit (opsional)").fill("aaaaaaa");
     const sameAccountCheck = page.waitForResponse(response => new URL(response.url()).pathname === "/api/auth/session");
@@ -96,6 +96,7 @@ try {
     await sameAccountCheck;
     await page.getByLabel("Commit (opsional)").waitFor();
     assert.equal(await page.getByLabel("Commit (opsional)").inputValue(), "aaaaaaa", "returning focus with the same account preserves target input");
+    await page.getByRole("button", { name: "Pilih repository lain", exact: true }).click();
     await page.getByRole("button", { name: "Repository public berikutnya", exact: true }).click();
     await oldRequest;
     // Simulate a login in another tab by replacing the browser's shared cookie.
@@ -109,9 +110,17 @@ try {
     assert.ok((await page.locator("body").textContent())?.includes(`@${b.login}`));
     assert.equal(await page.getByText(oldName, { exact: true }).count(), 0);
     assert.equal(await page.getByText(`${a.login}/late-result`, { exact: true }).count(), 0);
-    assert.equal(await page.getByRole("heading", { name: `Versi kode: ${oldName}`, exact: true }).count(), 0);
+    assert.equal(await page.getByRole("heading", { name: `Siapkan analisis: ${oldName}`, exact: true }).count(), 0);
     assert.equal(await page.getByRole("button", { name: "Periksa target", exact: true }).count(), 0);
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), "no horizontal overflow");
+    // Also switch accounts with an active target form, separately from the held list response.
+    await page.getByRole("button", { name: `Pilih ${newName}`, exact: true }).click();
+    await page.getByLabel("Commit (opsional)").fill("bbbbbbb");
+    await context.addCookies([cookie(a)]);
+    await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+    await page.getByRole("button", { name: `Pilih ${oldName}`, exact: true }).waitFor();
+    assert.equal(await page.getByRole("heading", { name: `Siapkan analisis: ${newName}`, exact: true }).count(), 0);
+    assert.equal(await page.getByLabel("Commit (opsional)").count(), 0, "account switch clears the active target form");
     assert.deepEqual(pageErrors, []);
     await page.screenshot({ path: resolve(output, `account-switch-${width}.png`), fullPage: true });
     checks.push(`${width}px: own public list without installations, direct branch selection, same-account focus preserves commit, shared-cookie account switch clears prior repository/target including pending old response, no overflow/page errors`);

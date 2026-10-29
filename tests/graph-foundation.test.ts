@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
 import { NODE_KINDS, validateCcm } from "@sage/contracts";
-import { createGraphFixture, validateGraphFixture } from "../apps/web/app/graph-preview/fixture-data";
+import { createGraphFixture, validateGraphFixture } from "./fixtures/ui/graph";
 import { projectCcmForGraph } from "../apps/web/components/graph-foundation/graph-projection";
 
 test("graph fixture validates against the exact source bytes it describes", () => {

@@ -75,8 +75,6 @@ COPY --from=build /app/packages /app/packages
 COPY --from=build /app/scripts /app/scripts
 COPY --from=build /app/config /app/config
 COPY --from=build /app/tests/fixtures /app/tests/fixtures
-COPY --from=build /app/apps/web/app/graph-preview/fixture-data.ts /app/apps/web/app/graph-preview/fixture-data.ts
-COPY --from=build /app/apps/web/components/graph-foundation/graph-foundation.module.css /app/apps/web/components/graph-foundation/graph-foundation.module.css
 RUN groupadd --gid 1000 sage && useradd --uid 1000 --gid 1000 --create-home sage && mkdir -p /app/storage && chown sage:sage /app/storage
 USER sage
 CMD ["node", "--import", "tsx", "apps/worker/src/index.ts"]
