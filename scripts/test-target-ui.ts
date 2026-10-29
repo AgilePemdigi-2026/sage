@@ -77,6 +77,13 @@ try {
     await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).click();
     const selectedPublicHeading = page.getByRole("heading", { name: `Siapkan analisis: ${ownedPublicRepo.fullName}`, exact: true });
     await selectedPublicHeading.waitFor();
+    const actions = page.getByRole("button", { name: "Pilih repository lain", exact: true }).locator("..");
+    const actionGeometry = await actions.evaluate(el => {
+      const [left, right] = Array.from(el.querySelectorAll("button")).map(button => button.getBoundingClientRect());
+      return { gap: parseFloat(getComputedStyle(el).gap), apart: !!left && !!right && (right.left >= left.right + 8 || right.top >= left.bottom + 8) };
+    });
+    assert.ok(actionGeometry.gap >= 12 && actionGeometry.apart, "repository actions need a real 12px gap, including wrapped mobile layout");
+
     await page.waitForFunction(() => {
       const heading = document.querySelector<HTMLElement>("#analysis-target-heading");
       return document.activeElement === heading && Boolean(heading && heading.getBoundingClientRect().top >= 0 && heading.getBoundingClientRect().top < innerHeight);

@@ -1,3 +1,4 @@
+import { checkReadingWorkspace } from "./check-reading-workspace.ts";
 import { checkBceWorkspace } from "./check-bce-workspace.ts";
 import { checkWorkspaceExperience } from "./workspace-ui-checks.ts";
 import assert from "node:assert/strict";
@@ -173,6 +174,7 @@ async function makeTarGz(sources: Readonly<Record<string, Uint8Array>>): Promise
       tar.entry(header, bytes, error => error ? rejectEntry(error) : resolveEntry());
     });
   }
+  const produce = async () => {
   await add(`${root}/`, Buffer.alloc(0), "directory");
   const directories = new Set<string>();
   for (const path of Object.keys(sources)) {
@@ -184,9 +186,16 @@ async function makeTarGz(sources: Readonly<Record<string, Uint8Array>>): Promise
   }
   for (const path of Object.keys(sources).sort()) await add(`${root}/${path}`, Buffer.from(sources[path]!), "file");
   tar.finalize();
-  const chunks: Buffer[] = [];
-  for await (const chunk of tar) chunks.push(Buffer.from(chunk as Uint8Array));
-  return gzipSync(Buffer.concat(chunks));
+  };
+  // Drain concurrently: awaiting entry callbacks before reading can deadlock once
+  // a larger fixture fills the tar stream high-water mark.
+  const collect = async () => {
+    const chunks: Buffer[] = [];
+    for await (const chunk of tar) chunks.push(Buffer.from(chunk as Uint8Array));
+    return Buffer.concat(chunks);
+  };
+  const [, bytes] = await Promise.all([produce().catch(error => { tar.destroy(error); throw error; }), collect()]);
+  return gzipSync(bytes);
 }
 
 async function loadFixture(): Promise<{ sources: Record<string, Uint8Array>; ccm: CcmV1; snapshot: CcmSnapshot; configurationHash: string }> {
@@ -931,6 +940,32 @@ async function runLivePdfExportRegression(): Promise<void> {
     const bcePdf = await verifyPdfDownload(api, base, bceAnalysis, bceCreated.export.id, owner);
     await writeFile(join(resultDir, "bce-main-classes.pdf"), bcePdf.bytes);
     checks.push("BCE fixture: local/injected/inherited receivers resolve; all five main classifiers and dependency lines render on 390/1440 px with portrait aspect ratio; PDF exported by production worker");
+    const readingSnapshot = { ...fixture.snapshot, commitSha: "d".repeat(40) };
+    const readingSources: Record<string, Uint8Array> = {};
+    for (let index = 0; index < 8; index += 1) {
+      const next = (index + 1) % 8;
+      readingSources[`src/feature${index}/service.ts`] = new TextEncoder().encode(`import { Feature${next}Service } from "../feature${next}/service"; export class Feature${index}Service { run(): Feature${next}Service { return new Feature${next}Service(); } }`);
+    }
+    readingSources["src/contracts/pages.ts"] = new TextEncoder().encode(Array.from({ length: 100 }, (_, index) => `export interface PageContract${index} { render(): string; }`).join("\n"));
+    const readingResolved = analyzeReferences({ snapshot: readingSnapshot, sources: readingSources });
+    assert.ok(readingResolved.ccm);
+    const readingAnalysis = await seedAnalysis(db, { ownerUserId: owner.userId, repositoryId,
+      fixture: { sources: readingSources, ccm: readingResolved.ccm, snapshot: readingSnapshot, configurationHash: digest("reading-v1") },
+      storageRoot, label: "large-disconnected-reading", storageObjectIds, createdFolders });
+    analysisIds.push(readingAnalysis.analysisId);
+    for (const width of [390, 1440]) {
+      const readingContext = await createBrowserContext(browser, base, owner, width);
+      try {
+        const readingPage = await readingContext.newPage();
+        attachBrowserAudit(readingPage, browserAudit, parsedBase.origin, `reading-${width}`);
+        await checkReadingWorkspace(readingPage, base, readingAnalysis.analysisId, resultDir, width);
+      }
+      finally { await readingContext.close(); }
+    }
+    checks.push("UI-06: eight source areas and 100 disconnected interfaces remain readable; source drilldown, UML scope/paging, direct graph-document navigation and no overflow at 390/1440");
+    assert.equal(browserAudit.offOrigin, 0);
+    assert.equal(browserAudit.provider, 0);
+    assert.deepEqual(browserAudit.errors, []);
     checks.push("tested browser paths make no off-origin/provider requests and have no uncaught page errors");
   } catch (error) {
     reportStatus = "FAIL";
