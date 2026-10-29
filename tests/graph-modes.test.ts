@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { GraphEdgeView, GraphNodeView, GraphViewModel } from "../apps/web/components/graph-foundation/graph-projection.ts";
-import { GRAPH_RENDER_LIMITS, projectGraphMode } from "../apps/web/components/live-graph/graph-modes.ts";
+import { ESSENTIAL_RENDER_LIMITS, GRAPH_RENDER_LIMITS, projectGraphMode } from "../apps/web/components/live-graph/graph-modes.ts";
 
 function node(id: string, kind: string, parentId: string | null = null): GraphNodeView {
   return {
@@ -94,6 +94,87 @@ test("all references excludes containment and retains unresolved and repeated en
   assert.deepEqual(projected.filteredCounts, { nodes: 4, edges: 5, containmentEdges: 0, referenceEdges: 5, exactEdges: 3, unresolvedEdges: 2 });
 });
 
+test("essential mode lifts member dependencies to owners and aggregates exact cross-owner edges", () => {
+  const source = graph([
+    node("module-a", "Module"),
+    node("class-a", "Class", "module-a"),
+    node("method-a", "Method", "class-a"),
+    node("property-a", "Property", "class-a"),
+    node("module-b", "Module"),
+    node("class-b", "Class", "module-b"),
+    node("method-b", "Method", "class-b"),
+    node("function-b", "Function", "module-b"),
+    node("unresolved-a", "UnresolvedReference"),
+  ], [
+    edge("contains-class-a", "module-a", "class-a", "CONTAINS"),
+    edge("contains-method-a", "class-a", "method-a", "CONTAINS"),
+    edge("calls-z", "method-a", "function-b", "CALLS"),
+    edge("calls-a", "property-a", "function-b", "CALLS"),
+    edge("reads-class", "method-a", "method-b", "READS"),
+    edge("inside-owner", "method-a", "property-a", "CALLS"),
+    edge("unresolved-reference", "method-a", "unresolved-a", "CALLS", "Unresolved"),
+  ]);
+  const sourceSnapshot = structuredClone(source);
+  const projected = projectGraphMode(source, "essential");
+
+  assert.deepEqual(projected.graph.nodes.map((item) => item.id), ["class-a", "function-b", "class-b", "module-a", "module-b"]);
+  assert.deepEqual(projected.graph.edges.map((item) => ({
+    id: item.id,
+    source: item.source,
+    target: item.target,
+    kind: item.kind,
+    label: item.label,
+  })), [
+    { id: "calls-a", source: "class-a", target: "function-b", kind: "CALLS", label: "CALLS · Exact ×2" },
+    { id: "reads-class", source: "class-a", target: "class-b", kind: "READS", label: "READS · Exact" },
+  ]);
+  assert.deepEqual(projected.filteredCounts, { nodes: 5, edges: 2, containmentEdges: 0, referenceEdges: 2, exactEdges: 2, unresolvedEdges: 0 });
+  assert.equal(projected.graph.edges.some((item) => item.id === "unresolved-reference"), false);
+  assert.deepEqual(source, sourceSnapshot, "the canonical graph remains unchanged");
+});
+
+test("essential mode excludes unresolved, generated, test, fixture, and non-source nodes", () => {
+  const nodes = [
+    node("source-module", "Module"),
+    node("source-class", "Class", "source-module"),
+    { ...node("test-class", "Class"), filePath: "tests/example.test.ts" },
+    { ...node("fixture-class", "Class"), filePath: "src/fixtures/example.ts" },
+    { ...node("generated-class", "Class"), filePath: "src/generated/model.ts" },
+    { ...node("external-class", "Class"), origin: "external" as GraphNodeView["origin"] },
+    node("unresolved-node", "UnresolvedReference"),
+  ];
+  const projected = projectGraphMode(graph(nodes, []), "essential");
+
+  assert.deepEqual(projected.graph.nodes.map((item) => item.id), ["source-class", "source-module"]);
+  assert.equal(projected.filteredCounts.nodes, 2);
+});
+
+test("essential mode prioritizes connected structures and deterministically caps the summary", () => {
+  const modules = Array.from({ length: 100 }, (_, index) => node(`module-${String(index).padStart(3, "0")}`, "Module"));
+  const classes = Array.from({ length: 20 }, (_, index) => node(
+    index === 19 ? "z-critical-class" : `class-${String(index).padStart(2, "0")}`,
+    "Class",
+    modules[index].id,
+  ));
+  const methods = classes.map((item, index) => node(`method-${String(index).padStart(2, "0")}`, "Method", item.id));
+  const references = methods.flatMap((source, sourceIndex) => methods.flatMap((target, targetIndex) =>
+    sourceIndex === targetIndex ? [] : [edge(`dependency-${String(sourceIndex).padStart(2, "0")}-${String(targetIndex).padStart(2, "0")}`, source.id, target.id, "CALLS")],
+  ));
+  const source = graph([...modules, ...classes, ...methods], references);
+  const first = projectGraphMode(source, "essential");
+  const repeated = projectGraphMode({ ...source, nodes: [...source.nodes].reverse(), edges: [...source.edges].reverse() }, "essential");
+
+  assert.deepEqual(ESSENTIAL_RENDER_LIMITS, { nodes: 60, edges: 150 });
+  assert.equal(first.filteredCounts.nodes, 120);
+  assert.equal(first.filteredCounts.edges, 380);
+  assert.equal(first.visibleCounts.nodes, 60);
+  assert.equal(first.visibleCounts.edges, 150);
+  assert.equal(first.graph.nodes.some((item) => item.id === "z-critical-class"), true, "a connected class survives ahead of alphabetically earlier disconnected modules");
+  assert.deepEqual(first.graph.nodes.map((item) => item.id), repeated.graph.nodes.map((item) => item.id));
+  assert.deepEqual(first.graph.edges.map((item) => item.id), repeated.graph.edges.map((item) => item.id));
+  assert.deepEqual(first.omittedCounts, { nodes: 60, edges: 230 });
+});
+
 test("renderer budget reports its deterministic subset and never returns a dangling compound parent", () => {
   const nodes = Array.from({ length: 205 }, (_, index) => node(`node-${String(index).padStart(3, "0")}`, index < 4 ? "Module" : "Function", index >= 4 ? "node-000" : null));
   const edges = Array.from({ length: 505 }, (_, index) => edge(`edge-${String(index).padStart(3, "0")}`, "node-004", "node-005", "CALLS"));
@@ -108,7 +189,7 @@ test("renderer budget reports its deterministic subset and never returns a dangl
 });
 
 test("empty graphs remain empty in every mode", () => {
-  for (const mode of ["overview", "focus", "all-references"] as const) {
+  for (const mode of ["essential", "overview", "focus", "all-references"] as const) {
     const projected = projectGraphMode(graph([], []), mode);
     assert.equal(projected.anchorId, null);
     assert.deepEqual(projected.filteredCounts, { nodes: 0, edges: 0, containmentEdges: 0, referenceEdges: 0, exactEdges: 0, unresolvedEdges: 0 });

@@ -1,11 +1,12 @@
 import type { CcmEdge, CcmNode } from "@sage/contracts";
 import type { DiagramProjection } from "./diagrams.ts";
+import { buildArchitectureUml } from "./architecture-uml.ts";
 import { humanNodeName, projectHumanDiagram } from "./human-diagrams.ts";
 
 export const PDF_PROJECTION_LIMITS = {
   structureNodes: 8,
-  umlClassifiers: 6,
-  umlSourceClassifiers: 4,
+  umlClassifiers: 12,
+  umlSourceClassifiers: 12,
   relationGroups: 12,
   membersPerClassifier: 3,
   labelCharacters: 72,
@@ -13,6 +14,8 @@ export const PDF_PROJECTION_LIMITS = {
 } as const;
 
 export interface PdfDiagramSummary {
+  /** References without proven class targets stay in the catalog, outside the main UML. */
+  omittedUnresolved?: number;
   totalNodes: number;
   shownNodes: number;
   totalEdges: number;
@@ -33,8 +36,6 @@ export interface CompactPdfDiagrams {
 
 type RelationGroup = { key: string; source: string; target: string; kind: CcmEdge["kind"]; resolution: CcmEdge["resolution"]; edges: CcmEdge[] };
 const memberKinds = new Set<CcmNode["kind"]>(["Method", "Property"]);
-const classifierKinds = new Set<CcmNode["kind"]>(["Class", "Interface", "UnresolvedReference"]);
-const sourceClassifierKinds = new Set<CcmNode["kind"]>(["Class", "Interface"]);
 
 function compareText(left: string, right: string): number {
   return left < right ? -1 : left > right ? 1 : 0;
@@ -244,92 +245,21 @@ export function projectCompactPdfDiagrams(software: DiagramProjection, uml: Diag
   const softwareView = projectHumanDiagram({ ...software, nodes: softwareNodes, edges: softwareSelectedEdges });
   const softwareClippedValues = clippedValues;
 
-  const umlClassifiers = uml.nodes.filter(node => classifierKinds.has(node.kind));
-  const umlSourceClassifiers = umlClassifiers.filter(node => sourceClassifierKinds.has(node.kind));
-  const umlClassifierIds = new Set(umlClassifiers.map(node => node.id));
-  const umlGroups = groupRelations(uml.edges,
-    edge => umlClassifierIds.has(edge.sourceId) ? edge.sourceId : null,
-    edge => umlClassifierIds.has(edge.targetId) ? edge.targetId : null);
-  const sourceIds = new Set(umlSourceClassifiers.map(node => node.id));
-  const sourceGroups = umlGroups.filter(group => sourceIds.has(group.source) && sourceIds.has(group.target));
-  const sourceDegree = groupDegrees(sourceGroups);
-  const rankedSources = [...umlSourceClassifiers].sort((left, right) => compareByDegree(left, right, sourceDegree));
-  const linkedUnresolvedSources = new Map<string, Set<string>>();
-  const sourcesWithUnresolved = new Set<string>();
-  for (const group of umlGroups) {
-    if (group.resolution !== "Unresolved") continue;
-    if (sourceIds.has(group.source) && !sourceIds.has(group.target)) {
-      const sources = linkedUnresolvedSources.get(group.target) ?? new Set<string>();
-      sources.add(group.source);
-      linkedUnresolvedSources.set(group.target, sources);
-      sourcesWithUnresolved.add(group.source);
-    }
-    if (sourceIds.has(group.target) && !sourceIds.has(group.source)) {
-      const sources = linkedUnresolvedSources.get(group.source) ?? new Set<string>();
-      sources.add(group.target);
-      linkedUnresolvedSources.set(group.source, sources);
-      sourcesWithUnresolved.add(group.target);
-    }
-  }
-  const hasLinkedUnresolved = linkedUnresolvedSources.size > 0;
-  const sourceLimit = Math.min(rankedSources.length, hasLinkedUnresolved ? PDF_PROJECTION_LIMITS.umlSourceClassifiers : PDF_PROJECTION_LIMITS.umlClassifiers);
-  const unresolvedLinkedSources = umlSourceClassifiers.filter(node => sourcesWithUnresolved.has(node.id))
-    .sort((left, right) => (sourceDegree.get(right.id) ?? 0) - (sourceDegree.get(left.id) ?? 0) || compareNodes(left, right));
-  const preferredLinkedSource = unresolvedLinkedSources[0];
-  const sourcePriority = preferredLinkedSource
-    ? [preferredLinkedSource, ...rankedSources.filter(node => node.id !== preferredLinkedSource.id)]
-    : rankedSources;
-  const selectedSources = sourcePriority.slice(0, sourceLimit);
-  const selectedSourceIds = new Set(selectedSources.map(node => node.id));
-  const umlDegree = groupDegrees(umlGroups);
-  const linkedUnresolved = umlClassifiers.filter(node => node.kind === "UnresolvedReference" &&
-    [...(linkedUnresolvedSources.get(node.id) ?? [])].some(sourceId => selectedSourceIds.has(sourceId)))
-    .sort((left, right) => (umlDegree.get(right.id) ?? 0) - (umlDegree.get(left.id) ?? 0) || compareNodes(left, right));
-  const unresolvedSlots = Math.min(2, PDF_PROJECTION_LIMITS.umlClassifiers - selectedSources.length);
-  const selectedClassifierNodes = [...selectedSources, ...linkedUnresolved.slice(0, unresolvedSlots)];
-  if (selectedClassifierNodes.length < PDF_PROJECTION_LIMITS.umlClassifiers) {
-    const selected = new Set(selectedClassifierNodes.map(node => node.id));
-    for (const node of rankedSources) {
-      if (selectedClassifierNodes.length >= PDF_PROJECTION_LIMITS.umlClassifiers) break;
-      if (!selected.has(node.id)) {
-        selected.add(node.id);
-        selectedClassifierNodes.push(node);
-      }
-    }
-  }
-  if (!selectedClassifierNodes.length) {
-    selectedClassifierNodes.push(...umlClassifiers.sort((left, right) => compareNodes(left, right)).slice(0, PDF_PROJECTION_LIMITS.umlClassifiers));
-  }
-  const selectedClassifierIds = new Set(selectedClassifierNodes.map(node => node.id));
-  const umlSelectedGroups = selectGroups(umlGroups, selectedClassifierIds, PDF_PROJECTION_LIMITS.relationGroups,
-    PDF_PROJECTION_LIMITS.relationRecords);
-  // UML uses one source edge as the representative for each selected relation group.
-  const umlSelectedEdges = umlSelectedGroups.map(group => [...group.edges].sort((left, right) => compareText(left.id, right.id))[0]!);
-  const membersByParent = new Map<string, CcmNode[]>();
-  for (const node of uml.nodes) {
-    if (!memberKinds.has(node.kind) || !node.parentId || !sourceIds.has(node.parentId)) continue;
-    const members = membersByParent.get(node.parentId) ?? [];
-    members.push(node);
-    membersByParent.set(node.parentId, members);
-  }
-  let totalUmlMembers = 0;
-  for (const members of membersByParent.values()) totalUmlMembers += members.length;
-  const selectedMembers: CcmNode[] = [];
-  for (const classifier of selectedClassifierNodes) {
-    if (!sourceClassifierKinds.has(classifier.kind)) continue;
-    selectedMembers.push(...[...(membersByParent.get(classifier.id) ?? [])].sort(compareNodes).slice(0, PDF_PROJECTION_LIMITS.membersPerClassifier));
-  }
-  const umlRequiredIds = new Set(selectedClassifierIds);
-  for (const member of selectedMembers) umlRequiredIds.add(member.id);
-  const umlNodes = uml.nodes.filter(node => umlRequiredIds.has(node.id)).sort(compareNodes).map(node => boundedNode(node, countClipped));
-  const umlView = projectHumanDiagram({ ...uml, nodes: umlNodes, edges: umlSelectedEdges });
+  const architectureUml = buildArchitectureUml(software, uml, {
+    maxClassifiers: PDF_PROJECTION_LIMITS.umlClassifiers,
+    maxMembersPerClassifier: PDF_PROJECTION_LIMITS.membersPerClassifier,
+    maxRelations: 24,
+  });
+  const umlView = projectHumanDiagram({
+    ...architectureUml.projection,
+    nodes: architectureUml.projection.nodes.map(node => boundedNode(node, countClipped)),
+  });
   const umlClippedValues = clippedValues - softwareClippedValues;
 
   return {
     software: softwareView,
     uml: umlView,
     softwareSummary: boundedSummary(softwareVisible.length, softwareSelectedNodes.length, softwareGroups, softwareSelectedGroups, 0, 0, softwareClippedValues),
-    umlSummary: boundedSummary(umlClassifiers.length, selectedClassifierNodes.length, umlGroups, umlSelectedGroups,
-      totalUmlMembers, selectedMembers.length, umlClippedValues),
+    umlSummary: { ...architectureUml.summary, clippedValues: umlClippedValues },
   };
 }

@@ -7,3 +7,6 @@ export type {
   CompactPdfDiagrams as BoundedDiagramOverview,
   PdfDiagramSummary as DiagramOverviewSummary,
 } from "./pdf-projection.ts";
+
+export { buildArchitectureUml } from "./architecture-uml.ts";
+export type { ArchitectureUmlResult, ArchitectureUmlSummary } from "./architecture-uml.ts";

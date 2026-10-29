@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArchitectureDocumentV1 } from "@sage/documents/model";
+import { buildArchitectureUml } from "@sage/documents/overview";
 import { humanNodeName } from "@sage/documents/human";
 import type { CcmEdge, CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { DocumentPayload } from "../../lib/documents/types.ts";
@@ -10,6 +11,7 @@ import { boundedDiagramOverview, interactiveDiagramBudget, parseLiveDocumentPayl
 import { diagramSvgObjectUrl, DiagramRenderError, renderInteractiveDiagramSvg } from "./diagram-renderer.ts";
 import { EvidenceLink } from "./evidence-links.tsx";
 import type { DiagramOverviewSummary } from "@sage/documents/overview";
+import { AnalysisQuality } from "../analysis-quality/analysis-quality.tsx";
 import { MarkdownExport, PdfExport } from "./markdown-export.tsx";
 import styles from "./live-document.module.css";
 
@@ -57,6 +59,7 @@ function Metadata({ payload }: { payload: DocumentPayload }) {
       <div><dt>Cakupan</dt><dd>{document.files.length} file · {document.canonicalCounts.nodes} node</dd></div>
       <div><dt>Hasil</dt><dd>{document.canonicalCounts.exactEdges} Exact · {document.canonicalCounts.unresolvedEdges} Unresolved</dd></div>
     </dl>
+    <AnalysisQuality edges={document.interfaceCatalog.relations} />
     {document.limitations.length ? <Limitations groups={[...limitations.values()]} total={document.limitations.length} /> : null}
   </section>;
 }
@@ -329,26 +332,31 @@ function DiagramSection({
         {/* The sanitized SVG is loaded as an image Blob URL, never inserted into the active DOM. */}
         {/* eslint-disable-next-line @next/next/no-img-element -- Blob-backed canonical SVG keeps active markup out of the page. */}
         <img className={styles.diagramImage} data-testid="document-diagram-image" src={url} alt={label}
-          style={{ width: `${zoomPercent}%` }} />
+          style={{ width: `${zoomPercent}%`, maxHeight: zoomPercent === 100 ? "min(70vh, 720px)" : "none", objectFit: "contain", objectPosition: "center top" }} />
       </div>
     </> : null}
   </>;
 }
 
 function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload; section: Exclude<SectionId, "catalog"> }) {
-  const diagram = section === "structure" ? payload.document.softwareEngineeringDiagram : payload.document.umlClassDiagram;
+  const umlView = useMemo(() => buildArchitectureUml(payload.document.softwareEngineeringDiagram, payload.document.umlClassDiagram), [payload.document]);
+  const diagram = section === "structure" ? payload.document.softwareEngineeringDiagram : umlView.projection;
   const overview = useMemo(() => boundedDiagramOverview(payload.document.softwareEngineeringDiagram, payload.document.umlClassDiagram, diagram.kind), [payload.document, diagram.kind]);
   const label = section === "structure" ? sections[1].label : sections[2].label;
-  const nodeById = new Map(diagram.nodes.map(node => [node.id, node]));
+  const nodeById = new Map([...payload.document.softwareEngineeringDiagram.nodes, ...diagram.nodes].map(node => [node.id, node]));
   const edgeById = new Map(diagram.edges.map(edge => [edge.id, edge]));
   const unresolvedEdges = diagram.edges.filter(edge => edge.resolution === "Unresolved");
   return <section className={styles.contentCard} aria-labelledby="diagram-heading">
     <div className={styles.sectionHeading}><div><h2 id="diagram-heading">{label}</h2><p>Diagram source untuk mempelajari struktur dan ketergantungan kode. Anggota class diringkas ke pemiliknya pada diagram struktur; detail bukti tersedia di bawah.</p></div></div>
     <div className={styles.legend} aria-label="Legend diagram">
-      <span><i className={styles.exactMark} aria-hidden="true" />Exact</span>
-      <span><i className={styles.unresolvedMark} aria-hidden="true" />Unresolved</span>
-      <span>Teal: class · Ungu: interface · Biru: function · Abu: module · Amber: unresolved</span>
+      {section === "uml" ? <><span>Dependency: panah putus-putus · Pewarisan: segitiga</span><span>Status Exact / Unresolved tertera pada label</span></> : <><span><i className={styles.exactMark} aria-hidden="true" />Exact</span><span><i className={styles.unresolvedMark} aria-hidden="true" />Unresolved</span></>}
+      <span>{section === "uml" ? "Amber: boundary · Biru: control · Teal: entity · Ungu: interface" : "Teal: class · Ungu: interface · Biru: function · Abu: module · Amber: unresolved"}</span>
     </div>
+    {section === "uml" ? <div className={styles.scopeNote} data-testid="uml-bce-summary">
+      <p>UML utama: {umlView.summary.shownNodes} dari {umlView.summary.totalNodes} class/interface, {umlView.summary.shownRelations} dari {umlView.summary.totalRelations} kelompok relasi. Anggota ditampilkan maksimal empat per class; katalog menyimpan detail lengkap.</p>
+      <p>Boundary (amber): antarmuka interaksi · Control (biru): pengendali/alur · Entity (teal): data domain. Peran BCE adalah klasifikasi tampilan berdasarkan konvensi nama/path, bukan jaminan perilaku runtime; class tanpa petunjuk tetap tanpa peran.</p>
+      <p>Dependency berasal dari pemanggilan, konstruksi, baca/tulis, atau referensi tipe pada source. Relasi anggota diringkas ke class pemilik; beberapa kind pada pasangan class/status sama memakai satu panah berlabel. {umlView.summary.omittedUnresolved} referensi belum terpecahkan tidak dijadikan hubungan class yang pasti.</p>
+    </div> : null}
     <DiagramSection diagram={diagram} overview={overview.diagram} overviewSummary={overview.summary} label={label} ckgSha256={payload.document.ckgSha256} accountKey={payload.accountKey} />
     {diagram.nodeMappings.length ? <NodeEvidenceDisclosure mappings={diagram.nodeMappings} nodeById={nodeById} repository={payload.document.snapshot.repository} commitSha={payload.document.snapshot.commitSha} /> : <p className={styles.emptyMessage}>Diagram tidak memiliki mapping node.</p>}
     {diagram.edgeMappings.length ? <EdgeEvidenceDisclosure mappings={diagram.edgeMappings} edgeById={edgeById} nodeById={nodeById} repository={payload.document.snapshot.repository} commitSha={payload.document.snapshot.commitSha} /> : <p className={styles.emptyMessage}>Diagram tidak mencatat edge.</p>}
