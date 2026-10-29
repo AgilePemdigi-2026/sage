@@ -335,7 +335,7 @@ function DiagramSection({
         {/* The sanitized SVG is loaded as an image Blob URL, never inserted into the active DOM. */}
         {/* eslint-disable-next-line @next/next/no-img-element -- Blob-backed canonical SVG keeps active markup out of the page. */}
         <img className={styles.diagramImage} data-testid="document-diagram-image" src={url} alt={label}
-          style={{ width: `${zoomPercent}%`, maxHeight: zoomPercent === 100 && !preserveGrouping ? "min(70vh, 720px)" : "none", objectFit: "contain", objectPosition: "center top" }} />
+          style={{ width: `${zoomPercent}%`, maxHeight: zoomPercent === 100 ? "min(70vh, 720px)" : "none", objectFit: "contain", objectPosition: "center top" }} />
       </div>
     </> : null}
   </>;

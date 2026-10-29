@@ -18,6 +18,7 @@ export async function checkReadingWorkspace(page: Page, base: string, analysisId
   const image = page.getByRole("img", { name: "Software Engineering Diagram", exact: true });
   console.log(`Reading workspace ${width}: render overview`);
   await image.waitFor({ timeout: 30_000 });
+  assert.ok(await page.getByTestId("document-diagram-viewport").evaluate(el => el.scrollHeight <= el.clientHeight + 2 && el.scrollWidth <= el.clientWidth + 2), "default architecture fit must show the whole diagram");
   const overviewSvg = await image.evaluate(async el => fetch(el.getAttribute("src")!).then(r => r.text()));
   assert.ok(overviewSvg.includes("feature"), "overview must show source areas");
   assert.ok(!overviewSvg.includes("PageContract99"), "overview must not spray AST declarations");
