@@ -166,3 +166,11 @@
 @media (prefers-reduced-motion: reduce) {
   .graphControl, .nodeOption { scroll-behavior: auto; transition: none; }
 }
+
+/* Developer result canvas: neutral chrome and clear blue focus affordances. */
+.graphShell {--graph-border:#d1d9e0;--graph-muted:#59636e;--graph-ink:#1f2328;--graph-accent:#0969da;display:grid;gap:20px;}
+.graphCard,.nodeListCard,.selectedCard {border-color:#d1d9e0;box-shadow:0 1px 0 #1f23280a;}
+.graphCard {border-top:3px solid #0969da;}
+.graphControl {border-color:#d1d9e0;background:#f6f8fa;color:#1f2328;border-radius:6px;}
+.graphControl:hover:not(:disabled) {background:#eaeef2;}
+.graphControl:focus-visible,.searchInput:focus-visible {outline:2px solid #0969da;outline-offset:2px;}

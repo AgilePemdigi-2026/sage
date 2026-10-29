@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
 import { useEffect, useRef, useState } from "react";
 import { AssetIcon, Badge, DesignFrame, Panel } from "../design-system/ui.tsx";
 import { formatDateTime, statusLabel, statusTone } from "./format.ts";
@@ -201,6 +202,7 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
     <div className={styles.historyMessage} role="status"><AssetIcon group="history-empty" name="imgIcon1" /><div><strong>Memuat detail analisis</strong><p>Tunggu sesaat.</p></div></div>
   </DesignFrame>;
   return <DesignFrame>
+    <AnalysisNavigation analysisId={analysisId} active="progress" resultsAvailable={Boolean(detail.results)} />
     <div className={styles.breadcrumb}>Workspace <span>/</span> <Link href="/workspace/history">Riwayat</Link> <span>/</span> Progres analisis</div>
     <div className={styles.pageHeading}>
       <p className={styles.eyebrow}>03 / PROGRES</p>

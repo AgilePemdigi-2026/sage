@@ -138,15 +138,15 @@ export function boundedDiagramOverview(
     : { diagram: overview.uml, summary: overview.umlSummary };
 }
 
-export function projectInteractiveDiagram(diagram: DiagramProjection): InteractiveDiagramProjection {
-  const display = projectHumanDiagram(diagram);
-  const displayEdgeCount = display.mermaid.split("\n").filter(line => /^\s*N\d+\s+.+\s+N\d+(?:\s|$)/u.test(line)).length;
-  const displayMemberCount = display.mermaid.split("\n").reduce((count, line) => count + (/^\s{4}(?!<<)\S/u.test(line) ? 1 : 0), 0);
+export function projectInteractiveDiagram(diagram: DiagramProjection, preserveGrouping = false): InteractiveDiagramProjection {
+  const display = preserveGrouping ? diagram : projectHumanDiagram(diagram);
+  const displayEdgeCount = preserveGrouping ? new Set(display.edgeMappings.map(mapping => mapping.mermaidLine)).size : display.mermaid.split("\n").filter(line => /^\s*N\d+\s+.+\s+N\d+(?:\s|$)/u.test(line)).length;
+  const displayMemberCount = preserveGrouping ? 0 : display.mermaid.split("\n").reduce((count, line) => count + (/^\s{4}(?!<<)\S/u.test(line) ? 1 : 0), 0);
   return {
     diagram: display,
     sourceNodeCount: diagram.nodes.length,
     sourceEdgeCount: diagram.edges.length,
-    displayNodeCount: display.nodeMappings.filter(mapping => mapping.mermaidId !== null).length + displayMemberCount,
+    displayNodeCount: (preserveGrouping ? new Set(display.nodeMappings.map(mapping => mapping.mermaidId).filter(Boolean)).size : display.nodeMappings.filter(mapping => mapping.mermaidId !== null).length) + displayMemberCount,
     displayEdgeCount,
   };
 }

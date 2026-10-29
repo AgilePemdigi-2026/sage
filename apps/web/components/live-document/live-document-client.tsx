@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ArchitectureDocumentV1 } from "@sage/documents/model";
-import { buildArchitectureUml } from "@sage/documents/overview";
+import { buildArchitectureUml, listArchitectureUmlScopes, buildSoftwareOverview } from "@sage/documents/overview";
 import { humanNodeName } from "@sage/documents/human";
 import type { CcmEdge, CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { DocumentPayload } from "../../lib/documents/types.ts";
@@ -245,7 +246,9 @@ function DiagramSection({
   label,
   ckgSha256,
   accountKey,
+  preserveGrouping = false,
 }: {
+  preserveGrouping?: boolean;
   diagram: DiagramProjection;
   overview: DiagramProjection;
   overviewSummary: DiagramOverviewSummary;
@@ -259,9 +262,9 @@ function DiagramSection({
   const [forcedOverview, setForcedOverview] = useState<{ key: string } | null>(null);
   const generation = useRef(0);
   const currentUrl = useRef<string | null>(null);
-  const fullProjection = useMemo(() => projectInteractiveDiagram(diagram), [diagram]);
+  const fullProjection = useMemo(() => projectInteractiveDiagram(diagram, preserveGrouping), [diagram, preserveGrouping]);
   const fullBudget = interactiveDiagramBudget(fullProjection);
-  const renderKey = `${accountKey}:${ckgSha256}:${label}:${diagram.kind}:${attempt}`;
+  const renderKey = `${accountKey}:${ckgSha256}:${label}:${diagram.kind}:${diagram.mermaid}:${attempt}`;
   const fallbackProjection = useMemo(() => projectInteractiveDiagram(overview), [overview]);
   const fallbackBudget = interactiveDiagramBudget(fallbackProjection);
   const useOverview = fullBudget.kind === "unavailable" || forcedOverview?.key === renderKey;
@@ -338,29 +341,66 @@ function DiagramSection({
   </>;
 }
 
-function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload; section: Exclude<SectionId, "catalog"> }) {
-  const umlView = useMemo(() => buildArchitectureUml(payload.document.softwareEngineeringDiagram, payload.document.umlClassDiagram), [payload.document]);
-  const diagram = section === "structure" ? payload.document.softwareEngineeringDiagram : umlView.projection;
-  const overview = useMemo(() => boundedDiagramOverview(payload.document.softwareEngineeringDiagram, payload.document.umlClassDiagram, diagram.kind), [payload.document, diagram.kind]);
-  const label = section === "structure" ? sections[1].label : sections[2].label;
-  const nodeById = new Map([...payload.document.softwareEngineeringDiagram.nodes, ...diagram.nodes].map(node => [node.id, node]));
-  const edgeById = new Map(diagram.edges.map(edge => [edge.id, edge]));
-  const unresolvedEdges = diagram.edges.filter(edge => edge.resolution === "Unresolved");
-  return <section className={styles.contentCard} aria-labelledby="diagram-heading">
-    <div className={styles.sectionHeading}><div><h2 id="diagram-heading">{label}</h2><p>Diagram source untuk mempelajari struktur dan ketergantungan kode. Anggota class diringkas ke pemiliknya pada diagram struktur; detail bukti tersedia di bawah.</p></div></div>
-    <div className={styles.legend} aria-label="Legend diagram">
-      {section === "uml" ? <><span>Dependency: panah putus-putus · Pewarisan: segitiga</span><span>Status Exact / Unresolved tertera pada label</span></> : <><span><i className={styles.exactMark} aria-hidden="true" />Exact</span><span><i className={styles.unresolvedMark} aria-hidden="true" />Unresolved</span></>}
-      <span>{section === "uml" ? "Amber: boundary · Biru: control · Teal: entity · Ungu: interface" : "Teal: class · Ungu: interface · Biru: function · Abu: module · Amber: unresolved"}</span>
+function IsolatedClassCards({ diagram, roles }: { diagram: DiagramProjection; roles: ReturnType<typeof buildArchitectureUml>["roles"] }) {
+  const classifiers = diagram.nodes.filter(node => node.kind === "Class" || node.kind === "Interface");
+  return <>
+    <p className={styles.readingHelp}>Belum ada hubungan antarkelas yang terbukti pada halaman ini. Deklarasi ditampilkan terpisah agar tetap terbaca.</p>
+    <div className={styles.isolatedGrid} data-testid="uml-isolated-grid">
+      {classifiers.map(node => {
+        const members = diagram.nodes.filter(member => member.parentId === node.id);
+        return <article key={node.id} className={styles.classCard} data-role={roles[node.id]?.role ?? (node.kind === "Interface" ? "interface" : "class")}>
+          <header><small>{roles[node.id]?.role ? `«${roles[node.id]!.role}»` : node.kind === "Interface" ? "«interface»" : "class"}</small><h3>{node.name}</h3><code>{node.filePath}</code></header>
+          {["Property", "Method"].map(kind => <div key={kind} className={styles.classCompartment}><span className={styles.classMemberLabel}>{kind === "Method" ? "Operasi" : "Atribut"}</span>{members.filter(member => member.kind === kind).length ? members.filter(member => member.kind === kind).map(member => <code key={member.id}>{member.signature ?? member.name}</code>) : <span className={styles.muted}>Tidak tercatat</span>}</div>)}
+        </article>;
+      })}
     </div>
-    {section === "uml" ? <div className={styles.scopeNote} data-testid="uml-bce-summary">
-      <p>UML utama: {umlView.summary.shownNodes} dari {umlView.summary.totalNodes} class/interface, {umlView.summary.shownRelations} dari {umlView.summary.totalRelations} kelompok relasi. Anggota ditampilkan maksimal empat per class; katalog menyimpan detail lengkap.</p>
-      <p>Boundary (amber): antarmuka interaksi · Control (biru): pengendali/alur · Entity (teal): data domain. Peran BCE adalah klasifikasi tampilan berdasarkan konvensi nama/path, bukan jaminan perilaku runtime; class tanpa petunjuk tetap tanpa peran.</p>
-      <p>Dependency berasal dari pemanggilan, konstruksi, baca/tulis, atau referensi tipe pada source. Relasi anggota diringkas ke class pemilik; beberapa kind pada pasangan class/status sama memakai satu panah berlabel. {umlView.summary.omittedUnresolved} referensi belum terpecahkan tidak dijadikan hubungan class yang pasti.</p>
-    </div> : null}
-    <DiagramSection diagram={diagram} overview={overview.diagram} overviewSummary={overview.summary} label={label} ckgSha256={payload.document.ckgSha256} accountKey={payload.accountKey} />
-    {diagram.nodeMappings.length ? <NodeEvidenceDisclosure mappings={diagram.nodeMappings} nodeById={nodeById} repository={payload.document.snapshot.repository} commitSha={payload.document.snapshot.commitSha} /> : <p className={styles.emptyMessage}>Diagram tidak memiliki mapping node.</p>}
-    {diagram.edgeMappings.length ? <EdgeEvidenceDisclosure mappings={diagram.edgeMappings} edgeById={edgeById} nodeById={nodeById} repository={payload.document.snapshot.repository} commitSha={payload.document.snapshot.commitSha} /> : <p className={styles.emptyMessage}>Diagram tidak mencatat edge.</p>}
-    {unresolvedEdges.length ? <p className={styles.emptyMessage}>{unresolvedEdges.length} relasi Unresolved; alasan dan evidence tetap dicantumkan di atas.</p> : null}
+    {!classifiers.length ? <p>Tidak ada class/interface source dalam area ini.</p> : null}
+  </>;
+}
+
+function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload; section: Exclude<SectionId, "catalog"> }) {
+  const [area, setArea] = useState("");
+  const [offsets, setOffsets] = useState([0]);
+  const offset = offsets[offsets.length - 1]!;
+  const software = payload.document.softwareEngineeringDiagram;
+  const originalUml = payload.document.umlClassDiagram;
+  const scopes = useMemo(() => listArchitectureUmlScopes(software, originalUml), [software, originalUml]);
+  const selectedScope = scopes.find(scope => scope.id === area);
+  const umlView = useMemo(() => buildArchitectureUml(software, originalUml, { classifierIds: selectedScope?.classifierIds, offset }), [software, originalUml, selectedScope, offset]);
+  const structureView = useMemo(() => buildSoftwareOverview(software, area && section === "structure" ? { focusGroupId: area } : {}), [software, area, section]);
+  const diagram = section === "structure" ? structureView.diagram : umlView.projection;
+  const overview = useMemo(() => boundedDiagramOverview(software, originalUml, diagram.kind), [software, originalUml, diagram.kind]);
+  const label = section === "structure" ? sections[1].label : sections[2].label;
+  const nodeById = new Map([...software.nodes, ...diagram.nodes].map(node => [node.id, node]));
+  const edgeById = new Map([...software.edges, ...diagram.edges].map(edge => [edge.id, edge]));
+  const setReadingArea = (value: string) => { setArea(value); setOffsets([0]); };
+  return <section className={styles.contentCard} aria-labelledby="diagram-heading">
+    <div className={styles.sectionHeading}><div><h2 id="diagram-heading">{label}</h2><p>{section === "structure" ? "Pahami area source dan arah dependensinya, lalu buka area untuk menelusuri file." : "Baca class utama dan hubungan yang terbukti, satu area source dalam satu waktu."}</p></div></div>
+    <div className={styles.readingControls}>
+      <label>{section === "structure" ? "Area arsitektur" : "Area UML"}<select aria-label={section === "structure" ? "Area arsitektur" : "Area UML"} value={area} onChange={event => setReadingArea(event.target.value)}>
+        <option value="">{section === "structure" ? "Ikhtisar repository" : "Class utama repository"}</option>
+        {section === "structure" ? structureView.groups.map(group => <option key={group.id} value={group.id}>{group.label} · {group.filePaths.length} file</option>) : scopes.map(scope => <option key={scope.id} value={scope.id}>{scope.label} · {scope.count} class/interface</option>)}
+      </select></label>
+      {area ? <button type="button" onClick={() => setReadingArea("")}>Kembali ke ikhtisar</button> : null}
+      {section === "uml" ? <>
+        <button type="button" disabled={offsets.length <= 1} onClick={() => setOffsets(value => value.slice(0, -1))}>Class sebelumnya</button>
+        <output aria-live="polite">{umlView.summary.totalNodes ? `${offset + 1}–${offset + umlView.summary.shownNodes} dari ${umlView.summary.totalNodes}` : "0 class/interface"}</output>
+        <button type="button" disabled={!umlView.summary.shownNodes || offset + umlView.summary.shownNodes >= umlView.summary.totalNodes} onClick={() => setOffsets(value => [...value, offset + umlView.summary.shownNodes])}>Class berikutnya</button>
+      </> : null}
+    </div>
+    {section === "structure" ? <div className={styles.scopeNote} data-testid="software-overview-summary">
+      <p><strong>{area ? "File dan area terkait" : "Peta area repository"}</strong> · {structureView.summary.shownGroups} dari {structureView.summary.totalGroups} area · {structureView.summary.shownFiles} dari {structureView.summary.totalFiles} file.</p>
+      <p>Panah dari source ke dependensinya; angka menunjukkan jumlah referensi Exact. Kotak area merangkum direktori source, bukan class atau layanan bisnis baru. {structureView.summary.unresolvedReferences} referensi belum terpecahkan tetap tersedia di katalog.</p>
+    </div> : <div className={styles.scopeNote} data-testid="uml-bce-summary">
+      <p>UML utama: {umlView.summary.shownNodes} dari {umlView.summary.totalNodes} class/interface, {umlView.summary.shownRelations} dari {umlView.summary.totalRelations} kelompok relasi. Buka area atau halaman berikutnya untuk deklarasi lain.</p>
+      <details><summary>Legenda BCE dan cakupan</summary>
+        <p>Boundary (amber): interaksi · Control (biru): pengendali/alur · Entity (teal): data domain · Interface (ungu). Peran berdasarkan konvensi nama/path, bukan jaminan semantik runtime; class tanpa petunjuk tetap tanpa peran.</p>
+        <p>Panah putus-putus: dependency source; segitiga: pewarisan. Status tertera pada label. Beberapa kind pada pasangan class/status sama memakai satu panah. Anggota maksimal empat per class. {umlView.summary.omittedUnresolved} referensi belum terpecahkan tidak dijadikan hubungan class yang pasti; katalog dan Markdown memuat detail lengkap.</p>
+      </details>
+    </div>}
+    {section === "uml" && diagram.edges.length === 0 ? <IsolatedClassCards diagram={diagram} roles={umlView.roles} /> : <DiagramSection preserveGrouping={section === "structure"} diagram={diagram} overview={overview.diagram} overviewSummary={overview.summary} label={label} ckgSha256={payload.document.ckgSha256} accountKey={payload.accountKey} />}
+    {diagram.nodeMappings.length ? <NodeEvidenceDisclosure key={`nodes:${area}:${offset}`} mappings={diagram.nodeMappings} nodeById={nodeById} repository={payload.document.snapshot.repository} commitSha={payload.document.snapshot.commitSha} /> : null}
+    {diagram.edgeMappings.length ? <EdgeEvidenceDisclosure key={`edges:${area}:${offset}`} mappings={diagram.edgeMappings} edgeById={edgeById} nodeById={nodeById} repository={payload.document.snapshot.repository} commitSha={payload.document.snapshot.commitSha} /> : null}
   </section>;
 }
 
@@ -641,6 +681,7 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
     {busy && !visiblePayload ? <p className={styles.loading} role="status">Memeriksa akun dan memuat dokumen arsitektur…</p> : null}
     {errorContent()}
     {visiblePayload ? <>
+      <AnalysisNavigation analysisId={analysisId} active="document" />
       <Metadata payload={visiblePayload} />
       <p className={styles.footerLink}><Link href={`/analyses/${encodeURIComponent(analysisId)}/graph`}>Kembali ke graph</Link></p>
       <div className={styles.sectionLayout}>
