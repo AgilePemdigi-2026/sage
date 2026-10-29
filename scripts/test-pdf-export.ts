@@ -313,11 +313,11 @@ async function seedAnalysis(
   };
 }
 
-async function createAnalysisRepository(db: ReturnType<typeof database>, ownerLogin: string): Promise<string> {
+async function createAnalysisRepository(db: ReturnType<typeof database>): Promise<string> {
   const row = await db.repository.create({
     data: {
-      githubRepositoryId: `pdf21-repo-${randomUUID()}`, ownerLogin, name: "pdf-export-fixture",
-      fullName: `${ownerLogin}/pdf-export-fixture`, visibility: "PRIVATE", defaultBranch: "feature/pdf-21",
+      githubRepositoryId: `pdf21-repo-${randomUUID()}`, ownerLogin: "sage-pdf21", name: "export-fixture",
+      fullName: "sage-pdf21/export-fixture", visibility: "PRIVATE", defaultBranch: "feature/pdf-21",
     },
     select: { id: true },
   });
@@ -605,7 +605,7 @@ async function runLivePdfExportRegression(): Promise<void> {
     assert.equal(await db.export.count(), 0, "sage_pdf21 must not contain prior exports before this isolated live run");
     owner = await makeAccount(db, "owner", users, sessionIds);
     other = await makeAccount(db, "other", users, sessionIds);
-    repositoryId = await createAnalysisRepository(db, owner.login);
+    repositoryId = await createAnalysisRepository(db);
     const fixture = await loadFixture();
     readyAnalysis = await seedAnalysis(db, { ownerUserId: owner.userId, repositoryId, fixture, storageRoot, label: "pdf-ready-and-markdown-control", storageObjectIds, createdFolders });
     analysisIds.push(readyAnalysis.analysisId);
@@ -638,7 +638,7 @@ async function runLivePdfExportRegression(): Promise<void> {
 
     const originalClockRecord = await db.analysis.findUniqueOrThrow({ where: { id: readyAnalysis.analysisId }, select: { status: true, queuedAt: true, startedAt: true, completedAt: true } });
     const clockProbe = {
-      start: async () => { await db.analysis.update({ where: { id: readyAnalysis!.analysisId }, data: { status: "RUNNING", queuedAt: new Date(Date.now() - 61_000), startedAt: new Date(Date.now() - 60_000), completedAt: null } }); },
+      start: async () => { await db.analysis.update({ where: { id: readyAnalysis!.analysisId }, data: { status: "QUEUED", queuedAt: new Date(Date.now() - 61_000), startedAt: null, completedAt: null } }); },
       finish: async () => { await db.analysis.update({ where: { id: readyAnalysis!.analysisId }, data: originalClockRecord }); },
     };
     browser = await chromium.launch({ headless: true });

@@ -22,9 +22,9 @@ export async function checkWorkspaceExperience(page: Page, base: string, analysi
   assert.match(href!, /#L\d+(?:-L\d+)?$/);
   assert.equal(await evidence.getAttribute("rel"), "noopener noreferrer");
   assert.equal(await evidence.getAttribute("target"), "_blank");
-  assert.ok(await page.locator("tbody tr").count() <= 10, "initial catalog must be bounded and closed relations lazy-mounted");
+  assert.ok(await page.locator("tbody tr").count() <= 5, "initial catalog must be bounded and closed relations lazy-mounted");
   const nextPage = page.getByRole("button", { name: "Berikutnya", exact: true });
-  if (model.interfaceCatalog.entries.length > 10) {
+  if (model.interfaceCatalog.entries.length > 5) {
     const firstRow = await page.locator("tbody tr").first().innerText();
     await nextPage.click();
     assert.notEqual(await page.locator("tbody tr").first().innerText(), firstRow, "pagination must reveal different declarations");
@@ -41,6 +41,7 @@ export async function checkWorkspaceExperience(page: Page, base: string, analysi
   }
   const search = page.getByLabel("Cari simbol", { exact: true });
   await search.fill("UI05_NO_SUCH_SYMBOL");
+  await page.waitForFunction(() => document.querySelectorAll("tbody tr").length === 0);
   assert.equal(await page.locator("tbody tr").count(), 0, "search must filter catalog rows");
   await search.fill("");
   await page.locator("tbody tr").first().waitFor();

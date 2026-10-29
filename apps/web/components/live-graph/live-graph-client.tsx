@@ -346,14 +346,17 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           <label className={styles.searchLabel} htmlFor="graph-node-query">Cari node
             <input id="graph-node-query" className={styles.searchInput} type="search" value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="Nama, jenis, nama lengkap, atau berkas" aria-describedby="graph-node-query-help" />
           </label>
-          <p id="graph-node-query-help" className={styles.filterHelp}>Pencarian cocok dengan teks di nama, jenis node, nama lengkap, atau path berkas.</p>
-          <fieldset className={styles.kindFilters}>
-            <legend>Jenis node AST</legend>
-            {availableKinds.length ? availableKinds.map((kind) => <label key={kind}>
-              <input type="checkbox" checked={selectedKinds.includes(kind)} onChange={() => toggleKind(kind)} />
-              {kind}
-            </label>) : <p className={styles.filterHelp}>Graph tidak memiliki jenis node untuk difilter.</p>}
-          </fieldset>
+          <details className={styles.kindDisclosure} data-testid="graph-kind-filters-disclosure">
+            <summary>Filter jenis node AST{selectedKinds.length ? ` · ${selectedKinds.length} dipilih` : ""}</summary>
+            <p id="graph-node-query-help" className={styles.filterHelp}>Pencarian cocok dengan teks di nama, jenis node, nama lengkap, atau path berkas.</p>
+            <fieldset className={styles.kindFilters}>
+              <legend>Jenis node AST</legend>
+              {availableKinds.length ? availableKinds.map((kind) => <label key={kind}>
+                <input type="checkbox" checked={selectedKinds.includes(kind)} onChange={() => toggleKind(kind)} />
+                {kind}
+              </label>) : <p className={styles.filterHelp}>Graph tidak memiliki jenis node untuk difilter.</p>}
+            </fieldset>
+          </details>
           <div>
             <button type="button" className={styles.graphControl} onClick={resetFilters} disabled={!query && selectedKinds.length === 0}>Atur ulang filter</button>
           </div>

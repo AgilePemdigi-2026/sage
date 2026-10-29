@@ -173,7 +173,7 @@ function InterfaceCatalog({ payload }: { payload: DocumentPayload }) {
 
 function CatalogPage({ entries, membersByParent, repository, commitSha }: { entries: ArchitectureDocumentV1["interfaceCatalog"]["entries"]; membersByParent: Map<string, CcmNode[]>; repository: string; commitSha: string }) {
   const [page, setPage] = useState(0);
-  const pageSize = 10;
+  const pageSize = 5;
   const pageCount = Math.max(1, Math.ceil(entries.length / pageSize));
   const currentPage = Math.min(page, pageCount - 1);
   const visible = entries.slice(currentPage * pageSize, currentPage * pageSize + pageSize);

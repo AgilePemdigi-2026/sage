@@ -1089,12 +1089,17 @@ async function runLiveGraphRegression(): Promise<void> {
 
       if (width === 390) {
         const kinds = [...new Set(data.graph.nodes.map(node => node.kind))].sort();
+        const kindDisclosure = page.getByTestId("graph-kind-filters-disclosure");
+        assert.equal(await kindDisclosure.getAttribute("open"), null, "AST kind filters start collapsed so the network stays near the fold");
+        await kindDisclosure.locator("summary").click();
         const kindGroup = page.getByRole("group", { name: "Jenis node AST", exact: true });
         const renderedKinds = await kindGroup.locator('input[type="checkbox"]').evaluateAll(inputs => inputs
           .map(input => (input as HTMLInputElement).labels?.[0]?.textContent?.trim() ?? "")
           .filter(Boolean)
           .sort());
         assert.deepEqual(renderedKinds, kinds, "AST kind choices must reflect the kinds present in this canonical graph");
+        await kindDisclosure.locator("summary").click();
+        assert.equal(await kindDisclosure.getAttribute("open"), null, "AST kind filters can be collapsed again");
 
         await page.getByRole("button", { name: "Ikhtisar", exact: true }).click();
         const graphRequestsBeforeFilter = pageGraphRequests.length;
@@ -1114,10 +1119,12 @@ async function runLiveGraphRegression(): Promise<void> {
           .map(option => (option as HTMLOptionElement).value).filter(Boolean).sort());
         assert.deepEqual(queryChoiceIds, queryMatches.nodes.map(node => node.id).sort(), "focus choices should match the query result");
 
+        await kindDisclosure.locator("summary").click();
         const classCheckbox = page.getByLabel("Class", { exact: true });
         await classCheckbox.focus();
         await page.keyboard.press("Space");
         assert.equal(await classCheckbox.isChecked(), true, "the AST kind filter can be enabled from the keyboard");
+        assert.ok((await kindDisclosure.locator("summary").innerText()).includes("1 dipilih"), "the collapsed filter summary shows how many kinds are active");
         const combinedMatches = expectedGraphFilter(data.graph, "Endpoint", ["Class"]);
         assert.ok(combinedMatches.nodes.length < queryMatches.nodes.length, "the AST kind filter must narrow the query result");
         assert.ok(combinedMatches.nodes.every(node => node.kind === "Class"));
@@ -1128,6 +1135,8 @@ async function runLiveGraphRegression(): Promise<void> {
           .map(option => (option as HTMLOptionElement).value).filter(Boolean).sort());
         assert.deepEqual(combinedChoiceIds, combinedMatches.nodes.map(node => node.id).sort(), "focus choices should match the combined query and kind result");
         assert.equal(await page.getByTestId("canonical-counts").innerText(), canonicalCounts, "query and kind filters cannot change canonical counts");
+        await kindDisclosure.locator("summary").click();
+        assert.equal(await kindDisclosure.getAttribute("open"), null, "the active kind filter stays applied after collapsing its controls");
         await takeScreenshot(page, "graph-filter-390.png");
 
         const noResultQuery = `__issue18-no-match-${randomUUID()}__`;

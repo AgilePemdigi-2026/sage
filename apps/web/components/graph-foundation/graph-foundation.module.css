@@ -52,6 +52,10 @@
 .graphIdentity code { color: #344b68; font-family: "JetBrains Mono", monospace; font-size: 10px; overflow-wrap: anywhere; }
 .modeControls { display: grid; gap: 12px; padding: 14px 0; }
 .filterControls { display: grid; gap: 8px; padding: 14px 0; border-bottom: 1px solid #e8edf2; }
+.kindDisclosure { min-width: 0; }
+.kindDisclosure > summary { width: fit-content; max-width: 100%; padding: 5px 2px; color: #344b68; font-size: 11px; font-weight: 600; cursor: pointer; text-underline-offset: 3px; }
+.kindDisclosure > summary:focus-visible { outline: 3px solid #096c67; outline-offset: 2px; border-radius: 3px; }
+.kindDisclosure[open] { display: grid; gap: 8px; }
 .searchLabel { display: grid; gap: 6px; min-width: 0; color: #344b68; font-size: 11px; font-weight: 600; }
 .searchInput { width: 100%; min-width: 0; min-height: 42px; padding: 8px 10px; border: 1px solid #b8c6d3; border-radius: 6px; background: #fff; color: #061e42; font: inherit; font-size: 12px; }
 .searchInput:focus-visible, .kindFilters input:focus-visible { outline: 3px solid #096c67; outline-offset: 2px; }
@@ -152,7 +156,7 @@
   .filterControls { grid-template-columns: minmax(0, 1fr) auto; align-items: end; }
   .filterControls > .searchLabel { grid-column: 1; grid-row: 1; }
   .filterControls > div { grid-column: 2; grid-row: 1; }
-  .filterControls > .filterHelp, .filterControls > .kindFilters { grid-column: 1 / -1; }
+  .filterControls > .kindDisclosure { grid-column: 1 / -1; }
   .modeControls { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: end; }
 }
 @media (min-width: 1200px) {
