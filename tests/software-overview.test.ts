@@ -39,6 +39,8 @@ test("overview groups source directories, keeps the connected high-level graph b
   assert.equal(result.relations.length, 2);
   assert.deepEqual(result.relations[0]?.sourceEdgeIds, ["e1", "e2"]);
   assert.equal(result.diagram.edgeMappings.length, 3);
+  assert.ok(result.diagram.mermaid.includes(" ~~~ "), "layout spine keeps fan-in readable without adding source relationships");
+  assert.equal(result.diagram.edges.length, 3);
   assert.deepEqual(input, before, "the source projection is not mutated");
   const again = buildSoftwareOverview(input, { maxGroups: 12 });
   assert.equal(again.diagram.mermaid, result.diagram.mermaid, "rendering is stable");

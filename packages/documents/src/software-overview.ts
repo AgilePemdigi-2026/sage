@@ -411,6 +411,13 @@ function buildProjection(
     emittedEdgeRecords += displayEdges.length;
   }
 
+  // Invisible layout constraints keep fan-in and disconnected areas on a
+  // vertical reading spine. They are not source relationships or evidence.
+  const readingOrder = [...displayItems].sort((a, b) => compareText(a.label, b.label) || compareText(a.key, b.key));
+  for (let index = 1; index < readingOrder.length; index += 1) {
+    header.push(`  ${readingOrder[index - 1]!.key} ~~~ ${readingOrder[index]!.key}`);
+  }
+
   const unresolved = [...unresolvedCounts.values()].sort((a, b) => compareText(a.groupId, b.groupId) || compareText(a.reason, b.reason))
     .map(item => ({ groupId: item.groupId, reason: item.reason, count: item.count, edgeIds: item.edges.map(edge => edge.id), omittedEdgeCount: Math.max(0, item.count - item.edges.length) }));
   const nodeIds = new Set(nodes.map(node => node.id));

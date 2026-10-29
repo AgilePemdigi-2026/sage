@@ -335,7 +335,7 @@ function DiagramSection({
         {/* The sanitized SVG is loaded as an image Blob URL, never inserted into the active DOM. */}
         {/* eslint-disable-next-line @next/next/no-img-element -- Blob-backed canonical SVG keeps active markup out of the page. */}
         <img className={styles.diagramImage} data-testid="document-diagram-image" src={url} alt={label}
-          style={{ width: `${zoomPercent}%`, maxHeight: zoomPercent === 100 ? "min(70vh, 720px)" : "none", objectFit: "contain", objectPosition: "center top" }} />
+          style={{ width: `${zoomPercent}%`, maxHeight: zoomPercent === 100 && !preserveGrouping ? "min(70vh, 720px)" : "none", objectFit: "contain", objectPosition: "center top" }} />
       </div>
     </> : null}
   </>;
@@ -367,7 +367,7 @@ function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload
   const scopes = useMemo(() => listArchitectureUmlScopes(software, originalUml), [software, originalUml]);
   const selectedScope = scopes.find(scope => scope.id === area);
   const umlView = useMemo(() => buildArchitectureUml(software, originalUml, { classifierIds: selectedScope?.classifierIds, offset }), [software, originalUml, selectedScope, offset]);
-  const structureView = useMemo(() => buildSoftwareOverview(software, area && section === "structure" ? { focusGroupId: area } : {}), [software, area, section]);
+  const structureView = useMemo(() => buildSoftwareOverview(software, area && section === "structure" ? { focusGroupId: area, maxFiles: 3 } : { maxGroups: 4 }), [software, area, section]);
   const diagram = section === "structure" ? structureView.diagram : umlView.projection;
   const overview = useMemo(() => boundedDiagramOverview(software, originalUml, diagram.kind), [software, originalUml, diagram.kind]);
   const label = section === "structure" ? sections[1].label : sections[2].label;
