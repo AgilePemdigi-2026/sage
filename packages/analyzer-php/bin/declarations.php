@@ -230,17 +230,121 @@ function phpReference(
     ];
 }
 
+function phpCallableParameterFacts(array $parameters): array
+{
+    $facts = [];
+    foreach ($parameters as $parameter) {
+        if (!$parameter instanceof Node\Param) {
+            continue;
+        }
+        $facts[] = [
+            'name' => $parameter->var instanceof Node\Expr\Variable && is_string($parameter->var->name) ? $parameter->var->name : null,
+            'byRef' => $parameter->byRef,
+            'variadic' => $parameter->variadic,
+        ];
+    }
+    return $facts;
+}
+
+/** Collect local callable parameter facts without executing project source. */
+function phpCallableFacts(array $nodes): array
+{
+    $functions = [];
+    $methods = [];
+    $parents = [];
+    $traverser = new NodeTraverser();
+    $traverser->addVisitor(new class($functions, $methods, $parents) extends NodeVisitorAbstract {
+        private array $functions;
+        private array $methods;
+        private array $parents;
+        private string $namespace = '';
+        private ?string $classQualifiedName = null;
+        private array $scopes = [];
+
+        public function __construct(array &$functions, array &$methods, array &$parents)
+        {
+            $this->functions = &$functions;
+            $this->methods = &$methods;
+            $this->parents = &$parents;
+        }
+
+        private function scope(): void
+        {
+            $this->scopes[] = [$this->namespace, $this->classQualifiedName];
+        }
+
+        private function add(array &$signatures, string $name, array $parameters): void
+        {
+            $key = strtolower($name);
+            $signatures[$key] ??= [];
+            $signatures[$key][] = phpCallableParameterFacts($parameters);
+        }
+
+        public function enterNode(Node $node)
+        {
+            if ($node instanceof Node\Stmt\Namespace_) {
+                $this->scope();
+                $this->namespace = $node->name?->toString() ?? '';
+                $this->classQualifiedName = null;
+            } elseif ($node instanceof Node\Stmt\Class_ || $node instanceof Node\Stmt\Interface_) {
+                $this->scope();
+                $this->classQualifiedName = $node->name === null ? null : declarationQualifiedName($node, $this->namespace);
+                if ($this->classQualifiedName !== null) {
+                    if ($node instanceof Node\Stmt\Class_ && $node->extends instanceof Node\Name) {
+                        $parent = normalizedName($node->extends);
+                        if ($parent !== null) {
+                            $this->parents[strtolower($this->classQualifiedName)][] = $parent;
+                        }
+                    } elseif ($node instanceof Node\Stmt\Interface_) {
+                        foreach ($node->extends as $parent) {
+                            $resolved = normalizedName($parent);
+                            if ($resolved !== null) {
+                                $this->parents[strtolower($this->classQualifiedName)][] = $resolved;
+                            }
+                        }
+                    }
+                }
+            } elseif ($node instanceof Node\Stmt\Function_) {
+                $this->add($this->functions, declarationQualifiedName($node, $this->namespace), $node->params);
+                $this->scope();
+                $this->classQualifiedName = null;
+            } elseif ($node instanceof Node\Stmt\ClassMethod && $this->classQualifiedName !== null) {
+                $this->add($this->methods, $this->classQualifiedName . '::' . $node->name->toString(), $node->params);
+            }
+            return null;
+        }
+
+        public function leaveNode(Node $node)
+        {
+            if ($node instanceof Node\Stmt\Namespace_ || $node instanceof Node\Stmt\Class_ || $node instanceof Node\Stmt\Interface_ ||
+                $node instanceof Node\Stmt\Function_) {
+                $scope = array_pop($this->scopes);
+                if ($scope !== null) {
+                    [$this->namespace, $this->classQualifiedName] = $scope;
+                }
+            }
+            return null;
+        }
+    });
+    $traverser->traverse($nodes);
+    return [$functions, $methods, $parents];
+}
+
 /** Extract a deliberately small, static-only set of PHP declarations and reference expressions. */
 function references(array $nodes, array $namespaceFacts, array $supportedNodeIds, string $path, int $moduleEnd): array
 {
     $references = [];
     $properties = [];
     $limitations = [];
+    [$functionSignatures, $methodSignatures, $classParents] = phpCallableFacts($nodes);
     $traverser = new NodeTraverser();
-    $traverser->addVisitor(new class($references, $properties, $limitations, $supportedNodeIds, $moduleEnd) extends NodeVisitorAbstract {
+    $traverser->addVisitor(new class($references, $properties, $limitations, $supportedNodeIds, $moduleEnd, $functionSignatures, $methodSignatures, $classParents) extends NodeVisitorAbstract {
         private array $items = [];
         private array $properties = [];
         private array $limitations = [];
+        private array $functionSignatures = [];
+        private array $methodSignatures = [];
+        private array $classParents = [];
         private array $supportedNodeIds;
         private string $namespace = '';
         private ?string $sourceQualifiedName = null;
@@ -251,15 +355,20 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
         private int $classStartByte = 0;
         private int $classEndByte = 0;
         private array $typedVariables = [];
+        private array $referenceEscapedVariables = [];
+        private int $conditionalExecutionDepth = 0;
         private array $writeProperties = [];
         private array $scopes = [];
 
-        public function __construct(array &$items, array &$properties, array &$limitations, array $supportedNodeIds, int $moduleEnd)
+        public function __construct(array &$items, array &$properties, array &$limitations, array $supportedNodeIds, int $moduleEnd, array $functionSignatures, array $methodSignatures, array $classParents)
         {
             $this->items = &$items;
             $this->properties = &$properties;
             $this->limitations = &$limitations;
             $this->supportedNodeIds = $supportedNodeIds;
+            $this->functionSignatures = $functionSignatures;
+            $this->methodSignatures = $methodSignatures;
+            $this->classParents = $classParents;
             // Free top-level expressions belong to the synthetic file module.
             $this->sourceQualifiedName = '@@FILE_MODULE@@';
             $this->sourceKind = 'Module';
@@ -269,13 +378,28 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
 
         private function scope(): void
         {
-            $this->scopes[] = [$this->namespace, $this->sourceQualifiedName, $this->sourceKind, $this->classQualifiedName, $this->typedVariables, $this->sourceStartByte, $this->sourceEndByte, $this->classStartByte, $this->classEndByte];
+            $this->scopes[] = [$this->namespace, $this->sourceQualifiedName, $this->sourceKind, $this->classQualifiedName, $this->typedVariables, $this->referenceEscapedVariables, $this->sourceStartByte, $this->sourceEndByte, $this->classStartByte, $this->classEndByte, $this->conditionalExecutionDepth];
+        }
+
+        private function isConditionalExecutionNode(Node $node): bool
+        {
+            return $node instanceof Node\Stmt\If_ || $node instanceof Node\Stmt\ElseIf_ || $node instanceof Node\Stmt\Else_ ||
+                $node instanceof Node\Stmt\While_ || $node instanceof Node\Stmt\Do_ || $node instanceof Node\Stmt\For_ ||
+                $node instanceof Node\Stmt\Foreach_ || $node instanceof Node\Stmt\Switch_ || $node instanceof Node\Stmt\Case_ ||
+                $node instanceof Node\Stmt\TryCatch || $node instanceof Node\Expr\Ternary || $node instanceof Node\Expr\Match_ ||
+                $node instanceof Node\Expr\NullsafeMethodCall || $node instanceof Node\Expr\BinaryOp\BooleanAnd ||
+                $node instanceof Node\Expr\BinaryOp\BooleanOr || $node instanceof Node\Expr\BinaryOp\LogicalAnd ||
+                $node instanceof Node\Expr\BinaryOp\LogicalOr || $node instanceof Node\Expr\BinaryOp\Coalesce ||
+                $node instanceof Node\Expr\AssignOp\Coalesce;
         }
 
         private function variablePatternNames(Node|null $node): array
         {
             if ($node instanceof Node\Expr\Variable && is_string($node->name)) {
                 return [$node->name];
+            }
+            if ($node instanceof Node\Expr\Assign || $node instanceof Node\Expr\AssignRef || $node instanceof Node\Expr\AssignOp) {
+                return $this->variablePatternNames($node->var);
             }
             if ($node instanceof Node\Expr\List_ || $node instanceof Node\Expr\Array_) {
                 $names = [];
@@ -287,6 +411,111 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
                 return $names;
             }
             return [];
+        }
+
+        private function escapeReferenceVariables(Node|null $node): void
+        {
+            foreach ($this->variablePatternNames($node) as $name) {
+                unset($this->typedVariables[$name]);
+                $this->referenceEscapedVariables[$name] = true;
+            }
+        }
+
+        private function hasByReferenceParameter(array $signature, int $position): bool
+        {
+            $parameter = $signature[$position] ?? null;
+            if ($parameter !== null) {
+                return $parameter['byRef'];
+            }
+            $last = $signature === [] ? null : $signature[array_key_last($signature)];
+            return $last !== null && $last['variadic'] && $last['byRef'];
+        }
+
+        private function hasByReferenceParameterNamed(array $signature, string $name): bool
+        {
+            foreach ($signature as $parameter) {
+                if ($parameter['name'] === $name) {
+                    return $parameter['byRef'];
+                }
+            }
+            $last = $signature === [] ? null : $signature[array_key_last($signature)];
+            return $last !== null && $last['variadic'] && $last['byRef'];
+        }
+
+        private function hasByReferenceParameterAfter(array $signature, int $position): bool
+        {
+            foreach ($signature as $index => $parameter) {
+                if ($index >= $position && $parameter['byRef']) {
+                    return true;
+                }
+            }
+            $last = $signature === [] ? null : $signature[array_key_last($signature)];
+            return $last !== null && $last['variadic'] && $last['byRef'];
+        }
+
+        private function escapeByReferenceArguments(array $arguments, array $signatures): void
+        {
+            $position = 0;
+            $positionUnknown = false;
+            foreach ($arguments as $argument) {
+                if (!$argument instanceof Node\Arg) {
+                    continue;
+                }
+                $mayPassByReference = false;
+                foreach ($signatures as $signature) {
+                    if ($argument->unpack) {
+                        $mayPassByReference = $mayPassByReference || $this->hasByReferenceParameterAfter($signature, $position);
+                    } elseif ($argument->name instanceof Node\Identifier) {
+                        $mayPassByReference = $mayPassByReference || $this->hasByReferenceParameterNamed($signature, $argument->name->toString());
+                    } elseif ($positionUnknown) {
+                        $mayPassByReference = $mayPassByReference || $this->hasByReferenceParameterAfter($signature, $position);
+                    } else {
+                        $mayPassByReference = $mayPassByReference || $this->hasByReferenceParameter($signature, $position);
+                    }
+                }
+                if ($mayPassByReference) {
+                    $this->escapeReferenceVariables($argument->value);
+                }
+                if ($argument->unpack) {
+                    $positionUnknown = true;
+                } elseif ($argument->name === null && !$positionUnknown) {
+                    $position++;
+                }
+            }
+        }
+
+        private function escapeAllArguments(array $arguments): void
+        {
+            foreach ($arguments as $argument) {
+                if ($argument instanceof Node\Arg) {
+                    $this->escapeReferenceVariables($argument->value);
+                }
+            }
+        }
+
+        private function methodSignatures(string $className, string $methodName, array $visited = []): array
+        {
+            $classKey = strtolower($className);
+            if (isset($visited[$classKey])) {
+                return [];
+            }
+            $visited[$classKey] = true;
+            $signatures = $this->methodSignatures[strtolower($className . '::' . $methodName)] ?? [];
+            foreach ($this->classParents[$classKey] ?? [] as $parent) {
+                $signatures = array_merge($signatures, $this->methodSignatures($parent, $methodName, $visited));
+            }
+            return $signatures;
+        }
+
+        private function methodReceiverClass(Node\Expr $receiver): ?string
+        {
+            if ($receiver instanceof Node\Expr\Variable && $receiver->name === 'this') {
+                return $this->classQualifiedName;
+            }
+            if ($receiver instanceof Node\Expr\Variable && is_string($receiver->name)) {
+                return $this->typedVariables[$receiver->name] ?? null;
+            }
+            return null;
         }
 
         private function invalidateVariables(Node|null $node): void
@@ -392,6 +621,10 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
 
         public function enterNode(Node $node)
         {
+            if ($this->isConditionalExecutionNode($node)) {
+                $this->conditionalExecutionDepth++;
+            }
+
             if ($node instanceof Node\Stmt\Namespace_) {
                 $this->scope();
                 $this->namespace = $node->name?->toString() ?? '';
@@ -402,6 +635,7 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
                 $this->sourceEndByte = nodeEnd($node);
                 $this->classQualifiedName = null;
                 $this->typedVariables = [];
+                $this->referenceEscapedVariables = [];
                 return null;
             }
 
@@ -422,6 +656,7 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
                 $this->classStartByte = $this->sourceStartByte;
                 $this->classEndByte = $this->sourceEndByte;
                 $this->typedVariables = [];
+                $this->referenceEscapedVariables = [];
                 if ($node instanceof Node\Stmt\Class_ && $node->extends instanceof Node\Name) {
                     $target = $this->className($node->extends);
                     $this->add('EXTENDS', 'Class', $target, $node->extends, $node->extends->toString(), 'class-name');
@@ -453,6 +688,8 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
                 $this->sourceStartByte = nodeStart($node);
                 $this->sourceEndByte = nodeEnd($node);
                 $this->typedVariables = [];
+                $this->referenceEscapedVariables = [];
+                $this->conditionalExecutionDepth = 0;
                 foreach ($node->params as $parameter) {
                     $variable = $parameter->var instanceof Node\Expr\Variable && is_string($parameter->var->name) ? $parameter->var->name : null;
                     $receiverType = receiverTypeName($parameter->type);
@@ -483,6 +720,8 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
                 $this->sourceEndByte = nodeEnd($node);
                 $this->classQualifiedName = null;
                 $this->typedVariables = [];
+                $this->referenceEscapedVariables = [];
+                $this->conditionalExecutionDepth = 0;
                 foreach ($node->params as $parameter) {
                     $variable = $parameter->var instanceof Node\Expr\Variable && is_string($parameter->var->name) ? $parameter->var->name : null;
                     $receiverType = receiverTypeName($parameter->type);
@@ -502,7 +741,7 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
                 if ($node instanceof Node\Expr\Closure) {
                     foreach ($node->uses as $use) {
                         if ($use->byRef && $use->var instanceof Node\Expr\Variable && is_string($use->var->name)) {
-                            unset($this->typedVariables[$use->var->name]);
+                            $this->escapeReferenceVariables($use->var);
                         }
                     }
                 }
@@ -510,6 +749,7 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
                 $this->sourceQualifiedName = null;
                 $this->sourceKind = null;
                 $this->typedVariables = [];
+                $this->referenceEscapedVariables = [];
                 return NodeTraverser::DONT_TRAVERSE_CHILDREN;
             }
 
@@ -567,10 +807,16 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
 
             if ($node instanceof Node\Expr\Assign || $node instanceof Node\Expr\AssignRef || $node instanceof Node\Expr\AssignOp) {
                 $this->invalidateVariables($node->var);
-                if ($node instanceof Node\Expr\AssignRef) $this->invalidateVariables($node->expr);
+                if ($node instanceof Node\Expr\AssignRef) {
+                    $this->escapeReferenceVariables($node->var);
+                    $this->escapeReferenceVariables($node->expr);
+                }
             } elseif ($node instanceof Node\Stmt\Foreach_) {
                 $this->invalidateVariables($node->keyVar);
                 $this->invalidateVariables($node->valueVar);
+                if ($node->byRef || $node->valueVar instanceof Node\Expr\AssignRef) {
+                    $this->escapeReferenceVariables($node->valueVar);
+                }
             } elseif ($node instanceof Node\Stmt\Unset_) {
                 foreach ($node->vars as $variable) {
                     $this->invalidateVariables($variable);
@@ -582,13 +828,40 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
             } elseif ($node instanceof Node\Stmt\Catch_) {
                 $this->invalidateVariables($node->var);
             } elseif ($node instanceof Node\Stmt\Global_) {
-                foreach ($node->vars as $variable) $this->invalidateVariables($variable);
+                foreach ($node->vars as $variable) $this->escapeReferenceVariables($variable);
             }
 
             if ($node instanceof Node\Expr\New_ && $node->class instanceof Node\Name) {
                 $target = $this->className($node->class);
+                $constructorSignatures = $target === null ? [] : $this->methodSignatures($target, '__construct');
+                if ($constructorSignatures === []) {
+                    $this->escapeAllArguments($node->args);
+                } else {
+                    $this->escapeByReferenceArguments($node->args, $constructorSignatures);
+                }
                 $this->add('INSTANTIATES', 'Class', $target, $node->class, $node->class->toString(), 'class-name');
+            } elseif ($node instanceof Node\Expr\New_) {
+                $this->escapeAllArguments($node->args);
             } elseif ($node instanceof Node\Expr\FuncCall) {
+                if ($node->name instanceof Node\Name) {
+                    $targetName = normalizedName($node->name);
+                    $signatures = $targetName === null ? [] : ($this->functionSignatures[strtolower($targetName)] ?? []);
+                    $rawName = trim($node->name->toString(), '\\');
+                    if ($signatures === [] && !str_contains($rawName, '\\') && !$node->name->isFullyQualified() && !$node->name->isRelative()) {
+                        $localName = $this->namespace === '' ? $rawName : $this->namespace . '\\' . $rawName;
+                        $signatures = $this->functionSignatures[strtolower($localName)] ?? [];
+                    }
+                    if ($signatures === [] && !str_contains($rawName, '\\') && !$node->name->isFullyQualified() && !$node->name->isRelative()) {
+                        $signatures = $this->functionSignatures[strtolower($rawName)] ?? [];
+                    }
+                    if ($signatures === []) {
+                        $this->escapeAllArguments($node->args);
+                    } else {
+                        $this->escapeByReferenceArguments($node->args, $signatures);
+                    }
+                } else {
+                    $this->escapeAllArguments($node->args);
+                }
                 if ($node->name instanceof Node\Name) {
                     $target = normalizedName($node->name);
                     $fallback = null;
@@ -604,6 +877,19 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
                 $method = $node->name instanceof Node\Identifier ? $node->name->toString() : null;
                 $classToken = $node->class instanceof Node\Name ? strtolower($node->class->toString()) : '';
                 $class = $node->class instanceof Node\Name ? $this->className($node->class) : null;
+                if ($classToken === 'parent' && $this->classQualifiedName !== null) {
+                    $class = $this->classParents[strtolower($this->classQualifiedName)][0] ?? null;
+                }
+                if ($class !== null && $method !== null) {
+                    $signatures = $this->methodSignatures($class, $method);
+                    if ($signatures === []) {
+                        $this->escapeAllArguments($node->args);
+                    } else {
+                        $this->escapeByReferenceArguments($node->args, $signatures);
+                    }
+                } else {
+                    $this->escapeAllArguments($node->args);
+                }
                 $hint = $classToken === 'static' ? 'late-static' : ($classToken === 'parent' ? 'parent-static' : 'static');
                 if ($classToken === 'parent') {
                     $class = 'parent';
@@ -611,8 +897,17 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
                 $target = $class !== null && $method !== null ? $class . '::' . $method : null;
                 $reason = $target === null ? 'UNSUPPORTED_CONSTRUCT' : null;
                 $this->add('CALLS', 'Method', $target, $node->name instanceof Node ? $node->name : $node, $node->name instanceof Node ? $node->name->toString() : $node->getType(), $hint, null, $reason);
+            } elseif ($node instanceof Node\Expr\NullsafeMethodCall) {
+                $this->escapeAllArguments($node->args);
             } elseif ($node instanceof Node\Expr\MethodCall) {
                 $method = $node->name instanceof Node\Identifier ? $node->name->toString() : null;
+                $receiverClass = $this->methodReceiverClass($node->var);
+                $signatures = $receiverClass !== null && $method !== null ? $this->methodSignatures($receiverClass, $method) : [];
+                if ($signatures === []) {
+                    $this->escapeAllArguments($node->args);
+                } else {
+                    $this->escapeByReferenceArguments($node->args, $signatures);
+                }
                 $targetClass = null;
                 $hint = 'instance';
                 if ($node->var instanceof Node\Expr\Variable && $node->var->name === 'this') {
@@ -683,13 +978,32 @@ function references(array $nodes, array $namespaceFacts, array $supportedNodeIds
 
         public function leaveNode(Node $node)
         {
+            // A local variable receives a statically known receiver type only
+            // after an unconditional, straight-line assignment from `new`.
+            // Assignments inside branches, loops, short-circuit expressions,
+            // and try/catch regions are intentionally left unknown.
+            if ($node instanceof Node\Expr\Assign && $this->conditionalExecutionDepth === 0 &&
+                ($this->sourceKind === 'Function' || $this->sourceKind === 'Method') &&
+                $node->var instanceof Node\Expr\Variable && is_string($node->var->name) &&
+                !isset($this->referenceEscapedVariables[$node->var->name]) &&
+                $node->expr instanceof Node\Expr\New_ && $node->expr->class instanceof Node\Name) {
+                $resolved = $this->className($node->expr->class);
+                if ($resolved !== null) {
+                    $this->typedVariables[$node->var->name] = $resolved;
+                }
+            }
+
+            if ($this->isConditionalExecutionNode($node)) {
+                $this->conditionalExecutionDepth = max(0, $this->conditionalExecutionDepth - 1);
+            }
+
             if ($node instanceof Node\Stmt\Namespace_ || $node instanceof Node\Stmt\Class_ || $node instanceof Node\Stmt\Interface_ ||
                 $node instanceof Node\Stmt\Function_ || $node instanceof Node\Stmt\ClassMethod ||
                 $node instanceof Node\Expr\Closure || $node instanceof Node\Expr\ArrowFunction) {
                 $scope = array_pop($this->scopes);
                 if ($scope !== null) {
-                    [$this->namespace, $this->sourceQualifiedName, $this->sourceKind, $this->classQualifiedName, $this->typedVariables] = $scope;
-                    [$this->sourceStartByte, $this->sourceEndByte, $this->classStartByte, $this->classEndByte] = array_slice($scope, 5);
+                    [$this->namespace, $this->sourceQualifiedName, $this->sourceKind, $this->classQualifiedName, $this->typedVariables, $this->referenceEscapedVariables] = $scope;
+                    [$this->sourceStartByte, $this->sourceEndByte, $this->classStartByte, $this->classEndByte, $this->conditionalExecutionDepth] = array_slice($scope, 6);
                 }
             }
             return null;

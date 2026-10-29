@@ -14,7 +14,7 @@ import {
 import { analyzeDeclarations, type DeclarationAnalysisInput, type DeclarationAnalysisResult } from "./index.ts";
 
 const UTF8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-const RESOLVER_VERSION = "0.2.0";
+const RESOLVER_VERSION = "0.3.0";
 const MAX_CONFIGURATION_BYTES = 1024 * 1024;
 const BUILTIN_TYPES = new Set([
   "any", "unknown", "never", "void", "undefined", "null", "string", "number", "boolean", "bigint", "symbol",
@@ -49,6 +49,7 @@ type FileContext = {
   cjsBindingNames: Set<string>;
   instanceAliases: Map<string, CcmNode>;
   mutated: Set<string>;
+  mutatedBindings: Set<ts.Node>;
   moduleTargets: Map<ts.Node, FileContext | null>;
   config: ResolverConfig;
 };
@@ -214,21 +215,27 @@ function resolveModule(from: FileContext, specifier: string, contexts: Map<strin
     const path = normalizePath(`${from.path.slice(0, from.path.lastIndexOf("/") + 1)}${specifier}`);
     return path ? existingModule(moduleCandidates(path), contexts) : { reason: "UNSUPPORTED_CONSTRUCT" };
   }
-  const matches = from.config.mappings.flatMap(mapping => {
+  const matching = from.config.mappings.flatMap(mapping => {
     let replacement: string | null = null;
     const star = mapping.pattern.indexOf("*");
-    if (star < 0) { if (specifier === mapping.pattern) replacement = ""; }
+    let specificity = -1;
+    if (star < 0) { if (specifier === mapping.pattern) { replacement = ""; specificity = Number.MAX_SAFE_INTEGER; } }
     else {
       const prefix = mapping.pattern.slice(0, star);
       const suffix = mapping.pattern.slice(star + 1);
       if (specifier.startsWith(prefix) && specifier.endsWith(suffix) && specifier.length >= prefix.length + suffix.length) {
         replacement = specifier.slice(prefix.length, specifier.length - suffix.length);
+        specificity = prefix.length;
       }
     }
     if (replacement === null) return [];
-    return mapping.targets.map(target => normalizePath(`${mapping.base}/${target.replace("*", replacement)}`)).filter((path): path is string => !!path);
+    return [{ mapping, replacement, specificity }];
   });
-  const candidates = matches.length > 0 ? matches : from.config.baseUrl !== undefined
+  const bestSpecificity = matching.reduce((best, match) => Math.max(best, match.specificity), -1);
+  const hasMatchingPath = matching.length > 0;
+  const matches = matching.filter(match => match.specificity === bestSpecificity).flatMap(({ mapping, replacement }) =>
+    mapping.targets.map(target => normalizePath(`${mapping.base}/${target.replace("*", replacement)}`)).filter((path): path is string => !!path));
+  const candidates = hasMatchingPath ? matches : from.config.baseUrl !== undefined
     ? [normalizePath(`${from.config.baseUrl}/${specifier}`)].filter((path): path is string => !!path) : [];
   if (candidates.length === 0) return { reason: "EXTERNAL_DEPENDENCY" };
   return existingModule(candidates.flatMap(moduleCandidates), contexts);
@@ -275,13 +282,16 @@ function configsFor(input: DeclarationAnalysisInput, limitations: CcmV1["limitat
       }
       if (options.paths !== undefined) {
         if (!safeRecord(options.paths)) throw new Error("paths must be an object");
-        if (baseUrl === undefined) throw new Error("paths require a string baseUrl in the supported subset");
+        // Since TypeScript 4.1, paths can be used without baseUrl; in that case
+        // targets are relative to the tsconfig directory.
+        const pathsBase = baseUrl ?? normalizeSnapshotBase(configDir);
+        if (pathsBase === null) throw new Error("paths base escapes the snapshot root");
         for (const [pattern, values] of Object.entries(options.paths)) {
           if ((pattern.match(/\*/g) ?? []).length > 1 || !Array.isArray(values) || values.length === 0 ||
             values.some(value => typeof value !== "string" || !isRelativeConfigPath(value))) {
             throw new Error("only one-wildcard paths with string target arrays are supported");
           }
-          mappings.push({ pattern, targets: values as string[], base: baseUrl });
+          mappings.push({ pattern, targets: values as string[], base: pathsBase });
         }
       }
       byPath.set(path, { mappings, ...(baseUrl !== undefined ? { baseUrl } : {}) });
@@ -303,6 +313,63 @@ function configForSource(path: string, configs: Map<string, ResolverConfig>): Re
     for (const candidate of candidates) if (configs.has(candidate)) return configs.get(candidate)!;
   }
   return { mappings: [] };
+}
+function lexicalBinding(name: string, use: ts.Node): ts.Node | null {
+  const declarationsInScope = (scope: ts.Node): ts.Node[] => {
+    const found: ts.Node[] = [];
+    const visit = (node: ts.Node) => {
+      if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name?.text === name) {
+        found.push(node);
+        return;
+      }
+      if (node !== scope && (ts.isFunctionLike(node) || ts.isClassLike(node) || ts.isModuleDeclaration(node) ||
+        ts.isBlock(node) || ts.isModuleBlock(node) || ts.isCatchClause(node) || ts.isForStatement(node) ||
+        ts.isForInStatement(node) || ts.isForOfStatement(node) || ts.isSwitchStatement(node))) return;
+      if (ts.isVariableDeclaration(node) && namesFromBinding(node.name).includes(name) &&
+        (node.parent.flags & ts.NodeFlags.BlockScoped) !== 0) found.push(node);
+      ts.forEachChild(node, visit);
+    };
+    ts.forEachChild(scope, visit);
+    return found;
+  };
+  const loopBinding = (loop: ts.ForStatement | ts.ForInStatement | ts.ForOfStatement): ts.Node | null => {
+    const initializer = loop.initializer;
+    if (!initializer || !ts.isVariableDeclarationList(initializer)) return null;
+    const found = initializer.declarations.filter(declaration => namesFromBinding(declaration.name).includes(name));
+    return found.length === 1 ? found[0]! : found.length > 1 ? loop : null;
+  };
+  const functionVarBinding = (func: ts.Node): ts.Node | null => {
+    const body = (func as ts.Node & { body?: ts.ConciseBody }).body;
+    if (!body) return null;
+    const found: ts.VariableDeclaration[] = [];
+    const visit = (node: ts.Node) => {
+      if (node !== body && (ts.isFunctionLike(node) || ts.isClassLike(node))) return;
+      if (ts.isVariableDeclaration(node) && namesFromBinding(node.name).includes(name) &&
+        (node.parent.flags & ts.NodeFlags.BlockScoped) === 0) found.push(node);
+      ts.forEachChild(node, visit);
+    };
+    visit(body);
+    return found.length === 1 ? found[0]! : found.length > 1 ? func : null;
+  };
+  for (let current: ts.Node | undefined = use.parent; current && !ts.isSourceFile(current); current = current.parent) {
+    if (ts.isBlock(current) || ts.isModuleBlock(current) || ts.isCaseBlock(current)) {
+      const found = declarationsInScope(current);
+      if (found.length > 0) return found.length === 1 ? found[0]! : current;
+    } else if (ts.isForStatement(current) || ts.isForInStatement(current) || ts.isForOfStatement(current)) {
+      const found = loopBinding(current);
+      if (found) return found;
+    } else if (ts.isCatchClause(current) && current.variableDeclaration && namesFromBinding(current.variableDeclaration.name).includes(name)) {
+      return current.variableDeclaration;
+    } else if (ts.isFunctionLike(current)) {
+      const variable = functionVarBinding(current);
+      if (variable) return variable;
+      const found = current.parameters.filter(parameter => namesFromBinding(parameter.name).includes(name));
+      if (found.length > 0) return found.length === 1 ? found[0]! : current;
+      if ((ts.isFunctionExpression(current) || ts.isClassExpression(current)) && current.name &&
+        ts.isIdentifier(current.name) && current.name.text === name) return current.name;
+    }
+  }
+  return null;
 }
 function nodeForIdentifier(name: string, context: FileContext): CcmNode | null {
   const nodes = context.locals.get(name) ?? [];
@@ -346,7 +413,12 @@ function collectDeclarations(context: FileContext, offsets: Uint32Array): void {
   walkDeclarations(context.sourceFile);
   const markTarget = (target: ts.Expression | ts.BindingName) => {
     if (ts.isParenthesizedExpression(target)) { markTarget(target.expression); return; }
-    if (ts.isIdentifier(target)) { context.mutated.add(target.text); return; }
+    if (ts.isIdentifier(target)) {
+      context.mutated.add(target.text);
+      const binding = lexicalBinding(target.text, target);
+      if (binding) context.mutatedBindings.add(binding);
+      return;
+    }
     if (ts.isPropertyAccessExpression(target)) {
       const object = isThisExpression(target.expression) ? "this" : expressionName(target.expression) ?? target.expression.getText(context.sourceFile);
       context.mutated.add(`${object}.${target.name.text}`);
@@ -412,7 +484,7 @@ function setupContexts(ccm: CcmV1, sources: Readonly<Record<string, Uint8Array>>
     contexts.set(file.path, {
       path: file.path, language: kind.language, source, bytes, offsets, fileSha256, sourceFile, moduleNode: root, nodes,
       declarations: new Map(), declarationsBySpan, imports: new Map(), exported: new Map(), uncertainExports: new Set(), locals: new Map(),
-      opaqueLocals: new Set(), cjsBindingNames: new Set(), instanceAliases: new Map(), mutated: new Set(), moduleTargets: new Map(), config: configForSource(file.path, configs),
+      opaqueLocals: new Set(), cjsBindingNames: new Set(), instanceAliases: new Map(), mutated: new Set(), mutatedBindings: new Set(), moduleTargets: new Map(), config: configForSource(file.path, configs),
     });
   }
   for (const context of contexts.values()) {
@@ -745,10 +817,32 @@ function resolveNamespaceMember(name: string, context: FileContext, contexts: Ma
   if (stable.length > 1) return { reason: "AMBIGUOUS_SYMBOL" };
   return { reason: exported.length || binding.namespace.uncertainExports.has(name) || binding.namespace.uncertainExports.has("*") ? "UNKNOWN_RECEIVER" : "UNSUPPORTED_CONSTRUCT" };
 }
-function classOwner(type: ts.TypeNode | undefined, context: FileContext, contexts: Map<string, FileContext>, use: ts.Node): { owner: CcmNode; context: FileContext } | null {
+function typeParametersOf(node: ts.Node): readonly ts.TypeParameterDeclaration[] {
+  return ((node as ts.Node & { typeParameters?: ts.NodeArray<ts.TypeParameterDeclaration> }).typeParameters ?? []);
+}
+function typeParameterFor(name: string, use: ts.Node): ts.TypeParameterDeclaration | null {
+  for (let current: ts.Node | undefined = use; current && !ts.isSourceFile(current); current = current.parent) {
+    const found = typeParametersOf(current).find(parameter => parameter.name.text === name);
+    if (found) return found;
+  }
+  return null;
+}
+function classOwner(
+  type: ts.TypeNode | undefined,
+  context: FileContext,
+  contexts: Map<string, FileContext>,
+  use: ts.Node,
+  resolving: Set<ts.Node> = new Set(),
+): { owner: CcmNode; context: FileContext } | null {
   if (!type || !ts.isTypeReferenceNode(type)) return null;
   const name = expressionName(type.typeName);
-  if (!name || name.includes(".")) return null;
+  if (!name || name.includes(".") || BUILTIN_TYPES.has(name)) return null;
+  const parameter = typeParameterFor(name, use);
+  if (parameter) {
+    if (resolving.has(parameter) || !parameter.constraint) return null;
+    resolving.add(parameter);
+    return classOwner(parameter.constraint, context, contexts, parameter.constraint, resolving);
+  }
   const resolved = resolveSymbol(name, context, contexts, use);
   if (!("target" in resolved) || !(resolved.target.kind === "Class" || resolved.target.kind === "Interface")) return null;
   return { owner: resolved.target, context: resolved.context };
@@ -763,6 +857,60 @@ function collectInstanceAliases(context: FileContext, contexts: Map<string, File
       if ("target" in constructor && constructor.target.kind === "Class") context.instanceAliases.set(declaration.name.text, constructor.target);
     }
   }
+}
+function memberDeclaration(member: CcmNode, context: FileContext): ts.Node | null {
+  for (const [declaration, node] of context.declarations) if (node.id === member.id) return declaration;
+  return null;
+}
+function memberIsPrivate(member: CcmNode, context: FileContext): boolean {
+  const declaration = memberDeclaration(member, context);
+  return !!declaration && hasModifier(declaration, ts.SyntaxKind.PrivateKeyword);
+}
+function privateMemberAccessible(member: CcmNode, memberContext: FileContext, use: ts.Node, context: FileContext): boolean {
+  if (!memberIsPrivate(member, memberContext)) return true;
+  for (let current: ts.Node | undefined = use; current; current = current.parent) {
+    if (!ts.isClassLike(current)) continue;
+    return context.declarations.get(current)?.id === member.parentId;
+  }
+  return false;
+}
+type BaseClassResult = { kind: "base"; owner: CcmNode; context: FileContext } | { kind: "end" } | { kind: "invalid" };
+function baseClass(owner: CcmNode, context: FileContext, contexts: Map<string, FileContext>): BaseClassResult {
+  if (owner.kind !== "Class" && owner.kind !== "Interface") return { kind: "end" };
+  const declaration = [...context.declarations].find(([, found]) => found.id === owner.id)?.[0];
+  if (!declaration) return { kind: "invalid" };
+  let heritageClauses: ts.NodeArray<ts.HeritageClause> | undefined;
+  if (owner.kind === "Class") {
+    if (!ts.isClassLike(declaration)) return { kind: "invalid" };
+    heritageClauses = declaration.heritageClauses;
+  } else {
+    if (!ts.isInterfaceDeclaration(declaration)) return { kind: "invalid" };
+    heritageClauses = declaration.heritageClauses;
+  }
+  const clauses = heritageClauses?.filter(clause => clause.token === ts.SyntaxKind.ExtendsKeyword) ?? [];
+  if (clauses.length === 0) return { kind: "end" };
+  if (clauses.length !== 1 || clauses[0]!.types.length !== 1) return { kind: "invalid" };
+  const heritage = clauses[0]!.types[0]!;
+  if (!ts.isIdentifier(heritage.expression) || typeParameterFor(heritage.expression.text, heritage)) return { kind: "invalid" };
+  const resolved = resolveSymbol(heritage.expression.text, context, contexts, heritage.expression);
+  if (!("target" in resolved) || resolved.target.kind !== owner.kind) return { kind: "invalid" };
+  return { kind: "base", owner: resolved.target, context: resolved.context };
+}
+function memberNodes(owner: CcmNode, name: string, contexts: Map<string, FileContext>): CcmNode[] {
+  const seen = new Set<string>();
+  let current: { owner: CcmNode; context: FileContext } | null = { owner, context: owner.filePath ? contexts.get(owner.filePath)! : undefined! };
+  let nearest: CcmNode[] | null = null;
+  while (current) {
+    if (!current.context || seen.has(current.owner.id)) return [];
+    seen.add(current.owner.id);
+    const direct = current.context.nodes.filter(node => node.parentId === current!.owner.id && node.name === name &&
+      (node.kind === "Method" || node.kind === "Property"));
+    if (nearest === null && direct.length > 0) nearest = direct;
+    const base = baseClass(current.owner, current.context, contexts);
+    if (base.kind === "invalid") return [];
+    current = base.kind === "base" ? { owner: base.owner, context: base.context } : null;
+  }
+  return nearest ?? [];
 }
 function receiverFor(receiver: ts.Expression, use: ts.Node, context: FileContext, contexts: Map<string, FileContext>): ReceiverResult {
   if (isThisExpression(receiver)) {
@@ -782,20 +930,44 @@ function receiverFor(receiver: ts.Expression, use: ts.Node, context: FileContext
     }
     return { reason: "UNKNOWN_RECEIVER" };
   }
+  if (ts.isPropertyAccessExpression(receiver)) {
+    const parent = receiverFor(receiver.expression, receiver, context, contexts);
+    if (!("owner" in parent)) return parent;
+    const candidates = memberNodes(parent.owner, receiver.name.text, contexts)
+      .filter(member => member.kind === "Property" && (member.attributes.static === true) === (parent.mode === "static"));
+    if (candidates.length !== 1) return { reason: candidates.length > 1 ? "AMBIGUOUS_SYMBOL" : "UNKNOWN_RECEIVER" };
+    const property = candidates[0]!;
+    const propertyContext = property.filePath ? contexts.get(property.filePath) : undefined;
+    if (!propertyContext || !privateMemberAccessible(property, propertyContext, receiver, context) ||
+      memberWasMutated(receiver.expression, receiver.name.text, parent.owner, context, contexts)) return { reason: "UNKNOWN_RECEIVER" };
+    const declaration = memberDeclaration(property, propertyContext);
+    const propertyType = declaration && (ts.isPropertyDeclaration(declaration) || ts.isPropertySignature(declaration) || ts.isParameter(declaration))
+      ? declaration.type : undefined;
+    const target = classOwner(propertyType, propertyContext, contexts, declaration ?? use);
+    return target ? { owner: target.owner, context: target.context, mode: "instance" } : { reason: "UNKNOWN_RECEIVER" };
+  }
   if (ts.isIdentifier(receiver)) {
+    const binding = lexicalBinding(receiver.text, receiver);
+    if (binding) {
+      if (ts.isParameter(binding)) {
+        if (!ts.isIdentifier(binding.name) || context.mutatedBindings.has(binding)) return { reason: "UNKNOWN_RECEIVER" };
+        const typed = classOwner(binding.type, context, contexts, binding);
+        return typed ? { owner: typed.owner, context: typed.context, mode: "instance" } : { reason: "UNKNOWN_RECEIVER" };
+      }
+      if (ts.isVariableDeclaration(binding)) {
+        if (context.mutatedBindings.has(binding) || !ts.isIdentifier(binding.name) || !binding.initializer ||
+          (binding.parent.flags & ts.NodeFlags.Const) === 0 || !ts.isNewExpression(binding.initializer) ||
+          !ts.isIdentifier(binding.initializer.expression)) return { reason: "UNKNOWN_RECEIVER" };
+        const constructor = resolveSymbol(binding.initializer.expression.text, context, contexts, binding.initializer.expression);
+        return "target" in constructor && constructor.target.kind === "Class"
+          ? { owner: constructor.target, context: constructor.context, mode: "instance" }
+          : { reason: "UNKNOWN_RECEIVER" };
+      }
+      return { reason: "UNKNOWN_RECEIVER" };
+    }
     if (context.mutated.has(receiver.text)) return { reason: "UNKNOWN_RECEIVER" };
     const imported = context.imports.get(receiver.text);
-    for (let current: ts.Node | undefined = receiver.parent; current && !ts.isSourceFile(current); current = current.parent) {
-      if (ts.isFunctionLike(current)) {
-        const parameter = current.parameters.find(item => ts.isIdentifier(item.name) && item.name.text === receiver.text);
-        if (parameter) {
-          const typed = classOwner(parameter.type, context, contexts, parameter);
-          return typed ? { owner: typed.owner, context: typed.context, mode: "instance" } : { reason: "UNKNOWN_RECEIVER" };
-        }
-        break;
-      }
-    }
-    if (directShadow(receiver.text, receiver) || context.mutated.has(receiver.text)) return { reason: "UNKNOWN_RECEIVER" };
+    if (directShadow(receiver.text, receiver)) return { reason: "UNKNOWN_RECEIVER" };
     if (imported?.namespace) return { reason: "UNSUPPORTED_CONSTRUCT" };
     if (context.instanceAliases.has(receiver.text)) return { owner: context.instanceAliases.get(receiver.text)!, context, mode: "instance" };
     const resolved = resolveSymbol(receiver.text, context, contexts, receiver);
@@ -803,16 +975,17 @@ function receiverFor(receiver: ts.Expression, use: ts.Node, context: FileContext
   }
   return { reason: "UNKNOWN_RECEIVER" };
 }
-function memberNodes(owner: CcmNode, name: string, contexts: Map<string, FileContext>): CcmNode[] {
-  const ownerContext = owner.filePath ? contexts.get(owner.filePath) : undefined;
-  if (!ownerContext) return [];
-  return ownerContext.nodes.filter(node => node.parentId === owner.id && node.name === name && (node.kind === "Method" || node.kind === "Property"));
-}
 function memberWasMutated(receiver: ts.Expression, name: string, owner: CcmNode, context: FileContext, contexts: Map<string, FileContext>): boolean {
   const receiverName = isThisExpression(receiver) ? "this" : expressionName(receiver);
   const keys = [`${receiverName ?? ""}.${name}`, `${owner.name}.${name}`, `${owner.qualifiedName}.${name}`];
-  const ownerContext = owner.filePath ? contexts.get(owner.filePath) : undefined;
-  return keys.some(item => context.mutated.has(item) || ownerContext?.mutated.has(item));
+  if (keys.some(item => context.mutated.has(item))) return true;
+  for (const member of memberNodes(owner, name, contexts)) {
+    const memberContext = member.filePath ? contexts.get(member.filePath) : undefined;
+    const memberOwner = member.parentId ? memberContext?.nodes.find(node => node.id === member.parentId) : undefined;
+    if (memberContext && memberOwner && (memberContext.mutated.has(`${memberOwner.name}.${name}`) ||
+      memberContext.mutated.has(`${memberOwner.qualifiedName}.${name}`))) return true;
+  }
+  return false;
 }
 function isWrite(node: ts.PropertyAccessExpression): boolean {
   const parent = node.parent;
@@ -823,6 +996,10 @@ function isWrite(node: ts.PropertyAccessExpression): boolean {
 function emitNamed(ccm: CcmV1, context: FileContext, contexts: Map<string, FileContext>, use: ts.Node, name: string, kind: EdgeKind): void {
   const from = nearestSourceNode(use, context);
   const evidence = span(context, context.offsets, use.getStart(context.sourceFile), use.end);
+  if (!name.includes(".") && typeParameterFor(name, use)) {
+    addUnresolved(ccm, from, kind, evidence, name, "UNKNOWN_RECEIVER");
+    return;
+  }
   const namespace = resolveNamespaceMember(name, context, contexts, use);
   const resolved = namespace ?? resolveSymbol(name, context, contexts, use);
   if ("target" in resolved) addEdge(ccm, from, resolved.target, kind, evidence, null);
@@ -859,7 +1036,8 @@ function addReferences(ccm: CcmV1, contexts: Map<string, FileContext>): void {
             if ("owner" in receiver) {
               const matches = memberNodes(receiver.owner, expression.name.text, contexts).filter(member => member.kind === "Method" && (member.attributes.static === true) === (receiver.mode === "static"));
               if (memberWasMutated(expression.expression, expression.name.text, receiver.owner, context, contexts)) addUnresolved(ccm, from, "CALLS", evidence, expression.getText(context.sourceFile), "UNKNOWN_RECEIVER");
-              else if (matches.length === 1) addEdge(ccm, from, matches[0]!, "CALLS", evidence, null);
+              else if (matches.length === 1 && matches[0]!.filePath && privateMemberAccessible(matches[0]!, contexts.get(matches[0]!.filePath)!, expression, context)) addEdge(ccm, from, matches[0]!, "CALLS", evidence, null);
+              else if (matches.length === 1) addUnresolved(ccm, from, "CALLS", evidence, expression.getText(context.sourceFile), "UNKNOWN_RECEIVER");
               else addUnresolved(ccm, from, "CALLS", evidence, expression.getText(context.sourceFile), matches.length > 1 ? "AMBIGUOUS_SYMBOL" : "UNKNOWN_RECEIVER");
             } else addUnresolved(ccm, from, "CALLS", evidence, expression.getText(context.sourceFile), receiver.reason);
           }
@@ -887,7 +1065,8 @@ function addReferences(ccm: CcmV1, contexts: Map<string, FileContext>): void {
           const receiver = receiverFor(node.expression, node, context, contexts);
           if ("owner" in receiver) {
             const matches = memberNodes(receiver.owner, node.name.text, contexts).filter(member => member.kind === "Property" && (member.attributes.static === true) === (receiver.mode === "static"));
-            if (matches.length === 1) addEdge(ccm, from, matches[0]!, isWrite(node) ? "WRITES" : "READS", evidence, null);
+            if (matches.length === 1 && matches[0]!.filePath && privateMemberAccessible(matches[0]!, contexts.get(matches[0]!.filePath)!, node, context)) addEdge(ccm, from, matches[0]!, isWrite(node) ? "WRITES" : "READS", evidence, null);
+            else if (matches.length === 1) addUnresolved(ccm, from, isWrite(node) ? "WRITES" : "READS", evidence, node.getText(context.sourceFile), "UNKNOWN_RECEIVER");
             else addUnresolved(ccm, from, isWrite(node) ? "WRITES" : "READS", evidence, node.getText(context.sourceFile), matches.length > 1 ? "AMBIGUOUS_SYMBOL" : "UNKNOWN_RECEIVER");
           } else if (ts.isIdentifier(node.expression) || isThisExpression(node.expression)) {
             addUnresolved(ccm, from, isWrite(node) ? "WRITES" : "READS", evidence, node.getText(context.sourceFile), receiver.reason);

@@ -85,7 +85,7 @@ test("PHP resolver resolves grouped aliases, inheritance, interfaces, function c
   const unknownTarget = result.ccm.nodes.find((node) => node.id === unknown.targetId);
   assert.equal(unknownTarget?.qualifiedName, "$input->run()");
   assert.equal(result.ccm.nodes.find((node) => node.id === unknown.sourceId)?.qualifiedName, "Resolver\\App\\uncertain");
-  assert.equal(result.ccm.provenance.resolver.version, "0.2.0");
+  assert.equal(result.ccm.provenance.resolver.version, "0.3.0");
 });
 
 test("PHP resolver marks missing imports and dynamic calls unresolved with reference evidence", async () => {
@@ -173,7 +173,7 @@ final class Store {
   assert.equal(result.ccm.nodes.find((node) => node.id === staticCall.targetId)?.qualifiedName, "Members\\Store::current");
 });
 
-test("PHP resolver avoids Exact dispatch for open, union, reassigned, and duplicate symbols", async () => {
+test("PHP resolver keeps conservative dispatch for open, union, loop, closure, and duplicate receivers", async () => {
   const source = `<?php
 namespace Dispatch;
 class Open { public function run(): void {} }
@@ -200,7 +200,11 @@ function typed(Sealed $target): void { $target->run(); }
   assert.ok(childCall);
   assert.equal(childCall.resolution, "Unresolved");
   assert.equal(childCall.unresolvedReason, "AMBIGUOUS_SYMBOL");
-  for (const functionName of ["union", "scalarUnion", "reassigned", "foreachReassigned", "closureReassigned"]) {
+  const rebound = edgesFrom(result.ccm, "CALLS", "Dispatch\\reassigned")[0];
+  assert.ok(rebound);
+  assert.equal(rebound.resolution, "Exact", "a direct straight-line assignment replaces the declared receiver type");
+  assert.equal(result.ccm.nodes.find((node) => node.id === rebound.targetId)?.qualifiedName, "Dispatch\\Sealed::run");
+  for (const functionName of ["union", "scalarUnion", "foreachReassigned", "closureReassigned"]) {
     const call = edgesFrom(result.ccm, "CALLS", `Dispatch\\${functionName}`).find((edge) => edge.resolution !== "Exact");
     assert.ok(call, `${functionName} receiver remains unresolved`);
   }
@@ -211,6 +215,68 @@ function typed(Sealed $target): void { $target->run(); }
   const typed = edgesFrom(result.ccm, "CALLS", "Dispatch\\typed")[0];
   assert.ok(typed);
   assert.equal(typed.resolution, "Exact", "a unique final receiver type allows exact local method resolution");
+});
+
+test("PHP resolver tracks straight-line local new bindings and rejects unsafe aliases", async () => {
+  const source = `<?php
+namespace LocalBindings;
+final class Sealed { public function run(): void {} }
+class Open { public function run(): void {} }
+class Duplicate { public function run(): void {} }
+class Duplicate { public function run(): void {} }
+final class Other { public function run(): void {} }
+final class Replacer { public function replace(&$value): void { $value = new Other(); } }
+function direct(): void { $target = new Sealed(); $target->run(); }
+function reassigned(): void { $target = new Sealed(); $target = make(); $target->run(); }
+function conditionalNew(bool $enabled): void { if ($enabled) { $target = new Sealed(); } $target->run(); }
+function conditionalReassignment(bool $enabled): void { $target = new Sealed(); if ($enabled) { $target = new Open(); } $target->run(); }
+function coalesceNew(): void { $flag = true; $flag ??= ($target = new Sealed()); $target->run(); }
+function replace(&$value): void { $value = new Other(); }
+function inspectByValue(Sealed $value): void {}
+function byReferenceFunction(): void { $target = new Sealed(); replace($target); $target->run(); }
+function byReferenceMethod(): void { $replacer = new Replacer(); $target = new Sealed(); $replacer->replace($target); $target->run(); }
+function nullsafeByReference(?Replacer $replacer): void { $target = new Sealed(); $replacer?->replace($target); $target->run(); }
+function byValueFunction(): void { $target = new Sealed(); inspectByValue($target); $target->run(); }
+function unknownExternalFunction(): void { $target = new Sealed(); externalReplace($target); $target->run(); }
+function referenceAlias(): void { $target = new Sealed(); $alias =& $target; $target->run(); }
+function aliasReinitialized(): void { $alias =& $target; $target = new Sealed(); $alias = new Open(); $target->run(); }
+function loopReassignment(array $targets): void { $target = new Sealed(); foreach ($targets as &$target) {} $target->run(); }
+function closureReassignment(): void { $target = new Sealed(); $mutator = function () use (&$target) { $target = new Open(); }; $target->run(); }
+function openConstruction(): void { $target = new Open(); $target->run(); }
+function duplicateConstruction(): void { $target = new Duplicate(); $target->run(); }
+final class Client { public function direct(): void { $target = new Sealed(); $target->run(); } }
+`;
+  const path = "src/local-bindings.php";
+  const bytes = encoder.encode(source);
+  const result = await analyzeReferences({ snapshot, sources: { [path]: bytes } });
+  assert.equal(result.status, "partial");
+  assert.ok(result.ccm);
+  assert.equal(validateCcm(result.ccm, { [path]: bytes }).ok, true);
+
+  const direct = edgesFrom(result.ccm, "CALLS", "LocalBindings\\direct")[0];
+  assert.ok(direct);
+  assert.equal(direct.resolution, "Exact");
+  assert.equal(result.ccm.nodes.find((node) => node.id === direct.targetId)?.qualifiedName, "LocalBindings\\Sealed::run");
+  const methodDirect = edgesFrom(result.ccm, "CALLS", "LocalBindings\\Client::direct")[0];
+  assert.ok(methodDirect);
+  assert.equal(methodDirect.resolution, "Exact");
+  const byValue = edgesFrom(result.ccm, "CALLS", "LocalBindings\\byValueFunction").find((edge) => edge.targetId === result.ccm?.nodes.find((node) => node.qualifiedName === "LocalBindings\\Sealed::run")?.id);
+  assert.ok(byValue);
+  assert.equal(byValue.resolution, "Exact", "a known by-value callee does not taint its argument");
+
+  for (const functionName of ["reassigned", "conditionalNew", "conditionalReassignment", "coalesceNew", "byReferenceFunction", "byReferenceMethod", "nullsafeByReference", "unknownExternalFunction", "referenceAlias", "aliasReinitialized", "loopReassignment", "closureReassignment"]) {
+    const call = edgesFrom(result.ccm, "CALLS", `LocalBindings\\${functionName}`).find((edge) => edge.unresolvedReason === "UNKNOWN_RECEIVER");
+    assert.ok(call, `${functionName} receiver remains unresolved`);
+  }
+
+  const open = edgesFrom(result.ccm, "CALLS", "LocalBindings\\openConstruction")[0];
+  assert.ok(open);
+  assert.equal(open.resolution, "Unresolved", "constructing an open class does not seal instance dispatch");
+  assert.equal(open.unresolvedReason, "AMBIGUOUS_SYMBOL");
+  const duplicate = edgesFrom(result.ccm, "CALLS", "LocalBindings\\duplicateConstruction")[0];
+  assert.ok(duplicate);
+  assert.equal(duplicate.resolution, "Unresolved");
+  assert.equal(duplicate.unresolvedReason, "AMBIGUOUS_SYMBOL");
 });
 
 test("PHP resolver does not mark inaccessible private or protected members Exact", async () => {

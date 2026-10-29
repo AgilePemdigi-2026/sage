@@ -265,3 +265,177 @@ test("ambiguous extensionless modules remain unresolved and evidence keeps BOM/C
   const reversed = analyze(Object.fromEntries(Object.entries(sources).reverse()));
   assert.equal(reversed.canonicalJson, result.canonicalJson);
 });
+
+test("function-local const instances resolve lexically, while shadowed or reassigned bindings stay unresolved", () => {
+  const sources = {
+    "src/local.ts": bytes([
+      "class Service { run() { return true; } }",
+      "function work() {",
+      "  const service = new Service();",
+      "  service.run();",
+      "  { const service = makeService(); service.run(); }",
+      "  service.run();",
+      "}",
+      "function shadowed(service: unknown) { return service.run(); }",
+      "function reassigned() { const service = new Service(); service = makeService(); return service.run(); }",
+      "function makeService(): Service { return new Service(); }",
+    ].join("\n")),
+  };
+  const result = analyze(sources);
+  assert.ok(result.ccm, result.errorCode ?? "missing CCM");
+  assert.equal(validateCcm(result.ccm, sources).ok, true);
+  assert.ok(edgeBetween(result, "src/local.ts.work", "src/local.ts.Service.run", "CALLS"));
+  assert.ok(unresolvedEdge(result, "src/local.ts.work", "service.run", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(unresolvedEdge(result, "src/local.ts.shadowed", "service.run", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(unresolvedEdge(result, "src/local.ts.reassigned", "service.run", "CALLS", "UNKNOWN_RECEIVER"));
+});
+
+test("loop initializer and switch-case bindings stay within their lexical scopes", () => {
+  const sources = {
+    "src/scopes.ts": bytes([
+      "class Service { run() {} }",
+      "class Other { run() {} }",
+      "function loopShadow(service: Service) {",
+      "  for (const service = new Other(); false;) { service.run(); }",
+      "  return service.run();",
+      "}",
+      "function switchShadow(service: Service) {",
+      "  switch (0) { case 0: const service = new Other(); service.run(); break; }",
+      "  return service.run();",
+      "}",
+    ].join("\n")),
+  };
+  const result = analyze(sources);
+  assert.ok(result.ccm, result.errorCode ?? "missing CCM");
+  assert.equal(validateCcm(result.ccm, sources).ok, true);
+  assert.ok(edgeBetween(result, "src/scopes.ts.loopShadow", "src/scopes.ts.Other.run", "CALLS"));
+  assert.ok(edgeBetween(result, "src/scopes.ts.loopShadow", "src/scopes.ts.Service.run", "CALLS"));
+  assert.ok(edgeBetween(result, "src/scopes.ts.switchShadow", "src/scopes.ts.Other.run", "CALLS"));
+  assert.ok(edgeBetween(result, "src/scopes.ts.switchShadow", "src/scopes.ts.Service.run", "CALLS"));
+});
+
+test("explicit field and constructor property types resolve receiver chains without leaking dynamic types", () => {
+  const sources = {
+    "src/di.ts": bytes([
+      "export class Service { run() { return true; } value = 1; private secret() {} }",
+      "class Other { run() { return false; } }",
+      "class Wrapper { service: Service; }",
+      "class Controller {",
+      "  private service: Service;",
+      "  private wrapper: Wrapper;",
+      "  union!: Service | Other;",
+      "  dynamic: any;",
+      "  constructor(private readonly injected: Service) { this.injected.run(); }",
+      "  work() { this.service.run(); this.wrapper.service.run(); return this.service.value; }",
+      "  unsafe() { this.dynamic.run(); this.union.run(); this.service.secret(); }",
+      "}",
+    ].join("\n")),
+    "src/changed.ts": bytes([
+      "import { Service } from './di.js';",
+      "class ChangedController { private service: Service; changed() { this.service = new Service(); return this.service.run(); } }",
+    ].join("\n")),
+  };
+  const result = analyze(sources);
+  assert.ok(result.ccm, result.errorCode ?? "missing CCM");
+  assert.equal(validateCcm(result.ccm, sources).ok, true);
+  assert.ok(edgeBetween(result, "src/di.ts.Controller.constructor", "src/di.ts.Service.run", "CALLS"));
+  assert.ok(edgeBetween(result, "src/di.ts.Controller.work", "src/di.ts.Service.run", "CALLS"));
+  assert.ok(edgeBetween(result, "src/di.ts.Controller.work", "src/di.ts.Service.value", "READS"));
+  assert.ok(unresolvedEdge(result, "src/di.ts.Controller.unsafe", "this.dynamic.run", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(unresolvedEdge(result, "src/di.ts.Controller.unsafe", "this.union.run", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(unresolvedEdge(result, "src/di.ts.Controller.unsafe", "this.service.secret", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(unresolvedEdge(result, "src/changed.ts.ChangedController.changed", "this.service.run", "CALLS", "UNKNOWN_RECEIVER"));
+});
+
+test("generic type parameters shadow same-named classes unless constrained by one explicit class type", () => {
+  const sources = {
+    "src/generic.ts": bytes([
+      "class T { run() {} }",
+      "class Service { run() {} }",
+      "function unknown<T>(value: T) { return value.run(); }",
+      "function bounded<U extends Service>(value: U) { return value.run(); }",
+    ].join("\n")),
+  };
+  const result = analyze(sources);
+  assert.ok(result.ccm, result.errorCode ?? "missing CCM");
+  assert.equal(validateCcm(result.ccm, sources).ok, true);
+  assert.ok(unresolvedEdge(result, "src/generic.ts.unknown", "value.run", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(unresolvedEdge(result, "src/generic.ts.unknown", "T", "TYPE_REFERENCES", "UNKNOWN_RECEIVER"));
+  assert.ok(edgeBetween(result, "src/generic.ts.bounded", "src/generic.ts.Service.run", "CALLS"));
+  assert.ok(!edgeBetween(result, "src/generic.ts.unknown", "src/generic.ts.T.run", "CALLS"));
+  assert.ok(!edgeBetween(result, "src/generic.ts.unknown", "src/generic.ts.T", "TYPE_REFERENCES"));
+});
+
+test("destructured typed parameters do not bind the whole parameter type to each extracted value", () => {
+  const sources = {
+    "src/destructured.ts": bytes([
+      "class Service { run() {} }",
+      "class Wrapper { run() {} service: Service; }",
+      "function direct({ service }: Wrapper) { service.run(); }",
+      "function renamed({ service: injected }: Wrapper) { injected.run(); }",
+    ].join("\n")),
+  };
+  const result = analyze(sources);
+  assert.ok(result.ccm, result.errorCode ?? "missing CCM");
+  assert.equal(validateCcm(result.ccm, sources).ok, true);
+  assert.ok(unresolvedEdge(result, "src/destructured.ts.direct", "service.run", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(unresolvedEdge(result, "src/destructured.ts.renamed", "injected.run", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(!edgeBetween(result, "src/destructured.ts.direct", "src/destructured.ts.Wrapper.run", "CALLS"));
+  assert.ok(!edgeBetween(result, "src/destructured.ts.direct", "src/destructured.ts.Service.run", "CALLS"));
+  assert.ok(!edgeBetween(result, "src/destructured.ts.renamed", "src/destructured.ts.Wrapper.run", "CALLS"));
+  assert.ok(!edgeBetween(result, "src/destructured.ts.renamed", "src/destructured.ts.Service.run", "CALLS"));
+});
+
+test("inherited members resolve along a unique extends chain with cycle, static, and private guards", () => {
+  const sources = {
+    "src/inheritance.ts": bytes([
+      "class Root { run() {} value = 1; private secret() {} }",
+      "class Middle extends Root {}",
+      "class Leaf extends Middle { use() { this.run(); return this.value; } leak() { this.secret(); } }",
+      "class StaticBase { static stop() {} }",
+      "class StaticChild extends StaticBase { wrongMode() { this.stop(); } static exactMode() { StaticChild.stop(); } }",
+      "class CycleA extends CycleB {}",
+      "class CycleB extends CycleA { loop() {} }",
+      "class CycleUse extends CycleA { use() { this.loop(); } }",
+      "interface InterfaceRoot { inspect(): void; }",
+      "interface InterfaceLeaf extends InterfaceRoot {}",
+      "function useInterface(value: InterfaceLeaf) { value.inspect(); }",
+      "interface Left { collision(): void; }",
+      "interface Right { collision(): void; }",
+      "interface Both extends Left, Right {}",
+      "function useBoth(value: Both) { value.collision(); }",
+    ].join("\n")),
+  };
+  const result = analyze(sources);
+  assert.ok(result.ccm, result.errorCode ?? "missing CCM");
+  assert.equal(validateCcm(result.ccm, sources).ok, true);
+  assert.ok(edgeBetween(result, "src/inheritance.ts.Leaf.use", "src/inheritance.ts.Root.run", "CALLS"));
+  assert.ok(edgeBetween(result, "src/inheritance.ts.Leaf.use", "src/inheritance.ts.Root.value", "READS"));
+  assert.ok(edgeBetween(result, "src/inheritance.ts.StaticChild.exactMode", "src/inheritance.ts.StaticBase.stop", "CALLS"));
+  assert.ok(edgeBetween(result, "src/inheritance.ts.useInterface", "src/inheritance.ts.InterfaceRoot.inspect", "CALLS"));
+  assert.ok(unresolvedEdge(result, "src/inheritance.ts.Leaf.leak", "this.secret", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(unresolvedEdge(result, "src/inheritance.ts.StaticChild.wrongMode", "this.stop", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(unresolvedEdge(result, "src/inheritance.ts.CycleUse.use", "this.loop", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(unresolvedEdge(result, "src/inheritance.ts.useBoth", "value.collision", "CALLS", "UNKNOWN_RECEIVER"));
+  assert.ok(!edgeBetween(result, "src/inheritance.ts.Leaf.leak", "src/inheritance.ts.Root.secret", "CALLS"));
+});
+
+test("tsconfig paths work without baseUrl and prefer the longest matching prefix", () => {
+  const sources = {
+    "src/general/specific/feature.ts": bytes("export function selected() { return 'broad'; }\n"),
+    "src/specific/feature.ts": bytes("export function selected() { return 'specific'; }\n"),
+    "src/app.ts": bytes("import { selected } from '@scope/specific/feature'; export function main() { return selected(); }\n"),
+  };
+  const config = { "tsconfig.json": bytes(JSON.stringify({ compilerOptions: { paths: {
+    "@scope/*": ["src/general/*"],
+    "@scope/specific/*": ["src/specific/*"],
+  } } })) };
+  const result = analyze(sources, config);
+  assert.ok(result.ccm, result.errorCode ?? "missing CCM");
+  assert.equal(validateCcm(result.ccm, sources).ok, true);
+  const selectedImport = edgeBetween(result, "src/app.ts", "src/specific/feature.ts", "IMPORTS");
+  assert.ok(selectedImport);
+  assertEvidence(result, selectedImport, "@scope/specific/feature", "src/app.ts");
+  assert.ok(edgeBetween(result, "src/app.ts.main", "src/specific/feature.ts.selected", "CALLS"));
+  assert.ok(!edgeBetween(result, "src/app.ts", "src/general/specific/feature.ts", "IMPORTS"));
+});
