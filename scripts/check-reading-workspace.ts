@@ -1,0 +1,53 @@
+import assert from "node:assert/strict";
+import { join } from "node:path";
+import { writeFile } from "node:fs/promises";
+import type { Page } from "playwright";
+
+/** Owner-scoped production UI with a source-backed large/disconnected fixture. */
+export async function checkReadingWorkspace(page: Page, base: string, analysisId: string, output: string, width: number) {
+  page.setDefaultTimeout(30_000);
+  console.log(`Reading workspace ${width}: open graph`);
+  await page.goto(`${base}/analyses/${analysisId}/graph`, { waitUntil: "networkidle" });
+  const nav = page.getByRole("navigation", { name: "Navigasi hasil analisis", exact: true });
+  await nav.getByRole("link", { name: "Dokumentasi", exact: false }).click();
+  console.log(`Reading workspace ${width}: open documentation`);
+  await page.getByLabel("Cari simbol", { exact: true }).waitFor();
+  assert.equal(new URL(page.url()).pathname, `/analyses/${analysisId}/document`);
+  await page.getByRole("button", { name: "Software Engineering Diagram", exact: true }).click();
+  await page.getByTestId("software-overview-summary").waitFor();
+  const image = page.getByRole("img", { name: "Software Engineering Diagram", exact: true });
+  console.log(`Reading workspace ${width}: render overview`);
+  await image.waitFor({ timeout: 30_000 });
+  assert.ok(await page.getByTestId("document-diagram-viewport").evaluate(el => el.scrollHeight <= el.clientHeight + 2 && el.scrollWidth <= el.clientWidth + 2), "default architecture fit must show the whole diagram");
+  const overviewSvg = await image.evaluate(async el => fetch(el.getAttribute("src")!).then(r => r.text()));
+  assert.ok(overviewSvg.includes("feature"), "overview must show source areas");
+  assert.ok(!overviewSvg.includes("PageContract99"), "overview must not spray AST declarations");
+  const areaSelect = page.getByLabel("Area arsitektur", { exact: true });
+  const area = await areaSelect.locator("option").evaluateAll(options => options.find(option => option.textContent?.includes("feature0"))?.getAttribute("value"));
+  assert.ok(area);
+  await areaSelect.selectOption(area);
+  await page.getByTestId("software-overview-summary").getByText("File dan area terkait", { exact: true }).waitFor();
+  await image.waitFor();
+  await page.screenshot({ path: join(output, `reading-structure-${width}.png`), fullPage: true });
+  await page.getByRole("button", { name: "UML Class Diagram", exact: true }).click();
+  const umlScope = page.getByLabel("Area UML", { exact: true });
+  const contracts = await umlScope.locator("option").evaluateAll(options => options.find(option => option.textContent?.toLowerCase().includes("contracts"))?.getAttribute("value"));
+  assert.ok(contracts);
+  await umlScope.selectOption(contracts);
+  const grid = page.getByTestId("uml-isolated-grid");
+  await grid.waitFor();
+  assert.equal(await grid.getByRole("article").count(), 4, "disconnected declarations must be paged, never a 100-class row");
+  const first = await grid.getByRole("heading").first().innerText();
+  await page.getByRole("button", { name: "Class berikutnya", exact: true }).click();
+  await page.waitForFunction(text => document.querySelector('[data-testid="uml-isolated-grid"] h3')?.textContent !== text, first);
+  await page.getByRole("button", { name: "Class sebelumnya", exact: true }).click();
+  await page.waitForFunction(text => document.querySelector('[data-testid="uml-isolated-grid"] h3')?.textContent === text, first);
+  const geometry = await grid.getByRole("article").first().evaluate(el => ({ width: el.getBoundingClientRect().width, font: parseFloat(getComputedStyle(el.querySelector("h3")!).fontSize) }));
+  assert.ok(geometry.width >= 240 && geometry.font >= 16, "class names must be readable at native font size");
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "reading workspace must not overflow");
+  await page.screenshot({ path: join(output, `reading-isolated-uml-${width}.png`), fullPage: true });
+  await writeFile(join(output, `reading-structure-${width}.svg`), overviewSvg);
+  await nav.getByRole("link", { name: "Knowledge graph", exact: false }).click();
+  await page.getByRole("region", { name: "Kanvas knowledge graph", exact: true }).waitFor();
+  assert.equal(new URL(page.url()).pathname, `/analyses/${analysisId}/graph`);
+}

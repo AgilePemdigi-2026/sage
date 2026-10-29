@@ -160,3 +160,8 @@ Mode pratinjau publik dihapus. Fixture graph/progres berada di `tests/fixtures/u
 Uji positif mencakup binding lokal `new`, field/parameter property bertipe, pewarisan aman, dan alias TS tanpa `baseUrl`. Uji negatif mencakup receiver dinamis, union, generic shadowing, mutasi, scope loop, destructuring, dispatch class PHP terbuka serta alias/by-reference. Oracle source harus memeriksa target dan rentang evidence, bukan hanya penurunan jumlah Unresolved.
 
 Proyeksi graph diuji deterministik, bebas mutasi canonical, mengangkat anggota ke pemilik dan memprioritaskan node terhubung. UML diuji dengan lima class BCE yang semuanya tampil beserta dependency dan pewarisan; role convention tetap eksplisit dan yang ambigu tidak dipaksakan. Browser 390/1440 memeriksa SVG nyata, garis hubungan, susunan atas-ke-bawah dan overflow. Ekspor PDF melewati HTTP/worker dengan fixture yang sama, menjaga canonical/Markdown dan replay hasil lama. Hasil aktual dan batas run dicatat di [ANA-08_CHECKS](ANA-08_CHECKS.md).
+
+
+### UI-06: keterbacaan workspace developer
+
+`test:pdf:live` menambahkan fixture source berisi area yang saling bergantung dan 100 interface terpisah pada 390/1440 px. Pemeriksaan meliputi navigasi langsung graph–dokumen, overview area, pemilihan area, empat kartu UML per halaman, maju/mundur, ukuran teks serta overflow. `test:target:ui` memeriksa jarak tombol repository pada lima viewport. Unit test menjaga mapping seluruh relasi sumber, budget berdasarkan kotak tampilan, filter sebelum batas relasi, serta pemilihan classifier deterministik. Lihat [UI-06 checks](UI-06_CHECKS.md) untuk hasil aktual dan batas bukti.

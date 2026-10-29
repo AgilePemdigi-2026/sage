@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NODE_KINDS } from "@sage/contracts";
 import type { NodeKind } from "@sage/contracts";
@@ -323,6 +324,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
     {errorContent()}
 
     {visiblePayload && filterResult && projection && canonicalCounts ? <>
+      <AnalysisNavigation analysisId={analysisId} active="graph" />
       <section className={styles.graphCard} aria-label="Knowledge graph analisis">
         <div className={styles.graphCardHeader}>
           <div>

@@ -1,3 +1,4 @@
+import { buildSoftwareOverview } from "@sage/documents/overview";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -140,4 +141,20 @@ test("interactive edge budget counts labeled unresolved and aggregated relation 
   assert.equal(projectInteractiveDiagram(duplicated).displayEdgeCount, 650);
   const overview = boundedDiagramOverview(raw, value.document.umlClassDiagram, "software-structure");
   assert.equal(interactiveDiagramBudget(projectInteractiveDiagram(overview.diagram)).kind, "ready");
+});
+
+
+test("grouped architecture budgets count visible boxes instead of repeated source mappings", async () => {
+  const value = await fixture();
+  const source = value.document.softwareEngineeringDiagram;
+  const modules = Array.from({ length: 1200 }, (_, index) => ({
+    ...source.nodes[0]!, id: `group-module-${index}`, kind: "Module" as const, origin: "source" as const,
+    parentId: null, filePath: `src/${index < 600 ? "alpha" : "beta"}/file${index}.ts`, name: `file${index}`, qualifiedName: `file${index}`, signature: null,
+  }));
+  const grouped = buildSoftwareOverview({ ...source, nodes: modules, edges: [] });
+  const projection = projectInteractiveDiagram(grouped.diagram, true);
+  assert.equal(projection.diagram.mermaid, grouped.diagram.mermaid, "custom source grouping must survive the human-renderer boundary");
+  assert.equal(projection.displayNodeCount, 2);
+  assert.equal(projection.displayEdgeCount, 0);
+  assert.deepEqual(interactiveDiagramBudget(projection), { kind: "ready" });
 });
