@@ -1,3 +1,5 @@
+import { isSemanticModel, validatePresentationOverlay } from "./semantic/validation.ts";
+import { renderSemanticPdfPages, type SemanticPresentation } from "./semantic/render.ts";
 import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -15,7 +17,7 @@ const MAX_SVG_BYTES = 4 * 1024 * 1024;
 const MAX_HTML_BYTES = 12 * 1024 * 1024;
 const MAX_PDF_BYTES = 32 * 1024 * 1024;
 const RENDER_TIMEOUT_MS = 45_000;
-export type PdfRenderOptions = { signal?: AbortSignal };
+export type PdfRenderOptions = { signal?: AbortSignal; semantic?: SemanticPresentation };
 type ViewBox = { x: number; y: number; width: number; height: number };
 
 function fail(code: string): never {
@@ -104,7 +106,7 @@ function compactText(value: string, maxCharacters: number): string {
   return characters.length <= maxCharacters ? value : `${characters.slice(0, maxCharacters - 1).join("")}…`;
 }
 
-function renderDocumentHtml(document: ArchitectureDocumentV1, svgs: [string, string], views: CompactPdfDiagrams): string {
+function renderDocumentHtml(document: ArchitectureDocumentV1, svgs: [string, string], views: CompactPdfDiagrams, semantic?: SemanticPresentation): string {
   const e = escapePdfHtml;
   const declarationIds = new Set(document.interfaceCatalog.entries.map(row => row.declaration.id));
   const allRows = document.interfaceCatalog.entries.filter(({ declaration: node }) =>
@@ -154,7 +156,7 @@ function renderDocumentHtml(document: ArchitectureDocumentV1, svgs: [string, str
   *{box-sizing:border-box}body{margin:0;color:#061e42;font:10pt/1.45 Arial,sans-serif}h1{font-size:22pt;line-height:1.2;margin:2mm 0 4mm}h2{font-size:14pt;margin:5mm 0 3mm}p{margin:0 0 3mm}.eyebrow{color:#08796e;font-size:9pt;font-weight:bold;letter-spacing:.12em}.identity{padding:4mm;background:#e6faf6;border-left:4px solid #098577;margin:4mm 0}.stats{display:flex;gap:7mm;color:#506783;margin:3mm 0}table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:9pt}th,td{padding:2mm;border:1px solid #dde5ec;vertical-align:top;text-align:left;overflow-wrap:anywhere}th{background:#eef3f7}th:first-child{width:27%}th:last-child{width:30%}thead{display:table-header-group}tr{break-inside:avoid}small{display:block;color:#506783;margin-top:1mm}code{font:8.5pt/1.4 monospace;white-space:pre-wrap;overflow-wrap:anywhere}.note{padding:3mm;background:#fff4d9;color:#78350f}.diagram-page{break-before:page;height:178mm;display:flex;flex-direction:column;break-inside:avoid}.diagram-page h1{font-size:20pt}.figure{flex:1;min-height:0;width:100%;margin:2mm 0;border:1px solid #dde5ec;border-radius:2mm;padding:3mm}.figure svg{display:block;width:100%;height:100%}.legend{display:flex;flex-wrap:wrap;gap:2mm 6mm;font-size:8pt;padding:2mm;background:#eef3f7}.caption{font-size:8pt;color:#506783;margin-top:2mm}li{overflow-wrap:anywhere}strong{overflow-wrap:anywhere}
   </style></head><body><p class="eyebrow">SAGE / RINGKASAN ARSITEKTUR</p><h1>${e(document.title)}</h1><div class="identity"><strong>${e(document.snapshot.repository)}</strong> · ${e(document.snapshot.branch ?? "Branch tidak tersedia")}<div class="stats"><span>${document.files.length} file</span><span>${document.canonicalCounts.nodes} deklarasi/node</span><span>${document.canonicalCounts.exactEdges} relasi Exact</span><span>${document.canonicalCounts.unresolvedEdges} Unresolved</span></div></div><p>Dokumen ringkas untuk mempelajari kontrak kode, struktur software, dan model class dari snapshot yang dianalisis. Markdown menyimpan register teknis, hash, atribut, dan seluruh evidence.</p>
   ${document.limitations.length ? `<div class="note"><strong>Batasan analisis (${Math.min(allLimitations.length, 20)} dari ${allLimitations.length} jenis; maksimal 4 path per jenis)</strong><ul>${limitations}</ul></div>` : ""}<h2>Interface Catalog</h2><p>Katalog deklarasi source: simbol, kontrak yang tersedia, dan lokasi bukti. Menampilkan ${rows.length} dari ${allRows.length} simbol; kontrak maksimal 400 karakter dan maksimal 6 anggota untuk ringkasan. Interface kode tidak otomatis berarti interface integrasi atau endpoint HTTP. Detail lengkap tersedia di Markdown.</p><table><thead><tr><th>Symbol</th><th>Contract</th><th>Evidence</th></tr></thead><tbody>${catalog || '<tr><td colspan="3">Tidak ada deklarasi source yang tercatat.</td></tr>'}</tbody></table>
-  ${diagramPage("Software Engineering Diagram", svgs[0], false, views.softwareSummary)}${diagramPage("UML Class Diagram", svgs[1], true, views.umlSummary)}</body></html>`;
+  ${semantic ? renderSemanticPdfPages(semantic, document) : diagramPage("Software Engineering Diagram", svgs[0], false, views.softwareSummary)}${diagramPage("UML Class Diagram", svgs[1], true, views.umlSummary)}</body></html>`;
 }
 
 function validatePdfDocument(document: ArchitectureDocumentV1): string | null {
@@ -247,7 +249,12 @@ function createRenderControl(signal: AbortSignal | undefined): {
 
 function validateSignalOptions(options: PdfRenderOptions | undefined): AbortSignal | undefined {
   if (options === undefined) return undefined;
-  if (!isRecord(options) || Object.keys(options).some(key => key !== "signal")) fail("PDF_RENDER_OPTIONS_INVALID");
+  if (!isRecord(options) || Object.keys(options).some(key => key !== "signal" && key !== "semantic")) fail("PDF_RENDER_OPTIONS_INVALID");
+  if (options.semantic !== undefined) {
+    const value = options.semantic;
+    if (!isRecord(value) || !isSemanticModel(value.model) || !Number.isSafeInteger(value.revision) || Number(value.revision) < 0) fail("PDF_RENDER_OPTIONS_INVALID");
+    try { validatePresentationOverlay(value.model, value.overlay); } catch { fail("PDF_RENDER_OPTIONS_INVALID"); }
+  }
   const signal = options.signal;
   if (signal === undefined) return undefined;
   if (!isRecord(signal) || typeof signal.aborted !== "boolean" || typeof signal.addEventListener !== "function" ||
@@ -273,6 +280,7 @@ export async function renderPdfDocument(
   if (signal?.aborted) fail("PDF_RENDER_ABORTED");
   const validationError = validatePdfDocument(document);
   if (validationError) fail(validationError);
+  if (options?.semantic && (options.semantic.model.sourceCkgHash !== document.ckgSha256 || options.semantic.model.snapshot.commitSha !== document.snapshot.commitSha || options.semantic.model.snapshot.repository !== document.snapshot.repository)) fail("PDF_DOCUMENT_INVALID");
   const compactViews = projectCompactPdfDiagrams(document.softwareEngineeringDiagram, document.umlClassDiagram);
   const projectedError = validateRendererDiagram(compactViews.software) ?? validateRendererDiagram(compactViews.uml);
   if (projectedError) fail(projectedError);
@@ -315,6 +323,11 @@ export async function renderPdfDocument(
       const diagrams = [compactViews.software, compactViews.uml];
       const results: Array<{ svg: string; viewBox: ViewBox }> = [];
       for (const [index, diagram] of diagrams.entries()) {
+        if (index === 0 && options?.semantic) {
+          // The semantic flow pages replace this projection; avoid rendering an unused diagram.
+          results.push({svg:'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"></svg>',viewBox:{x:0,y:0,width:1,height:1}});
+          continue;
+        }
         const source = normalizeMermaidUnderscores(diagram.mermaid);
         const renderedSvg = await page.evaluate(async ({ source, identifier, graphHash, maxSvgBytes, theme }) => {
           const renderer = (window as unknown as { mermaid?: {
@@ -522,7 +535,7 @@ function decodeMermaidTextRows(textElement: Element): void {
     };
 
     const diagrams = await control.race(renderDiagrams());
-    const html = renderDocumentHtml(document, [diagrams[0].svg, diagrams[1].svg], compactViews);
+    const html = renderDocumentHtml(document, [diagrams[0].svg, diagrams[1].svg], compactViews, options?.semantic);
     if (Buffer.byteLength(html, "utf8") > MAX_HTML_BYTES) fail("PDF_DOCUMENT_LIMIT_EXCEEDED");
 
     const page = await control.race(context!.newPage());

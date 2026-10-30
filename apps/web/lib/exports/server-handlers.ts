@@ -1,5 +1,6 @@
 import {
   database,
+  readSemanticForUser,
   enqueueExport,
   findExportSnapshotForUser,
   retryExport,
@@ -21,6 +22,7 @@ export const exportHandlers = createExportHandlers({
     analysisId,
     storageRoot,
   ),
+  readSemantic: (ownerUserId, analysisId) => readSemanticForUser(database(), ownerUserId, analysisId),
   enqueue: input => enqueueExport(database(), input),
   find: (ownerUserId, analysisId, exportId) => findExportSnapshotForUser(database(), { ownerUserId, analysisId, exportId }),
   retry: input => retryExport(database(), input),

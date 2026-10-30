@@ -1,9 +1,11 @@
+import { semanticRendererVersion } from "../../../packages/documents/src/semantic/export-pin.ts";
+import { renderSemanticMarkdown, type SemanticPresentation } from "../../../packages/documents/src/semantic/render.ts";
 import { constants } from "node:fs";
 import { mkdir, open, realpath, rename, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { createHash } from "node:crypto";
 import { randomUUID } from "node:crypto";
-import { completeExportJob, failExportJob, renewExportLease, snapshotExportJobClaim, reserveJobStorage } from "@sage/database";
+import { completeExportJob, failExportJob, renewExportLease, snapshotExportJobClaim, reserveJobStorage, readSemanticForUser } from "@sage/database";
 import type { ExportJobClaim } from "@sage/database";
 import type { PrismaClient } from "../../../packages/database/generated/client.ts";
 import { MARKDOWN_RENDERER_VERSION, renderMarkdownDocument } from "../../../packages/documents/src/markdown.ts";
@@ -112,7 +114,16 @@ export function createExportWorker(options: { db: PrismaClient; storageRoot: str
       try {
         assertActive(controller.signal);
         const expectedRendererVersion = claim.format === "PDF" ? PDF_RENDERER_VERSION : MARKDOWN_RENDERER_VERSION;
-        if (claim.rendererVersion !== expectedRendererVersion) throw new ExportProcessingError("EXPORT_FAILED");
+        const storedPin = await options.db.export.findFirst({ where: { id: claim.exportId, analysisId: claim.analysisId, ownerUserId: claim.ownerUserId }, select: {semanticModelHash: true, presentationRevision: true} });
+        if (!storedPin) throw new ExportProcessingError("DOCUMENT_UNAVAILABLE");
+        let semantic: SemanticPresentation | undefined;
+        if (storedPin.semanticModelHash !== null || storedPin.presentationRevision !== null) {
+          if (!storedPin.semanticModelHash || storedPin.presentationRevision === null) throw new ExportProcessingError("DOCUMENT_UNAVAILABLE");
+          const pinned = await readSemanticForUser(options.db, claim.ownerUserId, claim.analysisId, storedPin.presentationRevision);
+          if (!pinned || pinned.modelHash !== storedPin.semanticModelHash ||
+              claim.rendererVersion !== semanticRendererVersion(expectedRendererVersion, pinned.modelHash, pinned.revision)) throw new ExportProcessingError("DOCUMENT_UNAVAILABLE");
+          semantic = {model: pinned.model, overlay: pinned.overlay, revision: pinned.revision};
+        } else if (claim.rendererVersion !== expectedRendererVersion) throw new ExportProcessingError("EXPORT_FAILED");
         const state = await loadDocumentForUser(
           options.db as unknown as DocumentReadDatabase,
           claim.ownerUserId,
@@ -126,13 +137,13 @@ export function createExportWorker(options: { db: PrismaClient; storageRoot: str
         assertActive(controller.signal);
         let bytes: Uint8Array;
         if (claim.format === "PDF") {
-          bytes = await renderPdfDocument(state.value.document, { signal: controller.signal });
+          bytes = await renderPdfDocument(state.value.document, { signal: controller.signal, semantic });
           if (!(bytes instanceof Uint8Array)) throw new ExportProcessingError("EXPORT_FAILED");
           if (bytes.byteLength < 5 || Buffer.from(bytes.subarray(0, 5)).toString("ascii") !== "%PDF-") {
             throw new ExportProcessingError("EXPORT_FAILED");
           }
         } else {
-          const markdown = renderMarkdownDocument(state.value.document);
+          const markdown = (semantic ? `${renderSemanticMarkdown(semantic)}\n---\n\n` : "") + renderMarkdownDocument(state.value.document);
           if (typeof markdown !== "string") throw new ExportProcessingError("EXPORT_FAILED");
           bytes = Buffer.from(markdown, "utf8");
         }

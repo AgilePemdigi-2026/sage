@@ -181,3 +181,21 @@ test("export download returns private attachment headers or distinct not-ready a
   assert.equal(pdfResponse.headers.get("content-type"), "application/pdf");
   assert.equal(pdfResponse.headers.get("content-disposition"), 'attachment; filename="sage-repo-a1b2c3d.pdf"');
 });
+
+
+test("semantic export pins the displayed revision and rejects a stale or unavailable presentation", async () => {
+  const semanticModelHash = "c".repeat(64);
+  const semantic = { model: {} as never, modelHash: semanticModelHash, revision: 4, overlay: {labels: {}, groups: {}} };
+  const {handlers, calls} = dependencies({readSemantic: async () => semantic});
+  const response = await handlers.post(post(undefined, JSON.stringify({format:"MARKDOWN",presentationRevision:4})),analysisId);
+  assert.equal(response.status,202);
+  const queuedInput = calls.enqueue[0] as Record<string, unknown>;
+  assert.equal(queuedInput.semanticModelHash,semanticModelHash);
+  assert.equal(queuedInput.presentationRevision,4);
+  assert.notEqual(queuedInput.rendererVersion,MARKDOWN_RENDERER_VERSION);
+  assert.equal((await handlers.post(post(undefined, JSON.stringify({format:"PDF",presentationRevision:3})),analysisId)).status,409);
+  assert.equal(calls.enqueue.length,1,"stale revision never enqueues");
+  const legacy = dependencies({readSemantic: async () => null});
+  assert.equal((await legacy.handlers.post(post(undefined, JSON.stringify({format:"MARKDOWN",presentationRevision:0})),analysisId)).status,409);
+  assert.equal((await legacy.handlers.post(post(),analysisId)).status,202,"legacy export remains supported");
+});

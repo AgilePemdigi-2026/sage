@@ -7,6 +7,7 @@ import {
   type CcmSnapshot,
   type EvidenceSpan,
   type CkgCounts,
+  type CanonicalCkgResult,
 } from "@sage/contracts";
 
 export interface DiagramProjection {
@@ -275,6 +276,12 @@ export function projectDiagrams(
   const parsed = parseCanonicalCkg(canonicalCkgJson, sourceBytes, expectedSha256);
   if (!parsed.ok) return { ok: false, errorCode: parsed.errorCode };
 
+  return projectVerifiedCkgDiagrams(parsed);
+}
+
+/** Internal composition helper. Call only after the CKG parser verified bytes and evidence.
+ * Reusing that result avoids retaining a second full graph during ADD projection. */
+export function projectVerifiedCkgDiagrams(parsed: Extract<CanonicalCkgResult, {ok: true}>): DiagramProjectionResult {
   const ccm = parsed.value.ccm;
   const structure = buildStructureDiagram(ccm.nodes, ccm.edges);
   const uml = buildUmlDiagram(ccm.nodes, ccm.edges);

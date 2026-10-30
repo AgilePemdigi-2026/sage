@@ -271,6 +271,8 @@ export interface EnqueueExportInput {
   format: ExportFormat;
   documentHash: string;
   rendererVersion: string;
+  semanticModelHash?: string;
+  presentationRevision?: number;
 }
 
 export async function enqueueExport(
@@ -286,6 +288,17 @@ export async function enqueueExport(
   return db.$transaction(async tx => {
     await ensureAndLockExportSlot(tx);
     const architectureDocumentId = await assertPublishedDocument(tx, input.ownerUserId, input.analysisId, documentHash);
+    const hasSemanticPin = input.semanticModelHash !== undefined || input.presentationRevision !== undefined;
+    if (hasSemanticPin) {
+      if (typeof input.semanticModelHash !== "string" || !/^[a-f0-9]{64}$/.test(input.semanticModelHash) ||
+          !Number.isSafeInteger(input.presentationRevision) || input.presentationRevision! < 0) throw new ExportDocumentChangedError();
+      const semanticRows = await tx.$queryRaw<Array<{ id: string; modelHash: string }>>`
+        SELECT "id", "modelHash" FROM "SemanticModel" WHERE "analysisId" = ${input.analysisId} AND "ownerUserId" = ${input.ownerUserId} FOR UPDATE`;
+      const semantic = semanticRows[0];
+      if (!semantic || semantic.modelHash !== input.semanticModelHash) throw new ExportDocumentChangedError();
+      const latest = await tx.presentationRevision.findFirst({ where: { analysisId: input.analysisId, ownerUserId: input.ownerUserId, semanticModelId: semantic.id }, orderBy: { revision: "desc" }, select: { revision: true } });
+      if ((latest?.revision ?? 0) !== input.presentationRevision) throw new ExportDocumentChangedError();
+    }
     const existing = await tx.export.findFirst({
       where: { ownerUserId: input.ownerUserId, analysisId: input.analysisId, format, documentHash, rendererVersion },
       select: { id: true, format: true, status: true, documentHash: true, rendererVersion: true, contentHash: true, errorCode: true },
@@ -299,6 +312,7 @@ export async function enqueueExport(
       format,
       documentHash,
       rendererVersion,
+      ...(hasSemanticPin ? { semanticModelHash: input.semanticModelHash, presentationRevision: input.presentationRevision } : {}),
       status: "QUEUED",
     }, select: { id: true, format: true, status: true, documentHash: true, rendererVersion: true, contentHash: true, errorCode: true } });
     await createExportJob(tx, { ownerUserId: input.ownerUserId, analysisId: input.analysisId, exportId: record.id });

@@ -8,6 +8,7 @@ import { pack } from "tar-stream";
 import test from "node:test";
 import { parseCanonicalCkg } from "@sage/contracts";
 import { projectArchitectureDocument } from "@sage/documents/model";
+import { buildSemanticModel } from "@sage/documents/semantic";
 import { ANALYSIS_STAGE_DEFINITIONS, type AnalysisStageKey } from "../packages/contracts/src/stages.ts";
 import {
   claimAnalysisJob,
@@ -17,6 +18,7 @@ import {
   failAnalysisJob,
   readCanonicalDocumentForUser,
   readCanonicalGraphForUser,
+  readSemanticForUser,
   storeGitHubCredential,
 } from "../packages/database/src/index.ts";
 import { publishAnalysisResult } from "../packages/database/src/publication.ts";
@@ -229,6 +231,7 @@ function publicationInput(captured: CapturedStages, claim: AnalysisJobClaim, sou
     canonicalDocumentJson: document.json,
     expectedDocumentSha256: document.sha256,
     architectureDocumentId: String(documentArtifact.documentId),
+    semanticModel: buildSemanticModel({ ccm: graph.value.ccm, sourceCkgHash: graph.sha256, sources: sourceBytes }),
   };
 }
 
@@ -302,6 +305,11 @@ test("ANA-07 composes production stages, atomically publishes terminal results, 
     assert.equal((await db.job.findUniqueOrThrow({ where: { id: first.claim.jobId }, select: { status: true } })).status, "COMPLETED");
     assert.ok(await readCanonicalGraphForUser(db, owner.ownerId, first.enqueued.analysisId, cleanSources));
     assert.ok(await readCanonicalDocumentForUser(db, owner.ownerId, first.enqueued.analysisId, cleanSources));
+    const semantic = await readSemanticForUser(db, owner.ownerId, first.enqueued.analysisId);
+    assert.ok(semantic);
+    assert.match(semantic.modelHash, /^[a-f0-9]{64}$/);
+    assert.equal(semantic.revision, 0);
+    assert.equal(await db.semanticModel.count({ where: { analysisId: first.enqueued.analysisId } }), 1);
     assert.equal(await db.sourceFile.count({ where: { analysisId: first.enqueued.analysisId } }), 1);
     assert.equal(await db.analysisLimitation.count({ where: { analysisId: first.enqueued.analysisId } }), 0);
 
@@ -451,6 +459,7 @@ test("ANA-07 publisher rejects tampered mirrors and rolls back if the DB-clock l
     assert.equal(published, false, "publication should reject a lease that expires after its source mirror writes");
     assert.equal(await db.sourceFile.count({ where: { analysisId: expired.enqueued.analysisId } }), 0, "source rows must roll back with expired lease");
     assert.equal(await db.analysisLimitation.count({ where: { analysisId: expired.enqueued.analysisId } }), 0);
+    assert.equal(await db.semanticModel.count({ where: { analysisId: expired.enqueued.analysisId } }), 0, "semantic rows must roll back with an expired lease");
     const stillRunning = await db.analysis.findUniqueOrThrow({ where: { id: expired.enqueued.analysisId }, select: { status: true, resultHash: true } });
     assert.equal(stillRunning.status, "RUNNING");
     assert.equal(stillRunning.resultHash, null);

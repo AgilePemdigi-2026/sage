@@ -213,6 +213,8 @@ model Analysis {
   limitations                AnalysisLimitation[]
   graphBundle                GraphBundle?
   architectureDocument       ArchitectureDocument?
+  semanticModel              SemanticModel?
+  presentationRevisions      PresentationRevision[]
   exports                    Export[]
   jobs                       Job[]                 @relation("JobAnalysisOwner")
   storageObjects             StorageObject[]
@@ -367,6 +369,8 @@ model Export {
   storageObjectId        String?
   format                 ExportFormat
   documentHash           String               @db.VarChar(64)
+  semanticModelHash      String?              @db.VarChar(64)
+  presentationRevision   Int?
   rendererVersion        String
   status                 ExportStatus         @default(QUEUED)
   contentHash            String?
@@ -427,4 +431,42 @@ model WorkerHeartbeat {
   id        String   @id
   startedAt DateTime @default(now())
   lastSeen  DateTime @updatedAt
+}
+
+/// Immutable source-derived semantic graph for user flows and business concepts.
+model SemanticModel {
+  id             String                  @id @default(cuid())
+  ownerUserId    String
+  analysisId     String
+  sourceCkgHash  String                  @db.VarChar(64)
+  modelHash      String                  @db.VarChar(64)
+  schemaVersion  String
+  extractorVersion String
+  canonicalContent String
+  createdAt      DateTime                @default(now())
+  analysis       Analysis                @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+  revisions      PresentationRevision[]
+
+  @@unique([analysisId, ownerUserId])
+  @@unique([id, analysisId, ownerUserId])
+  @@index([ownerUserId, createdAt])
+}
+
+/// Append-only display corrections, separate from evidence and the immutable source model.
+model PresentationRevision {
+  id                String        @id @default(cuid())
+  ownerUserId       String
+  analysisId        String
+  semanticModelId   String
+  revision          Int
+  overlay           Json
+  contentHash       String        @db.VarChar(64)
+  createdAt         DateTime      @default(now())
+  analysis          Analysis      @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+  semanticModel     SemanticModel @relation(fields: [semanticModelId, analysisId, ownerUserId], references: [id, analysisId, ownerUserId], onDelete: Cascade)
+
+  @@unique([analysisId, ownerUserId, revision])
+  @@unique([id, analysisId, ownerUserId, semanticModelId, revision])
+  @@index([semanticModelId, revision])
+  @@index([ownerUserId, createdAt])
 }
