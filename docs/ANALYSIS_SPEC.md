@@ -139,3 +139,10 @@ Interface Catalog mencatat deklarasi source non-Module beserta signature nullabl
 Stage 6–8 menghasilkan artefak terpisah dengan identitas CKG/document dan context yang sama; stage 9 memverifikasi ulang ketiganya lalu menyimpan seluruh dokumen dalam satu transaksi. Penulisan dibatasi owner, attempt/token, lease berdasarkan jam database, tahap aktif, target immutable dan GraphBundle yang cocok. Replay identik boleh diterima; isi berbeda tidak menimpa hasil. Reader hasil hanya mengembalikan dokumen canonical milik akun untuk analisis sukses.
 
 Atomicity DOC-01 berarti ketiga artefak dokumen tersedia bersama dalam satu baris internal. Publikasi GraphBundle + dokumen + resultHash dan status Analysis/Job terminal berhasil merupakan ANA-07 #16. Consumer ANA-07 menjalankan publikasi setelah sembilan tahap selesai; penyelesaian tahap saja tidak mengubah status terminal. Halaman dan API dokumen DOC-01 membaca model canonical hanya setelah status sukses. Diagram dirender Mermaid lokal dengan guard DOC-02 dan SVG diperiksa sebelum ditampilkan sebagai gambar Blob. Batas/kegagalan render terlihat tanpa memotong fakta atau menyatakan diagram sukses. Download Markdown/PDF tetap mengikuti #20/#21.
+
+
+## Lapisan semantik fitur dan alur
+
+Model `sage-semantic-v1` dibangun setelah CCM/CKG tervalidasi, dari byte source snapshot yang sama. Model ini mengenali fitur, aktor, konsep, komponen, penyimpanan, langkah, keputusan, dan hasil; hubungan memiliki evidence, alasan dan kategori `proven`/`indicated`. Kategori tersebut tidak mengubah `Exact`/`Unresolved`. Resolver bahasa dan extractor framework adalah kontrak berbeda. Tidak menjalankan source repository atau menggunakan layanan AI eksternal.
+
+Next.js App Router dan Laravel adalah pola awal; unsupported/dynamic bindings dicatat sebagai batasan. Source backend saja tidak membuktikan layar frontend. Koreksi tersimpan terpisah dari fakta canonical. Lihat [kontrak semantik](SEMANTIC_ANALYSIS.md) dan [snapshot acuan](evidence/semantic/oracle.json).

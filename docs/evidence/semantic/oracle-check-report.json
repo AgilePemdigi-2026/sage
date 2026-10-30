@@ -1,0 +1,229 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-10-30T07:05:03.172Z",
+  "oracle": "docs/evidence/semantic/oracle.json",
+  "disclaimer": "Static snapshot oracle: checks verify source evidence coverage and bounded semantic claims; they do not execute the repositories or prove runtime behavior.",
+  "summary": {
+    "totalSnapshots": 3,
+    "loadedModels": 3,
+    "totalChecks": 39,
+    "passedChecks": 39,
+    "failedChecks": 0,
+    "failures": []
+  },
+  "snapshots": [
+    {
+      "repository": "iltizamhasan3/sistem-informasi-perpus",
+      "commit": "d72c3532a7d59cab242fb705ab201cf99ef35e88",
+      "checks": [
+        {
+          "id": "snapshot.pinned-corpus",
+          "passed": true,
+          "detail": "Pinned corpus snapshot identity iltizamhasan3/sistem-informasi-perpus@d72c3532a7d59cab242fb705ab201cf99ef35e88"
+        },
+        {
+          "id": "snapshot.model-loaded",
+          "passed": true,
+          "detail": "Semantic model loaded from sistem-informasi-perpus-semantic.json."
+        },
+        {
+          "id": "snapshot.model-identity",
+          "passed": true,
+          "detail": "Model snapshot identity iltizamhasan3/sistem-informasi-perpus@d72c3532a7d59cab242fb705ab201cf99ef35e88"
+        },
+        {
+          "id": "evidence.Login dan katalog",
+          "passed": true,
+          "detail": "All 3 source ranges have matching path/hash/line evidence."
+        },
+        {
+          "id": "evidence.Booking anggota dan konfirmasi admin",
+          "passed": true,
+          "detail": "All 4 source ranges have matching path/hash/line evidence."
+        },
+        {
+          "id": "evidence.Sewa ebook",
+          "passed": true,
+          "detail": "All 2 source ranges have matching path/hash/line evidence."
+        },
+        {
+          "id": "perpus.catalog.page-load-books",
+          "passed": true,
+          "detail": "Catalog page is linked to the literal GET /api/books call."
+        },
+        {
+          "id": "perpus.catalog.no-invented-admin-gate",
+          "passed": true,
+          "detail": "No admin-only claim is attached to the GET handler; POST rules are out of scope."
+        },
+        {
+          "id": "perpus.booking.creates-booking",
+          "passed": true,
+          "detail": "Bulk booking has a source-backed write to the Booking store."
+        },
+        {
+          "id": "perpus.booking.decrements-book-stock",
+          "passed": true,
+          "detail": "Bulk booking has a source-backed Book update relation."
+        },
+        {
+          "id": "perpus.booking.not-immediate-loan",
+          "passed": true,
+          "detail": "Bulk booking has no loan/transaction write; transaction counts remain reads."
+        },
+        {
+          "id": "perpus.direct-borrow.admin-guard",
+          "passed": true,
+          "detail": "The direct-borrow endpoint has a role/admin decision and a denied outcome."
+        },
+        {
+          "id": "perpus.ebook.rent-record",
+          "passed": true,
+          "detail": "E-book rental endpoint and Rental write are represented."
+        },
+        {
+          "id": "perpus.ebook.no-unlimited-or-invented-eligibility",
+          "passed": true,
+          "detail": "No unlimited-duration or premium/age eligibility claim is attached to the rent source."
+        }
+      ]
+    },
+    {
+      "repository": "AgilePemdigi-2026/sage",
+      "commit": "c2dc3d84b220c572fb5b2ce85dd3605e89b11a73",
+      "checks": [
+        {
+          "id": "snapshot.pinned-corpus",
+          "passed": true,
+          "detail": "Pinned corpus snapshot identity AgilePemdigi-2026/sage@c2dc3d84b220c572fb5b2ce85dd3605e89b11a73"
+        },
+        {
+          "id": "snapshot.model-loaded",
+          "passed": true,
+          "detail": "Semantic model loaded from sage-semantic.json."
+        },
+        {
+          "id": "snapshot.model-identity",
+          "passed": true,
+          "detail": "Model snapshot identity AgilePemdigi-2026/sage@c2dc3d84b220c572fb5b2ce85dd3605e89b11a73"
+        },
+        {
+          "id": "evidence.GitHub login",
+          "passed": true,
+          "detail": "All 2 source ranges have matching path/hash/line evidence."
+        },
+        {
+          "id": "evidence.Target dan analisis",
+          "passed": true,
+          "detail": "All 3 source ranges have matching path/hash/line evidence."
+        },
+        {
+          "id": "evidence.Ekspor",
+          "passed": true,
+          "detail": "All 1 source ranges have matching path/hash/line evidence."
+        },
+        {
+          "id": "sage.login.starts-github-oauth",
+          "passed": true,
+          "detail": "The login submit action links to the GitHub OAuth-start endpoint."
+        },
+        {
+          "id": "sage.oauth-start-is-not-login-success",
+          "passed": true,
+          "detail": "OAuth start is not claimed to prove successful authorization."
+        },
+        {
+          "id": "sage.pipeline-all-declared-stages",
+          "passed": true,
+          "detail": "All nine stage concepts are represented with evidence on their declaration lines."
+        },
+        {
+          "id": "sage.target-and-analysis-entrypoints",
+          "passed": true,
+          "detail": "Target resolution and analysis submission entrypoints have source-backed semantic facts."
+        },
+        {
+          "id": "sage.target-resolution-requires-session",
+          "passed": true,
+          "detail": "A session/authentication decision is represented on target or submission handlers."
+        },
+        {
+          "id": "sage.no-proven-flow-from-imports",
+          "passed": true,
+          "detail": "No proven semantic flow edge is based only on import-line evidence."
+        },
+        {
+          "id": "sage.export-represents-queued-result",
+          "passed": true,
+          "detail": "Export submission includes a queued/202 result in its evidence-backed model facts."
+        },
+        {
+          "id": "sage.export-queue-is-not-download",
+          "passed": true,
+          "detail": "The queue handler is not described as a completed download."
+        }
+      ]
+    },
+    {
+      "repository": "iltizamhasan3/emosync-backend",
+      "commit": "a22992668658538f6fc10b904d6f7b2ed09124ac",
+      "checks": [
+        {
+          "id": "snapshot.pinned-corpus",
+          "passed": true,
+          "detail": "Pinned corpus snapshot identity iltizamhasan3/emosync-backend@a22992668658538f6fc10b904d6f7b2ed09124ac"
+        },
+        {
+          "id": "snapshot.model-loaded",
+          "passed": true,
+          "detail": "Semantic model loaded from emosync-backend-semantic.json."
+        },
+        {
+          "id": "snapshot.model-identity",
+          "passed": true,
+          "detail": "Model snapshot identity iltizamhasan3/emosync-backend@a22992668658538f6fc10b904d6f7b2ed09124ac"
+        },
+        {
+          "id": "evidence.Autentikasi API",
+          "passed": true,
+          "detail": "All 2 source ranges have matching path/hash/line evidence."
+        },
+        {
+          "id": "evidence.Mood check-in",
+          "passed": true,
+          "detail": "All 2 source ranges have matching path/hash/line evidence."
+        },
+        {
+          "id": "evidence.Akses admin",
+          "passed": true,
+          "detail": "All 2 source ranges have matching path/hash/line evidence."
+        },
+        {
+          "id": "emosync.api-login-and-mood-entrypoints",
+          "passed": true,
+          "detail": "Login and mood-check-in API entrypoints are represented from the route declarations."
+        },
+        {
+          "id": "emosync.duplicate-checkin-is-422-failure",
+          "passed": true,
+          "detail": "The same-day duplicate outcome is backed by evidence spanning the HTTP 422 response."
+        },
+        {
+          "id": "emosync.duplicate-checkin-not-success",
+          "passed": true,
+          "detail": "The duplicate-day branch is not represented as successful creation."
+        },
+        {
+          "id": "emosync.admin-requires-admin-role-and-403",
+          "passed": true,
+          "detail": "The explicit administrator condition leads to the denied outcome backed by the 403 response."
+        },
+        {
+          "id": "emosync.no-invented-frontend",
+          "passed": true,
+          "detail": "Backend route/controller evidence does not claim frontend screens or navigation."
+        }
+      ]
+    }
+  ]
+}

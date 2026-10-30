@@ -127,3 +127,10 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 ## Layout penyimpanan PERF-01
 
 GraphBundle dan ArchitectureDocument memiliki storageLayoutVersion: 1 untuk mirror legacy yang wajib cocok dengan canonical, 2 untuk canonical-only dengan mirror SQL NULL. Versi semantic dan content/result hash tetap sama. Migrasi schema tidak otomatis mengubah baris lama; tool audit/apply operator hanya mengonversi analisis terminal yang lolos replay source dan pemeriksaan hash/mirror secara atomik. Batas, prosedur dan bukti ada di [PERF-01_CHECKS](PERF-01_CHECKS.md).
+
+
+## Model semantik dan revisi tampilan
+
+Per 30 Oktober 2026, `SemanticModel` menyimpan satu JSON canonical per analisis beserta source CKG hash, model hash, versi schema/extractor, dan pemilik. `PresentationRevision` menyimpan overlay label/kelompok append-only dan hash overlay; revisi nol adalah hasil otomatis tanpa row tambahan. Foreign key komposit mencegah relasi lintas pemilik. Revisi terkunci saat koreksi dan enqueue ekspor; versi usang ditolak, bukan menimpa data.
+
+`Export.semanticModelHash` dan `Export.presentationRevision` mem-pin snapshot koreksi. Keduanya null untuk ekspor legacy, atau keduanya valid untuk ekspor semantik. Cache renderer mencakup pin ini. Tidak menyimpan ulang JSON model per revisi, menambah service/database, atau menyalin kredensial ke model. Model dibatasi 24 MiB dan overlay 256 KiB; batas source/worker dan artefak tetap berlaku. Revisi tetap tersimpan hingga analisis dihapus; cascade/cleanup yang sama menghapus model, revisi, snapshot serta ekspornya. Lihat [kontrak semantik](SEMANTIC_ANALYSIS.md).

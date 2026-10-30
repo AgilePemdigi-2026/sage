@@ -61,15 +61,20 @@ export function renderSemanticFlowSvg(nodes: SemanticNode[], edges: SemanticEdge
   const paths = shownEdges.map((edge,index) => {
     const a=positions.get(edge.source)!, b=positions.get(edge.target)!;
     const sameRow=a.y===b.y, forward=b.x>a.x, downward=b.y>a.y;
-    const sx=sameRow?a.x+(forward?cardW:0):a.x+cardW/2;
-    const sy=sameRow?a.y+cardH/2:a.y+(downward?cardH:0);
-    const tx=sameRow?b.x+(forward?0:cardW):b.x+cardW/2;
-    const ty=sameRow?b.y+cardH/2:b.y+(downward?0:cardH);
+    const sx=sameRow?a.x+(forward?cardW:0)+(byId.get(edge.source)?.kind==="decision"?(forward?5:-5):0):a.x+cardW/2;
+    const sy=sameRow?a.y+cardH/2:a.y+(downward?cardH:0)+(byId.get(edge.source)?.kind==="decision"?(downward?5:-5):0);
+    const tx=sameRow?b.x+(forward?0:cardW)+(byId.get(edge.target)?.kind==="decision"?(forward?-5:5):0):b.x+cardW/2;
+    const ty=sameRow?b.y+cardH/2:b.y+(downward?0:cardH)+(byId.get(edge.target)?.kind==="decision"?(downward?-5:5):0);
     const midX=(sx+tx)/2, midY=(sy+ty)/2;
-    const path=sameRow?`M${sx},${sy} C${midX},${sy} ${midX},${ty} ${tx},${ty}`:`M${sx},${sy} C${sx},${midY} ${tx},${midY} ${tx},${ty}`;
+    const sourceRow=Math.round(a.y/(height/rows)),targetRow=Math.round(b.y/(height/rows));
+    const adjacent=Math.abs(sourceRow-targetRow)<=1;
+    const laneX=width-8-(index%3)*4;
+    const startLane=sy+(downward?16:-16),endLane=ty+(downward?-16:16);
+    const rowGapPath=Math.abs(a.x-b.x)>width/columns+1?`M${sx},${sy} L${sx+(forward?8:-8)},${sy} L${sx+(forward?8:-8)},${a.y-12} L${tx+(forward?-8:8)},${a.y-12} L${tx+(forward?-8:8)},${ty} L${tx},${ty}`:`M${sx},${sy} L${tx},${ty}`;
+    const path=sameRow?rowGapPath:adjacent?`M${sx},${sy} L${sx},${midY} L${tx},${midY} L${tx},${ty}`:`M${sx},${sy} L${sx},${startLane} L${laneX},${startLane} L${laneX},${endLane} L${tx},${endLane} L${tx},${ty}`;
     const label=edge.label.length>32?`${edge.label.slice(0,31)}…`:edge.label;
     const labelY=sameRow?a.y-8-(index%2)*10:midY-5-(index%2)*10;
-    return `<path d="${path}" fill="none" stroke="#64748b" stroke-width="1.5" ${edge.confidence==="indicated"?'stroke-dasharray="5 4"':""} marker-end="url(#arrow)"/><text x="${midX}" y="${labelY}" text-anchor="middle" fill="#475569" font-size="10" stroke="white" stroke-width="3" paint-order="stroke">${escape(label)}</text>`;
+    return `<path d="${path}" fill="none" stroke="#64748b" stroke-width="1.5" ${edge.confidence==="indicated"?'stroke-dasharray="5 4"':""} marker-end="url(#arrow)"><title>${escape(edge.label)}</title></path>${shownEdges.length<=6?`<text x="${midX}" y="${labelY}" text-anchor="middle" fill="#475569" font-size="10" stroke="white" stroke-width="3" paint-order="stroke">${escape(label)}</text>`:""}`;
   }).join("");
   const boxes=sorted.map(n=>{const p=positions.get(n.id)!,c=colors[n.kind]??colors.step!;const allLines=wrap(n.label,Math.floor(cardW/7));const lines=allLines.slice(0,3);if(allLines.length>3)lines[2]=`${lines[2]!.slice(0,-1)}…`;const shape=n.kind==="decision"?`<polygon points="${p.x+cardW/2},${p.y-5} ${p.x+cardW+5},${p.y+cardH/2} ${p.x+cardW/2},${p.y+cardH+5} ${p.x-5},${p.y+cardH/2}"`:`<rect x="${p.x}" y="${p.y}" width="${cardW}" height="${cardH}" rx="${n.kind==="actor"||n.kind==="outcome"?22:7}"`;return `<g>${shape} fill="${c[0]}" stroke="${c[1]}" ${n.confidence==="indicated"?'stroke-dasharray="5 3"':""}/><text x="${p.x+cardW/2}" y="${p.y+cardH/2-(lines.length-1)*7}" font-size="14" text-anchor="middle" fill="#1f2328">${lines.map((l,i)=>`<tspan x="${p.x+cardW/2}" dy="${i?14:0}">${escape(l)}</tspan>`).join("")}</text></g>`;}).join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>${paths}${boxes}</svg>`;
