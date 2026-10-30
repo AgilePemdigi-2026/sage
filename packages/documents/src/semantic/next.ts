@@ -157,24 +157,37 @@ function unwrap(node: ts.Expression): ts.Expression {
   return node;
 }
 
-function responseConstructorName(statement: ts.ReturnStatement): string | null {
-  const response = statement.expression && unwrap(statement.expression);
-  if (!response) return null;
+function responseConstructorNameFromExpression(response: ts.Expression): string | null {
   if (ts.isNewExpression(response) && ts.isIdentifier(unwrap(response.expression))) return (unwrap(response.expression) as ts.Identifier).text;
   if (!ts.isCallExpression(response) || !ts.isPropertyAccessExpression(unwrap(response.expression))) return null;
   const receiver = (unwrap(response.expression) as ts.PropertyAccessExpression).expression;
   return ts.isIdentifier(receiver) ? receiver.text : null;
 }
 
-function isHttpResponseConstructor(entry: SourceEntry, statement: ts.ReturnStatement, name: string): boolean {
-  if (name === "Response") return !visibleBindingNames(entry, statement).has(name);
+function responseConstructorName(statement: ts.ReturnStatement): string | null {
+  const response = statement.expression && unwrap(statement.expression);
+  return response ? responseConstructorNameFromExpression(response) : null;
+}
+
+function isHttpResponseBinding(entry: SourceEntry, referenceNode: ts.Node, name: string): boolean {
+  if (name === "Response") return !visibleBindingNames(entry, referenceNode).has(name);
   if (name !== "NextResponse") return false;
-  const scopes = lexicalScopes(entry, statement);
+  const scopes = lexicalScopes(entry, referenceNode);
   if (scopes.slice(1).some(scope => directlyDeclaredBindings(scope).has(name))) return false;
   const topLevelNames = directlyDeclaredBindings(entry.file);
   const imports = importedNames(entry.file);
   if (topLevelNames.has(name) && !imports.has(name)) return false;
   return importedFrom(entry, name, "NextResponse", ["next/server"]);
+}
+
+function isHttpResponseExpression(entry: SourceEntry, expression: ts.Expression, referenceNode: ts.Node): boolean {
+  const response = unwrap(expression);
+  const responseName = responseConstructorNameFromExpression(response);
+  if (!responseName || !isHttpResponseBinding(entry, referenceNode, responseName)) return false;
+  if (ts.isNewExpression(response)) return ts.isIdentifier(response.expression) && response.expression.text === responseName;
+  if (!ts.isCallExpression(response) || !ts.isPropertyAccessExpression(unwrap(response.expression))) return false;
+  const callee = unwrap(response.expression) as ts.PropertyAccessExpression;
+  return ts.isIdentifier(callee.expression) && callee.expression.text === responseName && ["json", "redirect"].includes(callee.name.text);
 }
 
 function responseStatus(entry: SourceEntry, node: ts.Node): number | null {
@@ -204,6 +217,108 @@ function responseStatus(entry: SourceEntry, node: ts.Node): number | null {
     if (status === null && ts.isReturnStatement(current)) status = inspect(current);
   });
   return status;
+}
+
+type LiteralStatusBranches = { statuses: number[]; conditional: boolean; conditions: string[] };
+type HelperResponseReturn = { expression: ts.Expression; evidenceNode: ts.Node };
+type ResolvedResponseWrapper = { statuses: LiteralStatusBranches; helperEvidence: EvidenceSpan; call: ts.CallExpression; reason: string };
+
+function literalStatusBranches(expression: ts.Expression | undefined, source: ts.SourceFile): LiteralStatusBranches | null {
+  if (!expression) return null;
+  const value = unwrap(expression);
+  if (ts.isNumericLiteral(value)) {
+    const status = Number(value.text);
+    return Number.isInteger(status) && status >= 100 && status <= 599
+      ? { statuses: [status], conditional: false, conditions: [] }
+      : null;
+  }
+  if (!ts.isConditionalExpression(value)) return null;
+  const whenTrue = literalStatusBranches(value.whenTrue, source);
+  const whenFalse = literalStatusBranches(value.whenFalse, source);
+  if (!whenTrue || !whenFalse) return null;
+  return {
+    statuses: [...new Set([...whenTrue.statuses, ...whenFalse.statuses])],
+    conditional: true,
+    conditions: [...new Set([value.condition.getText(source), ...whenTrue.conditions, ...whenFalse.conditions])],
+  };
+}
+
+function singleDirectFunctionReturn(helper: ts.FunctionLikeDeclaration): HelperResponseReturn | null {
+  if (!helper.body) return null;
+  if (!ts.isBlock(helper.body)) return { expression: helper.body, evidenceNode: helper.body };
+  const returns: ts.ReturnStatement[] = [];
+  const walk = (node: ts.Node) => {
+    if (node !== helper.body && isCallableBoundary(node)) return;
+    if (ts.isReturnStatement(node)) returns.push(node);
+    ts.forEachChild(node, walk);
+  };
+  walk(helper.body);
+  if (returns.length !== 1 || returns[0]!.parent !== helper.body ||
+    helper.body.statements.at(-1) !== returns[0]) return null;
+  const expression = returns[0]!.expression;
+  return expression ? { expression, evidenceNode: returns[0]! } : null;
+}
+
+function statusParameterIndex(entry: SourceEntry, helper: ts.FunctionLikeDeclaration, returned: ts.Expression, referenceNode: ts.Node): number | null {
+  if (!isHttpResponseExpression(entry, returned, referenceNode)) return null;
+  const response = unwrap(returned);
+  let statusValue: ts.Expression | undefined;
+  if (ts.isCallExpression(response)) {
+    const callee = unwrap(response.expression) as ts.PropertyAccessExpression;
+    if (callee.name.text === "redirect") statusValue = response.arguments[1];
+    else if (callee.name.text === "json") {
+      const options = response.arguments[1] && unwrap(response.arguments[1]);
+      if (!options || !ts.isObjectLiteralExpression(options) || options.properties.some(ts.isSpreadAssignment)) return null;
+      const statusFields = options.properties.filter(property =>
+        (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)) &&
+        propertyName(property.name) === "status");
+      if (statusFields.length !== 1) return null;
+      const field = statusFields[0]!;
+      statusValue = ts.isPropertyAssignment(field) ? field.initializer :
+        ts.isShorthandPropertyAssignment(field) ? field.name : undefined;
+    }
+  } else if (ts.isNewExpression(response)) {
+    const options = response.arguments?.[1] && unwrap(response.arguments[1]);
+    if (!options || !ts.isObjectLiteralExpression(options) || options.properties.some(ts.isSpreadAssignment)) return null;
+    const statusFields = options.properties.filter(property =>
+      (ts.isPropertyAssignment(property) || ts.isShorthandPropertyAssignment(property)) &&
+      propertyName(property.name) === "status");
+    if (statusFields.length !== 1) return null;
+    const field = statusFields[0]!;
+    statusValue = ts.isPropertyAssignment(field) ? field.initializer :
+      ts.isShorthandPropertyAssignment(field) ? field.name : undefined;
+  }
+  if (!statusValue || !ts.isIdentifier(unwrap(statusValue))) return null;
+  const parameterName = (unwrap(statusValue) as ts.Identifier).text;
+  const indices = helper.parameters.flatMap((parameter, index) =>
+    ts.isIdentifier(parameter.name) && parameter.name.text === parameterName ? [index] : []);
+  return indices.length === 1 ? indices[0]! : null;
+}
+
+function resolvedResponseWrapper(entry: SourceEntry, statement: ts.ReturnStatement): ResolvedResponseWrapper | null {
+  const expression = statement.expression && unwrap(statement.expression);
+  if (!expression || !ts.isCallExpression(expression) || !ts.isIdentifier(unwrap(expression.expression))) return null;
+  const helperName = (unwrap(expression.expression) as ts.Identifier).text;
+  const helper = functionMap(entry, statement).get(helperName);
+  if (!helper) return null;
+  const returned = singleDirectFunctionReturn(helper);
+  if (!returned) return null;
+  const parameterIndex = statusParameterIndex(entry, helper, returned.expression, returned.evidenceNode);
+  if (parameterIndex === null) return null;
+  const parameter = helper.parameters[parameterIndex];
+  const statusExpression = expression.arguments[parameterIndex] ?? parameter?.initializer;
+  const statuses = literalStatusBranches(statusExpression, entry.file);
+  if (!statuses) return null;
+  const conditionDescription = statuses.conditions.map(value => value.trim().slice(0, 100)).join("; ");
+  const reason = statuses.conditional
+    ? "Status HTTP diteruskan melalui helper response lokal dan bergantung pada kondisi source \"" + conditionDescription + "\"; cabang literal ditampilkan sebagai indikasi tanpa memilih hasil runtime."
+    : "Status HTTP literal diteruskan melalui helper response lokal yang binding dan implementasinya terverifikasi.";
+  return {
+    statuses,
+    helperEvidence: nodeRange(entry, returned.evidenceNode, "context"),
+    call: expression,
+    reason,
+  };
 }
 
 function directReturnStatements(node: ts.Statement | undefined): ts.ReturnStatement[] {
@@ -244,13 +359,7 @@ function visitHandlerFlow(root: ts.Node, confidence: "proven" | "indicated", vis
 
 function isHttpResponseReturn(entry: SourceEntry, statement: ts.ReturnStatement): boolean {
   const expression = statement.expression && unwrap(statement.expression);
-  if (!expression) return false;
-  const responseName = responseConstructorName(statement);
-  if (!responseName || !isHttpResponseConstructor(entry, statement, responseName)) return false;
-  if (ts.isNewExpression(expression)) return ts.isIdentifier(expression.expression) && expression.expression.text === responseName;
-  if (!ts.isCallExpression(expression) || !ts.isPropertyAccessExpression(unwrap(expression.expression))) return false;
-  const callee = unwrap(expression.expression) as ts.PropertyAccessExpression;
-  return ts.isIdentifier(callee.expression) && callee.expression.text === responseName && ["json", "redirect"].includes(callee.name.text);
+  return expression ? isHttpResponseExpression(entry, expression, statement) : false;
 }
 
 function guardCategory(expression: string): { label: string; reason: string } | null {
@@ -1985,6 +2094,53 @@ function literalHttpFailureMessage(statement: ts.ReturnStatement): string | null
   return expression && ts.isCallExpression(expression) ? literalErrorProperty(expression.arguments[0]) : null;
 }
 
+function addWrappedResponseOutcomes(fragment: SemanticFragment, entry: SourceEntry, statement: ts.ReturnStatement, wrapper: ResolvedResponseWrapper,
+  endpointId: string, featureId: string, nodeIds: string[], edgeIds: string[], confidence: "proven" | "indicated"): void {
+  const callerEvidence = nodeRange(entry, statement, "context");
+  const evidence = [callerEvidence, wrapper.helperEvidence].sort((left, right) => left.startByte - right.startByte);
+  const failureMessage = literalHttpFailureMessage(statement);
+  for (const status of wrapper.statuses.statuses) {
+    const outcomeConfidence = wrapper.statuses.conditional ? "indicated" : confidence;
+    const statusLabel = status === 202
+      ? "Permintaan diterima (202)"
+      : status >= 400
+        ? "Permintaan ditolak (" + status + ")"
+        : "Respons selesai (" + status + ")";
+    const label = status >= 400 && failureMessage
+      ? statusLabel + " " + humanLabel(failureMessage)
+      : statusLabel;
+    const outcomeReason = status === 202
+      ? wrapper.reason + " Status 202 menunjukkan permintaan diterima, bukan bahwa hasil atau unduhan telah selesai."
+      : wrapper.reason;
+    const outcome = semanticNode({
+      kind: "outcome",
+      filePath: entry.path,
+      startByte: callerEvidence.startByte,
+      key: "wrapped-response:" + endpointId + ":" + callerEvidence.startByte + ":" + status,
+      label,
+      featureId,
+      confidence: outcomeConfidence,
+      reason: outcomeReason,
+      evidence,
+    });
+    fragment.nodes.push(outcome);
+    nodeIds.push(outcome.id);
+    const edge = makeEdge("wrapped-endpoint-response", endpointId, outcome.id, "menghasilkan", outcomeConfidence, outcomeReason, callerEvidence);
+    edge.evidence = evidence;
+    fragment.edges.push(edge);
+    edgeIds.push(edge.id);
+    addFeatureMembers(fragment, featureId, [outcome.id], [edge.id], evidence);
+  }
+}
+
+function unverifiedResponseWrapperName(entry: SourceEntry, statement: ts.ReturnStatement): string | null {
+  const expression = statement.expression && unwrap(statement.expression);
+  if (!expression || !ts.isCallExpression(expression) || !ts.isIdentifier(unwrap(expression.expression))) return null;
+  const hasLiteralStatusArgument = expression.arguments.slice(1).some(argument =>
+    literalStatusBranches(argument, entry.file) !== null);
+  return hasLiteralStatusArgument ? (unwrap(expression.expression) as ts.Identifier).text : null;
+}
+
 function addResponseOutcome(fragment: SemanticFragment, entry: SourceEntry, handler: ts.FunctionLikeDeclaration, endpointId: string, featureId: string, nodeIds: string[], edgeIds: string[], confidence: "proven" | "indicated"): void {
   if (!handler.body) return;
   visitHandlerFlow(handler.body, confidence, (statement, currentConfidence) => {
@@ -2000,7 +2156,17 @@ function addResponseOutcome(fragment: SemanticFragment, entry: SourceEntry, hand
       fragment.edges.push(edge); edgeIds.push(edge.id); addFeatureMembers(fragment, featureId, [outcome.id], [edge.id], [span]);
       return;
     }
+    const wrapper = resolvedResponseWrapper(entry, statement);
+    if (wrapper) {
+      addWrappedResponseOutcomes(fragment, entry, statement, wrapper, endpointId, featureId, nodeIds, edgeIds, currentConfidence);
+      return;
+    }
     if (!isHttpResponseReturn(entry, statement)) {
+      const wrapperName = unverifiedResponseWrapperName(entry, statement);
+      if (wrapperName) fragment.limitations.push({
+        filePath: entry.path,
+        reason: "Return memanggil helper \"" + wrapperName + "\" dengan kandidat status literal, tetapi binding dan hasil Web Response helper tidak dapat diverifikasi; status tidak dinyatakan.",
+      });
       if (responseConstructorName(statement) && /^(?:Response|NextResponse)$/u.test(responseConstructorName(statement)!)) {
         fragment.limitations.push({ filePath: entry.path, reason: `Return memakai nama ${responseConstructorName(statement)}, tetapi binding-nya tidak dapat diverifikasi sebagai Web Response.` });
       }

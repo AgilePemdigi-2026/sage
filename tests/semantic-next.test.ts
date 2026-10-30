@@ -157,6 +157,61 @@ test("transaction callback parameters link real table operations and plain busin
   assert.equal(stores.some(node => node.label === "Loan"), false, "a tx-shaped variable outside $transaction is not a transaction client");
 });
 
+test("verified local response helpers preserve both literal branches of a conditional HTTP status", () => {
+  const result = extractNext(input({
+    "src/app/api/exports/route.ts": [
+      "function respond(value: unknown, status = 200) {",
+      '  return Response.json(value, { status, headers: { "cache-control": "no-store" } });',
+      "}",
+      "export async function POST() {",
+      "  const result = { created: true };",
+      "  return respond({ queued: true }, result.created ? 202 : 200);",
+      "}",
+    ].join("\n"),
+  }));
+  const outcomes = result.nodes.filter(node => node.kind === "outcome" &&
+    (/^Respons selesai \(200\)$/.test(node.label) || /^Permintaan diterima \(202\)$/.test(node.label)));
+  assert.deepEqual(outcomes.map(node => node.label).sort(), ["Permintaan diterima (202)", "Respons selesai (200)"]);
+  assert.ok(outcomes.every(node => node.confidence === "indicated"));
+  assert.ok(outcomes.every(node => /result\.created/.test(node.reason)));
+  assert.ok(outcomes.every(node =>
+    node.evidence.some(span => span.startLine === 2) &&
+    node.evidence.some(span => span.startLine === 6)));
+  const outcomeIds = new Set(outcomes.map(node => node.id));
+  const responseEdges = result.edges.filter(edge => outcomeIds.has(edge.target));
+  assert.equal(responseEdges.length, 2);
+  assert.ok(responseEdges.every(edge =>
+    edge.evidence.some(span => span.startLine === 2) &&
+    edge.evidence.some(span => span.startLine === 6)));
+});
+
+test("a shadowed helper named json is not treated as a verified HTTP response wrapper", () => {
+  const result = extractNext(input({
+    "src/app/api/export/route.ts": [
+      "function json(value: unknown, status: number) { return Response.json(value, { status }); }",
+      "export async function POST() {",
+      "  const json = (value: unknown, status: number) => ({ value, status });",
+      "  return json({ queued: true }, 202);",
+      "}",
+    ].join("\n"),
+  }));
+  assert.equal(result.nodes.some(node => node.kind === "outcome" && /202/.test(node.label)), false);
+  assert.ok(result.limitations.some(item =>
+    item.filePath === "src/app/api/export/route.ts" && /binding dan hasil Web Response helper tidak dapat diverifikasi/.test(item.reason)));
+});
+
+test("an imported json-like wrapper with literal status is not inferred without its implementation", () => {
+  const result = extractNext(input({
+    "src/app/api/export/route.ts": [
+      'import { json } from "unknown-response-package";',
+      "export async function POST() { return json({ queued: true }, 202); }",
+    ].join("\n"),
+  }));
+  assert.equal(result.nodes.some(node => node.kind === "outcome" && /202/.test(node.label)), false);
+  assert.ok(result.limitations.some(item =>
+    item.filePath === "src/app/api/export/route.ts" && /memanggil helper "json"/.test(item.reason)));
+});
+
 test("pinned SAGE submission and export adapters resolve their static factory handlers and stage concepts", () => {
   const result = extractNext(input(pinnedSageSources([
     "apps/web/app/api/analyses/route.ts",
@@ -178,12 +233,22 @@ test("pinned SAGE submission and export adapters resolve their static factory ha
   const submissionAuth = result.nodes.find(node => node.kind === "decision" && node.evidence.some(span => span.filePath === "apps/web/lib/github/submission-handlers.ts" && span.startLine === 24));
   const exportStep = result.nodes.find(node => node.kind === "step" && node.label === "POST /api/analyses/:analysisId/exports");
   const exportHandlers = result.nodes.filter(node => node.kind === "component" && node.evidence.some(span => span.filePath === "apps/web/lib/exports/handlers.ts"));
+  const exportResponses = result.nodes.filter(node =>
+    node.kind === "outcome" &&
+    (/^Respons selesai \(200\)$/.test(node.label) || /^Permintaan diterima \(202\)$/.test(node.label)) &&
+    node.evidence.some(span => span.filePath === "apps/web/lib/exports/handlers.ts" && span.startLine <= 121 && span.endLine >= 121));
   assert.ok(submission && submissionAuth);
   assert.equal(submission.confidence, "proven");
   assert.ok(exportStep);
   assert.equal(exportStep.featureId, result.features.find(feature => feature.label === "Exports")?.id);
   assert.deepEqual(exportHandlers.map(node => node.label).sort(), ["Download API", "Get API", "Post API", "Retry API"].sort());
   assert.ok(exportHandlers.every(node => node.confidence === "proven"));
+  assert.deepEqual(exportResponses.map(node => node.label).sort(), ["Permintaan diterima (202)", "Respons selesai (200)"]);
+  assert.ok(exportResponses.every(node => node.confidence === "indicated"));
+  assert.ok(exportResponses.every(node => node.evidence.some(span => span.startLine <= 30 && span.endLine >= 30)));
+  const acceptedResponse = exportResponses.find(node => node.label === "Permintaan diterima (202)");
+  assert.ok(acceptedResponse);
+  assert.match(acceptedResponse.reason, /bukan bahwa hasil atau unduhan telah selesai/);
   assert.ok(result.limitations.some(item => item.filePath === "apps/web/lib/exports/handlers.ts" && /dependency injeksi/iu.test(item.reason)));
   assert.ok(result.nodes.some(node => node.kind === "concept" && node.label === "Analysis stage" && node.evidence.some(span => span.filePath === "packages/contracts/src/stages.ts")));
   assert.equal(result.edges.filter(edge => edge.label.startsWith("mencakup tahap") && edge.evidence.some(span => span.filePath === "packages/contracts/src/stages.ts")).length, 9);
