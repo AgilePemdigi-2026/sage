@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
-import { readdirSync, readFileSync } from "node:fs";
-import { join, relative } from "node:path";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { SCHEMA_VERSION, type CcmNode, type CcmV1 } from "@sage/contracts";
@@ -24,16 +25,35 @@ function fixture(overrides: Record<string, string>): SemanticInput {
 }
 
 function pinnedEmosyncSources(): Record<string, string> {
-  const root = fileURLToPath(new URL("../artifacts/semantic/corpora/emosync-backend/", import.meta.url));
-  const sources: Record<string, string> = {};
-  const visit = (directory: string) => {
-    for (const entry of readdirSync(directory, { withFileTypes: true })) {
-      const absolute = join(directory, entry.name);
-      if (entry.isDirectory()) visit(absolute);
-      else if (entry.isFile() && entry.name.endsWith(".php")) sources[relative(root, absolute).replaceAll("\\", "/")] = readFileSync(absolute, "utf8");
-    }
+  const root = fileURLToPath(new URL("./fixtures/semantic/emosync-pinned/", import.meta.url));
+  const manifest = JSON.parse(readFileSync(join(root, "manifest.json"), "utf8")) as {
+    schemaVersion: number;
+    repository: string;
+    commit: string;
+    oraclePath: string;
+    files: Array<{ path: string; sha256: string; sizeBytes: number }>;
   };
-  visit(root);
+  const oracle = JSON.parse(readFileSync(new URL("../docs/evidence/semantic/oracle.json", import.meta.url), "utf8")) as {
+    snapshots: Array<{ repository: string; commit: string }>;
+  };
+  const pinnedSnapshot = oracle.snapshots.find(snapshot => snapshot.repository === manifest.repository);
+  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.oraclePath, "docs/evidence/semantic/oracle.json");
+  assert.ok(pinnedSnapshot, "the Emosync fixture must refer to a snapshot in the pinned semantic oracle");
+  assert.equal(manifest.commit, pinnedSnapshot.commit);
+  assert.equal(manifest.repository, "iltizamhasan3/emosync-backend");
+  assert.equal(manifest.files.length, 80, "the frozen fixture contains the regular PHP source set only");
+  assert.equal(new Set(manifest.files.map(file => file.path)).size, manifest.files.length, "fixture manifest paths must be unique");
+  assert.deepEqual(manifest.files.map(file => file.path), manifest.files.map(file => file.path).sort());
+  const sources: Record<string, string> = {};
+  for (const file of manifest.files) {
+    assert.ok(file.path.endsWith(".php") && !file.path.startsWith("/") && !file.path.split("/").includes(".."),
+      "fixture paths must be regular PHP files inside the fixture directory");
+    const bytes = readFileSync(join(root, file.path));
+    assert.equal(bytes.byteLength, file.sizeBytes, "fixture size changed: " + file.path);
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), file.sha256, "fixture hash changed: " + file.path);
+    sources[file.path] = bytes.toString("utf8");
+  }
   return sources;
 }
 

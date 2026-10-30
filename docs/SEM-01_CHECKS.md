@@ -29,7 +29,7 @@ Harness Playwright membuat salinan aplikasi sementara. Browser memakai alias kon
 
 ## Pengukuran resource dan kegagalan
 
-Container lokal Colima Linux ARM64: 2 GiB RAM, 1,5 CPU, tanpa jaringan; batas resource aplikasi tidak dinaikkan. Analisis dan ekspor memakai proses/container terpisah. Pengukuran source yang sudah selesai digunakan ulang secara eksplisit untuk rerun renderer pada hash model yang sama; bukan analisis ulang tersembunyi. RSS proses berbeda dari charged memory cgroup. [Laporan lengkap](evidence/semantic/resource-report.json) mempertahankan keduanya.
+Pengukuran menggunakan image QA yang dicatat pada laporan dan overlay source dari checkout yang dependency lokalnya tersedia. Runner kemudian diperbaiki agar default clean-build memakai kode/dependency image, serta overlay development hanya memasang direktori source dan tidak menutupi vendor/generated. Container lokal Colima Linux ARM64: 2 GiB RAM, 1,5 CPU, tanpa jaringan; batas resource aplikasi tidak dinaikkan. Analisis dan ekspor memakai proses/container terpisah. Pengukuran source yang sudah selesai digunakan ulang secara eksplisit untuk rerun renderer pada hash model yang sama; bukan analisis ulang tersembunyi. RSS proses berbeda dari charged memory cgroup. [Laporan lengkap](evidence/semantic/resource-report.json) mempertahankan keduanya.
 
 | Snapshot | Source analyzer | Semantik | Ukuran model | Markdown | PDF |
 | --- | ---: | ---: | ---: | ---: | ---: |
@@ -37,7 +37,7 @@ Container lokal Colima Linux ARM64: 2 GiB RAM, 1,5 CPU, tanpa jaringan; batas re
 | SAGE `c2dc3d8` | 89,24 s | 1,07 s | 291.947 B | Gagal sebelum artefak lengkap | Gagal sebelum artefak lengkap |
 | Emosync `a229926` | 4,41 s | 0,22 s | 381.430 B | 4.815.631 B | 385.207 B, lulus |
 
-**Batas yang belum terselesaikan:** proses ekspor lengkap SAGE berhenti dengan V8 heap limit (exit 134) pada proyeksi/register dokumen teknis besar. Source/model semantiknya lulus, tetapi ekspor lengkapnya tidak lulus. Peak memori proses yang abort tidak tersedia dan tidak diisi angka perkiraan. Percobaan awal juga gagal; [catatan awal](evidence/semantic/initial-resource-failure.json) tetap disimpan. Salinan proyeksi yang berulang serta overflow argument Markdown sudah dikurangi/diperbaiki, tanpa menaikkan batas heap, RAM, ukuran PDF atau artefak. Ini belum memenuhi penerimaan ekspor untuk corpus SAGE besar dan bukan bukti kesiapan deployment.
+**Batas yang belum terselesaikan:** proses ekspor lengkap SAGE berhenti dengan V8 heap limit (exit 134) saat merender register Markdown teknis besar (log terakhir telah melewati proyeksi dokumen). Publikasi pipeline SAGE penuh belum diuji pada run ini; keberhasilan source/model tidak membuktikannya. Source/model semantiknya lulus, tetapi ekspor lengkapnya tidak lulus. Peak memori proses yang abort tidak tersedia dan tidak diisi angka perkiraan. Percobaan awal juga gagal; [catatan awal](evidence/semantic/initial-resource-failure.json) tetap disimpan. Salinan proyeksi yang berulang serta overflow argument Markdown sudah dikurangi/diperbaiki, tanpa menaikkan batas heap, RAM, ukuran PDF atau artefak. Ini belum memenuhi penerimaan ekspor untuk corpus SAGE besar dan bukan bukti kesiapan deployment.
 
 Alur Books Perpus masih padat: cabang source yang tidak sepenuhnya terverifikasi tetap indikasi. Label inline disembunyikan pada alur padat; judul relasi, alasan dan evidence tersedia pada panel. Model adalah penjelasan hubungan statis dengan batas yang dicatat, bukan jaminan seluruh kontrol alur runtime atau seluruh framework PHP.
 

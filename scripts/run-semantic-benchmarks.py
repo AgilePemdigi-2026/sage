@@ -12,6 +12,7 @@ parser.add_argument("output", type=Path)
 parser.add_argument("--image", required=True, help="Locally built QA image with Node/PHP/Chromium and workspace dependencies")
 parser.add_argument("--context", default="colima-sage")
 parser.add_argument("--render", action="store_true")
+parser.add_argument("--source-overlay", action="store_true", help="Development-only source overlays; preserve image vendor/generated dependencies")
 parser.add_argument("--reuse-core-from", type=Path, help="Reuse explicitly identified successful source measurements for a renderer-only rerun")
 args = parser.parse_args()
 root = Path(__file__).resolve().parent.parent
@@ -31,8 +32,13 @@ for fixture in oracle["snapshots"]:
     command = ["docker", "--context", args.context, "run", "--rm", "--name", name,
                "--network", "none", "--memory=2g", "--cpus=1.5", "--pids-limit=256",
                "--shm-size=128m", "--read-only", "--tmpfs", "/tmp:rw,size=536870912", "--entrypoint", "sh"]
-    for folder in ("packages", "apps", "scripts"):
-        command += ["-v", str(root / folder) + ":/app/" + folder + ":ro"]
+    if args.source_overlay:
+        # Never hide Composer vendor, generated Prisma clients or image dependencies.
+        for folder in ("packages/contracts/src", "packages/analyzer-js/src", "packages/documents/src",
+                       "packages/database/src", "packages/analyzer-php/bin", "packages/analyzer-php/src",
+                       "apps/worker/src", "scripts"):
+            if (root / folder).is_dir():
+                command += ["-v", str(root / folder) + ":/app/" + folder + ":ro"]
     command += ["-v", str(source) + ":/corpus:ro", "-v", str(output) + ":/results", args.image,
                 "-c", "node --import tsx scripts/benchmark-semantic.ts /corpus /results"]
     log_path = output / (slug + ".log")
