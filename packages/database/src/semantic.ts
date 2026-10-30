@@ -150,6 +150,20 @@ export async function appendPresentationRevision(db: PrismaClient, input: { owne
   if (!Number.isSafeInteger(input.expectedRevision) || input.expectedRevision < 0) throw new Error("Revision is invalid.");
   try {
     return await db.$transaction(async tx => {
+      // Match enqueueExport's Analysis -> SemanticModel lock order. The status,
+      // deletion flag, and document existence are checked while Analysis is locked.
+      const published = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT analysis."id" /* semantic-revision-analysis-lock */
+        FROM "Analysis" AS analysis
+        WHERE analysis."id" = ${input.analysisId} AND analysis."ownerUserId" = ${input.ownerUserId}
+          AND analysis."deletionRequestedAt" IS NULL
+          AND analysis."status"::text IN ('COMPLETED', 'COMPLETED_WITH_LIMITATIONS')
+          AND EXISTS (
+            SELECT 1 FROM "ArchitectureDocument" AS document
+            WHERE document."analysisId" = analysis."id" AND document."ownerUserId" = analysis."ownerUserId"
+          )
+        FOR UPDATE OF analysis`;
+      if (!published.length) throw new SemanticAnalysisNotFoundError();
       const locked = await tx.$queryRaw<Array<{ id: string }>>`SELECT "id" FROM "SemanticModel" WHERE "analysisId" = ${input.analysisId} AND "ownerUserId" = ${input.ownerUserId} FOR UPDATE`;
       if (!locked.length) throw new SemanticAnalysisNotFoundError();
       const stored = await readStoredSemantic(tx, input.ownerUserId, input.analysisId);

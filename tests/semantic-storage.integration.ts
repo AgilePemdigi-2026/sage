@@ -20,6 +20,19 @@ const enabled = process.env.SAGE_SEMANTIC_STORAGE_TESTS === "1";
 const sourceFileHash = "a".repeat(64);
 const fixtureEvidence = [{ filePath: "src/index.ts", fileSha256: sourceFileHash, startByte: 0, endByte: 1, startLine: 1, endLine: 1, startColumn: 1, endColumn: 2, role: "context" as const }];
 
+async function waitForBlockedQuery(db: ReturnType<typeof database>, matches: (query: string) => boolean, description: string): Promise<string> {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const rows = await db.$queryRaw<Array<{ query: string }>>`
+      SELECT query FROM pg_stat_activity
+      WHERE datname = current_database() AND pid <> pg_backend_pid() AND wait_event_type = 'Lock'`;
+    const blocked = rows.find(row => matches(row.query));
+    if (blocked) return blocked.query;
+    await new Promise<void>(resolve => setTimeout(resolve, 15));
+  }
+  throw new Error(`Timed out waiting for ${description}.`);
+}
+
 function assertIsolatedSemanticDatabase(): void {
   if (!enabled) throw new Error("Set SAGE_SEMANTIC_STORAGE_TESTS=1 to run the isolated semantic-storage integration test.");
   const rawUrl = process.env.DATABASE_URL;
@@ -50,7 +63,7 @@ function createModel(sourceCkgHash: string, snapshot: SemanticModel["snapshot"])
   };
 }
 
-test("semantic DB revisions serialize concurrent edits and keep exports pinned to immutable history", { skip: !enabled }, async () => {
+test("semantic DB revisions serialize edits and exports without lock-order deadlocks", { skip: !enabled }, async () => {
   assertIsolatedSemanticDatabase();
   const db = database();
   const suffix = randomUUID().replaceAll("-", "");
@@ -231,6 +244,67 @@ test("semantic DB revisions serialize concurrent edits and keep exports pinned t
       expectedRevision: 2,
       overlay: { labels: { "missing-node": "Unknown" }, groups: {} },
     }));
+
+    // Hold Analysis first, queue export's Analysis lock, then start a correction.
+    // This forces both operations through the lock-order boundary at the same time.
+    let releaseAnalysis!: () => void;
+    let acquiredAnalysis!: () => void;
+    const analysisAcquired = new Promise<void>(resolve => { acquiredAnalysis = resolve; });
+    const releaseBarrier = new Promise<void>(resolve => { releaseAnalysis = resolve; });
+    const holder = db.$transaction(async tx => {
+      const rows = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT "id" FROM "Analysis" WHERE "id" = ${analysisId} AND "ownerUserId" = ${ownerId} FOR UPDATE`;
+      assert.equal(rows.length, 1);
+      acquiredAnalysis();
+      await releaseBarrier;
+    });
+    let exportRequest: ReturnType<typeof enqueueExport> | undefined;
+    let correctionRequest: ReturnType<typeof appendPresentationRevision> | undefined;
+    try {
+      await analysisAcquired;
+      exportRequest = enqueueExport(db, {
+        ownerUserId: ownerId,
+        analysisId,
+        format: "MARKDOWN",
+        documentHash,
+        rendererVersion: semanticRendererVersion("integration-v1", firstPersist.modelHash, 2),
+        semanticModelHash: firstPersist.modelHash,
+        presentationRevision: 2,
+      });
+      await waitForBlockedQuery(db, query => query.includes('JOIN "ArchitectureDocument" AS document'), "export to queue on the analysis lock");
+      correctionRequest = appendPresentationRevision(db, {
+        ownerUserId: ownerId,
+        analysisId,
+        expectedRevision: 2,
+        overlay: { labels: { "concept-1": "Repository model concurrent" }, groups: { "concept-1": "feature-1" } },
+      });
+      const correctionLockWait = await waitForBlockedQuery(db,
+        query => query.includes("semantic-revision-analysis-lock") || query.includes('INSERT INTO "PresentationRevision"'),
+        "correction to queue before taking the semantic-model lock");
+      releaseAnalysis();
+      await holder;
+      const [exportResult, correctionResult] = await Promise.allSettled([exportRequest, correctionRequest]);
+      assert.equal(correctionLockWait.includes("semantic-revision-analysis-lock"), true,
+        "correction must wait on Analysis before it can lock SemanticModel or insert a revision");
+      assert.equal(correctionResult.status, "fulfilled", "correction must finish without a lock-order deadlock");
+      if (exportResult.status === "fulfilled") {
+        assert.equal(exportResult.value.created, true);
+        const concurrentExport = await db.export.findUniqueOrThrow({ where: { id: exportResult.value.export.id } });
+        assert.equal(concurrentExport.semanticModelHash, firstPersist.modelHash);
+        assert.equal(concurrentExport.presentationRevision, 2);
+      } else {
+        assert.ok(exportResult.reason instanceof ExportDocumentChangedError,
+          "an export that loses the race may only be rejected as a stale pin");
+      }
+      const afterConcurrentOperations = await readSemanticForUser(db, ownerId, analysisId);
+      assert.equal(afterConcurrentOperations?.revision, 3);
+    } finally {
+      releaseAnalysis();
+      await holder.catch(() => undefined);
+      if (exportRequest && correctionRequest) await Promise.allSettled([exportRequest, correctionRequest]);
+      else if (exportRequest) await Promise.allSettled([exportRequest]);
+      else if (correctionRequest) await Promise.allSettled([correctionRequest]);
+    }
   } finally {
     if (ownerId && analysisId) {
       await db.job.deleteMany({ where: { ownerUserId: ownerId, analysisId } });
