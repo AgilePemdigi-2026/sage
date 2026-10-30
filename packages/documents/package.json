@@ -7,11 +7,15 @@
     ".": "./src/index.ts",
     "./model": "./src/architecture-document.ts",
     "./human": "./src/human-diagrams.ts",
-    "./overview": "./src/overview.ts"
+    "./overview": "./src/overview.ts",
+    "./semantic": "./src/semantic/build.ts",
+    "./semantic/model": "./src/semantic/model.ts",
+    "./semantic/validation": "./src/semantic/validation.ts"
   },
   "dependencies": {
     "mermaid": "12.2.0",
     "playwright": "1.64.1",
-    "@sage/contracts": "0.1.0"
+    "@sage/contracts": "0.1.0",
+    "typescript": "5.9.3"
   }
 }
