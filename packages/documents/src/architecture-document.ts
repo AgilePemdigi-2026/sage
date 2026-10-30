@@ -104,10 +104,10 @@ function projectInterfaceCatalog(nodes: readonly CcmNode[], edges: readonly CcmE
     const evidence = [
       ...(declaration.location === null ? [] : [declaration.location]),
       ...incident.flatMap(edge => edge.evidence),
-    ].map(span => copyJson(span)).sort(compareEvidence);
+    ].sort(compareEvidence);
 
     return {
-      declaration: copyJson(declaration),
+      declaration,
       nodeIds: [...associatedNodeIds].sort(compareStrings),
       edgeIds: incident.map(edge => edge.id),
       evidence,
@@ -118,7 +118,7 @@ function projectInterfaceCatalog(nodes: readonly CcmNode[], edges: readonly CcmE
   return {
     scope: CATALOG_SCOPE,
     entries,
-    relations: [...edges].sort((left, right) => compareStrings(left.id, right.id)).map(edge => copyJson(edge)),
+    relations: [...edges].sort((left, right) => compareStrings(left.id, right.id)),
   };
 }
 
