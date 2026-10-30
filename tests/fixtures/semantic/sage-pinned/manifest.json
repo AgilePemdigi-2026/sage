@@ -1,0 +1,78 @@
+{
+  "schemaVersion": 1,
+  "repository": "AgilePemdigi-2026/sage",
+  "commit": "c2dc3d84b220c572fb5b2ce85dd3605e89b11a73",
+  "oraclePath": "docs/evidence/semantic/oracle.json",
+  "files": [
+    {
+      "path": "apps/web/app/api/analyses/[analysisId]/exports/[exportId]/download/route.ts",
+      "sha256": "a2819713ba43b97f7dc7671d4da62a9196f7a6ee89c08a2ec21e7df66b49cfb1",
+      "sizeBytes": 403
+    },
+    {
+      "path": "apps/web/app/api/analyses/[analysisId]/exports/[exportId]/retry/route.ts",
+      "sha256": "5a9af4f5129a2653922faff1e0f5cd2a11be1781c704f956a097be025b0184b3",
+      "sizeBytes": 401
+    },
+    {
+      "path": "apps/web/app/api/analyses/[analysisId]/exports/[exportId]/route.ts",
+      "sha256": "80efda9576576446770fb8ade6f31417c27a71dc5e61c2133d26db6507cfa371",
+      "sizeBytes": 395
+    },
+    {
+      "path": "apps/web/app/api/analyses/[analysisId]/exports/route.ts",
+      "sha256": "fae72e82e27787ba74f14cc9b563fe1280158ff57410073af2b57bde942f0189",
+      "sizeBytes": 332
+    },
+    {
+      "path": "apps/web/app/api/analyses/route.ts",
+      "sha256": "55dacacdba875aff41184e0db76b13976e9902a5954ebcfb99938aca4102405c",
+      "sizeBytes": 1678
+    },
+    {
+      "path": "apps/web/lib/exports/handlers.ts",
+      "sha256": "ef098619ee14928a57dbaa29965c118e2b9185f71fd69995e7a9e83f333b2b12",
+      "sizeBytes": 10470
+    },
+    {
+      "path": "apps/web/lib/exports/server-handlers.ts",
+      "sha256": "1acf9b2c0035af778d0044afdb2555cee07aad0050cfc061bb062f7ba10bd12e",
+      "sizeBytes": 1142
+    },
+    {
+      "path": "apps/web/lib/github/submission-handlers.ts",
+      "sha256": "ef212473ede0ba128c496075aa6ab37de3f84d9ef01ca4af8b0c4ee8bed93447",
+      "sizeBytes": 4361
+    },
+    {
+      "path": "apps/web/lib/graphs/reader.ts",
+      "sha256": "98dbea18cb28e2ad8f3a5b3d399743ad53d3d2a62c32dc5e141327b117e78267",
+      "sizeBytes": 10237
+    },
+    {
+      "path": "packages/contracts/src/stages.ts",
+      "sha256": "45cd5018e3f993a5e1a5f54c9391de35fb7530c7766bd2fdc7d6a677dba85237",
+      "sizeBytes": 1756
+    },
+    {
+      "path": "scripts/benchmark-repository.ts",
+      "sha256": "d1b4e65b9dd1e72d835e981fbab564586f7048eeeb05f59db835fe41f2fd91b1",
+      "sizeBytes": 13066
+    },
+    {
+      "path": "scripts/benchmark-resource-workload.ts",
+      "sha256": "423579411b8ff91ea696edd5f73c4fb7889d2b78eefa3bbdddf754e9ce8566e5",
+      "sizeBytes": 12051
+    },
+    {
+      "path": "scripts/verify-fixtures.ts",
+      "sha256": "a10dd4b0e108f7986dc1694ae997ac1e652228fa935dc89ed52a3b4af0eb995e",
+      "sizeBytes": 13330
+    },
+    {
+      "path": "scripts/verify-resolver-oracles.ts",
+      "sha256": "f973ce7a8c6c47295fd6e3b6072d99e5ad281f55a25d6f887d8a7906eb593fe2",
+      "sizeBytes": 14262
+    }
+  ]
+}

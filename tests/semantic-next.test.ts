@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
@@ -22,8 +23,35 @@ function input(sources: Record<string, string>) {
 }
 
 function pinnedSageSources(paths: string[]): Record<string, string> {
-  const root = fileURLToPath(new URL("../artifacts/semantic/corpora/sage/", import.meta.url));
-  return Object.fromEntries(paths.map(path => [path, readFileSync(join(root, path), "utf8")]));
+  const fixtureRoot = fileURLToPath(new URL("./fixtures/semantic/sage-pinned/", import.meta.url));
+  const manifest = JSON.parse(readFileSync(join(fixtureRoot, "manifest.json"), "utf8")) as {
+    schemaVersion: number;
+    repository: string;
+    commit: string;
+    oraclePath: string;
+    files: Array<{ path: string; sha256: string; sizeBytes: number }>;
+  };
+  const oracle = JSON.parse(readFileSync(new URL("../docs/evidence/semantic/oracle.json", import.meta.url), "utf8")) as {
+    snapshots: Array<{ repository: string; commit: string }>;
+  };
+  const pinnedSnapshot = oracle.snapshots.find(snapshot => snapshot.repository === manifest.repository);
+  assert.equal(manifest.schemaVersion, 1);
+  assert.equal(manifest.oraclePath, "docs/evidence/semantic/oracle.json");
+  assert.ok(pinnedSnapshot, "the SAGE fixture must refer to a snapshot in the pinned semantic oracle");
+  assert.equal(manifest.commit, pinnedSnapshot.commit);
+  assert.equal(manifest.repository, "AgilePemdigi-2026/sage");
+  assert.equal(manifest.files.length, paths.length);
+  assert.deepEqual(manifest.files.map(file => file.path), [...paths].sort());
+  const fileByPath = new Map(manifest.files.map(file => [file.path, file]));
+  return Object.fromEntries(paths.map(path => {
+    assert.ok(!path.startsWith("/") && !path.split("/").includes(".."), "fixture paths must stay within the fixture directory");
+    const bytes = readFileSync(join(fixtureRoot, path));
+    const file = fileByPath.get(path);
+    assert.ok(file, "fixture manifest is missing " + path);
+    assert.equal(bytes.byteLength, file.sizeBytes, "fixture size changed: " + path);
+    assert.equal(createHash("sha256").update(bytes).digest("hex"), file.sha256, "fixture hash changed: " + path);
+    return [path, bytes.toString("utf8")];
+  }));
 }
 
 test("Next.js form and nested UI callback connect only a literal HTTP action to a matching app route", () => {

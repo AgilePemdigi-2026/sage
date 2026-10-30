@@ -27,13 +27,14 @@ COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/analyzer-php/package.json packages/analyzer-php/package.json
 COPY packages/documents/package.json packages/documents/package.json
 RUN npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache /root/.npm
-COPY tsconfig.json eslint.config.mjs cucumber.mjs ./
+COPY tsconfig.json eslint.config.mjs cucumber.mjs cucumber-semantic.mjs ./
 COPY apps ./apps
 COPY packages ./packages
 COPY scripts ./scripts
 COPY tests ./tests
 COPY config ./config
 COPY docs/evidence/corpora ./docs/evidence/corpora
+COPY docs/evidence/semantic/oracle.json ./docs/evidence/semantic/oracle.json
 RUN composer install --working-dir=packages/analyzer-php --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist && composer clear-cache
 RUN npm run db:generate && npm run check && npm run build
 
