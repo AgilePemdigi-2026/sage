@@ -6,9 +6,12 @@ import { compactEvidence, emptyFragment, ensureFeatureNode, evidenceSpan, exclud
 type SourceEntry = { path: string; bytes: Uint8Array; text: string; file: ts.SourceFile };
 type ApiRoute = { path: string; method: string; entry: SourceEntry; declaration: ts.Node; handlerEntry: SourceEntry; handler: ts.FunctionLikeDeclaration | null; handlerConfidence: "proven" | "indicated"; featureId: string; featureLabel: string; stepId: string; componentId: string };
 type StaticRequest = { method: string; path: string; node: ts.Node; confidence: "proven" | "indicated" };
-type StaticNavigation = { path: string; node: ts.Node; confidence: "proven" | "indicated" };
+type PageLoadRequest = { request: StaticRequest; reason: string; evidenceNodes: ts.Node[] };
+type TransactionCallback = { handler: ts.FunctionLikeDeclaration; parameter: ts.ParameterDeclaration; call: ts.CallExpression };
+type StaticNavigation = { path: string; node: ts.Node; confidence: "proven" | "indicated"; reason: string };
 type EndpointExport = { method: string; handler: ts.FunctionLikeDeclaration | null; declaration: ts.Node; confidence: "proven" | "indicated"; handlerLabel: string };
 type SemanticFlowScope = { entry: SourceEntry; handler: ts.FunctionLikeDeclaration; featureId: string; confidence: "proven" | "indicated" };
+type DelegateResolution = { entry: SourceEntry; handler: ts.FunctionLikeDeclaration } | { unresolved: true };
 const semanticApiPrefix = /^\/(?:api\/)?/u;
 
 function scriptKind(path: string): ts.ScriptKind | null {
@@ -154,20 +157,41 @@ function unwrap(node: ts.Expression): ts.Expression {
   return node;
 }
 
-function responseStatus(node: ts.Node): number | null {
+function responseConstructorName(statement: ts.ReturnStatement): string | null {
+  const response = statement.expression && unwrap(statement.expression);
+  if (!response) return null;
+  if (ts.isNewExpression(response) && ts.isIdentifier(unwrap(response.expression))) return (unwrap(response.expression) as ts.Identifier).text;
+  if (!ts.isCallExpression(response) || !ts.isPropertyAccessExpression(unwrap(response.expression))) return null;
+  const receiver = (unwrap(response.expression) as ts.PropertyAccessExpression).expression;
+  return ts.isIdentifier(receiver) ? receiver.text : null;
+}
+
+function isHttpResponseConstructor(entry: SourceEntry, statement: ts.ReturnStatement, name: string): boolean {
+  if (name === "Response") return !visibleBindingNames(entry, statement).has(name);
+  if (name !== "NextResponse") return false;
+  const scopes = lexicalScopes(entry, statement);
+  if (scopes.slice(1).some(scope => directlyDeclaredBindings(scope).has(name))) return false;
+  const topLevelNames = directlyDeclaredBindings(entry.file);
+  const imports = importedNames(entry.file);
+  if (topLevelNames.has(name) && !imports.has(name)) return false;
+  return importedFrom(entry, name, "NextResponse", ["next/server"]);
+}
+
+function responseStatus(entry: SourceEntry, node: ts.Node): number | null {
   const inspect = (statement: ts.ReturnStatement): number | null => {
     const response = statement.expression;
-    if (!response) return null;
+    const responseName = responseConstructorName(statement);
+    if (!response || !responseName || !isHttpResponseReturn(entry, statement)) return null;
     let options: ts.Expression | undefined;
     if (ts.isCallExpression(response)) {
       const callee = unwrap(response.expression);
-      const method = ts.isPropertyAccessExpression(callee) && /(?:^|\.)(?:Next)?Response$/u.test(callee.expression.getText()) ? callee.name.text : null;
+      const method = ts.isPropertyAccessExpression(callee) && ts.isIdentifier(callee.expression) && callee.expression.text === responseName ? callee.name.text : null;
       if (method === "redirect" && response.arguments[1] && ts.isNumericLiteral(response.arguments[1])) {
         const status = Number(response.arguments[1].text);
         return status >= 100 && status <= 599 ? status : null;
       }
       if (method === "json" || method === "redirect") options = response.arguments[1];
-    } else if (ts.isNewExpression(response) && /^(?:Next)?Response$/u.test(response.expression.getText())) options = response.arguments?.[1];
+    } else if (ts.isNewExpression(response) && ts.isIdentifier(response.expression) && response.expression.text === responseName) options = response.arguments?.[1];
     if (!options || !ts.isObjectLiteralExpression(options)) return null;
     const property = options.properties.find((item): item is ts.PropertyAssignment => ts.isPropertyAssignment(item) && propertyName(item.name) === "status");
     if (!property || !ts.isNumericLiteral(property.initializer)) return null;
@@ -182,15 +206,11 @@ function responseStatus(node: ts.Node): number | null {
   return status;
 }
 
-function containsReturn(node: ts.Node, root = node): boolean {
-  if (ts.isReturnStatement(node)) return true;
-  let result = false;
-  ts.forEachChild(node, child => {
-    if (result) return;
-    if (child !== root && isCallableBoundary(child)) return;
-    result = containsReturn(child, root);
-  });
-  return result;
+function directReturnStatements(node: ts.Statement | undefined): ts.ReturnStatement[] {
+  if (!node) return [];
+  if (ts.isReturnStatement(node)) return [node];
+  if (ts.isBlock(node)) return node.statements.flatMap(statement => directReturnStatements(statement));
+  return [];
 }
 
 function isCallableBoundary(node: ts.Node): boolean {
@@ -222,13 +242,15 @@ function visitHandlerFlow(root: ts.Node, confidence: "proven" | "indicated", vis
   walk(root, confidence);
 }
 
-function isHttpResponseReturn(statement: ts.ReturnStatement): boolean {
+function isHttpResponseReturn(entry: SourceEntry, statement: ts.ReturnStatement): boolean {
   const expression = statement.expression && unwrap(statement.expression);
   if (!expression) return false;
-  if (ts.isNewExpression(expression)) return /^(?:Next)?Response$/u.test(expression.expression.getText());
+  const responseName = responseConstructorName(statement);
+  if (!responseName || !isHttpResponseConstructor(entry, statement, responseName)) return false;
+  if (ts.isNewExpression(expression)) return ts.isIdentifier(expression.expression) && expression.expression.text === responseName;
   if (!ts.isCallExpression(expression) || !ts.isPropertyAccessExpression(unwrap(expression.expression))) return false;
   const callee = unwrap(expression.expression) as ts.PropertyAccessExpression;
-  return /(?:^|\.)(?:Next)?Response$/u.test(callee.expression.getText()) && ["json", "redirect"].includes(callee.name.text);
+  return ts.isIdentifier(callee.expression) && callee.expression.text === responseName && ["json", "redirect"].includes(callee.name.text);
 }
 
 function guardCategory(expression: string): { label: string; reason: string } | null {
@@ -303,22 +325,248 @@ function jsxAttributes(node: ts.JsxElement | ts.JsxSelfClosingElement): ts.JsxAt
   return ts.isJsxElement(node) ? node.openingElement.attributes : node.attributes;
 }
 
-function functionMap(entry: SourceEntry): Map<string, ts.FunctionLikeDeclaration> {
-  const result = new Map<string, ts.FunctionLikeDeclaration>();
+function functionNamesInEntry(entry: SourceEntry): Set<string> {
+  const names = new Set<string>();
   const visit = (node: ts.Node) => {
-    if (ts.isFunctionDeclaration(node) && node.name) result.set(node.name.text, node);
+    if (ts.isFunctionDeclaration(node) && node.name) names.add(node.name.text);
     if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
       const value = unwrap(node.initializer);
-      if (ts.isArrowFunction(value) || ts.isFunctionExpression(value)) result.set(node.name.text, value);
-    }
-    if (ts.isMethodDeclaration(node)) {
-      const name = propertyName(node.name);
-      if (name) result.set(name, node);
+      if (ts.isArrowFunction(value) || ts.isFunctionExpression(value)) names.add(node.name.text);
     }
     ts.forEachChild(node, visit);
   };
   visit(entry.file);
+  return names;
+}
+
+type FunctionScope = ts.SourceFile | ts.FunctionLikeDeclaration | ts.Block | ts.CaseBlock | ts.CatchClause | ts.ForStatement | ts.ForInStatement | ts.ForOfStatement;
+
+function scopeRoot(scope: FunctionScope): ts.Node | undefined {
+  if (ts.isSourceFile(scope) || ts.isBlock(scope) || ts.isCaseBlock(scope) || ts.isCatchClause(scope) || ts.isForStatement(scope) || ts.isForInStatement(scope) || ts.isForOfStatement(scope)) return scope;
+  return scope.body;
+}
+
+function directlyDeclaredFunctions(scope: FunctionScope): Map<string, ts.FunctionLikeDeclaration[]> {
+  const root = scopeRoot(scope);
+  const result = new Map<string, ts.FunctionLikeDeclaration[]>();
+  if (!root) return result;
+  const add = (name: string, fn: ts.FunctionLikeDeclaration) => {
+    const candidates = result.get(name) ?? [];
+    candidates.push(fn);
+    result.set(name, candidates);
+  };
+  const visit = (node: ts.Node) => {
+    if (node !== root && (ts.isBlock(node) || ts.isCaseBlock(node) || ts.isCatchClause(node) || ts.isForStatement(node) || ts.isForInStatement(node) || ts.isForOfStatement(node))) return;
+    if (node !== root && isCallableBoundary(node)) {
+      if (ts.isFunctionDeclaration(node) && node.name) add(node.name.text, node);
+      return;
+    }
+    if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer) {
+      const value = unwrap(node.initializer);
+      if (ts.isArrowFunction(value) || ts.isFunctionExpression(value)) {
+        add(node.name.text, value);
+        return;
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(root);
   return result;
+}
+
+function bindingIdentifiers(name: ts.BindingName): string[] {
+  if (ts.isIdentifier(name)) return [name.text];
+  return name.elements.flatMap(element => ts.isOmittedExpression(element) ? [] : bindingIdentifiers(element.name));
+}
+
+function directlyDeclaredBindings(scope: FunctionScope): Set<string> {
+  const names = new Set<string>();
+  const root = scopeRoot(scope);
+  if (!root) return names;
+  const addImport = (statement: ts.ImportDeclaration) => {
+    const clause = statement.importClause;
+    if (!clause) return;
+    if (clause.name) names.add(clause.name.text);
+    if (clause.namedBindings && ts.isNamespaceImport(clause.namedBindings)) names.add(clause.namedBindings.name.text);
+    if (clause.namedBindings && ts.isNamedImports(clause.namedBindings)) for (const item of clause.namedBindings.elements) names.add(item.name.text);
+  };
+  if (ts.isFunctionLike(scope)) for (const parameter of scope.parameters) for (const name of bindingIdentifiers(parameter.name)) names.add(name);
+  if (ts.isCatchClause(scope) && scope.variableDeclaration) for (const name of bindingIdentifiers(scope.variableDeclaration.name)) names.add(name);
+  const visit = (node: ts.Node) => {
+    if (node !== root && (ts.isBlock(node) || ts.isCaseBlock(node) || ts.isCatchClause(node) || ts.isForStatement(node) || ts.isForInStatement(node) || ts.isForOfStatement(node))) return;
+    if (node !== root && isCallableBoundary(node)) {
+      if (ts.isFunctionDeclaration(node) && node.name) names.add(node.name.text);
+      return;
+    }
+    if (ts.isImportDeclaration(node)) { addImport(node); return; }
+    if (ts.isVariableDeclaration(node)) {
+      for (const name of bindingIdentifiers(node.name)) names.add(name);
+      return;
+    }
+    if ((ts.isClassDeclaration(node) || ts.isEnumDeclaration(node)) && node.name) names.add(node.name.text);
+    ts.forEachChild(node, visit);
+  };
+  visit(root);
+  return names;
+}
+
+function directlyDeclaredVariables(scope: FunctionScope): Map<string, ts.VariableDeclaration[]> {
+  const result = new Map<string, ts.VariableDeclaration[]>();
+  const root = scopeRoot(scope);
+  if (!root) return result;
+  const visit = (node: ts.Node) => {
+    if (node !== root && (ts.isBlock(node) || ts.isCaseBlock(node) || ts.isCatchClause(node) || ts.isForStatement(node) || ts.isForInStatement(node) || ts.isForOfStatement(node))) return;
+    if (node !== root && isCallableBoundary(node)) return;
+    if (ts.isVariableDeclaration(node)) {
+      for (const name of bindingIdentifiers(node.name)) {
+        const declarations = result.get(name) ?? [];
+        declarations.push(node);
+        result.set(name, declarations);
+      }
+      return;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(root);
+  return result;
+}
+
+function lexicalScopes(entry: SourceEntry, referenceNode: ts.Node): FunctionScope[] {
+  const scopes: FunctionScope[] = [entry.file];
+  const ancestors: FunctionScope[] = [];
+  let current: ts.Node | undefined = referenceNode;
+  while (current) {
+    if (isCallableBoundary(current)) ancestors.push(current as ts.FunctionLikeDeclaration);
+    else if (ts.isCaseBlock(current)) ancestors.push(current);
+    else if (ts.isCatchClause(current)) ancestors.push(current);
+    else if (ts.isForStatement(current) || ts.isForInStatement(current) || ts.isForOfStatement(current)) ancestors.push(current);
+    else if (ts.isBlock(current) && !(isCallableBoundary(current.parent) && (current.parent as ts.FunctionLikeDeclaration).body === current)) ancestors.push(current);
+    current = current.parent;
+  }
+  scopes.push(...ancestors.reverse());
+  return scopes;
+}
+
+function visibleBindingNames(entry: SourceEntry, referenceNode: ts.Node): Set<string> {
+  const result = new Set<string>();
+  for (const scope of lexicalScopes(entry, referenceNode)) for (const name of directlyDeclaredBindings(scope)) result.add(name);
+  return result;
+}
+
+function assignedIdentifierTargets(node: ts.Node): ts.Identifier[] {
+  if (ts.isIdentifier(node)) return [node];
+  if (ts.isArrayLiteralExpression(node)) return node.elements.flatMap(element => assignedIdentifierTargets(element));
+  if (ts.isObjectLiteralExpression(node)) return node.properties.flatMap(property => {
+    if (ts.isShorthandPropertyAssignment(property)) return [property.name];
+    if (ts.isPropertyAssignment(property)) return assignedIdentifierTargets(property.initializer);
+    if (ts.isSpreadAssignment(property)) return assignedIdentifierTargets(property.expression);
+    return [];
+  });
+  return [];
+}
+
+function rawFunctionMap(entry: SourceEntry, referenceNode: ts.Node): Map<string, ts.FunctionLikeDeclaration> {
+  const result = new Map<string, ts.FunctionLikeDeclaration>();
+  const blocked = new Set<string>();
+  for (const scope of lexicalScopes(entry, referenceNode)) {
+    const functions = directlyDeclaredFunctions(scope);
+    const bindings = directlyDeclaredBindings(scope);
+    for (const name of bindings) {
+      const candidates = functions.get(name) ?? [];
+      if (candidates.length === 1) {
+        const candidate = candidates[0]!;
+        const declaration = ts.isArrowFunction(candidate) || ts.isFunctionExpression(candidate) ? candidate.parent : null;
+        const immutable = declaration && ts.isVariableDeclaration(declaration) && ts.isVariableDeclarationList(declaration.parent) && (declaration.parent.flags & ts.NodeFlags.Const) !== 0;
+        if (immutable || ts.isFunctionDeclaration(candidate)) {
+          result.set(name, candidate);
+          blocked.delete(name);
+        } else {
+          result.delete(name);
+          blocked.add(name);
+        }
+      } else {
+        result.delete(name);
+        blocked.add(name);
+      }
+    }
+    for (const name of blocked) result.delete(name);
+  }
+  return result;
+}
+
+const functionWriteCache = new WeakMap<SourceEntry, WeakMap<ts.FunctionLikeDeclaration, boolean>>();
+
+function functionBindingIsReassigned(entry: SourceEntry, name: string, binding: ts.FunctionLikeDeclaration): boolean {
+  if (ts.isArrowFunction(binding) || ts.isFunctionExpression(binding)) {
+    const declaration = binding.parent;
+    if (!ts.isVariableDeclaration(declaration) || !ts.isVariableDeclarationList(declaration.parent) || (declaration.parent.flags & ts.NodeFlags.Const) === 0) return true;
+  }
+  const cache = functionWriteCache.get(entry) ?? new WeakMap<ts.FunctionLikeDeclaration, boolean>();
+  functionWriteCache.set(entry, cache);
+  const previous = cache.get(binding);
+  if (previous !== undefined) return previous;
+  let reassigned = false;
+  const inspect = (node: ts.Node) => {
+    if (reassigned) return;
+    let targets: ts.Identifier[] = [];
+    if (ts.isBinaryExpression(node) && node.operatorToken.kind >= ts.SyntaxKind.FirstAssignment && node.operatorToken.kind <= ts.SyntaxKind.LastAssignment) targets = assignedIdentifierTargets(node.left);
+    else if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) && [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator)) targets = assignedIdentifierTargets(node.operand);
+    else if ((ts.isForInStatement(node) || ts.isForOfStatement(node)) && node.initializer) targets = assignedIdentifierTargets(node.initializer);
+    if (targets.some(target => target.text === name && rawFunctionMap(entry, target).get(name) === binding)) reassigned = true;
+    ts.forEachChild(node, inspect);
+  };
+  inspect(entry.file);
+  cache.set(binding, reassigned);
+  return reassigned;
+}
+
+/** Resolve only immutable function values visible at the reference site; other bindings mask outer functions. */
+function functionMap(entry: SourceEntry, referenceNode: ts.Node = entry.file): Map<string, ts.FunctionLikeDeclaration> {
+  const result = rawFunctionMap(entry, referenceNode);
+  for (const [name, fn] of result) if (functionBindingIsReassigned(entry, name, fn)) result.delete(name);
+  return result;
+}
+
+function visibleVariableDeclaration(entry: SourceEntry, referenceNode: ts.Node, name: string): ts.VariableDeclaration | null {
+  let visible: ts.VariableDeclaration | null = null;
+  for (const scope of lexicalScopes(entry, referenceNode)) {
+    if (!directlyDeclaredBindings(scope).has(name)) continue;
+    const declarations = directlyDeclaredVariables(scope).get(name);
+    visible = declarations?.length === 1 ? declarations[0]! : null;
+  }
+  return visible;
+}
+
+function importedFrom(entry: SourceEntry, localName: string, exportedName: string, modules: readonly string[]): boolean {
+  for (const statement of entry.file.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteralLike(statement.moduleSpecifier) || !modules.includes(statement.moduleSpecifier.text) || !statement.importClause) continue;
+    const clause = statement.importClause;
+    if (clause.name?.text === localName && exportedName === "default") return true;
+    if (!clause.namedBindings) continue;
+    if (ts.isNamedImports(clause.namedBindings) && clause.namedBindings.elements.some(item => item.name.text === localName && (item.propertyName?.text ?? item.name.text) === exportedName)) return true;
+  }
+  return false;
+}
+
+function nextRouterReceiver(entry: SourceEntry, node: ts.Node, receiver: ts.Expression): boolean {
+  if (!ts.isIdentifier(receiver)) return false;
+  const declaration = visibleVariableDeclaration(entry, node, receiver.text);
+  if (!declaration?.initializer || !ts.isVariableDeclarationList(declaration.parent) || (declaration.parent.flags & ts.NodeFlags.Const) === 0) return false;
+  const initializer = unwrap(declaration.initializer);
+  if (!ts.isCallExpression(initializer) || !ts.isIdentifier(unwrap(initializer.expression))) return false;
+  const hook = (unwrap(initializer.expression) as ts.Identifier).text;
+  const hasLocalHookShadow = lexicalScopes(entry, node).slice(1).some(scope => directlyDeclaredBindings(scope).has(hook));
+  return !hasLocalHookShadow && importedFrom(entry, hook, "useRouter", ["next/navigation", "next/router"]);
+}
+
+function navigationFromCall(entry: SourceEntry, node: ts.CallExpression, expression: ts.PropertyAccessExpression): StaticNavigation {
+  const route = routeFromExpression(node.arguments[0]);
+  const verified = nextRouterReceiver(entry, node, expression.expression);
+  const confidence = verified && route.confidence === "proven" ? "proven" : "indicated";
+  const reason = verified
+    ? route.confidence === "proven" ? "Receiver dideklarasikan dari hook useRouter Next.js dan path tujuan literal." : "Hook useRouter Next.js terverifikasi, tetapi path tujuan memuat nilai dinamis."
+    : "Method .push/.replace memakai receiver bernama router, tetapi symbol-nya tidak terbukti berasal dari hook useRouter Next.js.";
+  return { path: route.path ? normalizePath(route.path) : "", node, confidence, reason };
 }
 
 function importedNames(source: ts.SourceFile): Set<string> {
@@ -334,11 +582,14 @@ function importedNames(source: ts.SourceFile): Set<string> {
   return names;
 }
 
-function normalizeSourcePath(path: string): string {
+function normalizeSourcePath(path: string): string | null {
   const parts: string[] = [];
   for (const part of path.replaceAll("\\", "/").split("/")) {
     if (!part || part === ".") continue;
-    if (part === "..") parts.pop(); else parts.push(part);
+    if (part === "..") {
+      if (!parts.length) return null;
+      parts.pop();
+    } else parts.push(part);
   }
   return parts.join("/");
 }
@@ -348,6 +599,7 @@ function relativeSource(entry: SourceEntry, specifier: string, entries: Map<stri
   const slash = entry.path.lastIndexOf("/");
   const directory = slash < 0 ? "" : entry.path.slice(0, slash + 1);
   const base = normalizeSourcePath(`${directory}${specifier}`);
+  if (base === null) return null;
   const candidates = /\.[cm]?[jt]sx?$/u.test(base)
     ? [base]
     : [".ts", ".tsx", ".js", ".jsx", ".mts", ".cts"].map(extension => `${base}${extension}`).concat(["index.ts", "index.tsx", "index.js", "index.jsx"].map(name => `${base}/${name}`));
@@ -429,7 +681,12 @@ function returnedObjectMethod(factory: ts.FunctionLikeDeclaration, propertyNameE
     else unsupportedReturn = true;
   });
   if (unsupportedReturn || returned.length !== 1) return null;
-  const member = returned[0]!.properties.find(item => propertyName(item.name) === propertyNameExpected);
+  const properties = returned[0]!.properties;
+  if (properties.some(property => ts.isSpreadAssignment(property) ||
+    ((ts.isPropertyAssignment(property) || ts.isMethodDeclaration(property) || ts.isGetAccessorDeclaration(property) || ts.isSetAccessorDeclaration(property)) && ts.isComputedPropertyName(property.name)))) return null;
+  const matches = properties.filter(item => propertyName(item.name) === propertyNameExpected);
+  if (matches.length !== 1) return null;
+  const member = matches[0]!;
   if (!member) return null;
   if (ts.isMethodDeclaration(member)) return member;
   if (ts.isPropertyAssignment(member)) {
@@ -458,11 +715,12 @@ function returnedFunction(factory: ts.FunctionLikeDeclaration): ts.FunctionLikeD
   return unsupportedReturn || returned.length !== 1 ? null : returned[0]!;
 }
 
-function resolveDelegatedProperty(entry: SourceEntry, expression: ts.Expression, entriesByPath: Map<string, SourceEntry>): { entry: SourceEntry; handler: ts.FunctionLikeDeclaration } | null {
+function factoryPropertyBinding(entry: SourceEntry, expression: ts.Expression, entriesByPath: Map<string, SourceEntry>): { targetEntry: SourceEntry; exportedName: string; property: string; factory: { entry: SourceEntry; fn: ts.FunctionLikeDeclaration } } | null {
   const path: string[] = [];
   let root: ts.Expression = unwrap(expression);
   while (ts.isPropertyAccessExpression(root)) { path.unshift(root.name.text); root = unwrap(root.expression); }
   if (!ts.isIdentifier(root) || !path.length) return null;
+  if (lexicalScopes(entry, root).slice(1).some(scope => directlyDeclaredBindings(scope).has(root.text))) return null;
   const imported = importedBinding(entry, root.text, entriesByPath);
   if (!imported) return null;
   const targetEntry = imported.entry;
@@ -479,8 +737,122 @@ function resolveDelegatedProperty(entry: SourceEntry, expression: ts.Expression,
   if (!ts.isIdentifier(factoryExpression)) return null;
   const factory = resolveFactory(targetEntry, factoryExpression.text, entriesByPath, new Set());
   if (!factory) return null;
-  const handler = returnedObjectMethod(factory.fn, property);
-  return handler ? { entry: factory.entry, handler } : null;
+  return { targetEntry, exportedName, property, factory };
+}
+
+function resolveDelegatedProperty(entry: SourceEntry, expression: ts.Expression, entriesByPath: Map<string, SourceEntry>): DelegateResolution | null {
+  const binding = factoryPropertyBinding(entry, expression, entriesByPath);
+  if (!binding) return null;
+  if (!hasStableExportBinding(binding.targetEntry, binding.exportedName, entriesByPath)) return { unresolved: true };
+  const factory = binding.factory;
+  const handler = returnedObjectMethod(factory.fn, binding.property);
+  return handler ? { entry: factory.entry, handler } : { unresolved: true };
+}
+
+function isBindingDeclarationIdentifier(node: ts.Identifier): boolean {
+  const parent = node.parent;
+  if (ts.isVariableDeclaration(parent) && parent.name === node) return true;
+  if (ts.isParameter(parent) && parent.name === node) return true;
+  if ((ts.isFunctionDeclaration(parent) || ts.isFunctionExpression(parent) || ts.isClassDeclaration(parent) || ts.isClassExpression(parent)) && parent.name === node) return true;
+  if (ts.isImportSpecifier(parent) || ts.isNamespaceImport(parent) || ts.isImportClause(parent)) return true;
+  if (ts.isPropertyAccessExpression(parent) && parent.name === node) return true;
+  if ((ts.isPropertyAssignment(parent) || ts.isMethodDeclaration(parent) || ts.isPropertyDeclaration(parent) || ts.isPropertySignature(parent) || ts.isGetAccessorDeclaration(parent) || ts.isSetAccessorDeclaration(parent)) && parent.name === node) return true;
+  return false;
+}
+
+function isRouteHandlerExportExpression(expression: ts.Expression): boolean {
+  let current = expression;
+  const propertyNames: string[] = [];
+  while (ts.isPropertyAccessExpression(current)) {
+    propertyNames.unshift(current.name.text);
+    current = current.expression;
+  }
+  if (!ts.isIdentifier(current) || !propertyNames.length) return false;
+  const declaration = expression.parent;
+  return ts.isVariableDeclaration(declaration) && declaration.initializer === expression && ts.isIdentifier(declaration.name) &&
+    ["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"].includes(declaration.name.text.toUpperCase()) &&
+    ts.isVariableDeclarationList(declaration.parent) && ts.isVariableStatement(declaration.parent.parent) && hasModifier(declaration.parent.parent, ts.SyntaxKind.ExportKeyword);
+}
+
+function routeHandlerImportBindings(entry: SourceEntry, target: SourceEntry, exportedName: string, entriesByPath: Map<string, SourceEntry>): Array<{ localName: string; namespace: boolean }> {
+  const output: Array<{ localName: string; namespace: boolean }> = [];
+  for (const statement of entry.file.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteralLike(statement.moduleSpecifier) || !statement.importClause) continue;
+    if (relativeSource(entry, statement.moduleSpecifier.text, entriesByPath)?.path !== target.path) continue;
+    const bindings = statement.importClause.namedBindings;
+    if (bindings && ts.isNamespaceImport(bindings)) output.push({ localName: bindings.name.text, namespace: true });
+    if (bindings && ts.isNamedImports(bindings)) {
+      for (const item of bindings.elements) if ((item.propertyName?.text ?? item.name.text) === exportedName) output.push({ localName: item.name.text, namespace: false });
+    }
+  }
+  return output;
+}
+
+function isAllowedRouteHandlerReference(identifier: ts.Identifier, localName: string, namespaceExport?: string): boolean {
+  if (identifier.text !== localName) return false;
+  let expression: ts.Node = identifier;
+  const properties: string[] = [];
+  while (ts.isPropertyAccessExpression(expression.parent) && expression.parent.expression === expression) {
+    properties.push(expression.parent.name.text);
+    expression = expression.parent;
+  }
+  if (namespaceExport) {
+    if (properties.length > 0 && properties[0] !== namespaceExport) return true;
+    if (properties[0] !== namespaceExport) return false;
+    properties.shift();
+  }
+  if (properties.length === 0) return false;
+  const value = expression as ts.Expression;
+  return isRouteHandlerExportExpression(value) || (ts.isCallExpression(value.parent) && value.parent.expression === value);
+}
+
+const stableHandlerBindingCache = new WeakMap<SourceEntry, Map<string, boolean>>();
+
+function hasStableExportBinding(entry: SourceEntry, exportedName: string, entriesByPath: Map<string, SourceEntry>): boolean {
+  const cache = stableHandlerBindingCache.get(entry) ?? new Map<string, boolean>();
+  stableHandlerBindingCache.set(entry, cache);
+  const cacheKey = `${exportedName}\0${[...entriesByPath.keys()].sort().join("\0")}`;
+  const cached = cache.get(cacheKey);
+  if (cached !== undefined) return cached;
+  const declarations = entry.file.statements.flatMap(statement => {
+    if (!ts.isVariableStatement(statement) || !hasModifier(statement, ts.SyntaxKind.ExportKeyword)) return [];
+    return statement.declarationList.declarations.filter(item => ts.isIdentifier(item.name) && item.name.text === exportedName)
+      .map(declaration => ({ statement, declaration }));
+  });
+  if (declarations.length !== 1 || (declarations[0]!.statement.declarationList.flags & ts.NodeFlags.Const) === 0) {
+    cache.set(cacheKey, false);
+    return false;
+  }
+  for (const source of entriesByPath.values()) {
+    if (source !== entry) {
+      for (const statement of source.file.statements) {
+        if (!ts.isExportDeclaration(statement) || !statement.moduleSpecifier || !ts.isStringLiteralLike(statement.moduleSpecifier)) continue;
+        if (relativeSource(source, statement.moduleSpecifier.text, entriesByPath)?.path !== entry.path) continue;
+        if (!statement.exportClause || (ts.isNamedExports(statement.exportClause) && statement.exportClause.elements.some(item => (item.propertyName?.text ?? item.name.text) === exportedName))) {
+          cache.set(cacheKey, false);
+          return false;
+        }
+      }
+    }
+    const bindings = source === entry ? [{ localName: exportedName, namespace: false, namespaceExport: undefined }] :
+      routeHandlerImportBindings(source, entry, exportedName, entriesByPath).map(binding => ({ ...binding, namespaceExport: binding.namespace ? exportedName : undefined }));
+    for (const binding of bindings) {
+      let unsafeUse = false;
+      const inspect = (node: ts.Node) => {
+        if (unsafeUse) return;
+        if (ts.isIdentifier(node) && node.text === binding.localName && !isBindingDeclarationIdentifier(node) &&
+          !isAllowedRouteHandlerReference(node, binding.localName, binding.namespaceExport)) unsafeUse = true;
+        ts.forEachChild(node, inspect);
+      };
+      inspect(source.file);
+      if (unsafeUse) {
+        cache.set(cacheKey, false);
+        return false;
+      }
+    }
+  }
+  cache.set(cacheKey, true);
+  return true;
 }
 
 function unwrapAwait(expression: ts.Expression): ts.Expression {
@@ -490,7 +862,7 @@ function unwrapAwait(expression: ts.Expression): ts.Expression {
 }
 
 /** Follow a route adapter only when its single return directly invokes a statically resolved handler. */
-function resolveReturnedDelegate(entry: SourceEntry, handler: ts.FunctionLikeDeclaration, entriesByPath: Map<string, SourceEntry>): { entry: SourceEntry; handler: ts.FunctionLikeDeclaration } | null {
+function resolveReturnedDelegate(entry: SourceEntry, handler: ts.FunctionLikeDeclaration, entriesByPath: Map<string, SourceEntry>): DelegateResolution | null {
   if (!handler.body || !ts.isBlock(handler.body)) return null;
   const returns: ts.ReturnStatement[] = [];
   visitExecutable(handler.body, node => { if (ts.isReturnStatement(node)) returns.push(node); });
@@ -536,7 +908,7 @@ function injectedDependencyCalls(handler: ts.FunctionLikeDeclaration): string[] 
   return [...calls].sort();
 }
 
-function requestWrapperParameters(functions: Map<string, ts.FunctionLikeDeclaration>): Map<string, number> {
+function requestWrapperParameters(entry: SourceEntry, functions: Map<string, ts.FunctionLikeDeclaration>): Map<string, number> {
   const result = new Map<string, number>();
   for (const [name, fn] of functions) {
     if (!fn.body) continue;
@@ -544,22 +916,29 @@ function requestWrapperParameters(functions: Map<string, ts.FunctionLikeDeclarat
     if (!first || !ts.isIdentifier(first)) continue;
     let wraps = false;
     visitExecutable(fn.body, node => {
-      if (ts.isCallExpression(node) && ts.isIdentifier(unwrap(node.expression)) && (unwrap(node.expression) as ts.Identifier).text === "fetch" && node.arguments[0] && ts.isIdentifier(node.arguments[0]) && node.arguments[0].text === first.text) wraps = true;
+      if (ts.isCallExpression(node) && ts.isIdentifier(unwrap(node.expression)) && (unwrap(node.expression) as ts.Identifier).text === "fetch" &&
+        !visibleBindingNames(entry, node).has("fetch") && node.arguments[0] && ts.isIdentifier(node.arguments[0]) && node.arguments[0].text === first.text) wraps = true;
     });
     if (wraps) result.set(name, 0);
   }
   return result;
 }
 
-function findRequests(fn: ts.FunctionLikeDeclaration, entry: SourceEntry, functions: Map<string, ts.FunctionLikeDeclaration>, wrappers: Map<string, number>, visited = new Set<ts.Node>(), depth = 0): StaticRequest[] {
+function findRequests(fn: ts.FunctionLikeDeclaration, entry: SourceEntry, visited = new Set<ts.Node>(), depth = 0): StaticRequest[] {
   if (!fn.body || visited.has(fn) || depth > 3) return [];
   visited.add(fn);
   const output: StaticRequest[] = [];
+  const functions = functionMap(entry, fn);
+  const wrappers = requestWrapperParameters(entry, functions);
   const visit = (node: ts.Node) => {
     if (node !== fn && isCallableBoundary(node)) return;
     if (ts.isCallExpression(node)) {
       const callee = unwrap(node.expression);
       if (ts.isIdentifier(callee) && callee.text === "fetch") {
+        if (visibleBindingNames(entry, node).has("fetch")) {
+          output.push({ method: "GET", path: "", node, confidence: "indicated" });
+          return;
+        }
         const route = routeFromExpression(node.arguments[0]);
         const method = methodForFetchFromOptions(node.arguments[1]);
         if (route.path && method) output.push({ method, path: normalizeRoute(route.path), node, confidence: route.confidence });
@@ -573,7 +952,7 @@ function findRequests(fn: ts.FunctionLikeDeclaration, entry: SourceEntry, functi
           output.push({ method: method ?? "GET", path: method ? normalizeRoute(route.path) : "", node, confidence: method ? route.confidence : "indicated" });
         }
       } else if (ts.isIdentifier(callee) && functions.has(callee.text)) {
-        output.push(...findRequests(functions.get(callee.text)!, entry, functions, wrappers, visited, depth + 1));
+        output.push(...findRequests(functions.get(callee.text)!, entry, visited, depth + 1));
       }
     }
     ts.forEachChild(node, visit);
@@ -582,34 +961,115 @@ function findRequests(fn: ts.FunctionLikeDeclaration, entry: SourceEntry, functi
   return output;
 }
 
-function findNavigations(fn: ts.FunctionLikeDeclaration, functions: Map<string, ts.FunctionLikeDeclaration>, visited = new Set<ts.Node>(), depth = 0): StaticNavigation[] {
+function pageLoadRequests(entry: SourceEntry, handler: ts.FunctionLikeDeclaration, limitations: SemanticFragment["limitations"]): PageLoadRequest[] {
+  if (!handler.body) return [];
+  const output: PageLoadRequest[] = [];
+  const collectFetches = (root: ts.Node, sourceConfidence: "proven" | "indicated", reason: string, evidenceNodes: ts.Node[] = [], visitedFunctions = new Set<ts.FunctionLikeDeclaration>()) => {
+    visitExecutable(root, node => {
+      if (!ts.isCallExpression(node)) return;
+      const callee = unwrap(node.expression);
+      if (ts.isIdentifier(callee) && callee.text === "fetch") {
+      const shadowed = visibleBindingNames(entry, node).has("fetch");
+      const route = shadowed ? { path: null, confidence: "indicated" as const } : routeFromExpression(node.arguments[0]);
+      const method = shadowed ? null : methodForFetchFromOptions(node.arguments[1]);
+      const request: StaticRequest = route.path && method
+        ? { method, path: normalizeRoute(route.path), node, confidence: sourceConfidence === "proven" ? route.confidence : "indicated" }
+        : { method: "GET", path: "", node, confidence: "indicated" };
+      output.push({ request, evidenceNodes: [...evidenceNodes, node], reason: shadowed
+        ? "Nama fetch terikat secara lokal sehingga tidak dapat dipastikan sebagai HTTP global."
+        : !route.path || !method ? "URL atau method fetch tidak dapat ditentukan secara statis."
+          : reason });
+        return;
+      }
+      if (ts.isPropertyAccessExpression(callee) && ["then", "catch", "finally"].includes(callee.name.text)) {
+        for (const argument of node.arguments) {
+          const callback = unwrap(argument);
+          if ((ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)) && callback.body) {
+            collectFetches(callback.body, "indicated", "Fetch ditemukan pada callback Promise yang dipanggil dari alur pemuatan halaman; pemanggilan runtime callback tidak diverifikasi.", [...evidenceNodes, node], visitedFunctions);
+          }
+        }
+        return;
+      }
+      if (ts.isIdentifier(callee)) {
+        const helper = functionMap(entry, node).get(callee.text);
+        if (helper?.body && !visitedFunctions.has(helper)) {
+          const nextVisited = new Set(visitedFunctions);
+          nextVisited.add(helper);
+          collectFetches(helper.body, "indicated", `Helper lokal ${callee.text} dipanggil dari alur pemuatan halaman, tetapi kondisi runtime helper tidak dianalisis.`, [...evidenceNodes, node], nextVisited);
+        }
+      }
+    });
+  };
+
+  // A direct call in the page component runs in the page render path. Nested, uncalled
+  // helpers are skipped by visitExecutable and cannot become page-load facts.
+  collectFetches(handler.body, "proven", "Pemanggilan fetch literal terlihat langsung pada badan page component.");
+  visitExecutable(handler.body, node => {
+    if (!ts.isCallExpression(node) || !ts.isIdentifier(unwrap(node.expression))) return;
+    const hookName = (unwrap(node.expression) as ts.Identifier).text;
+    if (hookName !== "useEffect") return;
+    const callbackArgument = node.arguments[0] && unwrap(node.arguments[0]);
+    const callback = callbackArgument && (ts.isArrowFunction(callbackArgument) || ts.isFunctionExpression(callbackArgument))
+      ? callbackArgument
+      : callbackArgument && ts.isIdentifier(callbackArgument) ? functionMap(entry, node).get(callbackArgument.text) ?? null : null;
+    if (!callback?.body) {
+      if (callbackArgument) limitations.push({ filePath: entry.path, reason: "Callback useEffect tidak berbentuk fungsi inline atau binding lokal statis; request pemuatan halaman tidak ditautkan." });
+      return;
+    }
+    const verifiedHook = !lexicalScopes(entry, node).slice(1).some(scope => directlyDeclaredBindings(scope).has(hookName)) &&
+      importedFrom(entry, hookName, "useEffect", ["react"]);
+    const before = output.length;
+    collectFetches(callback.body, verifiedHook ? "proven" : "indicated", verifiedHook
+      ? "Callback useEffect diimpor langsung dari React dan memuat endpoint melalui fetch literal."
+      : "Callback dengan nama useEffect memuat fetch literal, tetapi binding hook tidak terbukti berasal dari React.", [node]);
+    if (!verifiedHook && output.length > before) limitations.push({ filePath: entry.path, reason: "Callback useEffect memuat request yang tetap berupa indikasi karena import React tidak dapat diverifikasi." });
+  });
+  const byFetch = new Map<ts.Node, PageLoadRequest>();
+  for (const item of output) {
+    const existing = byFetch.get(item.request.node);
+    if (!existing) byFetch.set(item.request.node, item);
+    else {
+      existing.request.confidence = existing.request.confidence === "indicated" || item.request.confidence === "indicated" ? "indicated" : "proven";
+      existing.reason = [...new Set([existing.reason, item.reason])].join("; ");
+      existing.evidenceNodes = [...new Set([...existing.evidenceNodes, ...item.evidenceNodes])];
+    }
+  }
+  return [...byFetch.values()];
+}
+
+function findNavigations(fn: ts.FunctionLikeDeclaration, entry: SourceEntry, visited = new Set<ts.Node>(), depth = 0): StaticNavigation[] {
   if (!fn.body || visited.has(fn) || depth > 3) return [];
   visited.add(fn);
   const output: StaticNavigation[] = [];
+  const functions = functionMap(entry, fn);
   visitExecutable(fn.body, node => {
     if (!ts.isCallExpression(node)) return;
     const expression = unwrap(node.expression);
     if (ts.isPropertyAccessExpression(expression) && ["push", "replace"].includes(expression.name.text) && /(?:^|\.)router$/iu.test(expression.expression.getText())) {
-      const route = routeFromExpression(node.arguments[0]);
-      output.push({ path: route.path ? normalizePath(route.path) : "", node, confidence: route.confidence });
+      output.push(navigationFromCall(entry, node, expression));
       return;
     }
-    if (ts.isIdentifier(expression) && functions.has(expression.text)) output.push(...findNavigations(functions.get(expression.text)!, functions, visited, depth + 1));
+    if (ts.isIdentifier(expression) && functions.has(expression.text)) output.push(...findNavigations(functions.get(expression.text)!, entry, visited, depth + 1));
   });
   return output;
 }
 
-function findInlineNavigations(expression: ts.Expression, functions: Map<string, ts.FunctionLikeDeclaration>): StaticNavigation[] {
-  if (ts.isIdentifier(expression) && functions.has(expression.text)) return findNavigations(functions.get(expression.text)!, functions);
+function findInlineNavigations(expression: ts.Expression, entry: SourceEntry): StaticNavigation[] {
+  if (ts.isIdentifier(expression)) {
+    const target = functionMap(entry, expression).get(expression.text);
+    return target ? findNavigations(target, entry) : [];
+  }
   if (!(ts.isArrowFunction(expression) || ts.isFunctionExpression(expression))) return [];
   const output: StaticNavigation[] = [];
   visitExecutable(expression, node => {
     if (!ts.isCallExpression(node)) return;
     const callee = unwrap(node.expression);
     if (ts.isPropertyAccessExpression(callee) && ["push", "replace"].includes(callee.name.text) && /(?:^|\.)router$/iu.test(callee.expression.getText())) {
-      const route = routeFromExpression(node.arguments[0]);
-      output.push({ path: route.path ? normalizePath(route.path) : "", node, confidence: route.confidence });
-    } else if (ts.isIdentifier(callee) && functions.has(callee.text)) output.push(...findNavigations(functions.get(callee.text)!, functions));
+      output.push(navigationFromCall(entry, node, callee));
+    } else if (ts.isIdentifier(callee)) {
+      const target = functionMap(entry, node).get(callee.text);
+      if (target) output.push(...findNavigations(target, entry));
+    }
   });
   return output;
 }
@@ -635,7 +1095,7 @@ function pageFunction(entry: SourceEntry): ts.FunctionLikeDeclaration | null {
   if (!ts.isExportAssignment(declaration) || declaration.isExportEquals) return null;
   const expression = unwrap(declaration.expression);
   if (ts.isArrowFunction(expression) || ts.isFunctionExpression(expression)) return expression;
-  if (ts.isIdentifier(expression)) return functionMap(entry).get(expression.text) ?? null;
+  if (ts.isIdentifier(expression)) return functionMap(entry, entry.file).get(expression.text) ?? null;
   return null;
 }
 
@@ -704,6 +1164,7 @@ export function extractNext(input: SemanticInput): SemanticFragment {
   }
   const routeRows: ApiRoute[] = [];
   const pageRoutes = new Map<string, SemanticNode>();
+  const pageHandlers: Array<{ route: string; page: SemanticNode; entry: SourceEntry; handler: ts.FunctionLikeDeclaration }> = [];
   const uiEventKinds = new Map<string, string>();
   const semanticFlows: SemanticFlowScope[] = [];
   const ccmNodes = input.ccm.nodes;
@@ -723,7 +1184,10 @@ export function extractNext(input: SemanticInput): SemanticFragment {
       fragment.frameworks.push("Next.js App Router");
       attachFeature(fragment, family.id, family.label, [pageNode.id], [pageNode.id], [], [span]);
       const pageHandler = pageFunction(entry);
-      if (pageHandler) semanticFlows.push({ entry, handler: pageHandler, featureId: family.id, confidence: "proven" });
+      if (pageHandler) {
+        semanticFlows.push({ entry, handler: pageHandler, featureId: family.id, confidence: "proven" });
+        pageHandlers.push({ route, page: pageNode, entry, handler: pageHandler });
+      }
     }
     if (app.fileKind !== "route") continue;
     for (const statement of entry.file.statements) {
@@ -734,9 +1198,11 @@ export function extractNext(input: SemanticInput): SemanticFragment {
           ? resolveDelegatedProperty(entry, exported.declaration, entriesByPath)
           : ts.isCallExpression(exported.declaration) ? resolveDelegatedCall(entry, exported.declaration, entriesByPath) : null
         : resolveReturnedDelegate(entry, exported.handler, entriesByPath);
-      const handler = delegated?.handler ?? exported.handler ?? null;
-      const handlerEntry = delegated?.entry ?? entry;
-      const handlerConfidence = delegated ? "proven" : exported.confidence;
+      const resolvedDelegate = delegated && "handler" in delegated ? delegated : null;
+      const unresolvedDelegate = Boolean(delegated && "unresolved" in delegated);
+      const handler = resolvedDelegate?.handler ?? (unresolvedDelegate ? null : exported.handler) ?? null;
+      const handlerEntry = resolvedDelegate?.entry ?? entry;
+      const handlerConfidence = resolvedDelegate ? "proven" : unresolvedDelegate ? "indicated" : exported.confidence;
       const family = endpointFeatureId(app.route, 0);
       const span = nodeRange(entry, exported.declaration, "declaration");
       const stepId = semanticId("step", entry.path, span.startByte, `api:${exported.method}:${app.route}`);
@@ -779,16 +1245,54 @@ export function extractNext(input: SemanticInput): SemanticFragment {
   }
 
   const routes = [...routeRows].sort((a, b) => a.path.localeCompare(b.path) || a.method.localeCompare(b.method));
-  for (const entry of entries) {
-    const functions = functionMap(entry);
-    const imports = importedNames(entry.file);
-    const wrappers = requestWrapperParameters(functions);
-    const apiCalls = new Map<string, StaticRequest[]>();
-    const navigationCalls = new Map<string, StaticNavigation[]>();
-    for (const [name, fn] of functions) {
-      apiCalls.set(name, findRequests(fn, entry, functions, wrappers));
-      navigationCalls.set(name, findNavigations(fn, functions));
+  for (const { route, page, entry, handler } of pageHandlers) {
+    const pageFeatureId = page.featureId;
+    if (!pageFeatureId) continue;
+    const handlerSpan = nodeRange(entry, handler, "declaration");
+    let pageComponent: SemanticNode | null = null;
+    for (const { request, reason, evidenceNodes } of pageLoadRequests(entry, handler, fragment.limitations)) {
+      if (!request.path) {
+        fragment.limitations.push({ filePath: entry.path, reason: `Pemuatan data halaman ${route} tidak dapat ditautkan: ${reason}` });
+        continue;
+      }
+      const endpoint = matchRoute(routes, request.method, request.path);
+      if (!endpoint) {
+        fragment.limitations.push({ filePath: entry.path, reason: `Pemuatan data halaman ${route} memanggil ${request.method} ${request.path}, tetapi route API yang cocok tidak ada dalam snapshot.` });
+        continue;
+      }
+      const requestSpan = nodeRange(entry, request.node, "reference");
+      const requestEvidence = [...new Map(evidenceNodes.map(node => {
+        const span = nodeRange(entry, node, node === request.node ? "reference" : "context");
+        return [`${span.startByte}:${span.endByte}`, span] as const;
+      })).values()].sort((a, b) => a.startByte - b.startByte);
+      if (!pageComponent) {
+        const pageName = nameOfHandler(handler, route);
+        const label = /page$/iu.test(pageName) ? humanLabel(pageName) : `${humanLabel(pageName)} Page`;
+        pageComponent = semanticNode({ kind: "component", filePath: entry.path, startByte: handlerSpan.startByte, key: `page-boundary:${route}`, label,
+          featureId: pageFeatureId, confidence: "proven", reason: "Komponen halaman adalah boundary utama yang dideklarasikan Next.js.", evidence: [handlerSpan],
+          technicalNodeIds: technicalNodesForSpan(ccmNodes, entry.path, handlerSpan.startByte, handlerSpan.endByte, ["Module"]) });
+        fragment.nodes.push(pageComponent);
+        const pageEdge = makeEdge("page-component", page.id, pageComponent.id, "ditampilkan melalui", "proven", "Komponen merupakan deklarasi default page route ini.", handlerSpan);
+        fragment.edges.push(pageEdge);
+        addFeatureMembers(fragment, pageFeatureId, [pageComponent.id], [pageEdge.id], [handlerSpan]);
+      }
+      const loadStep = semanticNode({ kind: "step", filePath: entry.path, startByte: requestSpan.startByte, key: `page-load:${route}:${request.method}:${request.path}`,
+        label: "Memuat data", featureId: pageFeatureId, confidence: request.confidence, reason, evidence: requestEvidence,
+        technicalNodeIds: technicalNodesForSpan(ccmNodes, entry.path, requestSpan.startByte, requestSpan.endByte) });
+      fragment.nodes.push(loadStep);
+      const startEdge = makeEdge("page-load", pageComponent.id, loadStep.id, "memuat data", request.confidence, reason, requestSpan);
+      const endpointEdge = makeEdge("page-load-api", loadStep.id, endpoint.stepId, `${request.method} ${request.path}`, request.confidence,
+        request.confidence === "proven" ? "Pemanggilan fetch di boundary halaman cocok dengan method dan path route API yang dideklarasikan." : `${reason} Route cocok secara literal, tetapi hubungan pemuatan halaman belum terbukti sepenuhnya.`, requestSpan);
+      startEdge.evidence = requestEvidence;
+      endpointEdge.evidence = requestEvidence;
+      fragment.edges.push(startEdge, endpointEdge);
+      addFeatureMembers(fragment, pageFeatureId, [loadStep.id], [startEdge.id], [requestSpan]);
+      addFeatureMembers(fragment, endpoint.featureId, [], [endpointEdge.id], [requestSpan]);
     }
+  }
+  for (const entry of entries) {
+    const imports = importedNames(entry.file);
+    const allFunctionNames = functionNamesInEntry(entry);
     const walk = (node: ts.Node) => {
       if (ts.isJsxElement(node) || ts.isJsxSelfClosingElement(node)) {
         const tag = jsxTag(node), attrs = jsxAttributes(node), actionProps = attrs.properties.filter((property): property is ts.JsxAttribute => ts.isJsxAttribute(property) && ["onClick", "onSubmit", "action"].includes(jsxAttributeName(property.name)));
@@ -802,6 +1306,7 @@ export function extractNext(input: SemanticInput): SemanticFragment {
           const label = jsxLabel(node) || (linkPath ? `Buka ${humanLabel(linkPath)}` : tag === "form" ? "Kirim formulir" : "Tindakan pengguna");
           const span = nodeRange(entry, node, "context");
           const event = actionProps[0];
+          const visibleFunctions = functionMap(entry, node);
           const functionCalls: string[] = [];
           let staticActionRoute: { path: string; method: string; confidence: "proven" | "indicated" } | null = null;
           if (event?.initializer && ts.isJsxExpression(event.initializer) && event.initializer.expression) {
@@ -825,16 +1330,26 @@ export function extractNext(input: SemanticInput): SemanticFragment {
               if (actionRoute.path) staticActionRoute = { path: normalizePath(actionRoute.path), method: methodAttr?.initializer && ts.isStringLiteralLike(methodAttr.initializer) ? methodAttr.initializer.text.toUpperCase() : "GET", confidence: actionRoute.confidence };
             }
           }
+          const requestsByFunction = new Map<string, StaticRequest[]>();
+          const navigationsByFunction = new Map<string, StaticNavigation[]>();
+          for (const name of new Set(functionCalls)) {
+            const handler = visibleFunctions.get(name);
+            if (!handler) continue;
+            requestsByFunction.set(name, findRequests(handler, entry));
+            navigationsByFunction.set(name, findNavigations(handler, entry));
+          }
           const inlineRequest = event?.initializer && ts.isJsxExpression(event.initializer) && event.initializer.expression &&
             (ts.isArrowFunction(event.initializer.expression) || ts.isFunctionExpression(event.initializer.expression))
-            ? findRequests(event.initializer.expression, entry, functions, wrappers) : [];
-          const requests = [...functionCalls.flatMap(name => apiCalls.get(name) ?? []), ...inlineRequest];
+            ? findRequests(event.initializer.expression, entry) : [];
+          const requests = [...functionCalls.flatMap(name => requestsByFunction.get(name) ?? []), ...inlineRequest];
           const navigations = [...new Set([
-            ...functionCalls.flatMap(name => navigationCalls.get(name) ?? []),
-            ...(event?.initializer && ts.isJsxExpression(event.initializer) && event.initializer.expression ? findInlineNavigations(event.initializer.expression, functions) : []),
+            ...functionCalls.flatMap(name => navigationsByFunction.get(name) ?? []),
+            ...(event?.initializer && ts.isJsxExpression(event.initializer) && event.initializer.expression ? findInlineNavigations(event.initializer.expression, entry) : []),
           ].map(navigation => navigation))];
           if (dynamicHref) fragment.limitations.push({ filePath: entry.path, reason: `Tautan “${label}” memakai href yang tidak cocok dengan path statis yang dapat dipetakan.` });
           const candidates = requests.map(request => ({ request, route: matchRoute(routes, request.method, request.path) })).filter((item): item is { request: StaticRequest; route: ApiRoute } => item.route !== null);
+          const unresolvedHandlerCalls = [...new Set(functionCalls.filter(name => imports.has(name) || (allFunctionNames.has(name) && !visibleFunctions.has(name))))];
+          if (unresolvedHandlerCalls.length) fragment.limitations.push({ filePath: entry.path, reason: `Aksi “${label}” memanggil handler (${unresolvedHandlerCalls.join(", ")}) yang binding lexical-nya tidak dapat dipastikan; relasi aksi tidak ditegaskan.` });
           if (requests.some(request => !request.path)) fragment.limitations.push({ filePath: entry.path, reason: `Aksi “${label}” menggunakan path/method HTTP yang tidak dapat ditentukan secara statis.` });
           if (requests.some(request => request.path && request.confidence === "indicated")) fragment.limitations.push({ filePath: entry.path, reason: `Aksi “${label}” memiliki parameter URL dinamis; hubungan memakai pola route yang cocok dan tetap berupa indikasi.` });
           if (staticActionRoute) {
@@ -845,8 +1360,9 @@ export function extractNext(input: SemanticInput): SemanticFragment {
           if (linkPath) pageDestinations.push({ path: normalizePath(linkPath), evidence: span, reason: "Href statis atau path berpola cocok dengan route halaman Next.js.", confidence: linkRoute.confidence });
           if (tag === "form" && staticActionRoute?.method === "GET") pageDestinations.push({ path: staticActionRoute.path, evidence: span, reason: "Form GET menunjuk ke route halaman Next.js.", confidence: staticActionRoute.confidence });
           for (const navigation of navigations) {
+            if (navigation.confidence === "indicated") fragment.limitations.push({ filePath: entry.path, reason: `Navigasi pada aksi “${label}” hanya berupa indikasi: ${navigation.reason}` });
             if (!navigation.path) fragment.limitations.push({ filePath: entry.path, reason: `Aksi “${label}” memiliki tujuan router dinamis yang tidak dapat dipetakan secara statis.` });
-            else pageDestinations.push({ path: navigation.path, evidence: nodeRange(entry, navigation.node, "reference"), reason: "router.push/replace memakai path statis atau berpola yang cocok dengan route halaman.", confidence: navigation.confidence });
+            else pageDestinations.push({ path: navigation.path, evidence: nodeRange(entry, navigation.node, "reference"), reason: navigation.reason, confidence: navigation.confidence });
           }
           for (const destination of pageDestinations) {
             const page = findPageRoute(pageRoutes, destination.path);
@@ -866,8 +1382,8 @@ export function extractNext(input: SemanticInput): SemanticFragment {
             const requestHandler = enclosingFunction(request.node);
             if (requestHandler) semanticFlows.push({ entry, handler: requestHandler, featureId: route.featureId, confidence: request.confidence });
             for (const name of functionCalls) {
-              const actionHandler = functions.get(name);
-              if (actionHandler && (apiCalls.get(name) ?? []).some(item => matchRoute(routes, item.method, item.path)?.featureId === route.featureId)) {
+              const actionHandler = visibleFunctions.get(name);
+              if (actionHandler && (requestsByFunction.get(name) ?? []).some(item => matchRoute(routes, item.method, item.path)?.featureId === route.featureId)) {
                 semanticFlows.push({ entry, handler: actionHandler, featureId: route.featureId, confidence: request.confidence });
               }
             }
@@ -1317,33 +1833,72 @@ function addDeclaredConcepts(fragment: SemanticFragment, entries: readonly Sourc
 function addGuards(fragment: SemanticFragment, input: SemanticInput, entry: SourceEntry, handler: ts.FunctionLikeDeclaration, endpointId: string, featureId: string, nodeIds: string[], edgeIds: string[], confidence: "proven" | "indicated"): void {
   if (!handler.body) return;
   visitHandlerFlow(handler.body, confidence, (node, currentConfidence) => {
-    if (ts.isIfStatement(node) && (containsReturn(node.thenStatement) || (node.elseStatement && containsReturn(node.elseStatement)))) {
-      const raw = node.expression.getText(entry.file);
-      const category = guardCategory(raw);
-      if (category) {
-        const decisionSpan = nodeRange(entry, node.expression, "context");
-        const decision = semanticNode({ kind: "decision", filePath: entry.path, startByte: decisionSpan.startByte, key: `guard:${endpointId}:${raw}`, label: category.label,
-          featureId, confidence: currentConfidence, reason: currentConfidence === "proven" ? category.reason : `${category.reason} Callback atau pemanggilan wrapper belum sepenuhnya terverifikasi.`, evidence: [decisionSpan], technicalNodeIds: technicalNodesForSpan(input.ccm.nodes, entry.path, decisionSpan.startByte, decisionSpan.endByte) });
-        fragment.nodes.push(decision); nodeIds.push(decision.id);
-        const edge = makeEdge("guard", endpointId, decision.id, "memeriksa", currentConfidence, decision.reason, decisionSpan);
-        fragment.edges.push(edge); edgeIds.push(edge.id);
-        const denied = node.elseStatement ? null : responseStatus(node.thenStatement);
-        if (denied && denied >= 400) {
-          const resultSpan = nodeRange(entry, node.thenStatement, "context");
-          const outcome = semanticNode({ kind: "outcome", filePath: entry.path, startByte: resultSpan.startByte, key: `guard-response:${endpointId}:${denied}:${resultSpan.startByte}`,
-            label: `Permintaan ditolak (${denied})`, featureId, confidence: currentConfidence, reason: currentConfidence === "proven" ? "Cabang guard mengembalikan status HTTP eksplisit." : "Status cabang callback terlihat, tetapi pemanggilan callback belum sepenuhnya terverifikasi.", evidence: [resultSpan] });
-          fragment.nodes.push(outcome); nodeIds.push(outcome.id);
-          const resultEdge = makeEdge("guard-outcome", decision.id, outcome.id, "gagal jika kondisi terpenuhi", currentConfidence, outcome.reason, resultSpan);
-          fragment.edges.push(resultEdge); edgeIds.push(resultEdge.id);
-        }
-        addFeatureMembers(fragment, featureId, [decision.id], [edge.id], [decisionSpan]);
-      }
+    if (!ts.isIfStatement(node)) return;
+    const raw = node.expression.getText(entry.file);
+    const category = guardCategory(raw);
+    const branches = [
+      { statement: node.thenStatement, condition: "gagal jika kondisi terpenuhi" },
+      { statement: node.elseStatement, condition: "gagal jika kondisi tidak terpenuhi" },
+    ].filter((branch): branch is { statement: ts.Statement; condition: string } => branch.statement !== undefined);
+    const failures = branches.flatMap(branch => directReturnStatements(branch.statement)
+      .map(statement => ({ branch, statement, status: responseStatus(entry, statement) }))
+      .filter((item): item is { branch: typeof branch; statement: ts.ReturnStatement; status: number } => item.status !== null && item.status >= 400));
+    if (!category && failures.length === 0) return;
+
+    const decisionSpan = nodeRange(entry, node.expression, "context");
+    const reason = category
+      ? currentConfidence === "proven" ? category.reason : `${category.reason} Callback atau pemanggilan wrapper belum sepenuhnya terverifikasi.`
+      : `Kondisi if langsung diikuti respons HTTP gagal yang terverifikasi; ekspresi dipertahankan tanpa menebak jenis autentikasi, validasi, atau aturan bisnis.`;
+    const decision = semanticNode({ kind: "decision", filePath: entry.path, startByte: decisionSpan.startByte, key: `guard:${endpointId}:${decisionSpan.startByte}:${raw}`,
+      label: category?.label ?? "Pemeriksaan kondisi", featureId, confidence: currentConfidence, reason, evidence: [decisionSpan],
+      technicalNodeIds: technicalNodesForSpan(input.ccm.nodes, entry.path, decisionSpan.startByte, decisionSpan.endByte) });
+    fragment.nodes.push(decision); nodeIds.push(decision.id);
+    const edge = makeEdge("guard", endpointId, decision.id, "memeriksa", currentConfidence, decision.reason, decisionSpan);
+    fragment.edges.push(edge); edgeIds.push(edge.id);
+    const memberNodes = [decision.id];
+    const memberEdges = [edge.id];
+    const memberEvidence = [decisionSpan];
+    for (const failure of failures) {
+      const resultSpan = nodeRange(entry, failure.statement, "context");
+      const message = literalHttpFailureMessage(failure.statement);
+      const suffix = message ? `: ${humanLabel(message)}` : "";
+      const outcomeReason = currentConfidence === "proven"
+        ? "Cabang mengembalikan respons HTTP dengan status kegagalan eksplisit."
+        : "Status HTTP kegagalan tertulis pada cabang callback, tetapi perilaku pemanggil atau wrapper belum sepenuhnya terverifikasi.";
+      const outcome = semanticNode({ kind: "outcome", filePath: entry.path, startByte: resultSpan.startByte, key: `guard-response:${endpointId}:${failure.status}:${resultSpan.startByte}`,
+        label: `Permintaan ditolak (${failure.status})${suffix}`, featureId, confidence: currentConfidence, reason: outcomeReason, evidence: [resultSpan] });
+      fragment.nodes.push(outcome); nodeIds.push(outcome.id);
+      const resultEdge = makeEdge("guard-outcome", decision.id, outcome.id, failure.branch.condition, currentConfidence, outcome.reason, resultSpan);
+      fragment.edges.push(resultEdge); edgeIds.push(resultEdge.id);
+      memberNodes.push(outcome.id); memberEdges.push(resultEdge.id); memberEvidence.push(resultSpan);
     }
+    addFeatureMembers(fragment, featureId, memberNodes, memberEdges, memberEvidence);
   });
+}
+
+function transactionCallbacks(handler: ts.FunctionLikeDeclaration, confidence: "proven" | "indicated"): Map<ts.FunctionLikeDeclaration, TransactionCallback> {
+  const callbacks = new Map<ts.FunctionLikeDeclaration, TransactionCallback>();
+  if (!handler.body) return callbacks;
+  visitHandlerFlow(handler.body, confidence, node => {
+    if (!ts.isCallExpression(node) || !ts.isPropertyAccessExpression(unwrap(node.expression)) || (unwrap(node.expression) as ts.PropertyAccessExpression).name.text !== "$transaction") return;
+    const callback = node.arguments[0] && unwrap(node.arguments[0]);
+    if (!(callback && (ts.isArrowFunction(callback) || ts.isFunctionExpression(callback)))) return;
+    const parameter = callback.parameters[0];
+    if (parameter && ts.isIdentifier(parameter.name)) callbacks.set(callback, { handler: callback, parameter, call: node });
+  });
+  return callbacks;
+}
+
+function transactionForReference(entry: SourceEntry, node: ts.Node, receiverName: string, transactions: ReadonlyMap<ts.FunctionLikeDeclaration, TransactionCallback>): TransactionCallback | null {
+  const nearestBinding = [...lexicalScopes(entry, node)].reverse().find(scope => directlyDeclaredBindings(scope).has(receiverName));
+  if (!nearestBinding || !isCallableBoundary(nearestBinding)) return null;
+  const callback = transactions.get(nearestBinding as ts.FunctionLikeDeclaration);
+  return callback && ts.isIdentifier(callback.parameter.name) && callback.parameter.name.text === receiverName ? callback : null;
 }
 
 function addStores(fragment: SemanticFragment, input: SemanticInput, entry: SourceEntry, handler: ts.FunctionLikeDeclaration, componentId: string, featureId: string, nodeIds: string[], edgeIds: string[], confidence: "proven" | "indicated"): void {
   if (!handler.body) return;
+  const transactions = transactionCallbacks(handler, confidence);
   visitHandlerFlow(handler.body, confidence, (node, currentConfidence) => {
     if (ts.isCallExpression(node)) {
       const expression = unwrap(node.expression);
@@ -1357,7 +1912,13 @@ function addStores(fragment: SemanticFragment, input: SemanticInput, entry: Sour
         let operation = method;
         let operationConfidence = currentConfidence;
         let operationReason = "ORM/query client call menyebut entity atau tabel secara literal.";
-        if (["prisma", "db", "database", "client"].includes(segments[0] ?? "") && segments.length >= 2 && /^(find|create|update|delete|upsert|count|aggregate)/u.test(method)) {
+        let transaction: TransactionCallback | null = null;
+        if (segments.length >= 2 && /^(find|create|update|delete|upsert|count|aggregate)/u.test(method)) transaction = transactionForReference(entry, node, segments[0]!, transactions);
+        if (transaction) {
+          table = segments[1]!;
+          operationConfidence = "indicated";
+          operationReason = `Operasi ${method} memakai parameter ${segments[0]} dari callback literal $transaction; hubungan transaksi terlihat, tetapi binding client/ORM tidak diverifikasi.`;
+        } else if (["prisma", "db", "database", "client"].includes(segments[0] ?? "") && segments.length >= 2 && /^(find|create|update|delete|upsert|count|aggregate)/u.test(method)) {
           table = segments[1]!;
           operationConfidence = currentConfidence === "proven" ? "indicated" : currentConfidence;
           operationReason = `Pemanggilan ${method} pada pola receiver ${segments[0]} menyebut entity secara literal, tetapi binding receiver belum diverifikasi sebagai ORM.`;
@@ -1379,6 +1940,12 @@ function addStores(fragment: SemanticFragment, input: SemanticInput, entry: Sour
           fragment.nodes.push(store); nodeIds.push(store.id);
           const label = /^(find|count|aggregate|select|single|maybeSingle)/u.test(operation) ? "membaca" : /^(delete)/u.test(operation) ? "menghapus" : /^(update)/u.test(operation) ? "mengubah" : "menyimpan";
           const edge = makeEdge("data-access", componentId, store.id, label, operationConfidence, store.reason, span);
+          if (transaction) {
+            const callSpan = nodeRange(entry, transaction.call.expression, "reference");
+            const callbackSpan = nodeRange(entry, transaction.parameter, "declaration");
+            store.evidence = [...store.evidence, callSpan, callbackSpan].sort((a, b) => a.startByte - b.startByte);
+            edge.evidence = [...edge.evidence, callSpan, callbackSpan].sort((a, b) => a.startByte - b.startByte);
+          }
           fragment.edges.push(edge); edgeIds.push(edge.id); addFeatureMembers(fragment, featureId, [store.id], [edge.id], [span]);
         }
       }
@@ -1393,11 +1960,53 @@ function supabaseTerminalOperation(fromCall: ts.CallExpression): string | null {
   return ["select", "insert", "upsert", "update", "delete", "single", "maybeSingle"].includes(method) ? method : null;
 }
 
+function literalErrorProperty(value: ts.Expression | undefined): string | null {
+  if (!value || !ts.isObjectLiteralExpression(unwrap(value))) return null;
+  const object = unwrap(value) as ts.ObjectLiteralExpression;
+  for (const name of ["error", "message"]) {
+    const property = object.properties.find(item => (ts.isPropertyAssignment(item) || ts.isShorthandPropertyAssignment(item)) && propertyName(item.name) === name);
+    if (property && ts.isPropertyAssignment(property)) {
+      const initializer = unwrap(property.initializer);
+      const message = literalText(initializer) ?? (ts.isTemplateExpression(initializer)
+        ? [initializer.head.text, ...initializer.templateSpans.flatMap(span => ["…", span.literal.text])].join("")
+        : null);
+      if (message?.trim()) return message.trim().slice(0, 120);
+    }
+  }
+  return null;
+}
+
+function literalBusinessFailure(statement: ts.ReturnStatement): string | null {
+  return literalErrorProperty(statement.expression);
+}
+
+function literalHttpFailureMessage(statement: ts.ReturnStatement): string | null {
+  const expression = statement.expression && unwrap(statement.expression);
+  return expression && ts.isCallExpression(expression) ? literalErrorProperty(expression.arguments[0]) : null;
+}
+
 function addResponseOutcome(fragment: SemanticFragment, entry: SourceEntry, handler: ts.FunctionLikeDeclaration, endpointId: string, featureId: string, nodeIds: string[], edgeIds: string[], confidence: "proven" | "indicated"): void {
   if (!handler.body) return;
   visitHandlerFlow(handler.body, confidence, (statement, currentConfidence) => {
-    if (!ts.isReturnStatement(statement) || !isHttpResponseReturn(statement)) return;
-    const status = responseStatus(statement);
+    if (!ts.isReturnStatement(statement)) return;
+    const businessFailure = literalBusinessFailure(statement);
+    if (businessFailure) {
+      const span = nodeRange(entry, statement, "context");
+      const reason = "Objek return berisi pesan error literal; kegagalan bisnis ditampilkan sebagai indikasi dan field status payload bukan status HTTP.";
+      const outcome = semanticNode({ kind: "outcome", filePath: entry.path, startByte: span.startByte, key: `business-failure:${endpointId}:${span.startByte}`,
+        label: `Gagal: ${humanLabel(businessFailure)}`, featureId, confidence: "indicated", reason, evidence: [span] });
+      fragment.nodes.push(outcome); nodeIds.push(outcome.id);
+      const edge = makeEdge("business-failure", endpointId, outcome.id, "gagal dengan", "indicated", reason, span);
+      fragment.edges.push(edge); edgeIds.push(edge.id); addFeatureMembers(fragment, featureId, [outcome.id], [edge.id], [span]);
+      return;
+    }
+    if (!isHttpResponseReturn(entry, statement)) {
+      if (responseConstructorName(statement) && /^(?:Response|NextResponse)$/u.test(responseConstructorName(statement)!)) {
+        fragment.limitations.push({ filePath: entry.path, reason: `Return memakai nama ${responseConstructorName(statement)}, tetapi binding-nya tidak dapat diverifikasi sebagai Web Response.` });
+      }
+      return;
+    }
+    const status = responseStatus(entry, statement);
     if (status !== null && status >= 400) return;
     const span = nodeRange(entry, statement, "context");
     const responseConfidence = currentConfidence === "proven" && status ? "proven" : "indicated";

@@ -7,15 +7,16 @@ export interface SemanticPresentation { model: SemanticModel; overlay: Presentat
 const escape = (text: string) => text.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]!);
 function code(text: string): string {
   const fence = "`".repeat(Math.max(1, ...(text.match(/`+/g) ?? []).map(s => s.length + 1)));
-  return `${fence} ${text.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,"�")} ${fence}`;
+  const visible = text.replace(/\r/g,"\\r").replace(/\n/g,"\\n").replace(/\t/g,"\\t").replace(/[\u0000-\u001f\u007f]/g,"�");
+  return `${fence} ${visible} ${fence}`;
 }
 function evidenceUrl(model: SemanticModel, span: EvidenceSpan): string | null {
   const repo = model.snapshot.repository.split("/");
   if (repo.length !== 2 || !repo.every(x => /^[\w.-]+$/.test(x)) || !/^[a-f0-9]{40}$/.test(model.snapshot.commitSha) || span.filePath.split("/").some(x => x === "..")) return null;
-  return `https://github.com/${repo.join("/")}/blob/${model.snapshot.commitSha}/${span.filePath.split("/").map(encodeURIComponent).join("/")}#L${span.startLine}-L${span.endLine}`;
+  return `https://github.com/${repo.join("/")}/blob/${model.snapshot.commitSha}/${span.filePath.split("/").map(part => encodeURIComponent(part).replace(/[!'()*]/g, character => `%${character.charCodeAt(0).toString(16).toUpperCase()}`)).join("/")}#L${span.startLine}-L${span.endLine}`;
 }
 function markdownEvidence(model: SemanticModel, spans: EvidenceSpan[]): string[] {
-  return spans.map(span => { const label = `${span.filePath}:${span.startLine}–${span.endLine}`; const url = evidenceUrl(model, span); return `  - Evidence: ${url ? `[${label.replace(/[\[\]\\]/g,"\\$&")}](${url})` : code(label)}; file SHA-256 ${code(span.fileSha256)}; bytes ${span.startByte}–${span.endByte}.`; });
+  return spans.map(span => { const label = `${span.filePath}:${span.startLine}–${span.endLine}`; const url = evidenceUrl(model, span); return `  - Evidence: ${url ? `[${code(label)}](${url})` : code(label)}; file SHA-256 ${code(span.fileSha256)}; bytes ${span.startByte}–${span.endByte}.`; });
 }
 /** Full semantic appendix; technical ADD Markdown is retained by the caller. */
 export function renderSemanticMarkdown(input: SemanticPresentation): string {

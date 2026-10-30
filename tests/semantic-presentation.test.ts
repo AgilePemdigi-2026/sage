@@ -46,3 +46,14 @@ test("compact PDF flow pagination keeps every member and never invents cross-pag
  for(const page of pages) for(const edge of page.edges) assert.ok(edges.some(original=>original.id===edge.id));
  assert.ok(pages.some(page=>page.omittedRelations>0));
 });
+
+
+test("semantic Markdown keeps source markup and unusual filenames inert inside linked code spans",()=>{
+ const sourcePath="src/a)<img src=x>\n\n*.tsx";
+ const hostile={...model,nodes:model.nodes.map(n=>({...n,label:"source\n\n<img src=x>",evidence:n.evidence.map(span=>({...span,filePath:sourcePath}))}))};
+ const output=renderSemanticMarkdown({model:hostile,overlay:{labels:{},groups:{}},revision:0});
+ assert.ok(output.includes("%29%3Cimg%20src%3Dx%3E%0A%0A%2A.tsx"));
+ assert.ok(!output.includes("source\n\n<img"));
+ assert.ok(output.includes("source\\n\\n<img"));
+ assert.ok(output.includes("[` "),"linked path is an inert code span");
+});

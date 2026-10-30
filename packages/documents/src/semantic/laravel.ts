@@ -120,10 +120,18 @@ function closureBody(tokens: Token[], start: number, end: number): { from: numbe
   return null;
 }
 
-function parseRouteStatements(tokens: Token[], start: number, end: number, scope: GroupScope, out: RouteInfo[], limitations: Array<{ filePath: string; reason: string }>, filePath: string): void {
+function parseRouteStatements(tokens: Token[], start: number, end: number, scope: GroupScope, out: RouteInfo[], limitations: Array<{ filePath: string; reason: string }>, filePath: string, imports: Map<string, string>): void {
   for (let i = start; i + 3 < end; i += 1) {
-    if (tokens[i]!.value.replace(/^\\/u, "").split("\\").at(-1)?.toLowerCase() !== "route" || tokens[i + 1]!.value !== "::" || tokens[i + 3]!.value !== "(") continue;
+    const classRef = tokens[i]!.value.replace(/^\\/u, ""), shortName = classRef.split("\\").at(-1)?.toLowerCase();
+    const imported = shortName ? imports.get(shortName) : undefined;
+    const candidate = shortName === "route" || imported !== undefined;
+    if (!candidate || tokens[i + 1]!.value !== "::" || tokens[i + 3]!.value !== "(") continue;
+    const resolvedFacade = imported ?? (classRef.includes("\\") ? classRef : "Illuminate\\Support\\Facades\\Route");
     const method = tokens[i + 2]!.value.toLowerCase(); const parsed = callArgs(tokens, i + 3); if (!parsed) continue;
+    if (resolvedFacade.toLowerCase() !== "illuminate\\support\\facades\\route") {
+      limitations.push({ filePath, reason: `Deklarasi ${tokens[i]!.value}::${method} berasal dari class yang tidak teridentifikasi sebagai Laravel Route facade; alur diabaikan.` });
+      i = parsed.close; continue;
+    }
     if (method === "group") {
       const local = parsed.args[0]?.[0]?.value === "[" ? optionsScope(parsed.args[0]!, scope, limitations, filePath) : { ...scope, middleware: [...scope.middleware] };
       if (parsed.args[0]?.[0]?.value !== "[") {
@@ -131,7 +139,7 @@ function parseRouteStatements(tokens: Token[], start: number, end: number, scope
         limitations.push({ filePath, reason: "Konfigurasi Route::group tidak literal; prefix dan middleware tidak disimpulkan dan route turunan disembunyikan." });
       }
       const closure = closureBody(tokens, i + 4, parsed.close);
-      if (closure) { parseRouteStatements(tokens, closure.from, closure.to, local, out, limitations, filePath); i = closure.to; }
+      if (closure) { parseRouteStatements(tokens, closure.from, closure.to, local, out, limitations, filePath, imports); i = closure.to; }
       else { limitations.push({ filePath, reason: "Route group memakai callback dinamis yang tidak bisa ditelusuri." }); i = parsed.close; }
       continue;
     }
@@ -166,7 +174,7 @@ function parseRouteStatements(tokens: Token[], start: number, end: number, scope
         chainEnd = chain.close + 1; cursor = chain.close + 1;
         if (chainMethod === "group") {
           const closure = closureBody(tokens, chainStart + 3, chain.close);
-          if (closure) { parseRouteStatements(tokens, closure.from, closure.to, local, out, limitations, filePath); i = closure.to; }
+          if (closure) { parseRouteStatements(tokens, closure.from, closure.to, local, out, limitations, filePath, imports); i = closure.to; }
           else { limitations.push({ filePath, reason: "Route group memakai callback dinamis yang tidak bisa ditelusuri." }); i = chain.close; }
           break;
         }
@@ -245,20 +253,25 @@ function phpClassDeclaration(source: string): { name: string; start: number; end
   return null;
 }
 function phpClassName(source: string): string | null { return phpClassDeclaration(source)?.name ?? null; }
-function eloquentClass(source: string): { name: string; start: number; end: number } | null {
-  const tokens = lex(source);
-  for (let i = 0; i + 1 < tokens.length; i += 1) {
-    if (tokens[i]!.value !== "class" || tokens[i + 1]!.kind !== "identifier") continue;
-    const name = tokens[i + 1]!;
-    let open = i + 2, parent: string | null = null;
-    while (open < tokens.length && tokens[open]!.value !== "{") {
-      if (tokens[open]!.value === "extends" && tokens[open + 1]?.kind === "identifier") parent = tokens[open + 1]!.value.replace(/^\\/u, "");
-      open += 1;
-    }
-    if (parent && ["Model", "Authenticatable", "Pivot", "Illuminate\\Database\\Eloquent\\Model"].includes(parent)) return { name: name.value, start: tokens[i]!.start, end: name.end };
-    return null;
+function eloquentClass(source: string): { name: string; start: number; end: number; proven: boolean } | null {
+  const tokens = lex(source), classInfo = phpClasses(source)[0];
+  if (!classInfo) return null;
+  const imports = routeClassImports(source);
+  const classIndex = tokens.findIndex(token => token.start === classInfo.start && token.value === "class");
+  if (classIndex < 0) return null;
+  const name = tokens[classIndex + 1]!;
+  let cursor = classIndex + 2, parent: string | null = null;
+  while (cursor < tokens.length && tokens[cursor]!.value !== "{") {
+    if (tokens[cursor]!.value === "extends" && tokens[cursor + 1]?.kind === "identifier") parent = tokens[cursor + 1]!.value;
+    cursor += 1;
   }
-  return null;
+  const resolvedParent = parent ? resolvePhpClassRef(parent, classInfo.namespace, imports).toLowerCase() : null;
+  const knownEloquentParents = new Set([
+    "illuminate\\database\\eloquent\\model",
+    "illuminate\\database\\eloquent\\relations\\pivot",
+    "illuminate\\foundation\\auth\\user",
+  ]);
+  return { name: name.value, start: tokens[classIndex]!.start, end: name.end, proven: resolvedParent !== null && knownEloquentParents.has(resolvedParent) };
 }
 function phpClasses(source: string): PhpClass[] {
   const tokens = lex(source), result: PhpClass[] = [];
@@ -467,13 +480,50 @@ function findServiceCalls(tokens: Token[], handler: HandlerInfo, controllerSourc
 function literalHttpStatus(tokens: Token[]): Token | null {
   return tokens.length === 1 && tokens[0]!.kind === "number" && /^(?:[1-5]\d\d)$/u.test(tokens[0]!.value) ? tokens[0]! : null;
 }
-function explicitResponseStatus(tokens: Token[], returnAt: number, statementEnd: number): Token | null {
+type ResponseDetails = { status: Token; message: string | null; dynamicMessage: boolean };
+
+function hasPhpInterpolation(token: Token, source: string): boolean {
+  if (source[token.start] !== '"') return false;
+  for (let i = token.start + 1; i < token.end - 1; i += 1) {
+    if (source[i] !== "$") continue;
+    let slashes = 0;
+    for (let cursor = i - 1; cursor > token.start && source[cursor] === "\\"; cursor -= 1) slashes += 1;
+    if (slashes % 2 === 1) continue;
+    if (/[A-Za-z_{]/u.test(source[i + 1] ?? "")) return true;
+  }
+  return false;
+}
+
+function responsePayloadMessage(tokens: Token[], argument: Token[] | undefined, source: string): { found: boolean; message: string | null; dynamic: boolean } {
+  if (!argument || argument[0]?.value !== "[" || argument.at(-1)?.value !== "]") return { found: false, message: null, dynamic: false };
+  const values = new Map<string, Token[] | null>();
+  for (const part of splitTop(argument, 1, argument.length - 1)) {
+    const arrow = part.findIndex(token => token.value === "=>"), key = arrow > 0 ? literalString(part.slice(0, arrow)) : null;
+    if (key && ["message", "error"].includes(key.toLowerCase())) values.set(key.toLowerCase(), part.slice(arrow + 1));
+  }
+  for (const key of ["message", "error"]) {
+    const value = values.get(key);
+    if (!value) continue;
+    if (value.length !== 1 || value[0]!.kind !== "string") return { found: true, message: null, dynamic: true };
+    if (hasPhpInterpolation(value[0]!, source)) return { found: true, message: null, dynamic: true };
+    const message = value[0]!.value.trim();
+    return { found: true, message: message ? [...message][0]!.toLocaleUpperCase("id-ID") + [...message].slice(1).join("").slice(0, 199) : null, dynamic: false };
+  }
+  return { found: false, message: null, dynamic: false };
+}
+
+function explicitResponseDetails(tokens: Token[], returnAt: number, statementEnd: number, source: string): ResponseDetails | null {
+  let payload = { found: false, message: null as string | null, dynamic: false };
   for (let i = returnAt + 1; i < statementEnd; i += 1) {
     if (tokens[i + 1]?.value !== "(") continue;
     const call = callArgs(tokens, i + 1); if (!call) continue;
     const method = tokens[i]!.value.toLowerCase();
     let status: Token | null = null;
     if (["json", "response", "jsonresponse", "setstatuscode"].includes(method)) {
+      if (["json", "response", "jsonresponse"].includes(method)) {
+        const message = responsePayloadMessage(tokens, call.args[0], source);
+        if (message.found) payload = message;
+      }
       for (const argument of call.args) {
         const named = argument.findIndex((item, index) => item.value.toLowerCase() === "status" && argument[index + 1]?.value === ":");
         if (named >= 0) status = literalHttpStatus(argument.slice(named + 2));
@@ -484,10 +534,14 @@ function explicitResponseStatus(tokens: Token[], returnAt: number, statementEnd:
         if (positional) status = literalHttpStatus(positional);
       }
     }
-    if (status) return status;
+    if (status) return { status, message: payload.message, dynamicMessage: payload.dynamic };
     i = call.close;
   }
   return null;
+}
+
+function explicitResponseStatus(tokens: Token[], returnAt: number, statementEnd: number): Token | null {
+  return explicitResponseDetails(tokens, returnAt, statementEnd, "")?.status ?? null;
 }
 
 function conditionPresentation(tokens: Token[], source: string, start: number, end: number): { label: string; detail: string } {
@@ -518,7 +572,7 @@ function functionDecisions(
 ): { nodeIds: string[]; edgeIds: string[] } {
   const nodeIds: string[] = [], edgeIds: string[] = [];
   const decisions: Array<{ token: Token; label: string; status: string; detail?: string; conditionClose?: number; branchFrom?: number; branchTo?: number }> = [];
-  const outcomes: Array<{ token: Token; end: number; label: string }> = [];
+  const outcomes: Array<{ token: Token; end: number; label: string; detail: string }> = [];
   for (let i = handler.bodyStart; i < handler.bodyEnd; i += 1) {
     const token = tokens[i]!;
     if (token.value === "if" && tokens[i + 1]?.value === "(") {
@@ -542,8 +596,16 @@ function functionDecisions(
     if (token.value === "validate" && tokens[i - 1]?.value === "->") decisions.push({ token, label: "Validasi input", status: "validation" });
     if (token.value === "return") {
       let end = i + 1; while (end < handler.bodyEnd && tokens[end]!.value !== ";" && end < i + 45) end += 1;
-      const status = explicitResponseStatus(tokens, i, end);
-      if (status) outcomes.push({ token, end: status.end, label: `Mengembalikan respons HTTP ${status.value}` });
+      const response = explicitResponseDetails(tokens, i, end, source);
+      if (response) {
+        const label = response.message ?? `Mengembalikan respons HTTP ${response.status.value}`;
+        const detail = response.message
+          ? `Status HTTP literal ${response.status.value}; pesan/error source literal: ${JSON.stringify(response.message)}.`
+          : response.dynamicMessage
+            ? `Status HTTP literal ${response.status.value}; pesan/error payload tidak berupa string literal statis sehingga label generik digunakan.`
+            : `Status HTTP literal ${response.status.value}.`;
+        outcomes.push({ token, end: response.status.end, label, detail });
+      }
     }
   }
   const unique = new Map<string, typeof decisions[number]>(); for (const decision of decisions) unique.set(`${decision.token.start}:${decision.label}`, decision);
@@ -560,7 +622,7 @@ function functionDecisions(
   for (const outcome of outcomes) {
     const id = semanticId("outcome", file, Buffer.byteLength(source.slice(0, outcome.token.start), "utf8"), outcome.label);
     const evidence = [evidenceSpan(file, bytes, outcome.token.start, outcome.end, "reference")];
-    nodeIds.push(addNode({ id, kind: "outcome", label: outcome.label, featureId, confidence: "proven", reason: `Kode mengembalikan status HTTP yang eksplisit dalam ${context === "middleware" ? "middleware" : "controller"} route.`, evidence, technicalNodeIds }));
+    nodeIds.push(addNode({ id, kind: "outcome", label: outcome.label, featureId, confidence: "proven", reason: `Kode mengembalikan status HTTP yang eksplisit dalam ${context === "middleware" ? "middleware" : "controller"} route. ${outcome.detail}`, evidence, technicalNodeIds }));
     edgeIds.push(addEdge({ id: semanticEdgeId(file, Buffer.byteLength(source.slice(0, outcome.token.start), "utf8"), `handler-outcome:${componentId}:${id}`), source: componentId, target: id, label: "menghasilkan", confidence: "proven", reason: "Return status HTTP literal dalam handler.", evidence }));
     const owner = [...unique.values()].filter(item => item.status === "guard" && item.branchFrom !== undefined && outcome.token.start >= tokens[item.branchFrom]!.start && outcome.token.start <= tokens[item.branchTo!]!.end).sort((a, b) => (a.branchTo ?? 0) - (b.branchTo ?? 0))[0];
     if (owner) {
@@ -631,7 +693,7 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
   for (const file of routePaths) {
     const bytes = input.sources[file]!, source = new TextDecoder().decode(bytes), tokens = lex(source);
     const routeCountBefore = routeInfo.length;
-    parseRouteStatements(tokens, 0, tokens.length, { prefix: "", middleware: [], prefixUnknown: false, middlewareUnknown: false }, routeInfo, fragment.limitations, file);
+    parseRouteStatements(tokens, 0, tokens.length, { prefix: "", middleware: [], prefixUnknown: false, middlewareUnknown: false }, routeInfo, fragment.limitations, file, routeClassImports(source));
     if (routeInfo.length > routeCountBefore && /(?:^|\/)routes\/api\.php$/iu.test(file)) fragment.limitations.push({ filePath: file, reason: "Prefix runtime routes/api.php (misalnya /api) dapat ditentukan pada konfigurasi bootstrap Laravel dan tidak disimpulkan dari deklarasi route saja." });
   }
   if (!routeInfo.length) return fragment;
@@ -754,7 +816,7 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
         const controllerImports = routeClassImports(handlerSource);
         const models = paths.filter(path => applicationPhpSource(path) && /(?:^|\/)Models?\//u.test(path)).flatMap(path => {
           const sourceBytes = input.sources[path]!, source = new TextDecoder().decode(sourceBytes), declaration = phpClasses(source)[0], eloquent = eloquentClass(source);
-          return declaration ? [{ path, name: declaration.name, namespace: declaration.namespace, fullName: declaration.namespace ? `${declaration.namespace}\\${declaration.name}` : declaration.name, start: declaration.start, end: declaration.end, eloquent: eloquent !== null }] : [];
+          return declaration ? [{ path, name: declaration.name, namespace: declaration.namespace, fullName: declaration.namespace ? `${declaration.namespace}\\${declaration.name}` : declaration.name, start: declaration.start, end: declaration.end, eloquent: eloquent?.proven === true }] : [];
         });
         for (let tokenIndex = handler.bodyStart; tokenIndex < handler.bodyEnd; tokenIndex += 1) {
           const tokenNode = handlerTokens[tokenIndex]!;

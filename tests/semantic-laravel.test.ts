@@ -129,15 +129,18 @@ class MoodCheckinController {
 });`,
     "app/Http/Controllers/MoodCheckinController.php": controller,
     "app/Http/Controllers/MoodHistoryController.php": "<?php class MoodHistoryController { public function index() { return MoodCheckin::first(); } }",
-    "app/Models/MoodCheckin.php": "<?php class MoodCheckin extends Model {}",
+    "app/Models/MoodCheckin.php": `<?php
+use Illuminate\\Database\\Eloquent\\Model;
+class MoodCheckin extends Model {}`,
   });
   const result = extractLaravel(input);
   const decision = result.nodes.find(node => node.kind === "decision" && node.label === "Pemeriksaan data hari ini");
   assert.ok(decision, "the data-existence guard has a readable business label");
   assert.ok(decision.reason.includes("MoodCheckin::whereDate('created_at', today())->exists()"), "the original source condition remains available in the reason and evidence");
   assert.equal(decision.confidence, "proven");
-  const status = result.nodes.find(node => node.kind === "outcome" && node.label.includes("422"));
-  assert.ok(status, "literal rejection status is represented");
+  const status = result.nodes.find(node => node.kind === "outcome" && node.label === "Duplicate");
+  assert.ok(status, "a literal response message supplies a readable outcome label");
+  assert.ok(status.reason.includes("HTTP literal 422"), "the proven status remains in the outcome reason");
   assert.equal(status.evidence[0]!.filePath, "app/Http/Controllers/MoodCheckinController.php");
   assert.equal(status.evidence[0]!.startLine, 6);
   const stores = result.nodes.filter(node => node.kind === "store");
@@ -246,6 +249,9 @@ test("Laravel only reads HTTP statuses from response status arguments, never num
         if ($invalid) {
             return response()->json(['code' => 401, 'items' => [403, 422]]);
         }
+        if ($dynamicMessage) {
+            return response()->json(['message' => "Hello $user", 'code' => 401], 202);
+        }
         return response()->json(['code' => 403], 201);
     }
 }`,
@@ -254,6 +260,9 @@ test("Laravel only reads HTTP statuses from response status arguments, never num
   const outcomes = result.nodes.filter(node => node.kind === "outcome").map(node => node.label);
   assert.ok(outcomes.some(label => label.includes("422")) === false);
   assert.ok(outcomes.some(label => label.includes("201")));
+  const dynamicOutcome = result.nodes.find(node => node.kind === "outcome" && node.reason.includes("HTTP literal 202"));
+  assert.equal(dynamicOutcome?.label, "Mengembalikan respons HTTP 202", "interpolated payload text is not presented as a static message");
+  assert.ok(dynamicOutcome?.reason.includes("label generik"));
   assert.equal(outcomes.some(label => label.includes("401") || label.includes("403")), false);
 });
 
@@ -294,12 +303,36 @@ namespace App\\Http\\Controllers\\Api;
 class NoImportController { public function index() { return Book::all(); } }`,
     "app/Models/Book.php": `<?php
 namespace App\\Models;
+use Illuminate\\Database\\Eloquent\\Model;
 class Book extends Model {}`,
   });
   const result = extractLaravel(input);
   assert.equal(result.nodes.some(node => node.kind === "store" && node.label === "Book"), false);
   assert.equal(result.edges.some(edge => edge.target.includes("store") && edge.confidence === "proven"), false);
   assert.ok(result.limitations.filter(item => item.reason.includes("Static model reference")).length >= 2);
+});
+
+test("Laravel marks a model with an unrelated imported Model parent as indicated, not proven Eloquent", () => {
+  const input = fixture({
+    [ROUTES]: `<?php
+use App\\Http\\Controllers\\BookController;
+Route::get('/books', [BookController::class, 'index']);
+`,
+    "app/Http/Controllers/BookController.php": `<?php
+namespace App\\Http\\Controllers;
+use App\\Models\\Book;
+class BookController { public function index() { return Book::all(); } }`,
+    "app/Models/Book.php": `<?php
+namespace App\\Models;
+use Other\\Model;
+class Book extends Model {}`,
+  });
+  const result = extractLaravel(input);
+  const store = result.nodes.find(node => node.kind === "store" && node.label === "Book");
+  assert.equal(store?.confidence, "indicated");
+  assert.ok(store?.reason.includes("inheritance Eloquent tidak dibuktikan"));
+  assert.ok(result.limitations.some(item => item.filePath === "app/Models/Book.php" && item.reason.includes("parent-nya tidak membuktikan Eloquent")));
+  assert.ok(result.edges.some(edge => edge.target === store?.id && edge.confidence === "indicated"));
 });
 
 test("the pinned Laravel corpus resolves route aliases, guards, check-in outcomes, and Eloquent data", () => {
@@ -324,7 +357,13 @@ test("the pinned Laravel corpus resolves route aliases, guards, check-in outcome
   assert.ok(result.nodes.find(node => node.kind === "component" && node.label === "AuthController@login")?.evidence.some(span => span.filePath.endsWith("AuthController.php")));
   const model = result.nodes.find(node => node.kind === "store" && node.label === "Mood Checkin");
   assert.ok(model, "the direct Eloquent operations resolve to the model declaration");
-  assert.ok(result.nodes.some(node => node.kind === "outcome" && node.label.includes("422")));
+  const duplicateOutcome = result.nodes.find(node => node.kind === "outcome" && node.label === "Anda sudah melakukan check-in hari ini");
+  assert.ok(duplicateOutcome, "the literal duplicate-check message is shown as the business outcome");
+  assert.ok(duplicateOutcome.reason.includes("HTTP literal 422"));
+  assert.ok(duplicateOutcome.evidence.some(span => span.filePath.endsWith("MoodCheckinController.php") && span.startLine === 46 && span.endLine === 49));
+  const successOutcome = result.nodes.find(node => node.kind === "outcome" && node.reason.includes("HTTP literal 201") && node.evidence.some(span => span.filePath.endsWith("MoodCheckinController.php")));
+  assert.equal(successOutcome?.label, "Mengembalikan respons HTTP 201", "the success status stays supported by its literal source span when there is no message");
+  assert.ok(successOutcome.evidence.some(span => span.filePath.endsWith("MoodCheckinController.php") && span.startLine === 67 && span.endLine === 70));
   const adminDashboard = findStep("GET /admin/dashboard")!;
   assert.ok(adminDashboard);
   const adminActor = actorFor(adminDashboard.id)!;
@@ -336,7 +375,8 @@ test("the pinned Laravel corpus resolves route aliases, guards, check-in outcome
   const adminDecision = result.nodes.find(node => node.kind === "decision" && node.evidence.some(span => span.filePath.endsWith("AdminMiddleware.php")));
   assert.equal(adminDecision?.label, "Pemeriksaan izin administrator");
   assert.ok(adminDecision?.reason.includes("$request->user()->is_admin"));
-  assert.ok(result.nodes.some(node => node.kind === "outcome" && node.label.includes("403") && node.evidence.some(span => span.filePath.endsWith("AdminMiddleware.php"))));
+  const deniedOutcome = result.nodes.find(node => node.kind === "outcome" && node.label === "Unauthorized. Admin access required.");
+  assert.ok(deniedOutcome?.reason.includes("HTTP literal 403") && deniedOutcome.evidence.some(span => span.filePath.endsWith("AdminMiddleware.php")));
   const adminContinuation = result.edges.find(edge => edge.source === adminMiddleware.id && edge.target === result.nodes.find(node => node.kind === "component" && node.label === "AdminDashboardController@index")?.id && edge.label === "meneruskan permintaan ke");
   assert.ok(adminContinuation, "the middleware's $next call is connected to the statically routed controller");
   assert.ok(adminContinuation.evidence.some(span => span.filePath.endsWith("bootstrap/app.php")));
@@ -424,6 +464,20 @@ $example = "Route::get('/string', [StringController::class, 'index'])";
   const ignored = extractLaravel(textOnly);
   assert.equal(ignored.nodes.length, 0);
   assert.equal(ignored.limitations.length, 0, "quoted/commented route-like text is not treated as an unsupported declaration");
+});
+
+test("an explicitly imported Route lookalike does not create Laravel endpoint facts", () => {
+  const input = fixture({
+    [ROUTES]: `<?php
+use Other\\Route;
+Route::get('/not-laravel', [LookalikeController::class, 'index']);
+Other\\Route::post('/also-not-laravel', [LookalikeController::class, 'index']);
+`,
+    "app/Http/Controllers/LookalikeController.php": `<?php class LookalikeController { public function index() { return []; } }`,
+  });
+  const result = extractLaravel(input);
+  assert.equal(result.nodes.some(node => node.kind === "step" || node.label === "LookalikeController@index"), false);
+  assert.ok(result.limitations.some(item => item.reason.includes("tidak teridentifikasi sebagai Laravel Route facade")));
 });
 
 test("unsupported route groups do not cause invented controller flows", () => {
