@@ -56,7 +56,7 @@ Peran **Boundary** (amber), **Control** (biru), dan **Entity** (teal) mengikuti 
 
 Relasi yang target class-nya belum terbukti tidak digambar menjadi class pasti. UI menyediakan ringkasan resolusi dengan alasan, tanpa menghitung `CONTAINS` sebagai keberhasilan resolusi. Dependency memakai garis putus-putus UML dengan label kind/status; beberapa kind untuk pasangan class/status yang sama digabung pada satu panah, sementara jumlah kelompok kind dan seluruh evidence tetap dicatat. Tampilan awal menyesuaikan seluruh gambar ke area diagram, dengan zoom untuk membaca detail; garis putus-putus sendiri tidak berarti Unresolved. Proyeksi ini diterapkan saat membaca/mengekspor, sehingga ADD lama tetap valid dan canonical/Markdown tetap lengkap. Ekspor baru menggunakan renderer 2.3.0; hasil ekspor lama tidak ditimpa. Bukti pengujian ada pada [ANA-08_CHECKS](ANA-08_CHECKS.md).
 
-## Workspace developer UI-06
+## Workspace developer UI-06 (fallback hasil lama)
 
 Navigasi Progres, Knowledge graph, dan Dokumentasi tersedia langsung pada hasil analisis yang sama. Tab hasil tetap mengikuti pemeriksaan sesi dan pemilik; tautan belum aktif sebelum publikasi hasil lengkap. Tombol pemilihan repository memakai jarak 12 px dan membungkus pada layar sempit.
 
@@ -67,3 +67,12 @@ UML dapat difilter berdasarkan area source dan dibaca per halaman. Class yang te
 Pola navigasi memakai acuan [GitHub Primer underline navigation](https://primer.style/product/components/underline-nav/). Penyajian area dan drill-down terinspirasi [GitDiagram](https://github.com/ahmedkhaleel2004/gitdiagram), disesuaikan dengan relasi statis SAGE. Warna membedakan tindakan, fokus, area source, dan peran BCE; layout mengutamakan kedekatan kontrol, ruang baca terpusat, dan detail bertahap.
 
 Susunan overview memakai constraint layout tak terlihat untuk menjaga area pada alur vertikal; constraint tidak menjadi relasi atau evidence source. Overview awal menampilkan empat area prioritas, sedangkan dropdown tetap menyediakan semua area.
+
+
+## Workspace semantik
+
+Analisis baru menggunakan model `sage-semantic-v1`, terpisah dari CCM/CKG dan ADD. Overview menampilkan fitur/aktor; pemilihan fitur membuka relasi tindakan, pemeriksaan, komponen, penyimpanan, dan hasil yang dikenali. Hubungan statis **Terbukti** digambar utuh; interpretasi **Indikasi** digambar putus-putus dan bisa disembunyikan. Impor dan kedekatan direktori tidak membuktikan urutan aktivitas. Graph awal menggunakan fitur sebagai cluster, bukan empat direktori. Ukuran lingkaran menunjukkan konektivitas, warna menunjukkan kelompok; keduanya bukan skor kepentingan bisnis.
+
+Evidence membuka GitHub pada commit snapshot dan rentang baris. Koreksi hanya label/pengelompokan, disimpan sebagai overlay append-only; konflik revisi meminta muat ulang. Pengembalian otomatis menghapus override, tanpa mengubah fakta. UI, PDF, dan Markdown memproyeksikan model dan overlay yang sama. PDF membagi detail alur ke halaman berisi maksimal 12 node, mencatat jumlah relasi antarhalaman tanpa membuat panah pengganti. Markdown mencantumkan seluruh fakta, indikasi, alasan, evidence dan batasan. Cache ekspor mengikat hash model, revisi overlay, dan versi renderer. Hasil lama tetap dibaca melalui fallback dan memerlukan analisis ulang untuk kemampuan semantik baru.
+
+Kontrak dan batas extractor: [SEMANTIC_ANALYSIS](SEMANTIC_ANALYSIS.md). Acuan source beku: [oracle](evidence/semantic/oracle.json).

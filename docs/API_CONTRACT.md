@@ -183,3 +183,10 @@ Collection endpoint yang sama menerima JSON tepat `{ "format": "PDF" }`. Envelop
 Download PDF memakai `Content-Type: application/pdf`, attachment `.pdf` dan header privat yang sama. Path internal harus berakhiran `document.pdf` sesuai format record; ukuran/checksum diverifikasi, dan worker menolak byte yang bukan PDF sebelum READY. Batas file tetap 32 MiB. Renderer PDF menjalankan Mermaid dan Chromium lokal dengan request jaringan diblokir, HTML/SVG tervalidasi, batas waktu serta budget diagram/halaman. Renderer PDF 2.0.0 menyajikan satu SVG utuh per diagram di A4 landscape; tidak ada overview/detail tile. Katalog ringkas menyertakan kontrak dan lokasi bukti; hash/ID serta register atribut/evidence lengkap tetap tersedia di Markdown. Lihat DOCUMENT_PRESENTATION.md untuk aturan agregasi tampilan struktur.
 
 Retry menjaga isi canonical dan semantic result. Checksum mengikat file READY yang diunduh; metadata internal PDF bukan kontrak identitas byte antar-render. Rincian bukti/layout: [EXP-02_CHECKS](EXP-02_CHECKS.md).
+
+
+## Pembacaan dan koreksi model semantik
+
+`GET /api/analyses/{analysisId}/semantic` membutuhkan session dan `X-SAGE-Account` yang sesuai pemilik. Respons `data` berisi `analysisId`, `accountKey`, `modelHash`, `model`, `revision`, `overlay`. Hasil lama tanpa model mengembalikan keterangan analisis ulang; hasil teknis tetap tersedia. Respons privat memakai `Cache-Control: private, no-store` dan variasi akun/cookie.
+
+`PATCH /api/analyses/{analysisId}/semantic/presentation` membutuhkan origin aplikasi dan JSON dengan tepat `expectedRevision` serta `overlay: {labels, groups}`. Label mengganti nama node/fitur; groups hanya memindahkan concept/component/store ke fitur yang ada. ID asing, hubungan manual, field tambahan dan label tidak valid ditolak. `409` menandakan konflik revisi; klien harus memuat ulang dan tidak otomatis menimpa koreksi terbaru. Source canonical tetap utuh. POST ekspor menerima `presentationRevision` opsional untuk memeriksa revisi yang sedang dibaca dan mem-pin model/revisi secara atomik; revisi usang ditolak.

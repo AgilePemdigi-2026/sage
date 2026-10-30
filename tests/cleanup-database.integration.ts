@@ -152,6 +152,28 @@ test("DEL-01 rejects active work and completes an owner-scoped, reservation-awar
     await db.analysis.delete({ where: { id: activeExportAnalysis.id } });
 
     const analysis = await createAnalysis(db, owner, "FAILED");
+    const semanticModel = await db.semanticModel.create({
+      data: {
+        ownerUserId: owner.id,
+        analysisId: analysis.id,
+        sourceCkgHash: "1".repeat(64),
+        modelHash: "2".repeat(64),
+        schemaVersion: "sage-semantic-v1",
+        extractorVersion: "cleanup-test-v1",
+        canonicalContent: "{}",
+      },
+      select: { id: true },
+    });
+    await db.presentationRevision.create({
+      data: {
+        ownerUserId: owner.id,
+        analysisId: analysis.id,
+        semanticModelId: semanticModel.id,
+        revision: 1,
+        overlay: { labels: {}, groups: {} },
+        contentHash: "3".repeat(64),
+      },
+    });
     const retryChild = await createAnalysis(db, owner, "FAILED", analysis.id);
     const registeredKey = `snapshot-${suffix.slice(0, 6)}/archive.tar.gz`;
     const reservedKey = `export-${randomUUID()}/document.pdf.pending`;
@@ -328,6 +350,8 @@ test("DEL-01 reservation writes require the current analysis lease", async () =>
     assert.deepEqual(cleanupClaim.manifest, [{ storageObjectId: null, storageKey: key }]);
     assert.equal(await completeCleanupJob(db, cleanupClaim, [key]), true);
     assert.equal((await findCleanupJobForUser(db, owner.id, pending.jobId))?.status, "COMPLETED");
+    assert.equal(await db.semanticModel.count({ where: { analysisId: analysis.id } }), 0, "semantic models must cascade with analysis deletion");
+    assert.equal(await db.presentationRevision.count({ where: { analysisId: analysis.id } }), 0, "presentation revisions must cascade with analysis deletion");
   } finally {
     await cleanupFixtures(db, owners);
     await disconnectDatabase();

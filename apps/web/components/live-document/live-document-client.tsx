@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { ArchitectureDocumentV1 } from "@sage/documents/model";
 import { buildArchitectureUml, listArchitectureUmlScopes, buildSoftwareOverview } from "@sage/documents/overview";
 import { humanNodeName } from "@sage/documents/human";
@@ -14,6 +14,7 @@ import { EvidenceLink } from "./evidence-links.tsx";
 import type { DiagramOverviewSummary } from "@sage/documents/overview";
 import { AnalysisQuality } from "../analysis-quality/analysis-quality.tsx";
 import { MarkdownExport, PdfExport } from "./markdown-export.tsx";
+import { SemanticWorkspace } from "../semantic-workspace/semantic-workspace.tsx";
 import styles from "./live-document.module.css";
 
 type DiagramProjection = ArchitectureDocumentV1["softwareEngineeringDiagram"];
@@ -490,6 +491,7 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<RequestError | null>(null);
   const [section, setSection] = useState<SectionId>("catalog");
+  const [semanticRevision, setSemanticRevision] = useState<number | undefined>(undefined);
   const generation = useRef(0);
   const documentController = useRef<AbortController | null>(null);
   const sessionController = useRef<AbortController | null>(null);
@@ -497,12 +499,23 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
   const fullCheckRunning = useRef(false);
   const reloadStarted = useRef(false);
   const visiblePayload = payload?.analysisId === analysisId && payload.accountKey === accountKey ? payload : null;
+  const receiveSemanticRevision = useCallback((detail: { revision: number; modelHash: string }) => {
+    if (!Number.isSafeInteger(detail.revision) || detail.revision < 0 || !/^[a-f0-9]{64}$/u.test(detail.modelHash)) return;
+    setSemanticRevision(detail.revision);
+  }, []);
 
   useEffect(() => {
     let active = true;
     let periodicCheckRunning = false;
 
     function requestHeaders() { return { "X-SAGE-Account": accountKey }; }
+    function onSemanticRevision(event: Event) {
+      const detail = (event as CustomEvent<unknown>).detail;
+      if (!record(detail) || detail.analysisId !== analysisId || detail.accountKey !== accountKey ||
+          !Number.isSafeInteger(detail.revision) || Number(detail.revision) < 0 || typeof detail.modelHash !== "string") return;
+      receiveSemanticRevision({ revision: Number(detail.revision), modelHash: detail.modelHash });
+    }
+    window.addEventListener("sage:semantic-revision", onSemanticRevision);
     function abortCurrentRequests() {
       documentController.current?.abort();
       documentController.current = null;
@@ -512,6 +525,7 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
     function isCurrent(requestGeneration: number) { return active && generation.current === requestGeneration; }
     function clearSensitiveData() {
       setPayload(null);
+      setSemanticRevision(undefined);
       setSection("catalog");
     }
     function reloadCurrentPage() {
@@ -660,8 +674,9 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
       window.removeEventListener("focus", onFocus);
       window.removeEventListener("pageshow", onPageShow);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("sage:semantic-revision", onSemanticRevision);
     };
-  }, [analysisId, accountKey]);
+  }, [analysisId, accountKey, receiveSemanticRevision]);
 
   function errorContent() {
     if (!error) return null;
@@ -699,19 +714,26 @@ export function LiveDocumentClient({ analysisId, accountKey }: { analysisId: str
         <div id="document-content" className={styles.sectionContent} aria-live="polite">
       <div className={styles.exportGrid}>
         <MarkdownExport
-          key={`MARKDOWN:${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}`}
+          key={`MARKDOWN:${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}:${semanticRevision ?? 0}`}
           payload={visiblePayload}
+          presentationRevision={semanticRevision}
           onUnauthorized={() => refreshRef.current?.()}
         />
         <PdfExport
-          key={`PDF:${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}`}
+          key={`PDF:${visiblePayload.analysisId}:${visiblePayload.accountKey}:${visiblePayload.contentHash}:${semanticRevision ?? 0}`}
           payload={visiblePayload}
+          presentationRevision={semanticRevision}
           onUnauthorized={() => refreshRef.current?.()}
         />
       </div>
 
-          {section === "catalog" ? <InterfaceCatalog payload={visiblePayload} /> :
-            <DiagramDocumentSection key={`${accountKey}:${visiblePayload.document.ckgSha256}:${section}`} payload={visiblePayload} section={section} />}
+          {section === "catalog" ? <InterfaceCatalog payload={visiblePayload} /> : section === "structure" ? <SemanticWorkspace
+            key={`${analysisId}:${accountKey}:${visiblePayload.document.ckgSha256}:flow`}
+            analysisId={analysisId} accountKey={accountKey} repository={visiblePayload.document.snapshot.repository}
+            commitSha={visiblePayload.document.snapshot.commitSha} mode="flow"
+            onRevision={receiveSemanticRevision}
+            legacyFallback={<DiagramDocumentSection key={`${accountKey}:${visiblePayload.document.ckgSha256}:structure-legacy`} payload={visiblePayload} section="structure" />}
+          /> : <DiagramDocumentSection key={`${accountKey}:${visiblePayload.document.ckgSha256}:uml`} payload={visiblePayload} section="uml" />}
         </div>
       </div>
       <p className={styles.footerLink}><Link href={`/analyses/${encodeURIComponent(analysisId)}`}>Kembali ke progres analisis</Link></p>

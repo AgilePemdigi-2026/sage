@@ -1,0 +1,258 @@
+{
+  "measuredAt": "2026-10-30",
+  "environment": "Local Colima Linux ARM64; not shared Coolify server",
+  "qaImage": "sha256:5c88d077a8451c2fdb6838711be0d94dff63d0a3625324f14dfc220f4e085a53",
+  "limits": {
+    "memoryBytes": 2147483648,
+    "cpu": 1.5,
+    "network": "none"
+  },
+  "sourceReplayed": true,
+  "reports": [
+    {
+      "runtime": {
+        "node": "v24.22.0",
+        "platform": "linux",
+        "architecture": "arm64"
+      },
+      "status": "PASS",
+      "sourceStatus": "PASS",
+      "exportMetrics": {
+        "canonicalDocumentBytes": 11033066,
+        "markdownBytes": 12624191,
+        "markdownStatus": "PASS",
+        "pdfStatus": "PASS",
+        "pdfBytes": 2260062,
+        "pdfMs": 7959.566220999999
+      },
+      "scope": "Pinned source extraction, deterministic replay and byte/hash evidence validation; flow coverage below is not a human semantic correctness signoff",
+      "repository": "iltizamhasan3/sistem-informasi-perpus",
+      "commit": "d72c3532a7d59cab242fb705ab201cf99ef35e88",
+      "sourceFiles": 89,
+      "sourceBytes": 319532,
+      "sourceMs": 2199.6984,
+      "semanticMs": 459.1528909999997,
+      "processPeakRssBytes": 405479424,
+      "containerPeakChargedBytes": 369967104,
+      "semanticBytes": 882540,
+      "modelHash": "92687d961d9ad3b8fefc2ad4ef02551bd6946a261c65cd3f9c7e420e8ed1a5e7",
+      "features": 17,
+      "nodes": 616,
+      "edges": 653,
+      "provenEdges": 126,
+      "indicatedEdges": 527,
+      "limitations": 65,
+      "flowCoverage": [
+        {
+          "name": "Login dan katalog",
+          "expectedPaths": [
+            "src/app/(auth)/login/page.tsx",
+            "src/app/api/auth/login/route.ts",
+            "src/app/catalog/page.tsx"
+          ],
+          "coveredPaths": [
+            "src/app/(auth)/login/page.tsx",
+            "src/app/api/auth/login/route.ts",
+            "src/app/catalog/page.tsx"
+          ],
+          "negative": "Catalog reads do not require invented admin permission."
+        },
+        {
+          "name": "Booking anggota dan konfirmasi admin",
+          "expectedPaths": [
+            "src/app/catalog/[id]/page.tsx",
+            "src/components/cart-sidebar.tsx",
+            "src/app/api/bookings/bulk/route.ts",
+            "src/app/api/transactions/confirm/route.ts"
+          ],
+          "coveredPaths": [
+            "src/app/catalog/[id]/page.tsx",
+            "src/components/cart-sidebar.tsx",
+            "src/app/api/bookings/bulk/route.ts",
+            "src/app/api/transactions/confirm/route.ts"
+          ],
+          "negative": "Member booking is not an immediate loan; direct borrow endpoint is admin-only."
+        },
+        {
+          "name": "Sewa ebook",
+          "expectedPaths": [
+            "src/app/catalog/[id]/page.tsx",
+            "src/app/api/ebooks/rent/route.ts"
+          ],
+          "coveredPaths": [
+            "src/app/catalog/[id]/page.tsx",
+            "src/app/api/ebooks/rent/route.ts"
+          ],
+          "negative": "Do not invent eligibility or an unlimited rental."
+        }
+      ],
+      "exportProcess": {
+        "runtime": {
+          "node": "v24.22.0",
+          "platform": "linux",
+          "architecture": "arm64"
+        },
+        "elapsedMs": 10882.698266,
+        "processPeakRssBytes": 417214464,
+        "containerPeakChargedBytes": 647438336
+      },
+      "sourceMeasurementScope": "Fresh source run artifacts/semantic/release-20261030; renderer rerun in a fresh bounded container using identical pinned model hash"
+    },
+    {
+      "runtime": {
+        "node": "v24.22.0",
+        "platform": "linux",
+        "architecture": "arm64"
+      },
+      "status": "FAIL_EXPORT_PROCESS",
+      "sourceStatus": "PASS",
+      "exportMetrics": null,
+      "scope": "Pinned source extraction, deterministic replay and byte/hash evidence validation; flow coverage below is not a human semantic correctness signoff",
+      "repository": "AgilePemdigi-2026/sage",
+      "commit": "c2dc3d84b220c572fb5b2ce85dd3605e89b11a73",
+      "sourceFiles": 369,
+      "sourceBytes": 3189530,
+      "sourceMs": 89243.006807,
+      "semanticMs": 1065.5866300000052,
+      "processPeakRssBytes": 1156386816,
+      "containerPeakChargedBytes": 1129230336,
+      "semanticBytes": 291947,
+      "modelHash": "8e09c5f185cf83d106d3482a431cae0dae0350a9d2037defb6ac32379e02a63a",
+      "features": 14,
+      "nodes": 192,
+      "edges": 218,
+      "provenEdges": 125,
+      "indicatedEdges": 93,
+      "limitations": 43,
+      "flowCoverage": [
+        {
+          "name": "GitHub login",
+          "expectedPaths": [
+            "apps/web/app/login/page.tsx",
+            "apps/web/app/auth/github/route.ts"
+          ],
+          "coveredPaths": [
+            "apps/web/app/login/page.tsx",
+            "apps/web/app/auth/github/route.ts"
+          ],
+          "negative": "OAuth start is not proof of successful authorization."
+        },
+        {
+          "name": "Target dan analisis",
+          "expectedPaths": [
+            "apps/web/lib/github/target-handlers.ts",
+            "apps/web/lib/github/submission-handlers.ts",
+            "packages/contracts/src/stages.ts"
+          ],
+          "coveredPaths": [
+            "apps/web/lib/github/target-handlers.ts",
+            "apps/web/lib/github/submission-handlers.ts",
+            "packages/contracts/src/stages.ts"
+          ],
+          "negative": "Imports do not prove user interaction order; private access requires authorization."
+        },
+        {
+          "name": "Ekspor",
+          "expectedPaths": [
+            "apps/web/lib/exports/handlers.ts"
+          ],
+          "coveredPaths": [
+            "apps/web/lib/exports/handlers.ts"
+          ],
+          "negative": "Queued export is not a successful download."
+        }
+      ],
+      "exportExitCode": 134,
+      "exportError": "V8_HEAP_LIMIT",
+      "exportProcess": {
+        "processPeakRssBytes": null,
+        "containerPeakChargedBytes": null
+      },
+      "sourceMeasurementScope": "Fresh source run artifacts/semantic/release-20261030; renderer rerun in a fresh bounded container using identical pinned model hash",
+      "exportLogSha256": "a806a9d60cb41d440703f56a0374d04f957f49abe0b131b0118db8efba018d66"
+    },
+    {
+      "runtime": {
+        "node": "v24.22.0",
+        "platform": "linux",
+        "architecture": "arm64"
+      },
+      "status": "PASS",
+      "sourceStatus": "PASS",
+      "exportMetrics": {
+        "canonicalDocumentBytes": 4202185,
+        "markdownBytes": 4815631,
+        "markdownStatus": "PASS",
+        "pdfStatus": "PASS",
+        "pdfBytes": 385207,
+        "pdfMs": 2556.1043130000003
+      },
+      "scope": "Pinned source extraction, deterministic replay and byte/hash evidence validation; flow coverage below is not a human semantic correctness signoff",
+      "repository": "iltizamhasan3/emosync-backend",
+      "commit": "a22992668658538f6fc10b904d6f7b2ed09124ac",
+      "sourceFiles": 85,
+      "sourceBytes": 242613,
+      "sourceMs": 4408.93811,
+      "semanticMs": 219.07465000000047,
+      "processPeakRssBytes": 370405376,
+      "containerPeakChargedBytes": 335732736,
+      "semanticBytes": 381430,
+      "modelHash": "15e1a9ade7a104b89302189f567c3aa2033005d5fcdde07fa4af43d40afd5ad0",
+      "features": 14,
+      "nodes": 233,
+      "edges": 356,
+      "provenEdges": 356,
+      "indicatedEdges": 0,
+      "limitations": 3,
+      "flowCoverage": [
+        {
+          "name": "Autentikasi API",
+          "expectedPaths": [
+            "routes/api.php",
+            "app/Http/Controllers/Api/AuthController.php"
+          ],
+          "coveredPaths": [
+            "routes/api.php",
+            "app/Http/Controllers/Api/AuthController.php"
+          ],
+          "negative": "Backend source does not prove frontend screens or navigation."
+        },
+        {
+          "name": "Mood check-in",
+          "expectedPaths": [
+            "routes/api.php",
+            "app/Http/Controllers/Api/MoodCheckinController.php"
+          ],
+          "coveredPaths": [
+            "routes/api.php",
+            "app/Http/Controllers/Api/MoodCheckinController.php"
+          ],
+          "negative": "Duplicate same-day check-in is not a successful new record."
+        },
+        {
+          "name": "Akses admin",
+          "expectedPaths": [
+            "routes/api.php",
+            "app/Http/Middleware/AdminMiddleware.php"
+          ],
+          "coveredPaths": [
+            "routes/api.php",
+            "app/Http/Middleware/AdminMiddleware.php"
+          ],
+          "negative": "Authenticated users are not necessarily admins."
+        }
+      ],
+      "exportProcess": {
+        "runtime": {
+          "node": "v24.22.0",
+          "platform": "linux",
+          "architecture": "arm64"
+        },
+        "elapsedMs": 2738.84269,
+        "processPeakRssBytes": 309989376,
+        "containerPeakChargedBytes": 500932608
+      },
+      "sourceMeasurementScope": "Fresh source run artifacts/semantic/release-20261030; renderer rerun in a fresh bounded container using identical pinned model hash"
+    }
+  ]
+}

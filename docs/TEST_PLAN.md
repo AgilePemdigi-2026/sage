@@ -165,3 +165,10 @@ Proyeksi graph diuji deterministik, bebas mutasi canonical, mengangkat anggota k
 ### UI-06: keterbacaan workspace developer
 
 `test:pdf:live` menambahkan fixture source berisi area yang saling bergantung dan 100 interface terpisah pada 390/1440 px. Pemeriksaan meliputi navigasi langsung graph–dokumen, overview area, pemilihan area, empat kartu UML per halaman, maju/mundur, ukuran teks serta overflow. `test:target:ui` memeriksa jarak tombol repository pada lima viewport. Unit test menjaga mapping seluruh relasi sumber, budget berdasarkan kotak tampilan, filter sebelum batas relasi, serta pemilihan classifier deterministik. Lihat [UI-06 checks](UI-06_CHECKS.md) untuk hasil aktual dan batas bukti.
+
+
+## Regresi semantik fitur dan alur
+
+Jalankan `npm run test:semantic` dan `npm run test:bdd:semantic`, lalu integration PostgreSQL di database disposable. Uji owner/account isolation, label/kelompok, reset, konflik dua penulis, revisi historis ekspor, legacy fallback, evidence kosong/tidak cocok, serta source dinamis. Pinned corpus Perpus/SAGE/Emosync menguji alur positif dan negatif; semua sumber/evidence dibandingkan commit beku. Playwright memeriksa overview/detail, cluster, pencarian, fokus, indikasi, keyboard, zoom, dan ukuran desktop/mobile. Fixture besar harus mempertahankan keterjangkauan semua fitur tanpa menjadikan helper node utama.
+
+Pengukuran menyertakan waktu ekstraksi, puncak memori, serta ukuran model/PDF/Markdown; kegagalan dicatat sebelum perbaikan. Tidak menaikkan batas source/worker agar benchmark terlihat lulus. Prosedur dan batas pengakuan hasil ada pada [SEMANTIC_ANALYSIS](SEMANTIC_ANALYSIS.md).

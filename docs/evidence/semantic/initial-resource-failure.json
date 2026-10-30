@@ -1,0 +1,13 @@
+{
+  "status": "FAIL",
+  "repository": "AgilePemdigi-2026/sage",
+  "commit": "c2dc3d84b220c572fb5b2ce85dd3605e89b11a73",
+  "containerMemoryLimitBytes": 2147483648,
+  "cpus": 1.5,
+  "exitCode": 134,
+  "error": "V8 heap out of memory after semantic candidate creation; exact subphase was not instrumented in this run",
+  "scope": "Full source analysis, semantic replay and PDF/Markdown benchmark",
+  "retainedLog": "sage-semantic-container-sage-final.log",
+  "containerPeakChargedBytes": null,
+  "resolution": "Retain failure; reduce duplicate document projection allocations and rerun at unchanged resource limits"
+}

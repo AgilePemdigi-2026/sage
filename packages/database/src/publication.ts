@@ -9,6 +9,9 @@ import { Prisma } from "../generated/client.ts";
 import type { PrismaClient } from "../generated/client.ts";
 import { ANALYSIS_DOCUMENT_TRANSACTION_OPTIONS } from "./analysis-timing.ts";
 import { storageMirrorsMatchLayout } from "./storage-layout.ts";
+import { canonicalSemanticContent, persistAnalysisSemantic } from "./semantic.ts";
+import { isSemanticModel } from "../../documents/src/semantic/validation.ts";
+import type { SemanticModel } from "../../documents/src/semantic/model.ts";
 
 const ANALYSIS_SLOT = "analysis";
 const SHA256 = /^[a-f0-9]{64}$/;
@@ -40,6 +43,7 @@ export interface PublishAnalysisResultInput {
   readonly canonicalDocumentJson: string;
   readonly expectedDocumentSha256: string;
   readonly architectureDocumentId: string;
+  readonly semanticModel: SemanticModel;
   readonly signal?: AbortSignal;
 }
 
@@ -184,7 +188,7 @@ function snapshotSourceBytes(input: unknown): Record<string, Uint8Array> {
 function snapshotInput(input: PublishAnalysisResultInput) {
   const fields = [
     "claim", "target", "configuration", "snapshot", "sourceBytes", "canonicalCkgJson", "expectedCkgSha256",
-    "graphBundleId", "canonicalDocumentJson", "expectedDocumentSha256", "architectureDocumentId",
+    "graphBundleId", "canonicalDocumentJson", "expectedDocumentSha256", "architectureDocumentId", "semanticModel",
   ] as const;
   if (!isPlainObject(input)) throw new Error("Publication input is invalid.");
   const keys = Reflect.ownKeys(input);
@@ -209,6 +213,8 @@ function snapshotInput(input: PublishAnalysisResultInput) {
       typeof value.architectureDocumentId !== "string" || !value.architectureDocumentId.trim()) {
     throw new Error("Canonical result metadata is invalid.");
   }
+  if (!isSemanticModel(value.semanticModel)) throw new Error("Semantic model is invalid.");
+  const semanticModel = JSON.parse(JSON.stringify(value.semanticModel)) as SemanticModel;
   return {
     claim,
     target,
@@ -221,6 +227,7 @@ function snapshotInput(input: PublishAnalysisResultInput) {
     canonicalDocumentJson: value.canonicalDocumentJson,
     expectedDocumentSha256: value.expectedDocumentSha256,
     architectureDocumentId: value.architectureDocumentId,
+    semanticModel,
     signal: value.signal as AbortSignal | undefined,
   };
 }
@@ -360,6 +367,7 @@ function resultHash(
   graph: Extract<ReturnType<typeof parseCanonicalCkg>, { ok: true }>,
   document: Extract<ReturnType<typeof projectArchitectureDocument>, { ok: true }>,
   limitations: readonly SafeLimitation[],
+  semanticModelHash: string,
 ): string {
   const sourceFiles = graph.value.ccm.files.map(file => ({
     path: file.path,
@@ -380,6 +388,7 @@ function resultHash(
     },
     sourceFiles,
     ckgSha256: graph.sha256,
+    semanticModelHash,
     architectureDocumentSha256: document.sha256,
     limitations: limitations.map(({ code, stageKey, affectedPartCount }) => ({ code, stageKey, affectedPartCount })),
   };
@@ -410,7 +419,12 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
   }
   const limitations = safeLimitations(graph);
   const terminalStatus = limitations.length === 0 ? "COMPLETED" : "COMPLETED_WITH_LIMITATIONS";
-  const digest = resultHash(safe.target, graph, document, limitations);
+  const semanticNodeIds = new Set(graph.value.ccm.nodes.map(node => node.id));
+  const semanticFileHashes = new Map(graph.value.ccm.files.map(file => [file.path, file.sha256] as const));
+  const canonicalSemantic = canonicalSemanticContent(
+    safe.semanticModel, graph.sha256, semanticNodeIds, semanticFileHashes, graph.value.ccm.snapshot,
+  );
+  const digest = resultHash(safe.target, graph, document, limitations, canonicalSemantic.modelHash);
   const where = { analysisId_ownerUserId: { analysisId: safe.claim.analysisId, ownerUserId: safe.claim.ownerUserId } };
   const [existingGraphLayout, existingDocumentLayout] = await Promise.all([
     db.graphBundle.findUnique({ where, select: { storageLayoutVersion: true } }),
@@ -525,6 +539,14 @@ export async function publishAnalysisResult(db: PrismaClient, input: PublishAnal
       )) {
         throw new Error("Stored architecture document does not match the canonical result.");
       }
+      const semanticModel = await persistAnalysisSemantic(tx, {
+        ownerUserId: safe.claim.ownerUserId,
+        analysisId: safe.claim.analysisId,
+        sourceCkgHash: graph.sha256,
+        ccm: graph.value.ccm,
+        model: safe.semanticModel,
+      });
+      if (semanticModel.modelHash !== canonicalSemantic.modelHash) throw new Error("Stored semantic model does not match its verified snapshot.");
 
       const existingSourceFiles = await tx.sourceFile.findMany({
         where: { analysisId: safe.claim.analysisId, ownerUserId: safe.claim.ownerUserId },

@@ -1,3 +1,5 @@
+import { semanticRendererVersion } from "../../../../packages/documents/src/semantic/export-pin.ts";
+import type { SemanticModel, PresentationOverlay } from "../../../../packages/documents/src/semantic/model.ts";
 import { randomUUID } from "node:crypto";
 import { MARKDOWN_RENDERER_VERSION } from "../../../../packages/documents/src/markdown.ts";
 import type { ExportSnapshot } from "@sage/database";
@@ -12,7 +14,8 @@ export interface ExportHandlerDependencies {
   env: Record<string, string | undefined>;
   readSession(request: Request): Promise<AnalysisSession | null>;
   readDocument(ownerUserId: string, analysisId: string): Promise<DocumentReadState>;
-  enqueue(input: { ownerUserId: string; analysisId: string; format: ExportFormat; documentHash: string; rendererVersion: string }): Promise<{ export: ExportSnapshot; created: boolean }>;
+  readSemantic?(ownerUserId: string, analysisId: string): Promise<{model: SemanticModel; modelHash: string; revision: number; overlay: PresentationOverlay} | null>;
+  enqueue(input: { semanticModelHash?: string; presentationRevision?: number; ownerUserId: string; analysisId: string; format: ExportFormat; documentHash: string; rendererVersion: string }): Promise<{ export: ExportSnapshot; created: boolean }>;
   find(ownerUserId: string, analysisId: string, exportId: string): Promise<ExportSnapshot | null>;
   retry(input: { ownerUserId: string; analysisId: string; exportId: string }): Promise<ExportSnapshot>;
   readDownload(ownerUserId: string, analysisId: string, exportId: string): Promise<ExportDownloadState>;
@@ -103,7 +106,7 @@ export function createExportHandlers(deps: ExportHandlerDependencies) {
         const identity = await readIdentity(request);
         if (identity instanceof Response) return identity;
         const body = await readJsonObject(request);
-        if (!body || Reflect.ownKeys(body).length !== 1 || !Object.hasOwn(body, "format")) {
+        if (!body || !Object.hasOwn(body, "format") || Object.keys(body).some(key => !["format", "presentationRevision"].includes(key)) || (Object.hasOwn(body, "presentationRevision") && (!Number.isSafeInteger(body.presentationRevision) || Number(body.presentationRevision) < 0))) {
           return error("INVALID_INPUT", "Permintaan ekspor harus berisi format yang didukung.", 400);
         }
         if (body.format !== "MARKDOWN" && body.format !== "PDF") return error("EXPORT_FORMAT_UNSUPPORTED", "Format ekspor tidak didukung.", 422);
@@ -111,12 +114,18 @@ export function createExportHandlers(deps: ExportHandlerDependencies) {
         const document = await deps.readDocument(identity.userId, analysisId);
         if (document.kind === "not-found") return error("ANALYSIS_NOT_FOUND", "Analisis tidak ditemukan.", 404);
         if (document.kind === "not-ready") return error("RESULT_NOT_READY", "Hasil analisis belum siap untuk diekspor.", 409);
+        const semantic = await deps.readSemantic?.(identity.userId, analysisId);
+        if (Object.hasOwn(body, "presentationRevision") && (!semantic || semantic.revision !== body.presentationRevision)) {
+          return error("DOCUMENT_CHANGED", "Koreksi tampilan berubah. Muat ulang sebelum ekspor.", 409);
+        }
+        const baseRenderer = format === "PDF" ? PDF_RENDERER_VERSION : MARKDOWN_RENDERER_VERSION;
         const result = await deps.enqueue({
           ownerUserId: identity.userId,
           analysisId,
           format,
           documentHash: document.value.contentHash,
-          rendererVersion: format === "PDF" ? PDF_RENDERER_VERSION : MARKDOWN_RENDERER_VERSION,
+          rendererVersion: semantic ? semanticRendererVersion(baseRenderer, semantic.modelHash, semantic.revision) : baseRenderer,
+          ...(semantic ? {semanticModelHash: semantic.modelHash, presentationRevision: semantic.revision} : {}),
         });
         return json(exportPayload(analysisId, identity.githubUserId, result.export), result.created ? 202 : 200);
       } catch (cause) {

@@ -1,0 +1,408 @@
+{
+  "schemaVersion": 1,
+  "repository": "iltizamhasan3/emosync-backend",
+  "commit": "a22992668658538f6fc10b904d6f7b2ed09124ac",
+  "oraclePath": "docs/evidence/semantic/oracle.json",
+  "files": [
+    {
+      "path": "app/Http/Controllers/Admin/AuthController.php",
+      "sha256": "80a0cab68ca4aab9c0d16eb93ce229ff827720da5b406b00196e7579a77a39b9",
+      "sizeBytes": 1480
+    },
+    {
+      "path": "app/Http/Controllers/Admin/ContentController.php",
+      "sha256": "f2c02eaf5d8c555c0eb12b72990276bd3ac999c9f2f46715221acd407b24b8b4",
+      "sizeBytes": 5788
+    },
+    {
+      "path": "app/Http/Controllers/Admin/DashboardController.php",
+      "sha256": "cbdd12d7987de4151f0e99252e65d9013551685d9b776438a8e55da9850f33c2",
+      "sizeBytes": 861
+    },
+    {
+      "path": "app/Http/Controllers/Api/AuthController.php",
+      "sha256": "86d30d5df685a36b54a0192b6bd10b2f46c79276146c308f65c169b9d8c1a278",
+      "sizeBytes": 4580
+    },
+    {
+      "path": "app/Http/Controllers/Api/ChatController.php",
+      "sha256": "addea602fb0ecc686cb222f7c8ef59b51c4b8d36d6bf8eb36e683497e277a049",
+      "sizeBytes": 5728
+    },
+    {
+      "path": "app/Http/Controllers/Api/ContentController.php",
+      "sha256": "b615057177daa395833dbab077fc7f8beb495d326f7d7071f77196edc07dfd87",
+      "sizeBytes": 4155
+    },
+    {
+      "path": "app/Http/Controllers/Api/DashboardController.php",
+      "sha256": "4bb7e367d8ec5011a3b845987c75fcf611a13905a357e4cf976ef5c43bccd5fc",
+      "sizeBytes": 3148
+    },
+    {
+      "path": "app/Http/Controllers/Api/DukunganController.php",
+      "sha256": "ca57ccb39a4a3e96ffdfe0bb0e5dddcaf77926bbfee01b04fdcdafe30ecba235",
+      "sizeBytes": 3180
+    },
+    {
+      "path": "app/Http/Controllers/Api/FriendshipController.php",
+      "sha256": "30241d9f3f6b3fc16e5aea09369167a63a1820528e14759bdfc264d133fdc0a9",
+      "sizeBytes": 11141
+    },
+    {
+      "path": "app/Http/Controllers/Api/MoodCheckinController.php",
+      "sha256": "ab57efd36bcfc24d20c4abcf828b98e390550dcdb8a67ac393ebbe4b7efda0ed",
+      "sizeBytes": 3699
+    },
+    {
+      "path": "app/Http/Controllers/Api/PaymentController.php",
+      "sha256": "54f40f056d2150f52213e15a92e4066185894d2737fb5eaeff3de871b9c15ba4",
+      "sizeBytes": 13256
+    },
+    {
+      "path": "app/Http/Controllers/Api/PemicuController.php",
+      "sha256": "d919549be35ed403531136ff425a46b9ddaeced41743473ea6888a264f358d6d",
+      "sizeBytes": 372
+    },
+    {
+      "path": "app/Http/Controllers/Api/PremiumController.php",
+      "sha256": "3552a5ae7afd7c4f18ca2db785f1353d7db31ecb9ecb3a7ede8f6d7c540c18d6",
+      "sizeBytes": 4417
+    },
+    {
+      "path": "app/Http/Controllers/Api/ProfileController.php",
+      "sha256": "ef0e3fa4b37146e04f48ece6fa166311ca8cbee84ca707e7d5b61bcbc845109e",
+      "sizeBytes": 2172
+    },
+    {
+      "path": "app/Http/Controllers/Api/ReportController.php",
+      "sha256": "ffa70c92392d4dbec328ed57c80482e176431a571065da0ac88c3695590fd48c",
+      "sizeBytes": 2651
+    },
+    {
+      "path": "app/Http/Controllers/Api/SettingsController.php",
+      "sha256": "c81b6c198a18f2edd0c93a05d27171a1d119e9c443440fcbec75755d8efdb5f7",
+      "sizeBytes": 1872
+    },
+    {
+      "path": "app/Http/Controllers/Controller.php",
+      "sha256": "25d1c1ef8e6cc8a376553faacfba2b07d9dfaee9bdbb84f14f77517580e9deb1",
+      "sizeBytes": 77
+    },
+    {
+      "path": "app/Http/Middleware/AdminMiddleware.php",
+      "sha256": "00295522bff93a00e8251fb89d3fe3399f40ae29ede5fd7c513166b9e39c7053",
+      "sizeBytes": 508
+    },
+    {
+      "path": "app/Models/Chat.php",
+      "sha256": "473f7512c15aa5d1c64a55e340fb2924a6af107f8ff9273c297e4a17dae0dc31",
+      "sizeBytes": 1220
+    },
+    {
+      "path": "app/Models/Content.php",
+      "sha256": "e9404e7c3d39b4b0e705c736f05ab0051a2f2130c0a8d81528b1b80593c0f19f",
+      "sizeBytes": 429
+    },
+    {
+      "path": "app/Models/Friendship.php",
+      "sha256": "89cac7cf9583e7b8bfc1abe76cbfd37c461395d0710dad2ce65d635ebcf3d24b",
+      "sizeBytes": 703
+    },
+    {
+      "path": "app/Models/MoodCheckin.php",
+      "sha256": "9cd66660acbdf5e3a2ef028f1ac7966927be8234c18966af1b6e704a389bbf6a",
+      "sizeBytes": 567
+    },
+    {
+      "path": "app/Models/Pemicu.php",
+      "sha256": "2cd7519f711625b34fb2e979323d403ee204878315758a845bf9c8aa52d6bf10",
+      "sizeBytes": 357
+    },
+    {
+      "path": "app/Models/Subscription.php",
+      "sha256": "7ab3982795cdab7e24213f83bc161687d80565cacab70dbb66a0e393e5f0938f",
+      "sizeBytes": 529
+    },
+    {
+      "path": "app/Models/Transaction.php",
+      "sha256": "01441ad7540e8477ec890732f6dac50912f289b15e432d4c2a2109534aa80a51",
+      "sizeBytes": 1742
+    },
+    {
+      "path": "app/Models/User.php",
+      "sha256": "97ce3d4947d980dd3f15145cfe96fcd0463347a46b38266bdb4ef13cd6d6cdcc",
+      "sizeBytes": 3589
+    },
+    {
+      "path": "app/Models/UserSetting.php",
+      "sha256": "0c4cfce2522ef81ccfb9b474289c1563d592492391db2222fefc2e9f0d82d9b0",
+      "sizeBytes": 766
+    },
+    {
+      "path": "app/Providers/AppServiceProvider.php",
+      "sha256": "1e8f007c69b49b17f2b2e97c2fe444db0363729bd9506ad8f126878a2a092e48",
+      "sizeBytes": 507
+    },
+    {
+      "path": "bootstrap/app.php",
+      "sha256": "086b6eda4f6defdd0e212961448ce0b8db34d91c00b6968b94e099822440529d",
+      "sizeBytes": 1154
+    },
+    {
+      "path": "bootstrap/providers.php",
+      "sha256": "f720e185207a343d4c19fc99dbb317a4187efbcd7d38a303a695bbdd77ffb943",
+      "sizeBytes": 89
+    },
+    {
+      "path": "config/app.php",
+      "sha256": "7967e4f5675328bfc7059dfa76c5a0f11f980ca9b5e80cb0a582c525767d7f50",
+      "sizeBytes": 4281
+    },
+    {
+      "path": "config/auth.php",
+      "sha256": "c7e204e9785c9f596d66fb884b493f658f2327f157646bdb4088efd6b3a7773f",
+      "sizeBytes": 4040
+    },
+    {
+      "path": "config/cache.php",
+      "sha256": "dda8107bc8396a61d94ef8661e556fdf9ab093eccc4b3885c01139689aa9278c",
+      "sizeBytes": 3941
+    },
+    {
+      "path": "config/cors.php",
+      "sha256": "35c6cd347680b5cc46d7a7b933810ce803951203118d5567b83a986bd3b7ddf4",
+      "sizeBytes": 356
+    },
+    {
+      "path": "config/database.php",
+      "sha256": "344707b9cbc6399822ff6c13467f93c6d8dea95f5aa7133fc0821fd3bc0fed6d",
+      "sizeBytes": 2522
+    },
+    {
+      "path": "config/filesystems.php",
+      "sha256": "ea9a4afe9451a4b585bbfc1c50687fe78fb81868c8aa775b8a6000fae3071478",
+      "sizeBytes": 3068
+    },
+    {
+      "path": "config/logging.php",
+      "sha256": "299ec1ba5b5a803c8e20f666ae7628e442e856cc2ff7ac9e2adb17b97e8ad63b",
+      "sizeBytes": 4340
+    },
+    {
+      "path": "config/mail.php",
+      "sha256": "c43ff49a31c5f32ce21eb7159f2a4b3cd2f4074eaed5838d265646dbfedd3474",
+      "sizeBytes": 3631
+    },
+    {
+      "path": "config/queue.php",
+      "sha256": "b13d4818fca3940d7a407898ab53b871cc7fd50012d4b5c9670fbf5a2ef7b8af",
+      "sizeBytes": 3868
+    },
+    {
+      "path": "config/sanctum.php",
+      "sha256": "7cba15e453bac803a0433c3d8a41ee820360cdc3efe91b3fbefe1f119c3b2203",
+      "sizeBytes": 3006
+    },
+    {
+      "path": "config/services.php",
+      "sha256": "8258c4487eb1d73a97e569eb0e411e3f25368044812df4cba807860432be1d92",
+      "sizeBytes": 1039
+    },
+    {
+      "path": "config/session.php",
+      "sha256": "64272cfbef6f47c65bf857f1c5b1e853700c0d0278de46b86663fd83ef4aeed8",
+      "sizeBytes": 8423
+    },
+    {
+      "path": "database/factories/UserFactory.php",
+      "sha256": "50bdc543f1b09d1a57260be55ad0e1a68aee4b34f63e1109dc94d9bcd3080526",
+      "sizeBytes": 1044
+    },
+    {
+      "path": "database/migrations/0001_01_01_000000_create_users_table.php",
+      "sha256": "aea551403ec9a3d38242a81b16eb8616d804435d87720e8ba4fffed79a1167e9",
+      "sizeBytes": 710
+    },
+    {
+      "path": "database/migrations/2026_04_27_161848_create_mood_checkins_table.php",
+      "sha256": "924649ca7c289c4ce0344f28f220437c81a9c68c1b98b601f9142e9beb0dee3c",
+      "sizeBytes": 644
+    },
+    {
+      "path": "database/migrations/2026_04_27_161857_create_pemicus_table.php",
+      "sha256": "6d0fb65ec7396880a1405cb39c59ec228b0fcd840e50a06d61a9575b7bd31a8a",
+      "sizeBytes": 529
+    },
+    {
+      "path": "database/migrations/2026_04_27_161903_create_checkin_pemicus_table.php",
+      "sha256": "1cd3ba2c2ade31686477329d06aa1f7c313cec8d2fb98ba9deb8921e6e77df6d",
+      "sizeBytes": 632
+    },
+    {
+      "path": "database/migrations/2026_04_27_161909_create_friendships_table.php",
+      "sha256": "a00f208ff7b9b544303bd6c699074a4fe5b3502d7e2b40a2efc78c0c6f18cf79",
+      "sizeBytes": 773
+    },
+    {
+      "path": "database/migrations/2026_04_27_161915_create_contents_table.php",
+      "sha256": "971ee81842a4e75bd61dbb18653eb26dcda7f9942bb7b2c22e50687907ac5e68",
+      "sizeBytes": 798
+    },
+    {
+      "path": "database/migrations/2026_04_27_173741_create_personal_access_tokens_table.php",
+      "sha256": "28cb6ecaa5fdf646436ee0d9ea893870020a90b000eef39dba6f6c031199eec4",
+      "sizeBytes": 765
+    },
+    {
+      "path": "database/migrations/2026_06_06_171139_add_username_premium_to_users_table.php",
+      "sha256": "fb17384f5f04339b5b351fde189f73add877ee7ad84cc464f97cba7bf97ca1e3",
+      "sizeBytes": 1576
+    },
+    {
+      "path": "database/migrations/2026_06_06_171154_create_subscriptions_table.php",
+      "sha256": "203e5a551c6c80a19684b66da14c91b194fc7b42347d5a45102c0e4610ff1f59",
+      "sizeBytes": 815
+    },
+    {
+      "path": "database/migrations/2026_06_06_171517_create_sessions_table.php",
+      "sha256": "d3c435b43753d0f21f2a9b0479324690c7dc66c8f83c8c168aa5828ecc0ab576",
+      "sizeBytes": 696
+    },
+    {
+      "path": "database/migrations/2026_06_07_031818_add_indexes_for_performance.php",
+      "sha256": "14e5c0e68c99325a90bb2a142c6941bc42089be266ad58d385db1a0c67d49700",
+      "sizeBytes": 1762
+    },
+    {
+      "path": "database/migrations/2026_06_07_145349_create_cache_table.php",
+      "sha256": "fbb4665e5a977e71df4e74ec75b3c06ca4f17ad0de7138fe9786639189978e77",
+      "sizeBytes": 873
+    },
+    {
+      "path": "database/migrations/2026_06_09_135504_create_user_settings_table.php",
+      "sha256": "5dad8b5beb5ef7825730b80e1ffb24ee92c53cece3879401e9cb46f7c6a22c16",
+      "sizeBytes": 1197
+    },
+    {
+      "path": "database/migrations/2026_06_09_142658_create_add_avatar_to_users_table.php",
+      "sha256": "8e0a5d6816b301028c31be7d180e8248dd8d1c58d4f89c02c974c80c2e0df063",
+      "sizeBytes": 697
+    },
+    {
+      "path": "database/migrations/2026_06_17_182803_create_chats_table.php",
+      "sha256": "1e97167a4a877023f4b8897a404d57a175c5e18485ad0959e532eb050e7cdb1a",
+      "sizeBytes": 926
+    },
+    {
+      "path": "database/migrations/2026_06_18_130750_create_transactions_table.php",
+      "sha256": "945461ad7b42cb5df836bfee00cb8b094e5ac561849c3fdad1d09728121d860a",
+      "sizeBytes": 1057
+    },
+    {
+      "path": "database/migrations/2026_07_02_162846_add_kategori_to_pemicus_table.php",
+      "sha256": "a99e0586fee25b1fd9f0a85c7e9cb297180d9ab0aa8d9e5f5b978b8405119254",
+      "sizeBytes": 615
+    },
+    {
+      "path": "database/migrations/2026_07_02_172221_create_jobs_table.php",
+      "sha256": "78b005044ec17c480fb9a90ba8d42ba5b03635ce5433641f57998cceab18d727",
+      "sizeBytes": 815
+    },
+    {
+      "path": "database/migrations/2026_07_02_172226_create_failed_jobs_table.php",
+      "sha256": "1b2dc826a38de3e6cdd351fc5e0b96689440086e8027454453347036f1860ef3",
+      "sizeBytes": 768
+    },
+    {
+      "path": "database/migrations/2026_07_05_000001_add_is_admin_to_users_table.php",
+      "sha256": "aafa7a463b628fb89b2e60de9f33da074e2f04d8711a9b8116cfd1cd0aeda713",
+      "sizeBytes": 532
+    },
+    {
+      "path": "database/migrations/2026_07_05_233649_add_show_last_seen_to_user_settings_table.php",
+      "sha256": "56c22b675dbb5891f932451996a3eb3b9c9d79d966678bc1f7d0afd8877f0907",
+      "sizeBytes": 627
+    },
+    {
+      "path": "database/migrations/2026_07_05_235413_add_daily_reminder_time_to_user_settings_table.php",
+      "sha256": "622d0a9d1474b8c694d68b48b8d4d0dcba18b8dc3efe3a046fbcaa1b7745900e",
+      "sizeBytes": 671
+    },
+    {
+      "path": "database/migrations/2026_07_05_235415_add_fcm_token_to_users_table.php",
+      "sha256": "b905b9e02dffe9995dd12b2dba34142e70f3df8dffd289f1a33c0e673bd6aca0",
+      "sizeBytes": 637
+    },
+    {
+      "path": "database/migrations/2026_07_08_162350_drop_notification_columns.php",
+      "sha256": "f85425894fe3d973be580c7f7c26624a172cfa14da76d536637cf95bc297a180",
+      "sizeBytes": 1363
+    },
+    {
+      "path": "database/seeders/AdminSeeder.php",
+      "sha256": "231431e19d1521fd725bdc043a4bcfe53801f3e867a5757469028161f6032c52",
+      "sizeBytes": 664
+    },
+    {
+      "path": "database/seeders/ContentSeeder.php",
+      "sha256": "220ba34ca6b4b2669aa65429241d344b41e204b038fc3963ccac0de26000df44",
+      "sizeBytes": 10993
+    },
+    {
+      "path": "database/seeders/DatabaseSeeder.php",
+      "sha256": "9bb611a15444a3c1a9db639d35a2ee3d805119dacd39c33e4689f4457c8ff128",
+      "sizeBytes": 285
+    },
+    {
+      "path": "database/seeders/DummyDataSeeder.php",
+      "sha256": "ddcb34ceee799f1e6c3de54788db24ac7829b86f9def499e1f4d270c91b45a21",
+      "sizeBytes": 1376
+    },
+    {
+      "path": "database/seeders/PemicuSeeder.php",
+      "sha256": "eef42091811c47678d36e3f62dac03871fdfa3510b0cd87aa5024f135294ffc9",
+      "sizeBytes": 1570
+    },
+    {
+      "path": "public/index.php",
+      "sha256": "eba77cba39695b6bd091fe5211d481f7ebb2ce2d8d26230b5a609465d0a4aff9",
+      "sizeBytes": 543
+    },
+    {
+      "path": "resources/views/welcome.blade.php",
+      "sha256": "9a24d81cee3631004843d7865999fa5a8436b8a5727a056f2e626d72a9f1ba6e",
+      "sizeBytes": 72477
+    },
+    {
+      "path": "routes/api.php",
+      "sha256": "e0c373a11fa3b95ef0ae8a81e908dffc3d318ec419fae05dea74b072b962755d",
+      "sizeBytes": 4750
+    },
+    {
+      "path": "routes/console.php",
+      "sha256": "9adccc33e7dd400683e434774077c7fdb2f299c5712cedf16a43fdf56f2850fa",
+      "sizeBytes": 210
+    },
+    {
+      "path": "routes/web.php",
+      "sha256": "0203f70f6a18ce9bec30e781bf6bcb12e494ca5905137b6f35ae383a575c146e",
+      "sizeBytes": 107
+    },
+    {
+      "path": "tests/Feature/ExampleTest.php",
+      "sha256": "aaa4a192fb4aa96d4e81eda06a29968da3d9a73b71026b87a67297e66dd985b8",
+      "sizeBytes": 359
+    },
+    {
+      "path": "tests/TestCase.php",
+      "sha256": "c7c209f5579c42647c1f7b2a79ac828e8b54ac62a98442045a6e94fa2c0d0ebc",
+      "sizeBytes": 142
+    },
+    {
+      "path": "tests/Unit/ExampleTest.php",
+      "sha256": "ffacae5c1a2a44c809420af5b3b404910da1b12167d58764dac6d10b8ba8cfaf",
+      "sizeBytes": 243
+    }
+  ]
+}

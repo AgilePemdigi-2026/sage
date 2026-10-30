@@ -23,7 +23,7 @@ function visibleText(value: string): string {
 function inline(value: string | number | boolean | null): string {
   const text = visibleText(String(value));
   const runs = text.match(/`+/g) ?? [];
-  const fence = "`".repeat(Math.max(1, ...runs.map(run => run.length)) + 1);
+  const fence = "`".repeat(runs.reduce((longest, run) => Math.max(longest, run.length), 1) + 1);
   const padded = text.startsWith(" ") || text.endsWith(" ") || text.startsWith("`") || text.endsWith("`")
     ? ` ${text} `
     : text;
@@ -77,7 +77,7 @@ function edgeLines(edge: CcmEdge, indent: string): string[] {
 
 function codeFence(source: string, language: string): string {
   const runs = source.match(/`+/g) ?? [];
-  const fence = "`".repeat(Math.max(3, ...runs.map(run => run.length + 1)));
+  const fence = "`".repeat(runs.reduce((longest, run) => Math.max(longest, run.length + 1), 3));
   return `${fence}${language}\n${source}\n${fence}`;
 }
 
@@ -160,13 +160,11 @@ function diagramLines(title: string, diagram: DiagramProjection): string[] {
   }
   lines.push("### Excluded canonical IDs", "");
   lines.push("Node IDs:");
-  lines.push(...(diagram.excludedNodeIds.length > 0
-    ? diagram.excludedNodeIds.map(id => `- ${inline(id)}`)
-    : ["- none"]));
+  if (diagram.excludedNodeIds.length === 0) lines.push("- none");
+  for (const id of diagram.excludedNodeIds) lines.push(`- ${inline(id)}`);
   lines.push("", "Edge IDs:");
-  lines.push(...(diagram.excludedEdgeIds.length > 0
-    ? diagram.excludedEdgeIds.map(id => `- ${inline(id)}`)
-    : ["- none"]));
+  if (diagram.excludedEdgeIds.length === 0) lines.push("- none");
+  for (const id of diagram.excludedEdgeIds) lines.push(`- ${inline(id)}`);
   lines.push("");
   return lines;
 }
@@ -238,7 +236,7 @@ export function renderMarkdownDocument(document: ArchitectureDocumentV1): string
     for (const limitation of document.limitations) lines.push(...limitationLines(limitation), "");
   }
 
-  lines.push(...diagramLines("Software Engineering Diagram", document.softwareEngineeringDiagram));
-  lines.push(...diagramLines("UML Class Diagram", document.umlClassDiagram));
+  for (const line of diagramLines("Software Engineering Diagram", document.softwareEngineeringDiagram)) lines.push(line);
+  for (const line of diagramLines("UML Class Diagram", document.umlClassDiagram)) lines.push(line);
   return `${lines.join("\n").trimEnd()}\n`;
 }

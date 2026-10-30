@@ -94,6 +94,17 @@ export type { AnalysisRetryTarget } from "./retry.ts";
 
 export { CanonicalDocumentIntegrityError, persistCanonicalDocument, readCanonicalDocumentForUser } from "./documents.ts";
 export {
+  appendPresentationRevision,
+  canonicalSemanticContent,
+  persistAnalysisSemantic,
+  readSemanticForUser,
+  readSemanticPublicationStateForUser,
+  SemanticAnalysisNotFoundError,
+  SemanticModelIntegrityError,
+  SemanticPresentationConflictError,
+  validatePresentationOverlay,
+} from "./semantic.ts";
+export {
   AnalysisDeletionActiveError,
   AnalysisDeletionNotFoundError,
   CleanupQueueInvariantError,

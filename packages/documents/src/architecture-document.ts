@@ -10,7 +10,7 @@ import {
   type CkgCounts,
   type EvidenceSpan,
 } from "@sage/contracts";
-import { projectDiagrams, type DiagramProjection } from "./diagrams.ts";
+import { projectVerifiedCkgDiagrams, type DiagramProjection } from "./diagrams.ts";
 
 export const ARCHITECTURE_DOCUMENT_SCHEMA_VERSION = "sage-add-v1" as const;
 
@@ -104,10 +104,10 @@ function projectInterfaceCatalog(nodes: readonly CcmNode[], edges: readonly CcmE
     const evidence = [
       ...(declaration.location === null ? [] : [declaration.location]),
       ...incident.flatMap(edge => edge.evidence),
-    ].map(span => copyJson(span)).sort(compareEvidence);
+    ].sort(compareEvidence);
 
     return {
-      declaration: copyJson(declaration),
+      declaration,
       nodeIds: [...associatedNodeIds].sort(compareStrings),
       edgeIds: incident.map(edge => edge.id),
       evidence,
@@ -118,7 +118,7 @@ function projectInterfaceCatalog(nodes: readonly CcmNode[], edges: readonly CcmE
   return {
     scope: CATALOG_SCOPE,
     entries,
-    relations: [...edges].sort((left, right) => compareStrings(left.id, right.id)).map(edge => copyJson(edge)),
+    relations: [...edges].sort((left, right) => compareStrings(left.id, right.id)),
   };
 }
 
@@ -131,7 +131,7 @@ export function projectArchitectureDocument(
   const parsed = parseCanonicalCkg(canonicalCkgJson, sourceBytes, expectedCkgSha256);
   if (!parsed.ok) return { ok: false, errorCode: parsed.errorCode };
 
-  const diagrams = projectDiagrams(canonicalCkgJson, sourceBytes, parsed.sha256);
+  const diagrams = projectVerifiedCkgDiagrams(parsed);
   if (!diagrams.ok) return { ok: false, errorCode: diagrams.errorCode };
   if (diagrams.value.ckgSha256 !== parsed.sha256) {
     return { ok: false, errorCode: "ADD_CKG_PROJECTION_MISMATCH" };
@@ -149,8 +149,8 @@ export function projectArchitectureDocument(
     files: copyJson(ccm.files),
     limitations: copyJson(ccm.limitations),
     interfaceCatalog: projectInterfaceCatalog(ccm.nodes, ccm.edges),
-    softwareEngineeringDiagram: copyJson(diagrams.value.diagrams[1]),
-    umlClassDiagram: copyJson(diagrams.value.diagrams[0]),
+    softwareEngineeringDiagram: diagrams.value.diagrams[1],
+    umlClassDiagram: diagrams.value.diagrams[0],
   };
   const json = JSON.stringify(value);
   return { ok: true, value, json, sha256: digest(json) };

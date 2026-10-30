@@ -120,3 +120,13 @@ test("Markdown export keeps hostile labels, paths, limitations, and Mermaid fenc
     "a longer Mermaid fence contains embedded fence markers and hostile lines");
   assert.doesNotMatch(markdown, /^!\[/m, "hostile paths cannot create external image references");
 });
+
+test("large diagram registers export without exceeding JavaScript argument limits", async () => {
+  const document = await buildDocument();
+  document.softwareEngineeringDiagram.excludedNodeIds = Array.from({length:150_000},(_,index)=>`hidden-node-${index}`);
+  document.softwareEngineeringDiagram.mermaid = "`x ".repeat(150_000);
+  const markdown = renderMarkdownDocument(document);
+  assert.ok(markdown.includes("hidden-node-149999"), "the last excluded fact is retained");
+  assert.ok(markdown.includes(document.softwareEngineeringDiagram.mermaid), "large source payload is retained");
+  assert.ok(markdown.includes("## UML Class Diagram"), "later sections are still rendered");
+});

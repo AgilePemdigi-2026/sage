@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { canonicalizeCcm, parseCanonicalCkg } from "@sage/contracts";
 import { projectArchitectureDocument } from "@sage/documents/model";
+import { buildSemanticModel } from "@sage/documents/semantic";
 import type { PrismaClient } from "../../../packages/database/generated/client.ts";
 import { publishAnalysisResult } from "../../../packages/database/src/publication.ts";
 import type { AnalysisJobClaim } from "../../../packages/database/src/queue.ts";
@@ -241,6 +242,7 @@ async function publishFromStages(
       !sameJson(documentArtifact.document, document.value) || !sameJson(documentArtifact.context, documentContext(context))) {
     throw new Error("Trusted architecture-document output does not match its canonical graph.");
   }
+  const semanticModel = buildSemanticModel({ ccm: graph.value.ccm, sourceCkgHash: graph.sha256, sources: bytes });
   signal.throwIfAborted();
   return publishAnalysisResult(db, {
     claim,
@@ -261,6 +263,7 @@ async function publishFromStages(
     canonicalDocumentJson: document.json,
     expectedDocumentSha256: document.sha256,
     architectureDocumentId: documentArtifact.documentId,
+    semanticModel,
     signal,
   });
 }
