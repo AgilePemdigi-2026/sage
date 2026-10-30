@@ -13,6 +13,7 @@ import { filterGraph } from "./graph-filters.ts";
 import { parseLiveGraphPayload } from "./graph-data.ts";
 import { AnalysisQuality } from "../analysis-quality/analysis-quality.tsx";
 import { NodeInspector } from "./node-inspector.tsx";
+import { SemanticWorkspace } from "../semantic-workspace/semantic-workspace.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
 import ui from "../ui-foundation/ui-foundation.module.css";
 
@@ -36,12 +37,14 @@ function responseMessage(value: unknown): string | null {
 
 export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string; accountKey: string }) {
   const [payload, setPayload] = useState<GraphPayload | null>(null);
+  const [verifiedIdentity, setVerifiedIdentity] = useState<{ analysisId: string; accountKey: string } | null>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<RequestError | null>(null);
   const [mode, setMode] = useState<GraphMode>("essential");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selectedKinds, setSelectedKinds] = useState<NodeKind[]>([]);
+  const [technicalOpen, setTechnicalOpen] = useState(false);
   const nodePickerRef = useRef<HTMLSelectElement>(null);
   const generation = useRef(0);
   const graphController = useRef<AbortController | null>(null);
@@ -63,8 +66,10 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       reloadStarted.current = true;
       generation.current += 1;
       abortCurrentRequests();
+      setVerifiedIdentity(null);
       setPayload(null);
       setSelectedId(null);
+      setTechnicalOpen(false);
       window.location.replace(`${window.location.pathname}${window.location.search}`);
     }
 
@@ -73,8 +78,10 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       reloadStarted.current = true;
       generation.current += 1;
       abortCurrentRequests();
+      setVerifiedIdentity(null);
       setPayload(null);
       setSelectedId(null);
+      setTechnicalOpen(false);
       window.location.replace("/login?error=session");
     }
 
@@ -108,9 +115,11 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         const body = await response.json() as { data?: SessionIdentity };
         if (!isCurrent(requestGeneration)) return null;
         if (body.data?.accountKey !== accountKey) {
+          setVerifiedIdentity(null);
           reloadCurrentPage();
           return null;
         }
+        setVerifiedIdentity({ analysisId, accountKey });
         return body.data;
       } finally {
         if (sessionController.current === controller) sessionController.current = null;
@@ -129,6 +138,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         });
         if (!isCurrent(requestGeneration)) return;
         if (response.status === 401) {
+          setVerifiedIdentity(null);
           setPayload(null);
           setSelectedId(null);
           const identity = await checkSession(requestGeneration);
@@ -141,6 +151,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
           let message: string | null = null;
           try { message = responseMessage(await response.json()); } catch { /* Keep the status-specific message. */ }
           if (!isCurrent(requestGeneration)) return;
+          if (response.status !== 503) setVerifiedIdentity(null);
           setPayload(null);
           setSelectedId(null);
           setError({ status: response.status, message: message ?? "Graph belum dapat dimuat. Coba lagi." });
@@ -169,7 +180,9 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       const requestGeneration = ++generation.current;
       abortCurrentRequests();
       setPayload(null);
+      setVerifiedIdentity(null);
       setSelectedId(null);
+      setTechnicalOpen(false);
       setError(null);
       setBusy(true);
       try {
@@ -197,11 +210,13 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       const controller = new AbortController();
       sessionController.current = controller;
       try {
+        setVerifiedIdentity(null);
         const response = await fetch("/api/auth/session", {
           headers: headers(), cache: "no-store", credentials: "same-origin", signal: controller.signal,
         });
         if (!isCurrent(requestGeneration)) return;
         if (response.status === 401) {
+          setVerifiedIdentity(null);
           setPayload(null);
           setSelectedId(null);
           reloadCurrentPage();
@@ -211,13 +226,17 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         const body = await response.json() as { data?: SessionIdentity };
         if (!isCurrent(requestGeneration)) return;
         if (body.data?.accountKey !== accountKey) {
+          setVerifiedIdentity(null);
           setPayload(null);
           setSelectedId(null);
           reloadCurrentPage();
+        } else {
+          setVerifiedIdentity({ analysisId, accountKey });
         }
       } catch (cause) {
         if (!isCurrent(requestGeneration) || (cause instanceof DOMException && cause.name === "AbortError")) return;
         setPayload(null);
+        setVerifiedIdentity(null);
         setSelectedId(null);
         setError({ status: null, message: cause instanceof Error ? cause.message : "Sesi belum dapat diperiksa. Coba lagi." });
       } finally {
@@ -249,6 +268,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
   }, [analysisId, accountKey]);
 
   const visiblePayload = payload?.analysisId === analysisId && payload.accountKey === accountKey ? payload : null;
+  const semanticIdentityVerified = verifiedIdentity?.analysisId === analysisId && verifiedIdentity.accountKey === accountKey;
   const filterResult = useMemo(() => visiblePayload ? filterGraph(visiblePayload.graph, query, selectedKinds) : null, [visiblePayload, query, selectedKinds]);
   const projectionFocusId = mode === "focus" ? selectedId : null;
   const projection = useMemo(() => {
@@ -280,6 +300,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
 
   const handleInspectorIdentityFailure = useCallback(() => {
     setPayload(null);
+    setVerifiedIdentity(null);
     setSelectedId(null);
     refreshRef.current?.();
   }, []);
@@ -316,15 +337,25 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
   return <div className={styles.graphShell}>
     <div className={ui.pageHeading}>
       <p className={ui.eyebrow}>KNOWLEDGE GRAPH</p>
-      <h1>Jelajahi relasi antar simbol</h1>
-      <p className={ui.muted}>Jelajahi jaringan kode, pilih simbol, lalu telusuri file sumbernya.</p>
+      <h1>Jelajahi fitur dan konsep</h1>
+      <p className={ui.muted}>Mulai dari fitur aplikasi, telusuri hubungan pentingnya, lalu buka bukti source.</p>
     </div>
 
     {!visiblePayload && (busy || payload) ? <p className={ui.loading} role="status">Memeriksa akun dan memuat knowledge graph…</p> : null}
-    {errorContent()}
+    {error && !visiblePayload ? <details className={styles.compactGraphDetails}><summary>Graph teknis belum tersedia</summary>{errorContent()}</details> : null}
+
+    <AnalysisNavigation analysisId={analysisId} active="graph" />
+    {semanticIdentityVerified ? <SemanticWorkspace
+      key={`${analysisId}:${accountKey}:semantic-graph`}
+      analysisId={analysisId} accountKey={accountKey} repository={visiblePayload?.snapshot.repository ?? ""}
+      commitSha={visiblePayload?.snapshot.commitSha ?? ""} mode="graph"
+      legacyFallback={<p>Diagram lama tersedia pada bagian “Graph teknis berdasarkan AST”.</p>}
+      onLegacyFallback={() => setTechnicalOpen(true)}
+    /> : null}
 
     {visiblePayload && filterResult && projection && canonicalCounts ? <>
-      <AnalysisNavigation analysisId={analysisId} active="graph" />
+      <details className={styles.compactGraphDetails} open={technicalOpen} onToggle={event => setTechnicalOpen(event.currentTarget.open)}>
+        <summary>Graph teknis berdasarkan AST</summary>
       <section className={styles.graphCard} aria-label="Knowledge graph analisis">
         <div className={styles.graphCardHeader}>
           <div>
@@ -422,6 +453,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         </p>
       </section>
       <p className={styles.liveGraphFooter}><Link href={`/analyses/${encodeURIComponent(analysisId)}`}>Kembali ke progres analisis</Link></p>
+      </details>
     </> : null}
   </div>;
 }

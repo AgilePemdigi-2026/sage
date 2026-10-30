@@ -57,3 +57,17 @@ test("semantic Markdown keeps source markup and unusual filenames inert inside l
  assert.ok(output.includes("source\\n\\n<img"));
  assert.ok(output.includes("[` "),"linked path is an inert code span");
 });
+
+test("PDF reuses a shared endpoint flow instead of repeating its entire subtree for every UI action",()=>{
+ const endpoint={...base,id:"endpoint",kind:"step" as const,label:"POST /api/action",featureId:"feature"};
+ const actions=Array.from({length:8},(_,index)=>({...base,id:`action${index}`,kind:"step" as const,label:`UI action ${index}`,featureId:"feature"}));
+ const chain=Array.from({length:8},(_,index)=>({...base,id:`process${index}`,kind:index===7?"outcome" as const:"component" as const,label:`Process ${index}`,featureId:"feature"}));
+ const nodes=[endpoint,...actions,...chain];
+ const edges=[...actions.map((action,index)=>({id:`action-edge${index}`,source:action.id,target:endpoint.id,label:"calls",confidence:"proven" as const,reason:"literal call",evidence:[evidence]})),...chain.map((node,index)=>({id:`chain-edge${index}`,source:index?chain[index-1]!.id:endpoint.id,target:node.id,label:"calls",confidence:"proven" as const,reason:"literal call",evidence:[evidence]}))];
+ const shared:SemanticModel={...model,nodes,edges,features:[{...model.features[0]!,nodeIds:nodes.map(n=>n.id),entryNodeIds:[endpoint.id,...actions.map(n=>n.id)],edgeIds:edges.map(e=>e.id)}]};
+ const pages=semanticFlowPages(shared,shared.features[0]!);
+ assert.equal(pages.flatMap(page=>page.nodes).filter(node=>node.id===chain[7]!.id).length,1);
+ assert.deepEqual(new Set(pages.flatMap(page=>page.nodes.map(n=>n.id))),new Set(nodes.map(n=>n.id)));
+ assert.ok(pages.length<actions.length,"small action flows share paper without duplicating the endpoint's body");
+ for(const page of pages)for(const edge of page.edges)assert.ok(edges.some(original=>original.id===edge.id));
+});

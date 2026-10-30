@@ -68,7 +68,8 @@ export function renderSemanticFlowSvg(nodes: SemanticNode[], edges: SemanticEdge
     const midX=(sx+tx)/2, midY=(sy+ty)/2;
     const path=sameRow?`M${sx},${sy} C${midX},${sy} ${midX},${ty} ${tx},${ty}`:`M${sx},${sy} C${sx},${midY} ${tx},${midY} ${tx},${ty}`;
     const label=edge.label.length>32?`${edge.label.slice(0,31)}…`:edge.label;
-    return `<path d="${path}" fill="none" stroke="#64748b" stroke-width="1.5" ${edge.confidence==="indicated"?'stroke-dasharray="5 4"':""} marker-end="url(#arrow)"/><text x="${midX}" y="${midY-5-(index%2)*10}" text-anchor="middle" fill="#475569" font-size="10" stroke="white" stroke-width="3" paint-order="stroke">${escape(label)}</text>`;
+    const labelY=sameRow?a.y-8-(index%2)*10:midY-5-(index%2)*10;
+    return `<path d="${path}" fill="none" stroke="#64748b" stroke-width="1.5" ${edge.confidence==="indicated"?'stroke-dasharray="5 4"':""} marker-end="url(#arrow)"/><text x="${midX}" y="${labelY}" text-anchor="middle" fill="#475569" font-size="10" stroke="white" stroke-width="3" paint-order="stroke">${escape(label)}</text>`;
   }).join("");
   const boxes=sorted.map(n=>{const p=positions.get(n.id)!,c=colors[n.kind]??colors.step!;const allLines=wrap(n.label,Math.floor(cardW/7));const lines=allLines.slice(0,3);if(allLines.length>3)lines[2]=`${lines[2]!.slice(0,-1)}…`;const shape=n.kind==="decision"?`<polygon points="${p.x+cardW/2},${p.y-5} ${p.x+cardW+5},${p.y+cardH/2} ${p.x+cardW/2},${p.y+cardH+5} ${p.x-5},${p.y+cardH/2}"`:`<rect x="${p.x}" y="${p.y}" width="${cardW}" height="${cardH}" rx="${n.kind==="actor"||n.kind==="outcome"?22:7}"`;return `<g>${shape} fill="${c[0]}" stroke="${c[1]}" ${n.confidence==="indicated"?'stroke-dasharray="5 3"':""}/><text x="${p.x+cardW/2}" y="${p.y+cardH/2-(lines.length-1)*7}" font-size="14" text-anchor="middle" fill="#1f2328">${lines.map((l,i)=>`<tspan x="${p.x+cardW/2}" dy="${i?14:0}">${escape(l)}</tspan>`).join("")}</text></g>`;}).join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" role="img"><defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/></marker></defs>${paths}${boxes}</svg>`;
@@ -87,7 +88,7 @@ export function semanticFlowPages(model: SemanticModel, feature: SemanticModel["
   const covered = new Set<string>();
   const pages: SemanticFlowPage[] = [];
   const uiEntries = edges.filter(edge => byId.get(edge.source)?.kind === "actor" && byId.get(edge.target)?.kind === "step").map(edge => edge.target);
-  const entries = [...new Set([...uiEntries, ...feature.entryNodeIds.filter(id => members.has(id) && byId.get(id)?.kind === "step")])];
+  const entries = [...new Set([...feature.entryNodeIds.filter(id => members.has(id) && byId.get(id)?.kind === "step"), ...uiEntries])];
   function append(label: string, ids: string[]) {
     for (let start = 0; start < ids.length; start += 12) {
       const chunk = ids.slice(start,start+12), selected = new Set(chunk);
@@ -104,6 +105,9 @@ export function semanticFlowPages(model: SemanticModel, feature: SemanticModel["
       const id = queue.shift()!;
       if (seen.has(id)) continue;
       seen.add(id);
+      // A shared endpoint/process has its full flow on an earlier page. Retain
+      // the real boundary node here, but do not print its whole subtree again.
+      if(covered.has(id) && id!==entry) continue;
       for (const next of outgoing.get(id) ?? []) if (!seen.has(next)) queue.push(next);
     }
     const actors = edges.filter(edge => seen.has(edge.target) && byId.get(edge.source)?.kind === "actor").map(edge => edge.source);
@@ -112,7 +116,21 @@ export function semanticFlowPages(model: SemanticModel, feature: SemanticModel["
   const remaining = [...members].filter(id => !covered.has(id));
   if (remaining.length) append("Konsep dan komponen terkait",remaining);
 
-  return pages.length ? pages : [{label: feature.label, nodes: [], edges: [], omittedRelations: 0}];
+  // Pack small independent flows on the same A4 page without connecting them.
+  // This avoids a separate mostly empty sheet for every navigation/endpoint action.
+  const packed: SemanticFlowPage[]=[];
+  for(const page of pages) {
+    const previous=packed.at(-1);
+    const combined=previous ? [...new Set([...previous.nodes.map(node=>node.id),...page.nodes.map(node=>node.id)])] : [];
+    if(previous && previous.nodes.length<=8 && page.nodes.length<=6 && combined.length<=12) {
+      const selected=new Set(combined);
+      previous.label="Alur tindakan terkait";
+      previous.nodes=combined.map(id=>byId.get(id)!);
+      previous.edges=edges.filter(edge=>selected.has(edge.source)&&selected.has(edge.target));
+      previous.omittedRelations=edges.filter(edge=>selected.has(edge.source)!==selected.has(edge.target)).length;
+    } else packed.push({...page});
+  }
+  return packed.length ? packed : [{label: feature.label, nodes: [], edges: [], omittedRelations: 0}];
 }
 
 export function renderSemanticPdfPages(input: SemanticPresentation, document: ArchitectureDocumentV1): string {

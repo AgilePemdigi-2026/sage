@@ -82,10 +82,12 @@ function FormatExport({
   payload,
   format,
   onUnauthorized,
+  presentationRevision,
 }: {
   payload: Pick<DocumentPayload, "analysisId" | "accountKey" | "contentHash">;
   format: ExportFormat;
   onUnauthorized: () => void;
+  presentationRevision?: number;
 }) {
   const [exportRecord, setExportRecord] = useState<ExportRecord | null>(null);
   const [pending, setPending] = useState<PendingOperation>(null);
@@ -267,7 +269,7 @@ function FormatExport({
 
   function createExport() {
     beginOperation("create", async (token, signal) => {
-      const value = await fetchExportRecord(collectionPath, "POST", token, signal, { format });
+      const value = await fetchExportRecord(collectionPath, "POST", token, signal, { format, ...(presentationRevision === undefined ? {} : {presentationRevision}) });
       if (!value || !current(token)) return;
       publishRecord(value, token);
       await pollUntilTerminal(value, token, signal);
@@ -377,6 +379,7 @@ function FormatExport({
 export function MarkdownExport(props: {
   payload: Pick<DocumentPayload, "analysisId" | "accountKey" | "contentHash">;
   onUnauthorized: () => void;
+  presentationRevision?: number;
 }) {
   return <FormatExport {...props} format="MARKDOWN" />;
 }
@@ -384,6 +387,7 @@ export function MarkdownExport(props: {
 export function PdfExport(props: {
   payload: Pick<DocumentPayload, "analysisId" | "accountKey" | "contentHash">;
   onUnauthorized: () => void;
+  presentationRevision?: number;
 }) {
   return <FormatExport {...props} format="PDF" />;
 }
