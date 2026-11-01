@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import test from "node:test";
 import type { PresentationOverlay, SemanticEdge, SemanticModel, SemanticNode, SemanticPayload } from "../packages/documents/src/semantic/model.ts";
-import { buildArchitectureProjection } from "../apps/web/components/semantic-workspace/architecture-projection.ts";
+import { aggregateArchitectureReferences, buildArchitectureProjection, type ArchitectureProjection } from "../apps/web/components/semantic-workspace/architecture-projection.ts";
 
 const evidence = { filePath: "routes/api.php", fileSha256: "a".repeat(64), startByte: 0, endByte: 1, startLine: 1, endLine: 1, startColumn: 1, endColumn: 2, role: "reference" as const };
 const sourceNode = (id: string, kind: SemanticNode["kind"], label: string, featureId: string | null): SemanticNode => ({ id, kind, label, featureId, confidence: "proven", reason: "Source declaration", evidence: [evidence], technicalNodeIds: [] });
@@ -117,6 +117,47 @@ test("feature confidence comes from its canonical source node and indicated rout
   assert.ok(!profile.sourceNodeIds.includes("route:profile"));
 });
 
+test("presentation reference buckets reduce duplicate labels without merging source identities or adding relationships", () => {
+  const nodes = [
+    { ...sourceNode("feature:a", "feature", "A", "feature:a"), sourceNodeIds: ["feature:a"], featureIds: ["feature:a"], routeLabels: [], componentLabels: [], decisionCount: 0, sourceFileCount: 1 },
+    { ...sourceNode("feature:b", "feature", "B", "feature:b"), sourceNodeIds: ["feature:b"], featureIds: ["feature:b"], routeLabels: [], componentLabels: [], decisionCount: 0, sourceFileCount: 1 },
+    { ...sourceNode("client:a", "actor", "API client", null), sourceNodeIds: ["client:a"], featureIds: ["feature:a"], routeLabels: [], componentLabels: [], decisionCount: 0, sourceFileCount: 1 },
+    { ...sourceNode("client:b", "actor", "API client", null), sourceNodeIds: ["client:b"], featureIds: ["feature:a"], routeLabels: [], componentLabels: [], decisionCount: 0, sourceFileCount: 1 },
+    { ...sourceNode("user:a", "store", "User", null), sourceNodeIds: ["user:a"], featureIds: ["feature:a"], routeLabels: [], componentLabels: [], decisionCount: 0, sourceFileCount: 1 },
+    { ...sourceNode("user:b", "store", "User", null), sourceNodeIds: ["user:b"], featureIds: ["feature:b"], routeLabels: [], componentLabels: [], decisionCount: 0, sourceFileCount: 1 },
+  ];
+  const edgeRows = [
+    { ...sourceEdge("source:client-a", "client:a", "feature:a", "calls"), labels: ["calls"], sourceEdgeIds: ["source:client-a"], originalEndpoints: [{ source: "client:a", target: "route:a" }] },
+    { ...sourceEdge("source:client-b", "client:b", "feature:a", "calls"), labels: ["calls"], sourceEdgeIds: ["source:client-b"], originalEndpoints: [{ source: "client:b", target: "route:b" }] },
+    { ...sourceEdge("source:user-a", "feature:a", "user:a", "writes"), labels: ["writes"], sourceEdgeIds: ["source:user-a"], originalEndpoints: [{ source: "controller:a", target: "user:a" }] },
+    { ...sourceEdge("source:user-b", "feature:b", "user:b", "reads"), labels: ["reads"], sourceEdgeIds: ["source:user-b"], originalEndpoints: [{ source: "controller:b", target: "user:b" }] },
+  ];
+  const projection: ArchitectureProjection = {
+    nodes, edges: edgeRows, featureIds: ["feature:a", "feature:b"],
+    representedNodeIds: nodes.flatMap(node => node.sourceNodeIds), representedEdgeIds: edgeRows.flatMap(edge => edge.sourceEdgeIds),
+    hiddenNodeCount: 2, hiddenEdgeCount: 3,
+  };
+  const before = structuredClone(projection);
+  const result = aggregateArchitectureReferences(projection);
+  assert.deepEqual(projection, before, "presentation aggregation does not mutate the incoming projection");
+  const actor = result.nodes.find(node => node.isReferenceGroup && node.kind === "actor")!;
+  const store = result.nodes.find(node => node.isReferenceGroup && node.kind === "store")!;
+  assert.equal(actor.label, "API client references (2)");
+  assert.deepEqual(actor.sourceNodeIds, ["client:a", "client:b"]);
+  assert.deepEqual(actor.featureIds, ["feature:a"]);
+  assert.equal(store.label, "User references (2)");
+  assert.deepEqual(store.sourceNodeIds, ["user:a", "user:b"]);
+  assert.match(store.reason, /does not prove one identity or datastore/u);
+  assert.equal(result.nodes.length, 4);
+  assert.equal(result.edges.length, 3);
+  const groupedActorEdge = result.edges.find(edge => edge.source === actor.id)!;
+  assert.deepEqual(groupedActorEdge.sourceEdgeIds, ["source:client-a", "source:client-b"]);
+  assert.deepEqual(groupedActorEdge.originalEndpoints, [{ source: "client:a", target: "route:a" }, { source: "client:b", target: "route:b" }]);
+  assert.ok(!result.edges.some(edge => edge.source === "feature:a" && edge.target === "feature:b"), "same-label stores do not create calls between their features");
+  assert.deepEqual(new Set(result.edges.flatMap(edge => edge.sourceEdgeIds)), new Set(projection.representedEdgeIds));
+  assert.deepEqual(result.representedNodeIds, [...projection.representedNodeIds].sort());
+});
+
 test("saved Emosync corpus has connected default overview and visible shared principal and storage links when available", { skip: !existsSync("artifacts/semantic/readability-20261101/emosync-backend-semantic.json") }, () => {
   const model = JSON.parse(readFileSync("artifacts/semantic/readability-20261101/emosync-backend-semantic.json", "utf8")) as SemanticModel;
   const result = buildArchitectureProjection(payload(model));
@@ -133,4 +174,24 @@ test("saved Emosync corpus has connected default overview and visible shared pri
   assert.ok([...result.edges].some(edge => {
     return [edge.source, edge.target].some(id => nodesById.get(id)?.kind === "store" && nodesById.get(id)?.label === "User");
   }), "source-backed paths to the shared User store are visible by default");
+  const compact = aggregateArchitectureReferences(result);
+  assert.equal(compact.featureIds.length, model.features.length, "all features remain discoverable");
+  assert.equal(compact.nodes.length, result.nodes.length, "Emosync labels are unique, so canonical identities remain separate");
+  assert.ok(compact.edges.length <= result.edges.length, "aggregation does not create new visible relationships");
+  assert.deepEqual(new Set(compact.edges.flatMap(edge => edge.sourceEdgeIds)), new Set(result.edges.flatMap(edge => edge.sourceEdgeIds)));
+});
+
+test("saved Perpus compacts repeated role and table references without losing features or source relationships when available", { skip: !existsSync("artifacts/semantic/readability-20261101/sistem-informasi-perpus-semantic.json") }, () => {
+  const model = JSON.parse(readFileSync("artifacts/semantic/readability-20261101/sistem-informasi-perpus-semantic.json", "utf8")) as SemanticModel;
+  const original = buildArchitectureProjection(payload(model));
+  const compact = aggregateArchitectureReferences(original);
+  assert.equal(compact.featureIds.length, model.features.length);
+  assert.ok(compact.nodes.length < original.nodes.length);
+  assert.ok(compact.nodes.some(node => node.label === "Book references (23)" && node.kind === "store"));
+  assert.ok(compact.nodes.some(node => node.label === "Admin references (19)" && node.kind === "actor"));
+  assert.deepEqual(new Set(compact.edges.flatMap(edge => edge.sourceEdgeIds)), new Set(original.edges.flatMap(edge => edge.sourceEdgeIds)));
+  assert.ok(compact.edges.length <= original.edges.length);
+  const originalPairs = new Set(original.edges.flatMap(edge => edge.originalEndpoints.map(pair => `${pair.source}\0${pair.target}`)));
+  const compactPairs = new Set(compact.edges.flatMap(edge => edge.originalEndpoints.map(pair => `${pair.source}\0${pair.target}`)));
+  assert.deepEqual(compactPairs, originalPairs, "presentation buckets retain original edge endpoints and add none");
 });

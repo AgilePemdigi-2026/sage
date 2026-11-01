@@ -14,6 +14,8 @@ export interface ArchitectureNode {
   componentLabels: string[];
   decisionCount: number;
   sourceFileCount: number;
+  isReferenceGroup?: boolean;
+  referenceCount?: number;
 }
 
 /** Aggregated visual edge. Each member is an actual semantic source edge with its original endpoint IDs. */
@@ -39,6 +41,8 @@ export interface ArchitectureProjection {
   hiddenNodeCount: number;
   hiddenEdgeCount: number;
 }
+
+const GROUPABLE_REFERENCE_KINDS = new Set<SemanticKind>(["actor", "store", "concept"]);
 
 export interface ArchitectureProjectionOptions {
   featureIds?: string[];
@@ -238,5 +242,86 @@ export function buildArchitectureProjection(payload: SemanticPayload, options: A
     representedEdgeIds: [...representedEdgeIds],
     hiddenNodeCount: Math.max(0, model.nodes.length - representedNodeIds.size),
     hiddenEdgeCount: Math.max(0, model.edges.length - representedEdgeIds.size),
+  };
+}
+
+/**
+ * Compress repeated display references in the canvas only. A reference bucket
+ * preserves the distinct source IDs and explicitly avoids asserting identity.
+ */
+export function aggregateArchitectureReferences(projection: ArchitectureProjection): ArchitectureProjection {
+  const buckets = new Map<string, ArchitectureNode[]>();
+  for (const node of projection.nodes) {
+    if (!GROUPABLE_REFERENCE_KINDS.has(node.kind)) continue;
+    const key = `${node.kind}\0${node.label}\0${node.confidence}`;
+    const rows = buckets.get(key) ?? [];
+    rows.push(node);
+    buckets.set(key, rows);
+  }
+
+  const replacements = new Map<string, ArchitectureNode>();
+  for (const [key, rows] of buckets) {
+    if (rows.length < 2) continue;
+    const [kind, label, confidence] = key.split("\0") as [SemanticKind, string, "proven" | "indicated"];
+    const sourceNodeIds = [...new Set(rows.flatMap(node => node.sourceNodeIds))].sort((a, b) => a.localeCompare(b));
+    const featureIds = [...new Set(rows.flatMap(node => node.featureIds))].sort((a, b) => a.localeCompare(b));
+    const evidence = uniqueEvidence(rows.flatMap(node => node.evidence));
+    const id = `__reference_group__:${kind}:${confidence}:${encodeURIComponent(label)}`;
+    const group: ArchitectureNode = {
+      id,
+      label: `${label} references (${sourceNodeIds.length})`,
+      kind,
+      confidence,
+      reason: "Presentation-only bucket: separate source references are grouped by displayed label; this does not prove one identity or datastore.",
+      evidence,
+      sourceNodeIds,
+      featureIds,
+      routeLabels: [...new Set(rows.flatMap(node => node.routeLabels))].sort((a, b) => a.localeCompare(b)),
+      componentLabels: [...new Set(rows.flatMap(node => node.componentLabels))].sort((a, b) => a.localeCompare(b)),
+      decisionCount: rows.reduce((total, node) => total + node.decisionCount, 0),
+      sourceFileCount: new Set(rows.flatMap(node => node.evidence.map(item => item.filePath))).size,
+      isReferenceGroup: true,
+      referenceCount: sourceNodeIds.length,
+    };
+    for (const node of rows) replacements.set(node.id, group);
+  }
+
+  const nodesById = new Map<string, ArchitectureNode>();
+  for (const node of projection.nodes) {
+    const replacement = replacements.get(node.id) ?? node;
+    nodesById.set(replacement.id, replacement);
+  }
+
+  const edges = new Map<string, ArchitectureEdge>();
+  for (const edge of projection.edges) {
+    const source = replacements.get(edge.source)?.id ?? edge.source;
+    const target = replacements.get(edge.target)?.id ?? edge.target;
+    const key = `${source}\0${target}\0${edge.confidence}`;
+    const current = edges.get(key);
+    if (current) {
+      current.sourceEdgeIds.push(...edge.sourceEdgeIds);
+      current.labels.push(...edge.labels);
+      current.originalEndpoints.push(...edge.originalEndpoints);
+      current.evidence = uniqueEvidence([...current.evidence, ...edge.evidence]);
+      continue;
+    }
+    edges.set(key, { ...edge, source, target, sourceEdgeIds: [...edge.sourceEdgeIds], labels: [...edge.labels], originalEndpoints: [...edge.originalEndpoints], evidence: uniqueEvidence(edge.evidence) });
+  }
+  const outputEdges = [...edges.values()].map(edge => ({
+    ...edge,
+    id: `presentation:${edge.source}:${edge.target}:${edge.confidence}`,
+    labels: [...new Set(edge.labels)].sort((a, b) => a.localeCompare(b)),
+    sourceEdgeIds: [...new Set(edge.sourceEdgeIds)].sort((a, b) => a.localeCompare(b)),
+    originalEndpoints: [...new Map(edge.originalEndpoints.map(pair => [`${pair.source}\0${pair.target}`, pair])).values()].sort((a, b) => a.source.localeCompare(b.source) || a.target.localeCompare(b.target)),
+    evidence: uniqueEvidence(edge.evidence),
+  })).sort((a, b) => a.source.localeCompare(b.source) || a.target.localeCompare(b.target) || a.id.localeCompare(b.id));
+  const outputNodes = [...nodesById.values()].sort((a, b) => a.kind.localeCompare(b.kind) || a.label.localeCompare(b.label) || a.id.localeCompare(b.id));
+
+  return {
+    ...projection,
+    nodes: outputNodes,
+    edges: outputEdges,
+    representedNodeIds: [...new Set(projection.representedNodeIds)].sort((a, b) => a.localeCompare(b)),
+    representedEdgeIds: [...new Set(projection.representedEdgeIds)].sort((a, b) => a.localeCompare(b)),
   };
 }
