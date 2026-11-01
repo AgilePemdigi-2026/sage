@@ -206,7 +206,8 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       const controller = new AbortController();
       sessionController.current = controller;
       try {
-        setVerifiedIdentity(null);
+        // Keep the verified canvas mounted during routine checks to preserve layout and zoom.
+        // Any mismatch or failed check below still clears the owner-bound payload.
         const response = await fetch("/api/auth/session", {
           headers: headers(), cache: "no-store", credentials: "same-origin", signal: controller.signal,
         });
