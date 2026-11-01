@@ -51,3 +51,9 @@ Jalur hubungan termasuk yang Indicated diperiksa melalui computed style `fill: n
 Source UI yang diuji memiliki SHA-256 TSX `8f84dc13f1b758024d0f6d593d4c9300c60f7187cf73cfbb6c75dede699e4943` dan CSS `a8d619d0489d74dfec95c966082df9fd27d180bc43c82ef615032f0301a2fdba`; hash sama sebelum/sesudah run. Screenshot: `artifacts/semantic-workspace/readability-20261101/`.
 
 Hubungan antar-child dalam fitur menggunakan gutter antarkolom. Tes browser mengambil sampel sepanjang path SVG dan menolak path yang masuk ke card lain selain endpoint, pada Books sintetis serta Perpus desktop/mobile. Pemeriksaan ini tidak menyatakan semua hubungan lintas fitur bebas dari persilangan.
+
+### Pemeriksaan image lokal
+
+Build worker awal gagal saat instalasi Chromium karena filesystem VM Docker 30 GiB penuh; signature checking tetap diaktifkan. Pembersihan dibatasi pada cache build yang tidak terpakai serta tiga image QA lama yang tidak digunakan container (`sage-bdd-f076bbb11d-bdd`, `sage-bdd-8c8ba75b3f-bdd`, `sage-graph18-qa`). Image runtime/rollback dan volume tetap disimpan; resource limit tidak dinaikkan. Build web final menggunakan Dockerfile normal dan mencakup kembali 477+8 tes serta build produksi.
+
+Build worker ulang juga lulus dengan Dockerfile normal. Smoke import extractor 0.2.0 sempat ditolak `ENOSPC` setelah unpack image; setelah cache build dibersihkan (2,977 GB), smoke import lulus tanpa jaringan pada 512 MiB/1 CPU. Image web: `sha256:4400740476905b6d36c9c998ba23b1ac43fc0ab387f39f0ec19547d3e5c862bd`; worker: `sha256:fca5a79c53789a52b5ff90fe0f3932b5d41d51011f1c9cc84a7d0035d5f3cfbc`. Ini verifikasi ARM64 lokal, bukan deployment atau bukti kapasitas produksi.
