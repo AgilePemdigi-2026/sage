@@ -159,7 +159,7 @@ function centerFlowViewport(canvas: HTMLDivElement, anchorId: string, positions:
   canvas.scrollTo({ top: 0, left, behavior: "auto" });
 }
 
-function focusGraphViewport(viewport: HTMLDivElement, featureId: string, positions: Map<string, { x: number; y: number }>, bounds: Map<string, { width: number; height: number }>, nodePositions: Map<string, { x: number; y: number }>, clusterNodes: Map<string, SemanticNode[]>, expandedFeatures: string[], canvasWidth: number, canvasHeight: number, zoom: number) {
+function focusGraphViewport(viewport: HTMLDivElement, featureId: string, positions: Map<string, { x: number; y: number }>, bounds: Map<string, { width: number; height: number }>, canvasWidth: number, canvasHeight: number, zoom: number) {
   const center = positions.get(featureId);
   const size = bounds.get(featureId);
   if (!center || !size) {
@@ -170,14 +170,11 @@ function focusGraphViewport(viewport: HTMLDivElement, featureId: string, positio
   const frameWidth = size.width * scale;
   const frameLeft = (center.x - size.width / 2) * scale;
   const desiredLeft = frameWidth > viewport.clientWidth ? frameLeft : center.x * scale - viewport.clientWidth / 2;
-  const desiredTopNode = expandedFeatures.includes(featureId) ? clusterNodes.get(featureId)?.[0] : undefined;
-  const firstNodePosition = desiredTopNode ? nodePositions.get(`${featureId}\0${desiredTopNode.id}`) : undefined;
   const frameTop = center.y - size.height / 2;
-  const anchorY = firstNodePosition?.y ?? frameTop + 28;
   const maxLeft = Math.max(0, canvasWidth * scale - viewport.clientWidth);
   const maxTop = Math.max(0, canvasHeight * scale - viewport.clientHeight);
   const left = Math.max(0, Math.min(maxLeft, desiredLeft));
-  const top = Math.max(0, Math.min(maxTop, anchorY * scale - viewport.clientHeight / 2));
+  const top = Math.max(0, Math.min(maxTop, frameTop * scale - 16));
   viewport.scrollTo({ top, left, behavior: "auto" });
 }
 
@@ -607,7 +604,11 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     if (mode !== "flow" || !flowCanvasRef.current) return;
     const canvas = flowCanvasRef.current;
     let alignFrame = 0;
+    let lastViewportWidth = Number.NaN;
     const fitWidth = () => {
+      const viewportWidth = canvas.getBoundingClientRect().width;
+      if (viewportWidth === lastViewportWidth) return;
+      lastViewportWidth = viewportWidth;
       const minZoom = canvas.clientWidth < 640 ? 55 : 30;
       const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((canvas.clientWidth - 32) / layout.width * 100)));
       setFlowZoom(current => current === nextZoom ? current : nextZoom);
@@ -997,9 +998,12 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
     if (!viewport) return;
     let alignFrame = 0;
     const fitOrReveal = () => {
-      const viewportSize = { width: viewport.clientWidth, height: viewport.clientHeight };
+      const viewportSize = { width: viewport.getBoundingClientRect().width, height: viewport.getBoundingClientRect().height };
       const previousSize = graphViewportSizeRef.current;
-      const resized = !previousSize || previousSize.width !== viewportSize.width || previousSize.height !== viewportSize.height;
+      // SVG content zoom can change the viewport's intrinsic clientHeight. Only
+      // a container-width change is a fit event; content height changes must
+      // preserve manual zoom and only reposition the active feature.
+      const resized = !previousSize || previousSize.width !== viewportSize.width;
       const forceFit = appliedFitRequestRef.current !== fitRequest;
       graphViewportSizeRef.current = viewportSize;
       let alignmentZoom = graphZoomRef.current;
@@ -1011,7 +1015,7 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
       }
       appliedFitRequestRef.current = fitRequest;
       cancelAnimationFrame(alignFrame);
-      if (graphAnchorFeatureId) alignFrame = requestAnimationFrame(() => focusGraphViewport(viewport, graphAnchorFeatureId, positions, featureBounds, nodePositions, clusterNodes, expandedFeatures, width, height, alignmentZoom));
+      if (graphAnchorFeatureId) alignFrame = requestAnimationFrame(() => focusGraphViewport(viewport, graphAnchorFeatureId, positions, featureBounds, width, height, alignmentZoom));
     };
     fitOrReveal();
     const observer = new ResizeObserver(fitOrReveal);
@@ -1056,7 +1060,7 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
     <div className={styles.graphTools} role="group" aria-label="Knowledge graph controls">
       <label><input type="checkbox" checked={showIndications} onChange={event => setShowIndications(event.currentTarget.checked)} />Show indicated relationships</label>
       <div className={styles.zoomControls}><button type="button" onClick={() => setZoom(Math.max(30, zoom - 10))} disabled={zoom <= 30} aria-label="Zoom out knowledge graph">−</button><span aria-live="polite">Zoom {zoom}%</span><button type="button" onClick={() => setZoom(Math.min(150, zoom + 10))} disabled={zoom >= 150} aria-label="Zoom in knowledge graph">+</button></div>
-      <button type="button" onClick={() => { const viewport = graphViewportRef.current; if (!viewport) return; const minZoom = viewport.clientWidth < 640 ? 85 : 75; const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / width * 100))); setZoom(nextZoom); if (graphAnchorFeatureId) requestAnimationFrame(() => focusGraphViewport(viewport, graphAnchorFeatureId, positions, featureBounds, nodePositions, clusterNodes, expandedFeatures, width, height, nextZoom)); }}>Fit graph</button>
+      <button type="button" onClick={() => { const viewport = graphViewportRef.current; if (!viewport) return; const minZoom = viewport.clientWidth < 640 ? 85 : 75; const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / width * 100))); setZoom(nextZoom); if (graphAnchorFeatureId) requestAnimationFrame(() => focusGraphViewport(viewport, graphAnchorFeatureId, positions, featureBounds, width, height, nextZoom)); }}>Fit graph</button>
       <button type="button" onClick={() => { setGraphNodeLimits({}); setFocusedGraphNodeId(null); setFitRequest(value => value + 1); reset(); }}>Reset graph</button>
       {focusedFeatureId || focusedGraphNodeId ? <button type="button" onClick={() => { setFocusedFeatureId(null); setFocusedGraphNodeId(null); }}>Show all features and nodes</button> : null}
     </div>
