@@ -52,6 +52,8 @@ Landing, login, workspace, dan halaman repository memakai backend autentikasi/re
 
 Seluruh kemampuan di atas masuk target MVP lokal. Status implementasi serta acceptance criteria mengikuti [backlog](docs/PRODUCT_BACKLOG.md) dan [test plan](docs/TEST_PLAN.md).
 
+Panduan keterbacaan diagram dan pendekatan source-backed tersedia pada [revisi diagram](docs/DIAGRAM_READABILITY.md). Istilah kontrol mengikuti [bahasa antarmuka](docs/UI_LANGUAGE.md); label dari source tetap dipertahankan. Hasil lama perlu dianalisis ulang untuk memperoleh perubahan extractor.
+
 ## Alur penggunaan
 
 [Buka workflow interaktif — zoom dan geser diagram](https://mermaid.live/view#pako:eNpVks1vozAQxf-Vkc-pes9hpaT5IG0qRW13L2UPAzYwwtiWP1p1k_zvO5gGqRck4_d-83jDWdRWKrEUjbafdYc-wvGlNAAhVa1H10GdvFcmvpfiTfmgJCEExAhkqBR_RynAim-PtiUDUpkWDewpFqnie7i7-wXrcylOpKkD7IMK4JWzgaL1X6W4ToT1KLycUqWpv8AD854xpL5n1u-XI2DEBC4jJHriRxPRz_O_3Z4-MKoLbNh-MCGixkCwco71Bugf56uwxh_zvwkPOej2_Ra08mjqLvtqOwwUwbpA1qCeLZvJMh22-bBj_x_UJMe5HLBVMSOapPWN81qsZsQuu_bseuSsZvxaR05pMgqCGiril8zp0M2WfbYUeR06hcRlTHsa50jbp0GZWVxk8YHF69Qj9IzkdDAojToRdBR-lDDJH1m-7YOzHp7R99J-GriH02Y36w5Z98S6Al0KgFwLBQqcOTK6g96ahvzALcyep-w5jgWjGbdZa4UmuWm1ta0QNLY3vTJSLMSgmEFSLM8idmoYf1OpGkw6iutCYIr29cvUYhl9UguRnOTtbwi5j2F6ef0PwYrv7A). Tampilan ini membuka Mermaid Live; diagram di bawah tetap tersedia langsung di README.
