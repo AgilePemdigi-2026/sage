@@ -677,3 +677,27 @@ test("semantic model merges extractors deterministically without treating import
   assert.equal(isSemanticModel(first), true);
   assert.equal(first.nodes.some(node => node.label === "Helper" && node.kind === "step"), false);
 });
+
+test("plain JavaScript page modules do not imply Next.js Pages Router", () => {
+  const model = buildSemanticModel(input({
+    "package.json": '{"type":"module","workspaces":["packages/*"]}',
+    "packages/web/package.json": '{"scripts":{"start":"node server.mjs"}}',
+    "packages/web/public/js/pages/document-view.js": 'export function renderDocument() { return "document"; }',
+    "packages/web/public/js/pages/progress-view.js": 'export function renderProgress() { return "progress"; }',
+  }));
+  assert.deepEqual(model.frameworks, []);
+  assert.deepEqual(model.features, []);
+  assert.deepEqual(model.edges, []);
+  assert.deepEqual(model.limitations, []);
+});
+
+test("Pages Router requires a Next package and conventional package-relative route path", () => {
+  const result = extractNext(input({
+    "packages/web/package.json": '{"dependencies":{"next":"16.4.2"}}',
+    "packages/web/src/pages/index.tsx": 'export default function Page() { return <main>Home</main>; }',
+    "packages/web/public/js/pages/helper.js": 'export const helper = () => 1;',
+    "packages/other/pages/fake.tsx": 'export default function Page() { return null; }',
+  }));
+  assert.deepEqual(result.frameworks, ["Next.js Pages Router"]);
+  assert.deepEqual(result.limitations.map(item => item.filePath), ["packages/web/src/pages/index.tsx"]);
+});
