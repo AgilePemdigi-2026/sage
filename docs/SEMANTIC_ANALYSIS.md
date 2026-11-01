@@ -6,6 +6,12 @@
 
 Extractor berbasis aturan berjalan pada worker yang ada, tanpa layanan AI, instalasi dependency, atau eksekusi source repository target. Next.js menggunakan AST TypeScript dan Laravel menggunakan token PHP serta deklarasi route/controller. Import dan kedekatan folder tidak menjadi urutan aktivitas. Framework lain atau binding dinamis memerlukan bukti tersendiri dan menghasilkan batasan bila tidak dapat ditelusuri.
 
+## Penyajian interaktif
+
+Sejak revisi 1 November 2026, graph semantik memakai architecture card dan kelompok tanggung jawab. Lingkaran bukan lagi persyaratan bentuk. Diagram alur mengikuti entry point beserta seluruh hubungan yang tampil dalam scope terpilih, tanpa pemotongan acak 24 node. Zoom, fokus, search dan evidence tetap tersedia. Lihat [audit dan revisi keterbacaan](DIAGRAM_READABILITY.md).
+
+Extractor `0.2.0` memperbaiki hubungan kondisi/query Laravel serta mengecualikan callable yang hanya dideklarasikan dan kode setelah unconditional return dari fakta alur request. Query-result local hanya ditautkan ke kondisi langsung jika assignment dan pemakaiannya dapat diverifikasi tanpa mutasi/escape; pola lain tetap tidak dianggap terbukti. Analisis ulang diperlukan untuk memperoleh hasil baru.
+
 ## Penyimpanan dan akses
 
 - `SemanticModel` menyimpan satu `canonicalContent`, hash model, source CKG hash, versi schema/extractor, serta foreign key pemilik/analisis. Tidak ada salinan model JSON per revisi.

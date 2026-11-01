@@ -44,7 +44,7 @@ Halaman nyata kini menggantikan route pratinjau. Katalog menyediakan pencarian s
 
 Budget browser diterapkan setelah proyeksi pembacaan menggabungkan anggota serta relasi yang berulang. Diagram yang masih melebihi 500 elemen/relasi atau 50.000 karakter/byte memakai ikhtisar source-backed terbatas dengan caption cakupan. Label Unresolved serta agregasi ikut dihitung; anggota UML diindeks berdasarkan parent agar proyeksi besar tidak memindai seluruh node untuk setiap classifier. SVG tetap disanitasi, dimuat sebagai image lokal, dibatasi 4 MiB, dan dibatalkan bila konteks akun berubah. Katalog dan Markdown mempertahankan detail yang tidak tampil pada ikhtisar.
 
-Graph menggunakan jaringan lingkaran berwarna dengan zoom, pan, pemilihan keyboard, dan sorotan tetangga. Ini tampilan struktur kode statis; SAGE tidak mengarang relasi bisnis atau runtime yang tidak didukung analyzer. Bukti pengujian dan batas run ada di [UI-05_CHECKS](UI-05_CHECKS.md).
+Graph teknis CKG menggunakan jaringan lingkaran berwarna dengan zoom, pan, pemilihan keyboard, dan sorotan tetangga. Graph semantik terkini menggunakan architecture card sebagaimana revisi di bawah. Ini tampilan struktur kode statis; SAGE tidak mengarang relasi bisnis atau runtime yang tidak didukung analyzer. Bukti pengujian dan batas run ada di [UI-05_CHECKS](UI-05_CHECKS.md).
 
 ## Revisi ANA-08: graph esensial dan UML BCE
 
@@ -71,7 +71,7 @@ Susunan overview memakai constraint layout tak terlihat untuk menjaga area pada 
 
 ## Workspace semantik
 
-Analisis baru menggunakan model `sage-semantic-v1`, terpisah dari CCM/CKG dan ADD. Overview menampilkan fitur/aktor; pemilihan fitur membuka relasi tindakan, pemeriksaan, komponen, penyimpanan, dan hasil yang dikenali. Hubungan statis **Terbukti** digambar utuh; interpretasi **Indikasi** digambar putus-putus dan bisa disembunyikan. Impor dan kedekatan direktori tidak membuktikan urutan aktivitas. Graph awal menggunakan fitur sebagai cluster, bukan empat direktori. Ukuran lingkaran menunjukkan konektivitas, warna menunjukkan kelompok; keduanya bukan skor kepentingan bisnis.
+Analisis baru menggunakan model `sage-semantic-v1`, terpisah dari CCM/CKG dan ADD. Overview menampilkan fitur/aktor; pemilihan fitur membuka relasi tindakan, pemeriksaan, komponen, penyimpanan, dan hasil yang dikenali. Hubungan statis **Terbukti** digambar utuh; interpretasi **Indikasi** digambar putus-putus dan bisa disembunyikan. Impor dan kedekatan direktori tidak membuktikan urutan aktivitas. Graph awal menggunakan fitur sebagai cluster, bukan empat direktori. Revisi 1 November 2026 memakai architecture card dalam kelompok tanggung jawab, dengan tipe node dan hubungan source yang jelas. Bentuk lingkaran tidak lagi diwajibkan. Warna menunjukkan kelompok; ukuran card mengikuti keterbacaan label, bukan skor kepentingan bisnis.
 
 Evidence membuka GitHub pada commit snapshot dan rentang baris. Koreksi hanya label/pengelompokan, disimpan sebagai overlay append-only; konflik revisi meminta muat ulang. Pengembalian otomatis menghapus override, tanpa mengubah fakta. UI, PDF, dan Markdown memproyeksikan model dan overlay yang sama. PDF membagi detail alur ke halaman berisi maksimal 12 node, mencatat jumlah relasi antarhalaman tanpa membuat panah pengganti. Markdown mencantumkan seluruh fakta, indikasi, alasan, evidence dan batasan. Cache ekspor mengikat hash model, revisi overlay, dan versi renderer. Hasil lama tetap dibaca melalui fallback dan memerlukan analisis ulang untuk kemampuan semantik baru.
 

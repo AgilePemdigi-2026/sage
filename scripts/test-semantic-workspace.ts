@@ -22,7 +22,7 @@ import type { PresentationOverlay, SemanticEdge, SemanticFeature, SemanticModel,
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceAppRoot = resolve(projectRoot, "apps/web");
-const artifactDirectory = resolve(projectRoot, "artifacts/semantic-workspace");
+const artifactDirectory = resolve(projectRoot, "artifacts/semantic-workspace/readability-20261101");
 const accountKey = "qa-semantic-account";
 const analysisId = "qa-semantic-analysis";
 const repository = "AgilePemdigi-2026/sage";
@@ -76,6 +76,9 @@ function buildFixture(): SemanticPayload {
     bookEdgeIds.push(addEdge(`edge-search-${String(index).padStart(2, "0")}`, previous, step, index === 0 ? "memasukkan kata kunci" : "melanjutkan pencarian", "proven", 20 + index));
     previous = step;
   }
+  // A real search refinement loop exercises cycle condensation in the renderer:
+  // users may change a filter and revisit the matching step before continuing.
+  bookEdgeIds.push(addEdge("edge-search-refine", "step-search-25", "step-search-19", "memperbarui filter pencarian", "proven", 45));
   const sessionDecision = addNode("decision-session", "decision", "Sesi pengguna masih berlaku?", bookFeatureId, "proven", 50);
   const bookingService = addNode("component-booking", "component", "BookingService", bookFeatureId, "proven", 55);
   const loanStore = addNode("store-loan", "store", "Loan records", bookFeatureId, "proven", 61);
@@ -326,7 +329,11 @@ async function verifyActualFeatureFlow(page: Page, payload: SemanticPayload, fea
   const card = page.locator(`[data-testid="semantic-feature-overview"] [data-feature-id="${feature.id}"]`);
   await card.click();
   await page.getByTestId("semantic-flow-canvas").waitFor();
-  const selector = page.getByRole("combobox", { name: "Mulai alur dari" });
+  if (payload.model.snapshot.repository === "iltizamhasan3/sistem-informasi-perpus") {
+    const viewport = await page.evaluate(() => window.innerWidth);
+    await page.screenshot({ path: resolve(artifactDirectory, `semantic-flow-perpus-${feature.label.toLowerCase()}-${viewport < 640 ? "mobile" : "desktop"}-initial.png`), fullPage: true });
+  }
+  const selector = page.getByRole("combobox", { name: "Start flow from" });
   const entryId = await selector.inputValue();
   const nodeById = new Map(payload.model.nodes.map(node => [node.id, node]));
   const entryNode = nodeById.get(entryId);
@@ -338,10 +345,21 @@ async function verifyActualFeatureFlow(page: Page, payload: SemanticPayload, fea
   assert.ok(actorEntryEdge || feature.entryNodeIds.includes(entryId), `${feature.label} entry is evidenced by an actor relationship or declared feature entry`);
   const scopeIds = expectedSourceFlowNodeIds(payload.model, feature, entryId);
   const displayedIds = await page.locator("[data-testid='semantic-flow-canvas'] g[data-node-id]").evaluateAll(elements => elements.map(element => element.getAttribute("data-node-id")).filter((value): value is string => value !== null));
-  assert.ok(displayedIds.includes(entryId), `${feature.label} entry action appears in the first flow window`);
-  assert.ok(displayedIds.length <= 24, "a real feature flow remains bounded to one 24-node window");
+  assert.ok(displayedIds.includes(entryId), `${feature.label} entry action appears in its flow`);
+  if ((await page.evaluate(() => window.innerWidth)) < 640) {
+    const primaryCards = await page.locator(`[data-testid='semantic-flow-canvas'] g[data-node-id="${actorEntry?.source ?? entryId}"], [data-testid='semantic-flow-canvas'] g[data-node-id="${entryId}"]`).evaluateAll(elements => elements.map(element => {
+      const box = element.getBoundingClientRect();
+      const canvas = element.closest("[data-testid='semantic-flow-canvas']")!.getBoundingClientRect();
+      return { id: element.getAttribute("data-node-id"), left: box.left, right: box.right, canvasLeft: canvas.left, canvasRight: canvas.right };
+    }));
+    for (const card of primaryCards) assert.ok(card.left >= card.canvasLeft - 1 && card.right <= card.canvasRight + 1, `mobile primary path card ${card.id} stays fully visible inside its canvas after initial fit`);
+  }
   assert.ok(displayedIds.every(id => scopeIds.has(id)), `${feature.label} contains only nodes reachable along stored directed source edges`);
+  assert.deepEqual(new Set(displayedIds), scopeIds, `${feature.label} renders every source-reachable flow node without dropping later windows`);
   const renderedEdges = await page.locator("[data-testid='semantic-flow-canvas'] g[data-edge-id]").evaluateAll(elements => elements.map(element => ({
+    id: element.getAttribute("data-edge-id"),
+    sourceId: element.getAttribute("data-source-id"),
+    targetId: element.getAttribute("data-target-id"),
     inlineLabel: element.getAttribute("data-inline-label"),
     sourceKind: element.getAttribute("data-source-kind"),
     targetKind: element.getAttribute("data-target-kind"),
@@ -350,8 +368,24 @@ async function verifyActualFeatureFlow(page: Page, payload: SemanticPayload, fea
     title: element.querySelector("title")?.textContent ?? "",
     accessibleName: element.getAttribute("aria-label") ?? "",
   })));
+  const expectedEdgeIds = payload.model.edges.filter(edge => feature.edgeIds.includes(edge.id) && scopeIds.has(edge.source) && scopeIds.has(edge.target)).map(edge => edge.id);
+  assert.deepEqual(new Set(renderedEdges.map(edge => edge.id)), new Set(expectedEdgeIds), `${feature.label} keeps every real relationship whose endpoints are in the selected connected flow`);
+  assert.ok(renderedEdges.every(edge => scopeIds.has(edge.sourceId ?? "") && scopeIds.has(edge.targetId ?? "")), `${feature.label} renders no edges with hidden endpoints`);
+  const nodeBoxes = await page.locator("[data-testid='semantic-flow-canvas'] g[data-node-id]").evaluateAll(elements => elements.map(element => {
+    const box = (element as SVGGElement).getBBox();
+    return { id: element.getAttribute("data-node-id"), x: box.x, y: box.y, right: box.x + box.width, bottom: box.y + box.height };
+  }));
+  for (let leftIndex = 0; leftIndex < nodeBoxes.length; leftIndex += 1) for (let rightIndex = leftIndex + 1; rightIndex < nodeBoxes.length; rightIndex += 1) {
+    const left = nodeBoxes[leftIndex]!, right = nodeBoxes[rightIndex]!;
+    const overlaps = left.x < right.right && left.right > right.x && left.y < right.bottom && left.bottom > right.y;
+    assert.equal(overlaps, false, `${feature.label} places nodes ${left.id} and ${right.id} without overlap`);
+  }
+  if (nodeById.has("step-search-19") && nodeById.has("step-search-25")) {
+    const cycleNodeBoxes = nodeBoxes.filter(box => ["step-search-19", "step-search-25"].includes(box.id ?? ""));
+    assert.equal(cycleNodeBoxes.length, 2, `${feature.label} fixture includes the search-refinement cycle endpoints`);
+    assert.ok(Math.abs(cycleNodeBoxes[0]!.y - cycleNodeBoxes[1]!.y) < 1, `${feature.label} lays out strongly connected retry steps in the same reading layer`);
+  }
   assert.ok(renderedEdges.length > 0 && renderedEdges.every(edge => edge.title.length > 0 && edge.accessibleName.length > 0), `${feature.label} source edges keep an accessible relation label and explanation`);
-  if (renderedEdges.length > 5) assert.equal(renderedEdges.filter(edge => edge.inlineLabel === "true").length, 0, `${feature.label} omits all inline labels when the diagram is too dense to keep them collision-free`);
   assert.ok(renderedEdges.filter(edge => edge.sourceKind === "decision").every(edge => edge.sourcePortOffset === "54" || edge.sourcePortOffset === "78"), `${feature.label} uses the actual 54px diamond vertical port (or its 78px side port)`);
   assert.ok(renderedEdges.filter(edge => edge.targetKind === "decision").every(edge => edge.targetPortOffset === "54" || edge.targetPortOffset === "78"), `${feature.label} uses the actual 54px diamond vertical port (or its 78px side port)`);
   if (actorEntry) {
@@ -362,7 +396,6 @@ async function verifyActualFeatureFlow(page: Page, payload: SemanticPayload, fea
     const visibleDecisions = displayedIds.filter(id => nodeById.get(id)?.kind === "decision");
     assert.ok(visibleDecisions.length > 0, "the default actual Books flow shows a source-backed decision when the selected path contains one");
   }
-  await page.getByText(new RegExp(`Jendela ini menampilkan ${displayedIds.length} dari`, "u")).waitFor();
   return { entryId, scopeIds };
 }
 
@@ -371,13 +404,104 @@ async function assertNoHorizontalOverflow(page: Page, label: string): Promise<vo
   assert.ok(overflow <= 1, `${label} must not overflow horizontally (measured ${overflow}px)`);
 }
 
+async function assertGraphCardLabelsFit(page: Page, label: string): Promise<void> {
+  const overflowing = await page.locator("svg[aria-label^='Feature, concept, component'] [data-testid='semantic-feature-card'], svg[aria-label^='Feature, concept, component'] [data-testid='semantic-graph-node']").evaluateAll(cards => cards.flatMap(card => {
+    const rect = card.querySelector("rect");
+    if (!rect) return [{ id: card.getAttribute("data-node-id") ?? card.getAttribute("data-feature-id"), problem: "missing card frame" }];
+    const frame = rect.getBBox();
+    return Array.from(card.querySelectorAll("text")).map(text => {
+      const bounds = text.getBBox();
+      return { id: card.getAttribute("data-node-id") ?? card.getAttribute("data-feature-id"), x: bounds.x, y: bounds.y, right: bounds.x + bounds.width, bottom: bounds.y + bounds.height,
+        left: frame.x, top: frame.y, frameRight: frame.x + frame.width, frameBottom: frame.y + frame.height };
+    }).filter(bounds => bounds.x < bounds.left - 1 || bounds.y < bounds.top - 1 || bounds.right > bounds.frameRight + 1 || bounds.bottom > bounds.frameBottom + 1)
+      .map(bounds => ({ id: bounds.id, problem: JSON.stringify(bounds) }));
+  }));
+  assert.deepEqual(overflowing, [], `${label} keeps node labels and confidence badges inside their card frames`);
+}
+
+async function assertGraphRelationshipPathsUnfilled(page: Page, label: string): Promise<void> {
+  const paths = await page.locator("svg[aria-label^='Feature, concept, component'] path[marker-end]").evaluateAll(elements => elements.map(element => ({
+    fill: getComputedStyle(element).fill,
+    relation: element.closest("g")?.getAttribute("aria-label") ?? element.closest("g")?.getAttribute("class") ?? "source relationship",
+    path: element.getAttribute("d"),
+  })));
+  assert.ok(paths.length > 0, `${label} renders relationship paths with arrowheads`);
+  assert.deepEqual(paths.filter(item => item.fill !== "none"), [], `${label} keeps relationship curves unfilled so they cannot paint over the graph`);
+}
+
+async function assertIntraFeaturePathsAvoidUnrelatedCards(page: Page, featureId: string, label: string): Promise<void> {
+  const result = await page.locator("svg[aria-label^='Feature, concept, component']").evaluate((svg, requestedFeatureId) => {
+    const cards = Array.from(svg.querySelectorAll<SVGGElement>("[data-testid='semantic-graph-node']")).flatMap(element => {
+      const id = element.getAttribute("data-node-id");
+      const rect = element.querySelector("rect");
+      if (!id || !rect) return [];
+      const bounds = rect.getBBox();
+      return [{ id, left: bounds.x, top: bounds.y, right: bounds.x + bounds.width, bottom: bounds.y + bounds.height }];
+    });
+    const edges = Array.from(svg.querySelectorAll<SVGGElement>("g[data-scope-feature-id][data-edge-id]"))
+      .filter(group => group.getAttribute("data-scope-feature-id") === requestedFeatureId);
+    const violations: Array<{ edgeId: string | null; sourceId: string | null; targetId: string | null; obstacleId: string; fraction: number; x: number; y: number }> = [];
+    for (const edge of edges) {
+      const path = edge.querySelector("path[marker-end]") as SVGPathElement | null;
+      if (!path) {
+        violations.push({ edgeId: edge.getAttribute("data-edge-id"), sourceId: edge.getAttribute("data-source-id"), targetId: edge.getAttribute("data-target-id"), obstacleId: "missing relationship path", fraction: 0, x: 0, y: 0 });
+        continue;
+      }
+      const length = path.getTotalLength();
+      if (!Number.isFinite(length) || length <= 0) {
+        violations.push({ edgeId: edge.getAttribute("data-edge-id"), sourceId: edge.getAttribute("data-source-id"), targetId: edge.getAttribute("data-target-id"), obstacleId: "empty relationship path", fraction: 0, x: 0, y: 0 });
+        continue;
+      }
+      const sourceId = edge.getAttribute("data-source-id");
+      const targetId = edge.getAttribute("data-target-id");
+      const samples = Math.max(20, Math.ceil(length / 12));
+      for (let index = 1; index < samples; index += 1) {
+        const fraction = index / samples;
+        const point = path.getPointAtLength(length * fraction);
+        const obstacle = cards.find(card => card.id !== sourceId && card.id !== targetId
+          && point.x >= card.left && point.x <= card.right && point.y >= card.top && point.y <= card.bottom);
+        if (obstacle) {
+          violations.push({ edgeId: edge.getAttribute("data-edge-id"), sourceId, targetId, obstacleId: obstacle.id, fraction, x: point.x, y: point.y });
+          break;
+        }
+      }
+    }
+    return { edgeCount: edges.length, cardCount: cards.length, violations };
+  }, featureId);
+  assert.ok(result.edgeCount > 0, `${label} renders intra-feature relationship paths for ${featureId}`);
+  assert.ok(result.cardCount > 0, `${label} renders card rectangles for intersection checks`);
+  assert.deepEqual(result.violations, [], `${label} routes every intra-feature edge clear of unrelated visible node cards`);
+}
+
+async function assertGraphFeatureChildVisible(page: Page, feature: SemanticFeature, label: string): Promise<void> {
+  const graph = page.locator("svg[aria-label^='Feature, concept, component']");
+  const viewport = page.locator("[role='region'][aria-label^='Knowledge graph canvas']");
+  const viewportBounds = await viewport.boundingBox();
+  assert.ok(viewportBounds, `${label} graph viewport has measurable bounds`);
+  const visibleChildIds = await graph.locator("[data-testid='semantic-graph-node']").evaluateAll((elements, ids) => elements.flatMap(element => {
+    const id = element.getAttribute("data-node-id");
+    if (!id || !ids.includes(id)) return [];
+    const bounds = element.getBoundingClientRect();
+    return [{ id, left: bounds.left, top: bounds.top, right: bounds.right, bottom: bounds.bottom, width: bounds.width, height: bounds.height }];
+  }), feature.nodeIds);
+  const readableChildren = visibleChildIds.filter(card => card.left >= viewportBounds!.x - 1 && card.right <= viewportBounds!.x + viewportBounds!.width + 1
+    && card.top >= viewportBounds!.y - 1 && card.bottom <= viewportBounds!.y + viewportBounds!.height + 1
+    && card.width >= 90 && card.height >= 50);
+  assert.ok(readableChildren.length > 0, `${label} shows at least one fully readable ${feature.label} child inside the graph viewport; visible candidate bounds: ${JSON.stringify(visibleChildIds)}`);
+}
+
 async function verifyLargeEvidenceFixture(page: Page, setPayload: (next: SemanticPayload) => void): Promise<void> {
   const largePayload = buildLargeEvidenceFixture();
   setPayload(largePayload);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/qa-semantic-workspace");
   const feature = page.getByTestId("semantic-feature-overview").getByRole("button", { name: /Peminjaman buku/u });
-  await feature.getByText(/101 file sumber/u).waitFor();
+  await feature.click();
+  const actorNode = page.locator("[data-testid='semantic-flow-canvas'] g[data-node-id='actor-member']");
+  await actorNode.waitFor();
+  await actorNode.click();
+  await page.locator("aside[aria-labelledby='semantic-inspector-heading']").waitFor();
+  assert.equal(await page.locator("aside[aria-labelledby='semantic-inspector-heading'] a.sageEvidenceLink").count(), 101, "the evidence inspector renders 101 source links without truncating the validated model");
   assert.equal(largePayload.model.nodes[0]?.evidence.length, 101, "the large evidence fixture uses 101 source spans on one node");
   assert.equal(largePayload.model.edges[0]?.evidence.length, 101, "the large evidence fixture uses 101 source spans on one relation");
   assert.equal(new Set(largePayload.model.features[0]?.evidence.map(item => item.filePath)).size, 101, "the large evidence fixture uses 101 distinct source files for one feature");
@@ -387,7 +511,7 @@ async function verifyLargeEvidenceFixture(page: Page, setPayload: (next: Semanti
 async function verifyLiveGraphIdentityIsolation(page: Page, livePayload: SemanticPayload, control: { switchSession: boolean; graphUnavailable: boolean; mismatchStarted: (() => void) | null; releaseMismatch: Promise<void> | null }): Promise<void> {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/qa-live-graph");
-  const featureCircle = page.locator("svg[aria-label='Jaringan cluster fitur, konsep, komponen, dan relasi source'] g[data-feature-id='feature-books']");
+  const featureCircle = page.locator("svg[aria-label^='Feature, concept, component'] g[data-feature-id='feature-books']");
   try { await featureCircle.waitFor({ timeout: 10_000 }); }
   catch (error) {
     await page.screenshot({ path: resolve(artifactDirectory, "live-graph-identity-failed.png"), fullPage: true });
@@ -414,7 +538,7 @@ async function verifyLiveGraphIdentityIsolation(page: Page, livePayload: Semanti
   await page.getByTestId("fixture-note").waitFor();
   const technicalErrorDisclosure = page.locator("summary").filter({ hasText: "Graph teknis belum tersedia" });
   await technicalErrorDisclosure.waitFor();
-  const restoredCircle = page.locator("svg[aria-label='Jaringan cluster fitur, konsep, komponen, dan relasi source'] g[data-feature-id='feature-books']");
+  const restoredCircle = page.locator("svg[aria-label^='Feature, concept, component'] g[data-feature-id='feature-books']");
   await restoredCircle.waitFor();
   assert.ok((await restoredCircle.getAttribute("aria-label"))?.startsWith(`${privateAccountMarker},`), "a verified semantic model remains available when the technical graph endpoint returns 503");
   await technicalErrorDisclosure.click();
@@ -426,7 +550,7 @@ async function verifyActualPerpusCorpus(page: Page, payload: SemanticPayload, se
   setPayload(payload);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/qa-semantic-workspace");
-  await page.getByRole("heading", { name: "Fitur dan alur pengguna" }).waitFor();
+  await page.getByRole("heading", { name: "User flows" }).waitFor();
   await waitForFixtureRevision(page, 0);
 
   for (const featureLabel of ["Auth", "Bookings", "Books"]) {
@@ -435,12 +559,15 @@ async function verifyActualPerpusCorpus(page: Page, payload: SemanticPayload, se
     const { entryId } = await verifyActualFeatureFlow(page, payload, feature);
     await assertNoHorizontalOverflow(page, `desktop ${featureLabel} flow`);
     if (featureLabel === "Books") {
-      const entrySelector = page.getByRole("combobox", { name: "Mulai alur dari" });
+      const entrySelector = page.getByRole("combobox", { name: "Start flow from" });
       await entrySelector.selectOption("__all_feature_facts__");
-      await page.getByText(new RegExp(`Peta semua ${feature.nodeIds.length} fakta fitur`, "u")).waitFor();
+      assert.equal(await entrySelector.inputValue(), "__all_feature_facts__", "the complete feature overview is selectable on the real corpus");
       const allFactsIds = await page.locator("[data-testid='semantic-flow-canvas'] g[data-node-id]").evaluateAll(elements => elements.map(element => element.getAttribute("data-node-id")).filter((value): value is string => value !== null));
       assert.ok(allFactsIds.every(id => feature.nodeIds.includes(id)), "the all-facts view remains within its selected feature");
-      assert.ok(allFactsIds.length <= 24, "the real all-facts catalog is explicitly windowed");
+      assert.deepEqual(new Set(allFactsIds), new Set(feature.nodeIds), "the all-facts view renders the complete selected feature without artificial pagination");
+      const expectedAllFactEdges = payload.model.edges.filter(edge => feature.edgeIds.includes(edge.id) && feature.nodeIds.includes(edge.source) && feature.nodeIds.includes(edge.target)).map(edge => edge.id);
+      const displayedAllFactEdges = await page.locator("[data-testid='semantic-flow-canvas'] g[data-edge-id]").evaluateAll(elements => elements.map(element => element.getAttribute("data-edge-id")).filter((value): value is string => value !== null));
+      assert.deepEqual(new Set(displayedAllFactEdges), new Set(expectedAllFactEdges), "the all-facts view preserves every stored feature relationship");
       await entrySelector.selectOption(entryId);
       await page.locator(`[data-testid='semantic-flow-canvas'] g[data-node-id="${entryId}"]`).waitFor();
       await page.screenshot({ path: resolve(artifactDirectory, "semantic-flow-perpus-books-desktop.png"), fullPage: true });
@@ -451,28 +578,46 @@ async function verifyActualPerpusCorpus(page: Page, payload: SemanticPayload, se
       const entryEvidence = payload.model.nodes.find(node => node.id === entryId)?.evidence[0];
       assert.ok(entryEvidence && evidenceHref?.includes(`#L${entryEvidence.startLine}`), "the evidence link keeps the real source line anchor");
     }
-    await page.getByRole("button", { name: "Semua fitur" }).click();
+  await page.getByRole("button", { name: "All features" }).click();
   }
 
   await page.getByTestId("mode-graph").click();
-  await page.getByRole("heading", { name: "Fitur dan konsep repository" }).waitFor();
+  await page.getByRole("heading", { name: "Repository concepts" }).waitFor();
   const booksFeature = payload.model.features.find(item => item.label === "Books")!;
-  const graph = page.locator("svg[aria-label='Jaringan cluster fitur, konsep, komponen, dan relasi source']");
+  const graph = page.locator("svg[aria-label^='Feature, concept, component']");
   const booksCluster = graph.locator(`g[data-feature-id="${booksFeature.id}"]`);
   await booksCluster.focus();
   await page.keyboard.press("Enter");
   assert.equal(await booksCluster.getAttribute("aria-expanded"), "true", "the actual Books cluster expands by keyboard");
+  await page.screenshot({ path: resolve(artifactDirectory, "semantic-graph-perpus-books-expanded-initial.png"), fullPage: true });
+  await assertGraphFeatureChildVisible(page, booksFeature, "desktop corpus graph");
+  await assertIntraFeaturePathsAvoidUnrelatedCards(page, booksFeature.id, "desktop Perpus Books graph");
   assert.ok(await graph.locator("g[data-kind='component'], g[data-kind='store'], g[data-kind='concept']").count() > 0, "the real expanded graph exposes principal concept/component/store nodes");
+  await assertGraphRelationshipPathsUnfilled(page, "desktop corpus graph");
   await assertNoHorizontalOverflow(page, "desktop corpus graph");
+  await assertGraphCardLabelsFit(page, "desktop corpus graph");
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-graph-perpus-books-expanded.png"), fullPage: true });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.getByTestId("mode-flow").click();
-  await page.getByRole("heading", { name: "Fitur dan alur pengguna" }).waitFor();
+  await page.getByRole("heading", { name: "User flows" }).waitFor();
   const mobileBooks = payload.model.features.find(item => item.label === "Books")!;
   await verifyActualFeatureFlow(page, payload, mobileBooks);
   await assertNoHorizontalOverflow(page, "mobile corpus flow");
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-flow-perpus-books-mobile.png"), fullPage: true });
+
+  await page.getByTestId("mode-graph").click();
+  await page.getByRole("heading", { name: "Repository concepts" }).waitFor();
+  const mobileBooksCluster = page.locator(`svg[aria-label^='Feature, concept, component'] [data-testid='semantic-feature-card'][data-feature-id="${mobileBooks.id}"]`);
+  await mobileBooksCluster.focus();
+  await page.keyboard.press("Enter");
+  assert.ok(await page.locator("svg [data-testid='semantic-graph-node']").count() > 0, "mobile knowledge graph reveals source-backed cards by keyboard");
+  await page.screenshot({ path: resolve(artifactDirectory, "semantic-graph-perpus-books-mobile.png"), fullPage: true });
+  await assertGraphFeatureChildVisible(page, mobileBooks, "mobile corpus graph");
+  await assertIntraFeaturePathsAvoidUnrelatedCards(page, mobileBooks.id, "mobile Perpus Books graph");
+  await assertGraphRelationshipPathsUnfilled(page, "mobile corpus graph");
+  await assertGraphCardLabelsFit(page, "mobile corpus graph");
+  await assertNoHorizontalOverflow(page, "mobile corpus graph");
 }
 
 async function waitForFixtureRevision(page: Page, revision: number): Promise<void> {
@@ -482,14 +627,14 @@ async function waitForFixtureRevision(page: Page, revision: number): Promise<voi
 async function verifyDesktopFlowAndOverlay(page: Page, getPayload: () => SemanticPayload, setPayload: (next: SemanticPayload) => void, fixtureControl: { conflictNext: boolean; getCount: number; patchCount: number }): Promise<void> {
   await page.goto("/qa-semantic-workspace");
   await page.getByTestId("fixture-note").waitFor();
-  await page.getByRole("heading", { name: "Fitur dan alur pengguna" }).waitFor();
+  await page.getByRole("heading", { name: "User flows" }).waitFor();
   await page.waitForTimeout(500);
   const overview = page.getByTestId("semantic-feature-overview");
   if (await overview.count() === 0) {
     await page.screenshot({ path: resolve(artifactDirectory, "semantic-flow-error.png"), fullPage: true });
     throw new Error(`Semantic flow overview did not render: ${await page.locator("body").innerText()}`);
   }
-  assert.equal(await page.locator("[aria-label^='Aktor yang terhubung']").count(), 2, "overview lists each source-backed actor alongside its feature");
+  assert.equal(await page.locator("[aria-label^='Actors connected']").count(), 2, "overview lists each source-backed actor alongside its feature");
   assert.equal(await page.getByText(/Anggota terautentikasi/u).count(), 1);
   await waitForFixtureRevision(page, 0);
 
@@ -497,124 +642,169 @@ async function verifyDesktopFlowAndOverlay(page: Page, getPayload: () => Semanti
   await featureCard.focus();
   await page.keyboard.press("Enter");
   await page.getByTestId("semantic-flow-canvas").waitFor();
-  const entrySelector = page.getByRole("combobox", { name: "Mulai alur dari" });
+  const entrySelector = page.getByRole("combobox", { name: "Start flow from" });
   const selectedEntryId = await entrySelector.inputValue();
   const selectedEntry = getPayload().model.nodes.find(node => node.id === selectedEntryId);
   assert.equal(selectedEntry?.kind, "step", "the default flow starts at a modeled user action or API entry");
   assert.ok(getPayload().model.edges.some(edge => edge.target === selectedEntryId && getPayload().model.nodes.find(node => node.id === edge.source)?.kind === "actor"), "the chosen action has a source-backed incoming actor relationship");
-  await page.getByRole("button", { name: "Jendela berikutnya" }).waitFor();
-  await page.getByRole("button", { name: "Perbesar diagram alur" }).click();
-  await page.getByText("Zoom 110%", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Sesuaikan diagram" }).click();
-  const fitLabel = await page.getByRole("group", { name: "Kontrol diagram alur" }).getByText(/Zoom \d+%/u).textContent();
-  assert.ok(fitLabel && Number(fitLabel.match(/\d+/u)?.[0]) <= 100, "fit-to-view must return to an at-most-100-percent scale");
+  const automaticZoom = await page.getByRole("group", { name: "User flow diagram controls" }).getByText(/Zoom \d+%/u).textContent();
+  assert.ok(automaticZoom && Number(automaticZoom.match(/\d+/u)?.[0]) >= 30 && Number(automaticZoom.match(/\d+/u)?.[0]) <= 100, "newly selected flows automatically fit the canvas at a readable scale");
+  const automaticPercent = Number(automaticZoom!.match(/\d+/u)?.[0]);
+  await page.getByRole("button", { name: "Zoom in user flow" }).click();
+  await page.getByText(`Zoom ${Math.min(150, automaticPercent + 10)}%`, { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Fit diagram" }).click();
+  const fitLabel = await page.getByRole("group", { name: "User flow diagram controls" }).getByText(/Zoom \d+%/u).textContent();
+  assert.ok(fitLabel && Number(fitLabel.match(/\d+/u)?.[0]) >= 30 && Number(fitLabel.match(/\d+/u)?.[0]) <= 100, "fit-to-view keeps the whole selected flow within the supported scale");
 
-  const search = page.getByRole("searchbox", { name: "Cari langkah atau bukti" });
+  const search = page.getByRole("searchbox", { name: "Search steps or evidence" });
   await search.fill("Cari buku tahap 26");
-  await page.getByText(/1 dari \d+ node cocok dengan pencarian\./u).waitFor();
+  await page.getByText(/1 of \d+ nodes match\./u).waitFor();
   assert.equal(await page.locator("[data-testid='semantic-flow-canvas'] g[role='button']").count(), 1, "a targeted search narrows the flow without making shortcut edges");
   await search.fill("");
   await entrySelector.selectOption("__all_feature_facts__");
-  await page.getByText(/Peta semua \d+ fakta fitur/u).waitFor();
-  assert.equal(await page.locator("[data-testid='semantic-flow-canvas'] g[role='button']").count(), 24, "the optional all-facts view keeps its explicit 24-node window");
+  assert.equal(await entrySelector.inputValue(), "__all_feature_facts__", "the all-feature overview can be selected from the flow entry control");
+  const allFactNodeCount = await page.locator("[data-testid='semantic-flow-canvas'] g[data-node-id]").count();
+  assert.equal(allFactNodeCount, getPayload().model.features.find(feature => feature.id === selectedEntry?.featureId)?.nodeIds.length, "the all-facts view exposes the whole feature graph without page windows");
   await entrySelector.selectOption(selectedEntryId);
-  await page.getByRole("button", { name: "Jendela berikutnya" }).click();
-  await page.getByText(/Jendela 2 dari/u).waitFor();
-  await page.getByRole("button", { name: "Jendela sebelumnya" }).click();
-  await page.getByText(/Jendela 1 dari/u).waitFor();
 
-  const indicationToggle = page.getByRole("checkbox", { name: "Tampilkan indikasi" });
+  const indicationToggle = page.getByRole("checkbox", { name: "Show indicated relationships" });
   await indicationToggle.uncheck();
-  await page.getByText(/node indikasi disembunyikan/u).waitFor();
+  await page.getByText(/indicated nodes are hidden/u).waitFor();
   await indicationToggle.check();
-  const stepEvidenceDisclosure = page.locator("summary").filter({ hasText: /Daftar langkah dan evidence/u });
+  const stepEvidenceDisclosure = page.locator("summary").filter({ hasText: /Flow nodes and evidence/u });
   await stepEvidenceDisclosure.click();
-  await page.getByRole("group", { name: "Navigasi daftar langkah" }).waitFor();
-  await page.getByText("1–6 dari 24 langkah", { exact: true }).waitFor();
-  assert.equal(await page.locator("[aria-label='Langkah alur dan bukti'] > article").count(), 6, "the alternate accessible flow list is paginated to six entries");
-  await page.getByRole("button", { name: "Langkah berikutnya" }).click();
-  await page.getByText("7–12 dari 24 langkah", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Langkah sebelumnya" }).click();
+  await page.getByRole("group", { name: "Flow step navigation" }).waitFor();
+  const firstListPage = await page.getByRole("group", { name: "Flow step navigation" }).innerText();
+  assert.match(firstListPage, /^Previous\s+1–6 of \d+ items\s+Next$/u);
+  assert.equal(await page.locator("[aria-label='Flow nodes and evidence'] > article").count(), 6, "the alternate accessible source list is paginated to six entries");
+  await page.getByRole("button", { name: "Next", exact: true }).click();
+  await page.getByText(/7–12 of \d+ items/u).waitFor();
+  await page.getByRole("button", { name: "Previous", exact: true }).click();
   await page.getByRole("link", { name: /api\/books\/route\.ts · baris/u }).first().waitFor();
   await stepEvidenceDisclosure.click();
-  await page.locator("summary").filter({ hasText: /Evidence relasi/u }).first().click();
+  await page.locator("summary").filter({ hasText: /Relationship evidence/u }).first().click();
   await page.getByRole("link", { name: /api\/books\/route\.ts · baris/u }).first().waitFor();
 
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-flow-desktop.png"), fullPage: true });
 
   await page.getByTestId("mode-graph").click();
-  await page.getByRole("heading", { name: "Fitur dan konsep repository" }).waitFor();
-  const graphCanvas = page.getByRole("region", { name: /Kanvas cluster knowledge graph/u });
+  await page.getByRole("heading", { name: "Repository concepts" }).waitFor();
+  const graphCanvas = page.getByRole("region", { name: /Knowledge graph canvas/u });
   await graphCanvas.waitFor();
-  const firstFeatureCircle = page.locator("svg[aria-label^='Jaringan cluster'] g[aria-expanded]").first();
-  await firstFeatureCircle.focus();
+  const firstFeatureCard = page.locator("svg[aria-label^='Feature, concept, component'] [data-testid='semantic-feature-card']").first();
+  await firstFeatureCard.focus();
   await page.keyboard.press("Enter");
-  assert.equal(await firstFeatureCircle.getAttribute("aria-expanded"), "true", "the feature cluster responds to keyboard activation");
-  assert.ok(await page.locator("svg g[data-kind='component'], svg g[data-kind='store'], svg g[data-kind='concept']").count() >= 2, "expanding a feature draws principal node circles inside the graph");
-  assert.ok(await page.locator("svg path[marker-end]").count() > 0, "the expanded graph draws real source relationships between its node circles");
-  assert.ok((await page.locator("svg title").allTextContents()).some(label => label.includes("bukan relasi kode")), "feature membership links are labeled separately from source relationships");
-  const crossFeatureCanvas = page.locator("svg[aria-label='Jaringan cluster fitur, konsep, komponen, dan relasi source']");
+  assert.equal(await firstFeatureCard.getAttribute("aria-expanded"), "true", "the feature group responds to keyboard activation");
+  assert.ok(await page.locator("svg [data-testid='semantic-graph-node'][data-kind='component'], svg [data-testid='semantic-graph-node'][data-kind='store'], svg [data-testid='semantic-graph-node'][data-kind='concept']").count() >= 2, "expanding a feature reveals its principal source-backed cards");
+  const graphCardGeometry = await page.locator("svg[aria-label^='Feature, concept, component']").evaluate(svg => {
+    const featureCards = Array.from(svg.querySelectorAll<SVGGElement>("[data-testid='semantic-feature-card']")).map(element => {
+      const box = element.getBBox();
+      const rect = element.querySelector("rect");
+      return { id: element.getAttribute("data-node-id") ?? element.getAttribute("data-feature-id"), x: box.x, y: box.y, right: box.x + box.width, bottom: box.y + box.height,
+        card: rect ? { left: Number(rect.getAttribute("x")), top: Number(rect.getAttribute("y")), right: Number(rect.getAttribute("x")) + Number(rect.getAttribute("width")), bottom: Number(rect.getAttribute("y")) + Number(rect.getAttribute("height")) } : null,
+        labels: Array.from(element.querySelectorAll("text")).map(label => { const bounds = label.getBBox(); return { x: bounds.x, y: bounds.y, right: bounds.x + bounds.width, bottom: bounds.y + bounds.height }; }) };
+    });
+    const nodeCards = Array.from(svg.querySelectorAll<SVGGElement>("[data-testid='semantic-graph-node']")).map(element => {
+      const box = element.getBBox();
+      const rect = element.querySelector("rect");
+      return { id: element.getAttribute("data-node-id"), x: box.x, y: box.y, right: box.x + box.width, bottom: box.y + box.height,
+        card: rect ? { left: Number(rect.getAttribute("x")), top: Number(rect.getAttribute("y")), right: Number(rect.getAttribute("x")) + Number(rect.getAttribute("width")), bottom: Number(rect.getAttribute("y")) + Number(rect.getAttribute("height")) } : null,
+        labels: Array.from(element.querySelectorAll("text")).map(label => { const bounds = label.getBBox(); return { x: bounds.x, y: bounds.y, right: bounds.x + bounds.width, bottom: bounds.y + bounds.height }; }) };
+    });
+    const cards = [...featureCards, ...nodeCards].flatMap(item => item.card ? [item.card] : []);
+    const edges = Array.from(svg.querySelectorAll<SVGPathElement>("path[marker-end]")).map(path => {
+      const length = path.getTotalLength();
+      const start = path.getPointAtLength(0);
+      const end = path.getPointAtLength(length);
+      return { start: { x: start.x, y: start.y }, end: { x: end.x, y: end.y } };
+    });
+    return { featureCards, nodeCards, cards, edges };
+  });
+  assert.ok(graphCardGeometry.nodeCards.length >= 2, "expanded features render multiple rectangular graph nodes");
+  for (const card of [...graphCardGeometry.featureCards, ...graphCardGeometry.nodeCards]) {
+    assert.ok(card.card && card.labels.every(label => label.x >= card.card!.left - 1 && label.y >= card.card!.top - 1 && label.right <= card.card!.right + 1 && label.bottom <= card.card!.bottom + 1), `all text remains inside graph card ${card.id}`);
+  }
+  for (const cards of [graphCardGeometry.featureCards, graphCardGeometry.nodeCards]) for (let left = 0; left < cards.length; left += 1) for (let right = left + 1; right < cards.length; right += 1) {
+    const a = cards[left]!, b = cards[right]!;
+    assert.ok(!(a.x < b.right && a.right > b.x && a.y < b.bottom && a.bottom > b.y), `knowledge graph cards ${a.id} and ${b.id} do not overlap`);
+  }
+  const pointOnRectBoundary = (point: { x: number; y: number }) => graphCardGeometry.cards.some(card => {
+    const withinX = point.x >= card.left - 1 && point.x <= card.right + 1;
+    const withinY = point.y >= card.top - 1 && point.y <= card.bottom + 1;
+    return (withinX && (Math.abs(point.y - card.top) <= 1 || Math.abs(point.y - card.bottom) <= 1)) ||
+      (withinY && (Math.abs(point.x - card.left) <= 1 || Math.abs(point.x - card.right) <= 1));
+  });
+  assert.ok(graphCardGeometry.edges.length > 0 && graphCardGeometry.edges.every(edge => pointOnRectBoundary(edge.start) && pointOnRectBoundary(edge.end)), "source arrows meet card boundaries instead of disappearing under card fills");
+  assert.ok(await page.locator("svg path[marker-end]").count() > 0, "the expanded graph draws source relationships between its feature and concept cards");
+  await assertGraphRelationshipPathsUnfilled(page, "synthetic expanded graph");
+  assert.match(await page.locator("[aria-label='Knowledge graph legend']").innerText(), /Feature frames group related responsibilities/u, "feature grouping is explained separately from source relationships");
+  const crossFeatureCanvas = page.locator("svg[aria-label^='Feature, concept, component']");
   assert.equal(await crossFeatureCanvas.locator("g[data-source-id='feature-books'][data-target-id='feature-auth']").count(), 1, "cross-feature relationships retain the books-to-auth direction");
   assert.equal(await crossFeatureCanvas.locator("g[data-source-id='feature-auth'][data-target-id='feature-books']").count(), 1, "the reverse source relationship remains a separate directed edge");
   assert.equal(await crossFeatureCanvas.locator("g[data-inline-label='true']").count(), 0, "opposite cross-feature arrows omit colliding inline labels while keeping accessible titles");
   assert.equal(await crossFeatureCanvas.locator("g[role='img'][aria-label]").count(), 2, "each directed cross-feature edge remains available to assistive technology");
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-graph-expanded-desktop.png"), fullPage: true });
+  await page.locator("details[data-testid='semantic-feature-browser'] > summary").click();
   const bookCard = page.locator("#semantic-cluster-feature-books");
-  await bookCard.getByRole("button", { name: "Fokus tetangga", exact: true }).click();
-  await page.getByRole("button", { name: "Tampilkan semua fitur" }).waitFor();
-  await page.getByRole("button", { name: "Tampilkan semua fitur" }).click();
-  await page.getByRole("button", { name: "Perbesar knowledge graph" }).click();
-  await page.getByText("Zoom 110%", { exact: true }).waitFor();
-  await page.getByRole("button", { name: "Atur ulang graph" }).click();
-  await page.getByText("Zoom 100%", { exact: true }).waitFor();
-  await page.getByRole("searchbox", { name: "Cari fitur, konsep, atau komponen" }).fill("Sesi OAuth");
-  await page.getByText(/^1 dari 2 fitur · \d+ fakta semantik\.$/u).waitFor();
-  await page.getByRole("searchbox", { name: "Cari fitur, konsep, atau komponen" }).fill("");
+  await bookCard.getByRole("button", { name: "Focus neighbors", exact: true }).click();
+  await page.getByRole("button", { name: "Show all features and nodes" }).waitFor();
+  await page.getByRole("button", { name: "Show all features and nodes" }).click();
+  const graphZoomBefore = await page.getByRole("group", { name: "Knowledge graph controls" }).getByText(/Zoom \d+%/u).textContent();
+  const graphPercentBefore = Number(graphZoomBefore?.match(/\d+/u)?.[0]);
+  await page.getByRole("button", { name: "Zoom in knowledge graph" }).click();
+  await page.getByText(`Zoom ${Math.min(150, graphPercentBefore + 10)}%`, { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Reset graph" }).click();
+  const resetZoom = await page.getByRole("group", { name: "Knowledge graph controls" }).getByText(/Zoom \d+%/u).textContent();
+  assert.ok(resetZoom && Number(resetZoom.match(/\d+/u)?.[0]) >= 30 && Number(resetZoom.match(/\d+/u)?.[0]) <= 100, "reset restores a fitted knowledge graph view");
+  await page.getByRole("searchbox", { name: "Search features, concepts, or components" }).fill("Sesi OAuth");
+  await page.getByText(/^1 of 2 features · \d+ semantic nodes\.$/u).waitFor();
+  await page.getByRole("searchbox", { name: "Search features, concepts, or components" }).fill("");
   await bookCard.getByRole("button", { name: /Peminjaman buku/u }).click();
+  await assertIntraFeaturePathsAvoidUnrelatedCards(page, "feature-books", "synthetic Books graph");
   await page.locator("svg g[data-kind='component']").first().click();
-  await page.getByText(/Fokus node:/u).waitFor();
-  await page.getByRole("button", { name: "Atur ulang graph" }).click();
+  await page.getByText(/Focused node:/u).waitFor();
+  await page.getByRole("button", { name: "Reset graph" }).click();
   await bookCard.getByRole("button", { name: /Peminjaman buku/u }).click();
 
   const componentButton = bookCard.locator("button[data-kind='component']").first();
   await componentButton.click();
   await page.getByRole("heading", { name: "BookingService" }).waitFor();
-  const labelInput = page.getByRole("textbox", { name: "Nama tampilan" });
+  const labelInput = page.getByRole("textbox", { name: "Display name" });
   await labelInput.fill("Layanan peminjaman v2");
-  await page.getByRole("button", { name: "Simpan koreksi" }).click();
+  await page.getByRole("button", { name: "Save changes" }).click();
   await page.getByText(/Koreksi disimpan · revisi 1/u).waitFor();
   assert.equal(getPayload().overlay.labels["component-booking"], "Layanan peminjaman v2", "the correction request persists the displayed label to the fixture API");
-  await page.getByRole("button", { name: "Kembalikan otomatis" }).click();
+  await page.getByRole("button", { name: "Restore automatic" }).click();
   await page.getByText(/Koreksi disimpan · revisi 2/u).waitFor();
   assert.equal(getPayload().overlay.labels["component-booking"], undefined, "reset removes only the label correction");
 
-  const groupSelect = page.getByRole("combobox", { name: "Kelompok fitur" });
+  const groupSelect = page.getByRole("combobox", { name: "Feature group" });
   await groupSelect.selectOption("feature-auth");
-  await page.getByRole("button", { name: "Simpan koreksi" }).click();
+  await page.getByRole("button", { name: "Save changes" }).click();
   await page.getByText(/Koreksi disimpan · revisi 3/u).waitFor();
   assert.equal(getPayload().overlay.groups["component-booking"], "feature-auth", "group corrections are persisted as an overlay");
-  await page.getByRole("button", { name: "Kembalikan otomatis" }).click();
+  await page.getByRole("button", { name: "Restore automatic" }).click();
   await page.getByText(/Koreksi disimpan · revisi 4/u).waitFor();
   assert.equal(getPayload().overlay.groups["component-booking"], undefined, "reset restores the source-derived feature group");
 
   await bookCard.locator("button[data-kind='concept']").click();
   await page.getByRole("heading", { name: "Kebijakan peminjaman" }).waitFor();
-  await page.getByRole("combobox", { name: "Kelompok fitur" }).selectOption("feature-auth");
-  await page.getByRole("button", { name: "Simpan koreksi" }).click();
+  await page.getByRole("combobox", { name: "Feature group" }).selectOption("feature-auth");
+  await page.getByRole("button", { name: "Save changes" }).click();
   await page.getByText(/Koreksi disimpan · revisi 5/u).waitFor();
   assert.equal(getPayload().overlay.groups["concept-shared-policy"], "feature-auth", "an unassigned shared concept can be moved into a feature group");
-  await page.getByRole("button", { name: "Kembalikan otomatis" }).click();
+  await page.getByRole("button", { name: "Restore automatic" }).click();
   await page.getByText(/Koreksi disimpan · revisi 6/u).waitFor();
   assert.equal(getPayload().overlay.groups["concept-shared-policy"], undefined, "reset restores shared feature membership from the model");
 
   fixtureControl.conflictNext = true;
-  await page.getByRole("textbox", { name: "Nama tampilan" }).fill("Conflict test label");
-  await page.getByRole("button", { name: "Simpan koreksi" }).click();
+  await page.getByRole("textbox", { name: "Display name" }).fill("Conflict test label");
+  await page.getByRole("button", { name: "Save changes" }).click();
   await page.getByText(/Koreksi berubah di sesi lain/u).waitFor();
   assert.equal(getPayload().revision, 6, "a 409 conflict does not overwrite the latest stored revision");
-  await page.getByRole("button", { name: "Muat ulang model" }).click();
+  await page.getByRole("button", { name: "Reload model" }).click();
   await waitForFixtureRevision(page, 6);
-  await page.locator("svg[aria-label^='Jaringan cluster']").waitFor();
+  await page.locator("svg[aria-label^='Feature, concept, component']").waitFor();
   assert.ok(fixtureControl.getCount >= 2 && fixtureControl.patchCount >= 7, "the browser exercised GET and PATCH fixture endpoints");
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-graph-desktop.png"), fullPage: true });
   setPayload(getPayload());
@@ -720,7 +910,7 @@ async function main(): Promise<void> {
 
       await page.setViewportSize({ width: 390, height: 844 });
       await page.getByTestId("mode-flow").click();
-      await page.getByRole("heading", { name: "Fitur dan alur pengguna" }).waitFor();
+  await page.getByRole("heading", { name: "User flows" }).waitFor();
       const mobileCard = page.getByTestId("semantic-feature-overview").getByRole("button", { name: /Peminjaman buku/u });
       await mobileCard.focus();
       await page.keyboard.press("Enter");

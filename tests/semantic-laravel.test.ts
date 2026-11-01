@@ -170,6 +170,8 @@ class MoodCheckin extends Model {}`,
   assert.equal(stores[0]!.featureId, null, "a model used by two features remains shared instead of being owned by the last feature");
   assert.ok(result.features.filter(feature => feature.nodeIds.includes(stores[0]!.id)).length >= 2);
   assert.ok(result.edges.some(edge => edge.target === stores[0]!.id && edge.label === "membaca" && edge.confidence === "proven"), "the duplicate-check query links to the persisted model");
+  assert.ok(result.edges.some(edge => edge.source === stores[0]!.id && edge.target === decision!.id && edge.label === "menguji data" && edge.confidence === "proven"),
+    "a model query used directly in an if condition connects the store to its decision");
   assert.ok(result.edges.some(edge => edge.source === decision!.id && edge.target === status!.id && edge.confidence === "proven"));
   assert.equal(result.nodes.some(node => node.kind === "outcome" && node.label.includes("403")), false, "unrouted method decisions are not attached to the feature flow");
 });
@@ -189,7 +191,7 @@ namespace App\\Http\\Controllers;
 use App\\Services\\CheckinService as Checkin;
 class InjectedController {
     public function __construct(private Checkin $workflow) {}
-    public function submit() { return $this->workflow->record(); }
+    public function submit() { if ($this->canRecord()) { return $this->workflow->record(); } }
 }`,
     "app/Http/Controllers/LocalController.php": `<?php
 namespace App\\Http\\Controllers;
@@ -212,6 +214,12 @@ class LocalCheckinService { public function record() { return true; } }`,
   assert.equal(calls.length, 2);
   assert.ok(result.nodes.some(node => node.kind === "component" && node.label === "CheckinService@record"));
   assert.ok(result.nodes.some(node => node.kind === "component" && node.label === "LocalCheckinService@record"));
+  const guardedService = result.nodes.find(node => node.kind === "component" && node.label === "CheckinService@record")!;
+  assert.ok(result.edges.some(edge => edge.target === guardedService.id && edge.label === "jika kondisi terpenuhi" && edge.confidence === "proven"),
+    "a service reached inside an explicit if branch is connected to that decision");
+  const localService = result.nodes.find(node => node.kind === "component" && node.label === "LocalCheckinService@record")!;
+  assert.equal(result.edges.some(edge => edge.target === localService.id && edge.label === "jika kondisi terpenuhi"), false,
+    "a service call outside a branch must not be attached to an unrelated decision");
   const lookalikeNode = result.nodes.find(node => node.kind === "component" && node.label === "LookalikeController@submit");
   assert.ok(lookalikeNode);
   assert.ok(lookalikeNode.evidence.every(span => span.filePath === ROUTES), "a same-basename controller in another namespace is not linked by path suffix");
@@ -259,6 +267,71 @@ class UnusedService { public function run() { return true; } }`,
   assert.ok(result.limitations.some(item => item.reason.includes("PrivatePaymentService@charge")));
   assert.ok(result.limitations.some(item => item.reason.includes("Other\\Services\\ForeignPaymentService@charge")));
   assert.ok(result.limitations.some(item => item.reason.includes("$this->orphanService->run")));
+});
+
+test("Laravel does not pull deferred closures, arrow functions, nested functions, or dead code into a request path", () => {
+  const input = fixture({
+    [ROUTES]: `<?php use App\\Http\\Controllers\\DeferredController; Route::post('/deferred', [DeferredController::class, 'submit']); Route::get('/deferred-arrow', [DeferredController::class, 'arrowResponse']); Route::get('/deferred-closure', [DeferredController::class, 'closureResponse']);`,
+    "app/Http/Controllers/DeferredController.php": `<?php
+namespace App\\Http\\Controllers;
+use App\\Services\\WorkflowService;
+use App\\Models\\MoodCheckin;
+class DeferredController {
+  public function __construct(private WorkflowService $workflow) {}
+  public function submit() {
+    if ($this->allowed()) {
+      $callback = function () {
+        if (MoodCheckin::where('active', true)->exists()) { MoodCheckin::create([]); }
+        return $this->workflow->record();
+      };
+      $arrow = fn() => $this->workflow->record();
+      function nested() {
+        if (MoodCheckin::exists()) { MoodCheckin::create([]); }
+        return response()->json([], 403);
+      }
+    }
+    return response()->json([], 200);
+    $this->workflow->record();
+    MoodCheckin::create([]);
+  }
+  public function arrowResponse() { return fn() => response()->json(['error' => 'not executed'], 403); }
+  public function closureResponse() { return function () { return response()->json(['error' => 'not executed'], 403); }; }
+}`,
+    "app/Models/MoodCheckin.php": `<?php namespace App\\Models; use Illuminate\\Database\\Eloquent\\Model; class MoodCheckin extends Model {}`,
+    "app/Services/WorkflowService.php": `<?php namespace App\\Services; class WorkflowService { public function record() { return true; } }`,
+  });
+  const result = extractLaravel(input);
+  const routeFeature = result.features.find(feature => feature.label === "Deferred")!;
+  const flowNodes = result.nodes.filter(node => routeFeature.nodeIds.includes(node.id));
+  assert.equal(flowNodes.some(node => node.kind === "store" && node.label === "Mood Checkin"), false,
+    "model operations in deferred callable bodies and after a terminal return are omitted");
+  assert.equal(flowNodes.some(node => node.kind === "decision" && /MoodCheckin/u.test(node.reason)), false,
+    "conditions in nested PHP callables do not become controller decisions");
+  const service = result.nodes.find(node => node.kind === "component" && node.label === "WorkflowService@record");
+  assert.equal(service, undefined, "service calls in deferred callable bodies and unreachable code do not become proven service edges");
+  assert.ok(result.limitations.some(item => /nested closure\/function/i.test(item.reason)));
+  assert.ok(result.limitations.some(item => /unconditional method-level return/i.test(item.reason) || /method-level return/i.test(item.reason)));
+  assert.equal(result.nodes.some(node => node.kind === "outcome" && /not executed/iu.test(node.label)), false,
+    "HTTP responses returned from arrow/anonymous closures are not direct request outcomes");
+});
+
+test("Laravel only links a single unmodified model-query assignment to a direct if-variable guard", () => {
+  const input = fixture({
+    [ROUTES]: `<?php use App\\Http\\Controllers\\QueryController; Route::get('/reassigned', [QueryController::class, 'reassigned']); Route::get('/branch', [QueryController::class, 'branchDependent']); Route::get('/combined', [QueryController::class, 'combined']); Route::get('/mutated', [QueryController::class, 'passedToCall']);`,
+    "app/Http/Controllers/QueryController.php": `<?php
+namespace App\\Http\\Controllers;
+use App\\Models\\Checkin;
+class QueryController {
+  public function reassigned() { $exists = Checkin::query()->exists(); $exists = false; if ($exists) return response()->json([], 422); }
+  public function branchDependent() { if (true) { $exists = Checkin::query()->exists(); } if ($exists) return response()->json([], 422); }
+  public function combined() { $exists = Checkin::query()->exists() && Checkin::query()->exists(); if ($exists) return response()->json([], 422); }
+  public function passedToCall() { $exists = Checkin::query()->exists(); clear($exists); if ($exists) return response()->json([], 422); }
+}`,
+    "app/Models/Checkin.php": `<?php namespace App\\Models; use Illuminate\\Database\\Eloquent\\Model; class Checkin extends Model {}`,
+  });
+  const result = extractLaravel(input);
+  assert.equal(result.edges.some(edge => edge.label === "hasil query dipakai"), false,
+    "reassignment, conditional assignment, combined expressions, and unknown calls between assignment and guard are not linked as a single query result");
 });
 
 test("Laravel only reads HTTP statuses from response status arguments, never numeric payload fields", () => {
@@ -381,6 +454,10 @@ test("the pinned Laravel corpus resolves route aliases, guards, check-in outcome
   assert.ok(duplicateOutcome, "the literal duplicate-check message is shown as the business outcome");
   assert.ok(duplicateOutcome.reason.includes("HTTP literal 422"));
   assert.ok(duplicateOutcome.evidence.some(span => span.filePath.endsWith("MoodCheckinController.php") && span.startLine === 46 && span.endLine === 49));
+  const duplicateDecision = result.nodes.find(node => node.kind === "decision" && node.evidence.some(span => span.filePath.endsWith("MoodCheckinController.php") && span.startLine === 45));
+  assert.ok(duplicateDecision, "the stored query result is consumed by the duplicate-check guard");
+  assert.ok(result.edges.some(edge => edge.source === model.id && edge.target === duplicateDecision.id && edge.label === "hasil query dipakai" && edge.confidence === "proven"),
+    "the model query result stored in a local variable connects to the if decision in the frozen source");
   const successOutcome = result.nodes.find(node => node.kind === "outcome" && node.reason.includes("HTTP literal 201") && node.evidence.some(span => span.filePath.endsWith("MoodCheckinController.php")));
   assert.equal(successOutcome?.label, "Mengembalikan respons HTTP 201", "the success status stays supported by its literal source span when there is no message");
   assert.ok(successOutcome.evidence.some(span => span.filePath.endsWith("MoodCheckinController.php") && span.startLine === 67 && span.endLine === 70));

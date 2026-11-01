@@ -13,7 +13,7 @@ export function buildSemanticModel(input: SemanticInput): SemanticModel {
   const snapshot = JSON.parse(JSON.stringify(input.ccm.snapshot)) as SemanticModel["snapshot"];
   const value: SemanticModel = {
     schemaVersion: "sage-semantic-v1",
-    extractorVersion: "0.1.0",
+    extractorVersion: "0.2.0",
     sourceCkgHash: input.sourceCkgHash,
     snapshot,
     nodes,

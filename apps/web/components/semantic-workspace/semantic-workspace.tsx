@@ -96,18 +96,19 @@ function flowEntryOptions(feature: SemanticFeature, nodes: SemanticNode[], edges
     existing.isDeclaredEntry = true;
     entries.set(id, existing);
   }
-  const genericAction = /^(?:tindakan pengguna|aksi pengguna|kirim formulir|submit|batal)$/iu;
+  const genericAction = /^(?:user action|user activity|action|tindakan pengguna|aksi pengguna|kirim formulir|submit(?: form)?|cancel|batal|continue|lanjutkan)$/iu;
   const endpoint = /^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+\//iu;
   const pathScore = (entry: FlowEntryOption) => flowScope(entry.node.id, nodes, edges).nodes.reduce((score, node) => score + ({ actor: 0, feature: 0, step: 1, decision: 3, component: 3, outcome: 3, store: 2, concept: 1 }[node.kind]), 0);
-  const scores = new Map([...entries.values()].map(entry => [entry.node.id, pathScore(entry)]));
+  const scores = new Map([...entries.values()].map(entry => [entry.node.id, Math.min(20, pathScore(entry))]));
   return [...entries.values()].sort((left, right) => {
     const rank = (entry: FlowEntryOption) => [
-      entry.actorNodes.length ? 0 : 1,
-      -(scores.get(entry.node.id) ?? 0),
-      endpoint.test(entry.node.label) ? 1 : 0,
       genericAction.test(entry.node.label) ? 1 : 0,
+      entry.actorNodes.length ? 0 : 1,
+      entry.actorConfidence === "proven" ? 0 : 1,
       entry.node.confidence === "proven" ? 0 : 1,
       entry.isDeclaredEntry ? 0 : 1,
+      endpoint.test(entry.node.label) ? 1 : 0,
+      -(scores.get(entry.node.id) ?? 0),
     ];
     const a = rank(left), b = rank(right);
     for (let index = 0; index < a.length; index += 1) if (a[index] !== b[index]) return a[index]! - b[index]!;
@@ -146,57 +147,156 @@ function flowScope(entryId: string, nodes: SemanticNode[], edges: SemanticEdge[]
   return { nodes: scopeNodes, edges: scopeEdges };
 }
 
-function splitLabel(value: string, max = 22): string[] {
-  const words = value.trim().split(/\s+/u);
+function centerFlowViewport(canvas: HTMLDivElement, anchorId: string, positions: Map<string, { x: number; y: number }>, layoutWidth: number, zoom: number) {
+  const anchor = positions.get(anchorId);
+  if (!anchor) {
+    canvas.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    return;
+  }
+  const contentWidth = layoutWidth * zoom / 100;
+  const maxScrollLeft = Math.max(0, contentWidth - canvas.clientWidth);
+  const left = Math.max(0, Math.min(maxScrollLeft, anchor.x * zoom / 100 - canvas.clientWidth / 2));
+  canvas.scrollTo({ top: 0, left, behavior: "auto" });
+}
+
+function focusGraphViewport(viewport: HTMLDivElement, featureId: string, positions: Map<string, { x: number; y: number }>, bounds: Map<string, { width: number; height: number }>, canvasWidth: number, canvasHeight: number, zoom: number) {
+  const center = positions.get(featureId);
+  const size = bounds.get(featureId);
+  if (!center || !size) {
+    viewport.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    return;
+  }
+  const scale = zoom / 100;
+  const frameWidth = size.width * scale;
+  const frameLeft = (center.x - size.width / 2) * scale;
+  const desiredLeft = frameWidth > viewport.clientWidth ? frameLeft : center.x * scale - viewport.clientWidth / 2;
+  const frameTop = center.y - size.height / 2;
+  const maxLeft = Math.max(0, canvasWidth * scale - viewport.clientWidth);
+  const maxTop = Math.max(0, canvasHeight * scale - viewport.clientHeight);
+  const left = Math.max(0, Math.min(maxLeft, desiredLeft));
+  const top = Math.max(0, Math.min(maxTop, frameTop * scale - 16));
+  viewport.scrollTo({ top, left, behavior: "auto" });
+}
+
+function splitLabel(value: string, max = 22, maxLines = 3): string[] {
+  const words = value.trim().split(/\s+/u).flatMap(word => {
+    const chars = Array.from(word);
+    return chars.length <= max ? [word] : Array.from({ length: Math.ceil(chars.length / max) }, (_, index) => chars.slice(index * max, (index + 1) * max).join(""));
+  });
   const lines: string[] = [];
   let line = "";
+  let overflow = false;
   for (const word of words) {
     if (line && `${line} ${word}`.length > max) { lines.push(line); line = word; }
     else line = line ? `${line} ${word}` : word;
+    if (lines.length === maxLines) { overflow = true; break; }
   }
-  if (line) lines.push(line);
-  return lines.slice(0, 3);
+  if (line && lines.length < maxLines) lines.push(line);
+  if (overflow) {
+    const lastIndex = maxLines - 1;
+    const last = Array.from(lines[lastIndex] ?? "");
+    lines[lastIndex] = `${last.slice(0, Math.max(1, max - 1)).join("")}…`;
+  }
+  return lines.slice(0, maxLines);
 }
 
 function flowLayout(nodes: SemanticNode[], edges: SemanticEdge[]) {
+  // Condense cycles into strongly connected components first. This preserves
+  // their actual edges while preventing a cycle from being pushed to a fake
+  // "last" layer in the diagram.
+  const ids = nodes.map(node => node.id).sort();
   const byId = new Map(nodes.map(node => [node.id, node]));
-  const indegree = new Map(nodes.map(node => [node.id, 0]));
-  const outgoing = new Map(nodes.map(node => [node.id, [] as string[]]));
+  const outgoing = new Map(ids.map(id => [id, [] as string[]]));
+  const incoming = new Map(ids.map(id => [id, [] as string[]]));
   for (const edge of edges) {
     if (!byId.has(edge.source) || !byId.has(edge.target)) continue;
-    indegree.set(edge.target, (indegree.get(edge.target) ?? 0) + 1);
-    outgoing.get(edge.source)?.push(edge.target);
+    outgoing.get(edge.source)!.push(edge.target);
+    incoming.get(edge.target)!.push(edge.source);
   }
-  const layer = new Map(nodes.map(node => [node.id, 0]));
-  const queue = nodes.filter(node => indegree.get(node.id) === 0).map(node => node.id).sort();
-  let queueHead = 0;
+  for (const rows of [outgoing, incoming]) for (const [id, neighbors] of rows) rows.set(id, [...new Set(neighbors)].sort());
+
   const visited = new Set<string>();
-  while (queueHead < queue.length) {
-    const id = queue[queueHead++]!;
-    visited.add(id);
-    for (const target of (outgoing.get(id) ?? []).sort()) {
-      layer.set(target, Math.max(layer.get(target) ?? 0, (layer.get(id) ?? 0) + 1));
-      indegree.set(target, indegree.get(target)! - 1);
-      if (indegree.get(target) === 0) queue.push(target);
+  const finishOrder: string[] = [];
+  for (const root of ids) {
+    if (visited.has(root)) continue;
+    visited.add(root);
+    const stack: Array<{ id: string; next: number }> = [{ id: root, next: 0 }];
+    while (stack.length) {
+      const frame = stack[stack.length - 1]!;
+      const neighbors = outgoing.get(frame.id)!;
+      if (frame.next < neighbors.length) {
+        const next = neighbors[frame.next++]!;
+        if (!visited.has(next)) { visited.add(next); stack.push({ id: next, next: 0 }); }
+      } else {
+        finishOrder.push(frame.id);
+        stack.pop();
+      }
     }
   }
-  // Cyclic and isolated source facts remain visible in a final reading layer.
-  const cycleLayer = Math.max(0, ...layer.values()) + 1;
-  for (const node of nodes) if (!visited.has(node.id)) layer.set(node.id, cycleLayer);
-  const groups = new Map<number, SemanticNode[]>();
-  for (const node of nodes) { const rank = layer.get(node.id) ?? 0; groups.set(rank, [...(groups.get(rank) ?? []), node]); }
-  const sortedLayers = [...groups].sort(([a], [b]) => a - b).map(([rank, items]) => [rank, items.sort((a, b) => a.id.localeCompare(b.id))] as const);
-  const positions = new Map<string, { x: number; y: number }>();
-  let yOffset = 50;
-  const columns = 4;
-  for (const [, items] of sortedLayers) {
-    for (let index = 0; index < items.length; index += 1) positions.set(items[index]!.id, { x: 126 + (index % columns) * 246, y: yOffset + Math.floor(index / columns) * 142 });
-    yOffset += Math.max(1, Math.ceil(items.length / columns)) * 190;
+
+  const componentOf = new Map<string, number>();
+  const components: string[][] = [];
+  for (let index = finishOrder.length - 1; index >= 0; index -= 1) {
+    const root = finishOrder[index]!;
+    if (componentOf.has(root)) continue;
+    const componentIndex = components.length;
+    const members: string[] = [];
+    const stack = [root]; componentOf.set(root, componentIndex);
+    while (stack.length) {
+      const id = stack.pop()!; members.push(id);
+      for (const next of [...incoming.get(id)!].reverse()) if (!componentOf.has(next)) { componentOf.set(next, componentIndex); stack.push(next); }
+    }
+    components.push(members.sort());
   }
-  return { positions, width: columns * 246 + 10, height: Math.max(260, yOffset + 30) };
+  const componentEdges = components.map(() => new Set<number>());
+  const componentIndegree = components.map(() => 0);
+  for (const [source, targets] of outgoing) for (const target of targets) {
+    const from = componentOf.get(source)!, to = componentOf.get(target)!;
+    if (from !== to && !componentEdges[from]!.has(to)) { componentEdges[from]!.add(to); componentIndegree[to]! += 1; }
+  }
+  const componentRank = components.map(() => 0);
+  const ready = components.map((_, index) => index).filter(index => componentIndegree[index] === 0).sort((a, b) => components[a]![0]!.localeCompare(components[b]![0]!));
+  for (let head = 0; head < ready.length; head += 1) {
+    const current = ready[head]!;
+    for (const target of [...componentEdges[current]!].sort((a, b) => components[a]![0]!.localeCompare(components[b]![0]!))) {
+      componentRank[target] = Math.max(componentRank[target]!, componentRank[current]! + 1);
+      componentIndegree[target]! -= 1;
+      if (componentIndegree[target] === 0) ready.push(target);
+    }
+  }
+  const groups = new Map<number, SemanticNode[]>();
+  for (const [componentIndex, members] of components.entries()) {
+    const rank = componentRank[componentIndex]!;
+    const bucket = groups.get(rank) ?? [];
+    for (const id of members) bucket.push(byId.get(id)!);
+    groups.set(rank, bucket);
+  }
+  const sortedLayers = [...groups].sort(([a], [b]) => a - b);
+  const positions = new Map<string, { x: number; y: number }>();
+  const columns = Math.min(4, Math.max(1, ...sortedLayers.map(([, items]) => items.length)));
+  const width = columns * 246 + 10;
+  let yOffset = 190;
+  for (const [, layerNodes] of sortedLayers) {
+    const items = [...layerNodes].sort((left, right) => {
+      const predecessorX = (node: SemanticNode) => {
+        const values = (incoming.get(node.id) ?? []).map(id => positions.get(id)?.x).filter((value): value is number => value !== undefined);
+        return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : Number.POSITIVE_INFINITY;
+      };
+      return predecessorX(left) - predecessorX(right) || left.kind.localeCompare(right.kind) || left.id.localeCompare(right.id);
+    });
+    for (let index = 0; index < items.length; index += 1) {
+      const row = Math.floor(index / columns);
+      const column = index % columns;
+      const rowCount = Math.min(columns, items.length - row * columns);
+      const startX = (width - (rowCount - 1) * 246) / 2;
+      positions.set(items[index]!.id, { x: startX + column * 246, y: yOffset + row * 132 });
+    }
+    yOffset += Math.max(1, Math.ceil(items.length / columns)) * 132 + 94;
+  }
+  return { positions, width, height: Math.max(260, yOffset + 24) };
 }
 
-function flowEdgeGeometry(source: SemanticNode, target: SemanticNode, from: { x: number; y: number }, to: { x: number; y: number }) {
+function flowEdgeGeometry(source: SemanticNode, target: SemanticNode, from: { x: number; y: number }, to: { x: number; y: number }, routeIndex: number) {
   const sourceHeight = source.kind === "decision" ? 54 : 42;
   const targetHeight = target.kind === "decision" ? 54 : 42;
   const sourceWidth = source.kind === "decision" ? 78 : 100;
@@ -205,29 +305,34 @@ function flowEdgeGeometry(source: SemanticNode, target: SemanticNode, from: { x:
     const startY = from.y + sourceHeight;
     const endY = to.y - targetHeight;
     const span = endY - startY;
+    if (span > 330) {
+      const gutterX = 8 + (routeIndex % 4) * 5;
+      const bend = Math.min(34, Math.max(16, span * 0.12));
+      return { path: `M ${from.x} ${startY} C ${from.x} ${startY + bend}, ${gutterX} ${startY + bend}, ${gutterX} ${startY + bend * 2} L ${gutterX} ${endY - bend * 2} C ${gutterX} ${endY - bend}, ${to.x} ${endY - bend}, ${to.x} ${endY}`, labelX: from.x, labelY: startY + 24 + (routeIndex % 4) * 14, sourcePortOffset: sourceHeight, targetPortOffset: targetHeight };
+    }
     const bend = Math.min(90, Math.max(22, span * 0.45));
     return { path: `M ${from.x} ${startY} C ${from.x} ${startY + bend}, ${to.x} ${endY - bend}, ${to.x} ${endY}`, labelX: (from.x + to.x) / 2, labelY: (startY + endY) / 2 - 6, sourcePortOffset: sourceHeight, targetPortOffset: targetHeight };
   }
   if (to.y < from.y - 8) {
     const startY = from.y - sourceHeight;
     const endY = to.y + targetHeight;
-    const laneY = Math.min(startY, endY) - 78;
+    const laneY = Math.min(startY, endY) - 78 - (routeIndex % 4) * 12;
     return { path: `M ${from.x} ${startY} C ${from.x} ${laneY}, ${to.x} ${laneY}, ${to.x} ${endY}`, labelX: (from.x + to.x) / 2, labelY: laneY - 6, sourcePortOffset: sourceHeight, targetPortOffset: targetHeight };
   }
   const direction = to.x >= from.x ? 1 : -1;
   const startX = from.x + sourceWidth * direction;
   const endX = to.x - targetWidth * direction;
-  const laneY = Math.min(from.y, to.y) - 78;
+  const laneY = Math.min(from.y, to.y) - 78 - (routeIndex % 4) * 12;
   return { path: `M ${startX} ${from.y} C ${startX} ${laneY}, ${endX} ${laneY}, ${endX} ${to.y}`, labelX: (startX + endX) / 2, labelY: laneY - 6, sourcePortOffset: sourceWidth, targetPortOffset: targetWidth };
 }
 
-function FlowEdge({ edge, source, target, from, to, inlineLabel, markerId, labelForNode }: {
+function FlowEdge({ edge, source, target, from, to, inlineLabel, markerId, labelForNode, routeIndex }: {
   edge: SemanticEdge; source: SemanticNode; target: SemanticNode;
   from: { x: number; y: number }; to: { x: number; y: number };
-  inlineLabel: boolean; markerId: string; labelForNode: (node: SemanticNode) => string;
+  inlineLabel: boolean; markerId: string; labelForNode: (node: SemanticNode) => string; routeIndex: number;
 }) {
-  const geometry = flowEdgeGeometry(source, target, from, to);
-  const confidence = edge.confidence === "proven" ? "Terbukti" : "Indikasi";
+  const geometry = flowEdgeGeometry(source, target, from, to, routeIndex);
+  const confidence = edge.confidence === "proven" ? "Proven" : "Indicated";
   const description = `${labelForNode(source)} — ${edge.label} → ${labelForNode(target)} · ${confidence} · ${edge.reason}`;
   return <g data-edge-id={edge.id} data-source-id={edge.source} data-target-id={edge.target} data-source-kind={source.kind} data-target-kind={target.kind} data-source-port-offset={geometry.sourcePortOffset} data-target-port-offset={geometry.targetPortOffset} data-inline-label={inlineLabel} role="img" aria-label={description} className={`${styles.flowEdge} ${edge.confidence === "indicated" ? styles.indicatedEdge : ""}`}>
     <title>{description}</title>
@@ -252,18 +357,18 @@ function FlowStepEvidence({ nodes, repository, commitSha, labelForNode, selected
   const currentPage = Math.min(page, pageCount - 1);
   const visibleNodes = nodes.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
   return <details className={styles.relationshipDisclosure}>
-    <summary>Daftar langkah dan evidence ({nodes.length} di jendela ini)</summary>
-    <div className={styles.flowStepList} aria-label="Langkah alur dan bukti">{visibleNodes.map(node => <article key={node.id}>
+    <summary>Flow nodes and evidence ({nodes.length})</summary>
+    <div className={styles.flowStepList} aria-label="Flow nodes and evidence">{visibleNodes.map(node => <article key={node.id}>
       <button type="button" aria-pressed={selectedNodeId === node.id} onClick={() => selectNode(node.id)}>
         <span className={styles.stepNumber}>{node.kind === "decision" ? "◇" : node.kind === "outcome" ? "✓" : "•"}</span>
-        <span><strong>{labelForNode(node)}</strong><small>{node.kind} · {node.confidence === "proven" ? "Terbukti" : `Indikasi: ${node.reason}`}</small></span>
+        <span><strong>{labelForNode(node)}</strong><small>{node.kind} · {node.confidence === "proven" ? "Proven" : `Indicated: ${node.reason}`}</small></span>
       </button>
       <EvidenceList items={node.evidence} repository={repository} commitSha={commitSha} />
     </article>)}</div>
-    {pageCount > 1 ? <div className={styles.relationshipPages} role="group" aria-label="Navigasi daftar langkah">
-      <button type="button" disabled={currentPage === 0} onClick={() => setPage(value => Math.max(0, value - 1))}>Langkah sebelumnya</button>
-      <span>{currentPage * pageSize + 1}–{Math.min(nodes.length, (currentPage + 1) * pageSize)} dari {nodes.length} langkah</span>
-      <button type="button" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))}>Langkah berikutnya</button>
+    {pageCount > 1 ? <div className={styles.relationshipPages} role="group" aria-label="Flow step navigation">
+      <button type="button" disabled={currentPage === 0} onClick={() => setPage(value => Math.max(0, value - 1))}>Previous</button>
+      <span>{currentPage * pageSize + 1}–{Math.min(nodes.length, (currentPage + 1) * pageSize)} of {nodes.length} items</span>
+      <button type="button" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))}>Next</button>
     </div> : null}
   </details>;
 }
@@ -277,14 +382,14 @@ function RelationshipEvidence({ edges, nodes, repository, commitSha, labelForNod
   const nodeById = new Map(nodes.map(node => [node.id, node]));
   const visibleEdges = edges.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
   return <details className={styles.relationshipDisclosure} onToggle={event => setOpen(event.currentTarget.open)}>
-    <summary>Evidence relasi ({edges.length})</summary>
+    <summary>Relationship evidence ({edges.length})</summary>
     {open ? <>
       <div className={styles.relationshipList}>{visibleEdges.map(edge => <article key={edge.id}>
         <p><strong>{nodeById.get(edge.source) ? labelForNode(nodeById.get(edge.source)!) : "Sumber"}</strong><span aria-hidden="true"> → </span><strong>{nodeById.get(edge.target) ? labelForNode(nodeById.get(edge.target)!) : "Target"}</strong></p>
-        <p><code>{edge.label}</code> · {edge.confidence === "proven" ? "Terbukti" : "Indikasi"} · {edge.reason}</p>
+        <p><code>{edge.label}</code> · {edge.confidence === "proven" ? "Proven" : "Indicated"} · {edge.reason}</p>
         <EvidenceList items={edge.evidence} repository={repository} commitSha={commitSha} />
       </article>)}</div>
-      {pageCount > 1 ? <div className={styles.relationshipPages}><button type="button" disabled={currentPage === 0} onClick={() => setPage(value => Math.max(0, value - 1))}>Sebelumnya</button><span>Halaman {currentPage + 1} dari {pageCount}</span><button type="button" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))}>Berikutnya</button></div> : null}
+      {pageCount > 1 ? <div className={styles.relationshipPages}><button type="button" disabled={currentPage === 0} onClick={() => setPage(value => Math.max(0, value - 1))}>Previous</button><span>Page {currentPage + 1} of {pageCount}</span><button type="button" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))}>Next</button></div> : null}
     </> : null}
   </details>;
 }
@@ -295,10 +400,10 @@ function AnalysisLimitations({ items }: { items: SemanticModel["limitations"] })
   const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
   const currentPage = Math.min(page, pageCount - 1);
   return <details className={styles.relationshipDisclosure}>
-    <summary>Catatan batasan ekstraksi ({items.length})</summary>
+    <summary>Extraction limitations ({items.length})</summary>
     {items.length ? <>
       <ul className={styles.limitationList}>{items.slice(currentPage * pageSize, currentPage * pageSize + pageSize).map((item, index) => <li key={`${item.filePath}:${currentPage * pageSize + index}`}><code>{item.filePath}</code><span>{item.reason}</span></li>)}</ul>
-      {pageCount > 1 ? <div className={styles.relationshipPages}><button type="button" disabled={currentPage === 0} onClick={() => setPage(value => Math.max(0, value - 1))}>Sebelumnya</button><span>Halaman {currentPage + 1} dari {pageCount}</span><button type="button" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))}>Berikutnya</button></div> : null}
+      {pageCount > 1 ? <div className={styles.relationshipPages}><button type="button" disabled={currentPage === 0} onClick={() => setPage(value => Math.max(0, value - 1))}>Previous</button><span>Page {currentPage + 1} of {pageCount}</span><button type="button" disabled={currentPage + 1 >= pageCount} onClick={() => setPage(value => Math.min(pageCount - 1, value + 1))}>Next</button></div> : null}
     </> : <p className={styles.emptyLimitations}>Tidak ada batasan yang dicatat oleh extractor pada snapshot ini.</p>}
   </details>;
 }
@@ -309,7 +414,6 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
   const [showIndications, setShowIndications] = useState(true);
   const [query, setQuery] = useState("");
   const [flowFeatureLimit, setFlowFeatureLimit] = useState(50);
-  const [flowPageState, setFlowPageState] = useState<{ key: string; page: number }>({ key: "", page: 0 });
   const [flowEntrySelection, setFlowEntrySelection] = useState<{ featureId: string; nodeId: string } | null>(null);
   const [expandedFeatures, setExpandedFeatures] = useState<string[]>([]);
   const [focusedFeatureId, setFocusedFeatureId] = useState<string | null>(null);
@@ -357,7 +461,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     controllerRef.current = controller;
     const combinedSignal = signal ?? controller.signal;
     setState({ status: "loading" }); setSaveError(""); setSaveMessage(""); setLegacyOpen(false);
-    setExpandedFeatures([]); setFocusedFeatureId(null); setGraphZoom(100); setFlowZoom(100); setSelectedFeatureId(null); setFlowEntrySelection(null); setSelectedNodeId(null); setShowIndications(true); setQuery(""); setFlowFeatureLimit(50); setFlowPageState({ key: "", page: 0 });
+    setExpandedFeatures([]); setFocusedFeatureId(null); setGraphZoom(100); setFlowZoom(100); setSelectedFeatureId(null); setFlowEntrySelection(null); setSelectedNodeId(null); setShowIndications(true); setQuery(""); setFlowFeatureLimit(50);
     try {
       await verifySession(combinedSignal);
       const response = await fetch(`/api/analyses/${encodeURIComponent(analysisId)}/semantic`, {
@@ -481,18 +585,11 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     (node.kind !== "actor" || scopedFlowEdges.some(edge => edge.source === node.id || edge.target === node.id)));
   const visibleFlowNodeIds = new Set(visibleFlowNodes.map(node => node.id));
   const visibleFlowEdges = scopedFlowEdges.filter(edge => visibleFlowNodeIds.has(edge.source) && visibleFlowNodeIds.has(edge.target) && (!flowNeedle || matchingRelationNodeIds.has(edge.source) || matchingRelationNodeIds.has(edge.target)));
-  const flowKey = `${selectedFeatureId ?? ""}\0${selectedFlowEntryId}\0${query}\0${showIndications}`;
-  const initialFlowLayout = flowLayout(visibleFlowNodes, visibleFlowEdges);
-  const orderedFlowNodes = [...visibleFlowNodes].sort((left, right) => {
-    const a = initialFlowLayout.positions.get(left.id)!, b = initialFlowLayout.positions.get(right.id)!;
-    return a.y - b.y || a.x - b.x || left.id.localeCompare(right.id);
-  });
-  const flowWindowSize = 24;
-  const flowPageCount = Math.max(1, Math.ceil(orderedFlowNodes.length / flowWindowSize));
-  const flowPage = Math.min(flowPageCount - 1, flowPageState.key === flowKey ? flowPageState.page : 0);
-  const pageFlowNodes = orderedFlowNodes.slice(flowPage * flowWindowSize, flowPage * flowWindowSize + flowWindowSize);
-  const pageFlowNodeIds = new Set(pageFlowNodes.map(node => node.id));
-  const pageFlowEdges = visibleFlowEdges.filter(edge => pageFlowNodeIds.has(edge.source) && pageFlowNodeIds.has(edge.target));
+  const flowKey = JSON.stringify([selectedFeatureId, selectedFlowEntryId, query, showIndications, payload?.revision]);
+  // Keep each selected flow intact: paging nodes independently used to drop
+  // every edge that crossed a page boundary and made the path unreadable.
+  const pageFlowNodes = visibleFlowNodes;
+  const pageFlowEdges = visibleFlowEdges;
   const pageNodeById = new Map(pageFlowNodes.map(node => [node.id, node]));
   const edgeDegrees = new Map<string, { incoming: number; outgoing: number }>();
   for (const edge of pageFlowEdges) {
@@ -502,8 +599,33 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     edgeDegrees.set(edge.source, sourceDegree); edgeDegrees.set(edge.target, targetDegree);
   }
   const layout = flowLayout(pageFlowNodes, pageFlowEdges);
-  const hiddenFlowNodes = orderedFlowNodes.length - pageFlowNodes.length;
-  const hiddenFlowEdges = selectedFlowEdges.length - pageFlowEdges.length;
+  const flowAnchorNodeId = selectedFlowEntry?.node.id ?? pageFlowNodes.find(node => node.kind === "actor")?.id ?? pageFlowNodes[0]?.id;
+  useEffect(() => {
+    if (mode !== "flow" || !flowCanvasRef.current) return;
+    const canvas = flowCanvasRef.current;
+    let alignFrame = 0;
+    let lastViewportWidth = Number.NaN;
+    const fitWidth = () => {
+      const viewportWidth = canvas.getBoundingClientRect().width;
+      if (viewportWidth === lastViewportWidth) return;
+      lastViewportWidth = viewportWidth;
+      const minZoom = canvas.clientWidth < 640 ? 55 : 30;
+      const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((canvas.clientWidth - 32) / layout.width * 100)));
+      setFlowZoom(current => current === nextZoom ? current : nextZoom);
+      cancelAnimationFrame(alignFrame);
+      if (flowAnchorNodeId) alignFrame = requestAnimationFrame(() => centerFlowViewport(canvas, flowAnchorNodeId, layout.positions, layout.width, nextZoom));
+    };
+    fitWidth();
+    const observer = new ResizeObserver(fitWidth);
+    observer.observe(canvas);
+    return () => { observer.disconnect(); cancelAnimationFrame(alignFrame); };
+  }, [flowAnchorNodeId, flowKey, layout.width, mode]);
+  useEffect(() => {
+    const canvas = flowCanvasRef.current;
+    if (mode !== "flow" || !canvas || !flowAnchorNodeId) return;
+    const frame = requestAnimationFrame(() => centerFlowViewport(canvas, flowAnchorNodeId, layout.positions, layout.width, flowZoom));
+    return () => cancelAnimationFrame(frame);
+  }, [flowAnchorNodeId, flowKey, flowZoom, layout.width, mode]);
 
   async function saveOverlay(nextOverlay: PresentationOverlay) {
     if (!payload || saving) return;
@@ -550,8 +672,8 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
   const fallbackSection = state.status === "legacy" || (state.status === "error" && legacyOpen);
   return <section className={styles.workspace} aria-label={mode === "flow" ? "Alur fitur berbasis source" : "Knowledge graph fitur dan konsep"}>
     <header className={styles.header}>
-      <div><p className={styles.eyebrow}>{mode === "flow" ? "ALUR SOFTWARE" : "KNOWLEDGE GRAPH"}</p><h2>{mode === "flow" ? "Fitur dan alur pengguna" : "Fitur dan konsep repository"}</h2><p>{mode === "flow" ? "Pilih fitur untuk membaca aktivitas, keputusan, komponen, dan hasil beserta sumbernya." : "Setiap cluster mewakili fitur. Buka cluster untuk melihat konsep, komponen utama, dan penyimpanannya."}</p></div>
-      <div className={styles.statusPills}>{payload ? <><span>{payload.model.snapshot.repository} @ <code>{payload.model.snapshot.commitSha.slice(0, 8)}</code></span>{payload.model.frameworks.length ? <span>{payload.model.frameworks.join(", ")}</span> : null}</> : null}<span>{mode === "flow" ? "Evidence source" : "Peta fitur"}</span></div>
+      <div><p className={styles.eyebrow}>{mode === "flow" ? "USER FLOW" : "KNOWLEDGE GRAPH"}</p><h2>{mode === "flow" ? "User flows" : "Repository concepts"}</h2><p>{mode === "flow" ? "Pilih fitur untuk menelusuri user action, decision, service, dan hasil yang terhubung ke source." : "Setiap cluster mewakili fitur. Perluas cluster untuk melihat konsep domain, komponen utama, dan data store."}</p></div>
+      <div className={styles.statusPills}>{payload ? <><span>{payload.model.snapshot.repository} @ <code>{payload.model.snapshot.commitSha.slice(0, 8)}</code></span>{payload.model.frameworks.length ? <span>{payload.model.frameworks.join(", ")}</span> : null}</> : null}<span>{mode === "flow" ? "Source evidence" : "Feature overview"}</span></div>
     </header>
 
     {state.status === "loading" ? <p className={styles.status} role="status">Memeriksa akun dan memuat model fitur…</p> : null}
@@ -561,9 +683,9 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     {fallbackSection && legacyFallback ? <div className={styles.legacyFallback}>{legacyFallback}</div> : null}
     {payload ? <AnalysisLimitations items={payload.model.limitations} /> : null}
     {payload && mode === "flow" ? <>
-      <div className={styles.legend} aria-label="Legenda bukti alur"><span data-kind="actor">Aktor</span><span data-kind="step">Tindakan</span><span data-kind="decision">Keputusan</span><span data-kind="component">Layanan/API</span><span data-kind="store">Penyimpanan</span><span data-kind="outcome">Hasil</span><span><i className={styles.dashedLegend} />Indikasi</span></div>
+      <div className={styles.legend} aria-label="Flow diagram legend"><span data-kind="actor">Actor</span><span data-kind="step">Action</span><span data-kind="decision">Decision</span><span data-kind="component">Service/API</span><span data-kind="store">Data store</span><span data-kind="outcome">Outcome</span><span><i className={styles.dashedLegend} />Indicated relationship</span></div>
       {!selectedFeature ? <>
-        <div className={styles.controls}><label>Cari fitur<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Nama fitur, konsep, atau path bukti" /></label><p aria-live="polite">{visibleFeatures.length} dari {features.length} fitur terdeteksi.</p></div>
+        <div className={styles.controls}><label>Search features<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Feature, concept, or source path" /></label><p aria-live="polite">{visibleFeatures.length} of {features.length} features detected.</p></div>
         <div className={styles.featureGrid} data-testid="semantic-feature-overview">
         {flowFeatures.map(feature => {
           const featureNode = payload.model.nodes.find(node => node.id === feature.id);
@@ -571,38 +693,37 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
           const evidenceFiles = new Set(feature.evidence.map(item => item.filePath));
           const actors = actorsGroupedByFeature.get(feature.id) ?? [];
           return <button className={styles.featureCard} type="button" key={feature.id} data-feature-id={feature.id} onClick={() => setSelectedFeatureId(feature.id)}>
-            <span className={styles.featureIcon} aria-hidden="true">{(featureLabel(feature)[0] ?? "F").toLocaleUpperCase()}</span><span className={styles.featureBody}><strong>{featureLabel(feature)}</strong><small>{entries} titik masuk · {feature.nodeIds.length} fakta terkait</small><small>{evidenceFiles.size} file sumber · {featureNode?.confidence === "indicated" ? "indikasi" : "bukti tersedia"}</small>{actors.length ? <span className={styles.actorChips} aria-label={`Aktor yang terhubung ke ${featureLabel(feature)}`}><small>Aktor</small>{actors.map(actor => <span key={actor.id} title={actor.reason}>{nodeLabel(actor)} <small>{actor.confidence === "proven" ? "Terbukti" : "Indikasi"}</small></span>)}</span> : <small>Tidak ada aktor yang terdeteksi.</small>}</span><span aria-hidden="true">→</span>
+            <span className={styles.featureIcon} aria-hidden="true">{(featureLabel(feature)[0] ?? "F").toLocaleUpperCase()}</span><span className={styles.featureBody}><strong>{featureLabel(feature)}</strong><small>{entries} entry points · {feature.nodeIds.length} source facts</small><small>{evidenceFiles.size} source files · {featureNode?.confidence === "indicated" ? "Indicated" : "Source evidence available"}</small>{actors.length ? <span className={styles.actorChips} aria-label={`Actors connected to ${featureLabel(feature)}`}><small>Actors</small>{actors.map(actor => <span key={actor.id} title={actor.reason}>{nodeLabel(actor)} <small>{actor.confidence === "proven" ? "Proven" : "Indicated"}</small></span>)}</span> : <small>No actors detected.</small>}</span><span aria-hidden="true">→</span>
           </button>;
         })}
         {!flowFeatures.length ? <p className={styles.status}>Tidak ada fitur sesuai pencarian.</p> : null}
         </div>
-        {visibleFeatures.length > flowFeatures.length ? <button className={styles.loadMore} type="button" onClick={() => setFlowFeatureLimit(limit => Math.min(visibleFeatures.length, limit + 50))}>Muat 50 fitur berikutnya ({flowFeatures.length} dari {visibleFeatures.length})</button> : null}
+        {visibleFeatures.length > flowFeatures.length ? <button className={styles.loadMore} type="button" onClick={() => setFlowFeatureLimit(limit => Math.min(visibleFeatures.length, limit + 50))}>Load 50 more features ({flowFeatures.length} of {visibleFeatures.length})</button> : null}
       </> : <>
-        <div className={styles.controls}><label>Cari langkah atau bukti<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Tindakan, keputusan, path file…" /></label><p aria-live="polite">{visibleFlowNodes.length} dari {scopedFlowNodes.length} node cocok dengan pencarian.</p></div>
-        <div className={styles.flowBreadcrumb}><button type="button" onClick={() => setSelectedFeatureId(null)}>Semua fitur</button><span aria-hidden="true">/</span><strong>{payload.overlay.labels[selectedFeature.id] ?? selectedFeature.label}</strong><label><input type="checkbox" checked={showIndications} onChange={event => setShowIndications(event.currentTarget.checked)} />Tampilkan indikasi</label></div>
+        <div className={styles.controls}><label>Search steps or evidence<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Action, decision, source path…" /></label><p aria-live="polite">{visibleFlowNodes.length} of {scopedFlowNodes.length} nodes match.</p></div>
+        <div className={styles.flowBreadcrumb}><button type="button" onClick={() => setSelectedFeatureId(null)}>All features</button><span aria-hidden="true">/</span><strong>{payload.overlay.labels[selectedFeature.id] ?? selectedFeature.label}</strong><label><input type="checkbox" checked={showIndications} onChange={event => setShowIndications(event.currentTarget.checked)} />Show indicated relationships</label></div>
         <div className={styles.flowEntryTools}>
-          <label>Titik awal alur<select aria-label="Mulai alur dari" value={selectedFlowEntryId} onChange={event => { setFlowEntrySelection({ featureId: selectedFeature.id, nodeId: event.currentTarget.value }); setSelectedNodeId(null); }}>
-            <option value={ALL_FEATURE_FACTS}>Semua fakta fitur ({selectedFlowNodes.length})</option>
-            {availableFlowEntries.map(entry => <option key={entry.node.id} value={entry.node.id}>{nodeLabel(entry.node)} · {entry.actorNodes.length ? `aksi oleh ${entry.actorNodes.map(nodeLabel).join(", ")} (${entry.actorConfidence === "proven" ? "terbukti" : "indikasi"})` : entry.isDeclaredEntry ? "titik masuk model" : "aksi terdeteksi"}</option>)}
+          <label>Entry point<select aria-label="Start flow from" value={selectedFlowEntryId} onChange={event => { setFlowEntrySelection({ featureId: selectedFeature.id, nodeId: event.currentTarget.value }); setSelectedNodeId(null); }}>
+            <option value={ALL_FEATURE_FACTS}>All feature facts ({selectedFlowNodes.length})</option>
+            {availableFlowEntries.map(entry => <option key={entry.node.id} value={entry.node.id}>{nodeLabel(entry.node)} · {entry.actorNodes.length ? `action by ${entry.actorNodes.map(nodeLabel).join(", ")} (${entry.actorConfidence === "proven" ? "Proven" : "Indicated"})` : entry.isDeclaredEntry ? "declared entry point" : "detected action"}</option>)}
           </select></label>
-          <p aria-live="polite">{selectedFlowEntry ? `Menelusuri relasi source dari ${nodeLabel(selectedFlowEntry.node)}${selectedFlowEntry.actorNodes.length ? `, dengan aktor ${selectedFlowEntry.actorNodes.map(nodeLabel).join(", ")}` : ""}.` : `Peta semua ${selectedFlowNodes.length} fakta fitur; gunakan jendela untuk membaca bagian lain.`}</p>
+          <p aria-live="polite">{selectedFlowEntry ? `Source path from ${nodeLabel(selectedFlowEntry.node)}${selectedFlowEntry.actorNodes.length ? `, triggered by ${selectedFlowEntry.actorNodes.map(nodeLabel).join(", ")}` : ""}.` : `Feature overview with ${selectedFlowNodes.length} source facts.`}</p>
         </div>
-        {flowPageCount > 1 ? <div className={styles.flowPaging} role="group" aria-label="Navigasi jendela alur"><button type="button" disabled={flowPage === 0} onClick={() => setFlowPageState({ key: flowKey, page: Math.max(0, flowPage - 1) })}>Jendela sebelumnya</button><span>Jendela {flowPage + 1} dari {flowPageCount} · {orderedFlowNodes.length} node yang cocok</span><button type="button" disabled={flowPage + 1 >= flowPageCount} onClick={() => setFlowPageState({ key: flowKey, page: Math.min(flowPageCount - 1, flowPage + 1) })}>Jendela berikutnya</button></div> : null}
-        <div className={styles.flowTools} role="group" aria-label="Kontrol diagram alur"><button type="button" onClick={() => setFlowZoom(value => Math.max(30, value - 10))} disabled={flowZoom <= 30} aria-label="Perkecil diagram alur">−</button><span aria-live="polite">Zoom {flowZoom}%</span><button type="button" onClick={() => setFlowZoom(value => Math.min(150, value + 10))} disabled={flowZoom >= 150} aria-label="Perbesar diagram alur">+</button><button type="button" onClick={() => { const width = flowCanvasRef.current?.clientWidth ?? layout.width; setFlowZoom(Math.max(30, Math.min(100, Math.floor((width - 20) / layout.width * 100)))); requestAnimationFrame(() => flowCanvasRef.current?.scrollTo({ top: 0, left: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })); }}>Sesuaikan diagram</button></div>
-        <p className={styles.flowCoverage} aria-live="polite">Jendela ini menampilkan {pageFlowNodes.length} dari {orderedFlowNodes.length} node dan {pageFlowEdges.length} relasi source. {hiddenFlowNodes ? `${hiddenFlowNodes} node berada di jendela lain. ` : ""}{selectedFlowEntry && selectedFlowNodes.length > scopedFlowNodes.length ? `${selectedFlowNodes.length - scopedFlowNodes.length} fakta lain pada fitur ini tersedia lewat “Semua fakta fitur”. ` : ""}{hiddenFlowEdges ? `${hiddenFlowEdges} relasi tidak terlihat di jendela ini atau tersembunyi oleh filter. ` : ""}{!showIndications ? `${scopedFlowNodes.filter(node => node.confidence === "indicated").length} node indikasi disembunyikan.` : ""}</p>
-        <p className={styles.edgeLabelGuidance}>Arah panah mengikuti relasi source. Pada alur dengan banyak relasi, label tersedia saat pointer berada di garis dan pada panel Evidence relasi; buka panel untuk melihat label, keyakinan, alasan, serta tautan baris kode.</p>
-        <div ref={flowCanvasRef} className={styles.flowCanvas} data-testid="semantic-flow-canvas" role="region" aria-label={`${selectedFlowEntry ? "Alur" : "Peta fakta"} fitur ${featureLabel(selectedFeature)}`} tabIndex={0}>
-          <svg width={layout.width * flowZoom / 100} height={layout.height * flowZoom / 100} viewBox={`0 0 ${layout.width} ${layout.height}`} role="group" aria-label={`${selectedFlowEntry ? "Diagram alur" : "Peta fakta"} ${featureLabel(selectedFeature)}`}>
+        <div className={styles.flowTools} role="group" aria-label="User flow diagram controls"><button type="button" onClick={() => setFlowZoom(value => Math.max(30, value - 10))} disabled={flowZoom <= 30} aria-label="Zoom out user flow">−</button><span aria-live="polite">Zoom {flowZoom}%</span><button type="button" onClick={() => setFlowZoom(value => Math.min(150, value + 10))} disabled={flowZoom >= 150} aria-label="Zoom in user flow">+</button><button type="button" onClick={() => { const canvas = flowCanvasRef.current; if (!canvas) return; const minZoom = canvas.clientWidth < 640 ? 55 : 30; const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((canvas.clientWidth - 32) / layout.width * 100))); setFlowZoom(nextZoom); requestAnimationFrame(() => { if (flowAnchorNodeId) centerFlowViewport(canvas, flowAnchorNodeId, layout.positions, layout.width, nextZoom); else canvas.scrollTo({ top: 0, left: 0, behavior: "auto" }); }); }}>Fit diagram</button></div>
+        <p className={styles.flowCoverage} aria-live="polite">Showing all {pageFlowNodes.length} nodes and {pageFlowEdges.length} source relationships in this flow. {selectedFlowEntry && selectedFlowNodes.length > scopedFlowNodes.length ? `${selectedFlowNodes.length - scopedFlowNodes.length} unrelated feature facts are outside this entry point; select “All feature facts” to inspect them. ` : ""}{!showIndications ? `${scopedFlowNodes.filter(node => node.confidence === "indicated").length} indicated nodes are hidden by the filter.` : ""}</p>
+        <p className={styles.edgeLabelGuidance}>Arrows follow source relationships. Decision branches show their labels on the diagram; open Relationship evidence for all labels, rationale, and source lines.</p>
+        <div ref={flowCanvasRef} className={styles.flowCanvas} data-testid="semantic-flow-canvas" role="region" aria-label={`${selectedFlowEntry ? "User flow" : "Feature overview"} ${featureLabel(selectedFeature)}`} tabIndex={0}>
+          <svg width={layout.width * flowZoom / 100} height={layout.height * flowZoom / 100} viewBox={`0 0 ${layout.width} ${layout.height}`} role="group" aria-label={`${selectedFlowEntry ? "User flow diagram" : "Feature overview"} ${featureLabel(selectedFeature)}`}>
             <defs><marker id={`arrow-${analysisId.replace(/[^a-z0-9]/giu, "")}`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" /></marker></defs>
-            {pageFlowEdges.map(edge => {
+            {pageFlowEdges.map((edge, routeIndex) => {
               const source = pageNodeById.get(edge.source), target = pageNodeById.get(edge.target);
               const from = layout.positions.get(edge.source), to = layout.positions.get(edge.target);
               if (!source || !target || !from || !to) return null;
               const sourceDegree = edgeDegrees.get(edge.source), targetDegree = edgeDegrees.get(edge.target);
-              const inlineLabel = pageFlowEdges.length <= 5 && sourceDegree?.outgoing === 1 && targetDegree?.incoming === 1;
-              return <FlowEdge key={edge.id} edge={edge} source={source} target={target} from={from} to={to} inlineLabel={inlineLabel} markerId={`arrow-${analysisId.replace(/[^a-z0-9]/giu, "")}`} labelForNode={nodeLabel} />;
+              const inlineLabel = edge.label.length > 0 && (source.kind === "decision" || (sourceDegree?.outgoing === 1 && targetDegree?.incoming === 1));
+              return <FlowEdge key={edge.id} edge={edge} source={source} target={target} from={from} to={to} inlineLabel={inlineLabel} markerId={`arrow-${analysisId.replace(/[^a-z0-9]/giu, "")}`} labelForNode={nodeLabel} routeIndex={routeIndex} />;
             })}
-            {pageFlowNodes.map(node => { const point = layout.positions.get(node.id); if (!point) return null; const lines = splitLabel(nodeLabel(node)); return <g key={node.id} data-node-id={node.id} className={`${styles.flowNode} ${styles[`kind_${node.kind}`]} ${node.confidence === "indicated" ? styles.indicatedNode : ""}`} role="button" tabIndex={0} aria-label={`${node.kind}: ${nodeLabel(node)}; ${node.confidence === "proven" ? "terbukti" : "indikasi"}`} onClick={() => setSelectedNodeId(node.id)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedNodeId(node.id); } }}>{node.kind === "decision" ? <polygon points={`${point.x},${point.y - 54} ${point.x + 78},${point.y} ${point.x},${point.y + 54} ${point.x - 78},${point.y}`} /> : <rect x={point.x - 100} y={point.y - 42} width="200" height="84" rx="14" />}<text x={point.x} y={point.y - (lines.length - 1) * 8}>{lines.map((line, index) => <tspan key={index} x={point.x} dy={index ? 19 : 0}>{line}</tspan>)}</text><text className={styles.nodeKindLabel} x={point.x} y={point.y + 30}>{node.kind}</text></g>; })}
+            {pageFlowNodes.map(node => { const point = layout.positions.get(node.id); if (!point) return null; const lines = splitLabel(nodeLabel(node)); return <g key={node.id} data-node-id={node.id} className={`${styles.flowNode} ${styles[`kind_${node.kind}`]} ${node.confidence === "indicated" ? styles.indicatedNode : ""}`} role="button" tabIndex={0} aria-label={`${node.kind}: ${nodeLabel(node)}; ${node.confidence === "proven" ? "Proven" : "Indicated"}`} onClick={() => setSelectedNodeId(node.id)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedNodeId(node.id); } }}><title>{nodeLabel(node)}</title>{node.kind === "decision" ? <polygon points={`${point.x},${point.y - 54} ${point.x + 78},${point.y} ${point.x},${point.y + 54} ${point.x - 78},${point.y}`} /> : <rect x={point.x - 100} y={point.y - 42} width="200" height="84" rx="14" />}<text x={point.x} y={point.y - (lines.length - 1) * 8}>{lines.map((line, index) => <tspan key={index} x={point.x} dy={index ? 19 : 0}>{line}</tspan>)}</text><text className={styles.nodeKindLabel} x={point.x} y={point.y + 30}>{node.kind}</text></g>; })}
           </svg>
         </div>
         <FlowStepEvidence key={flowKey} nodes={pageFlowNodes} repository={evidenceRepository} commitSha={evidenceCommitSha} labelForNode={nodeLabel} selectedNodeId={selectedNodeId} selectNode={setSelectedNodeId} />
@@ -627,14 +748,14 @@ function NodeCorrection({ node, payload, editedLabel, editedGroup, setEditedLabe
 }) {
   const hasOverride = Object.hasOwn(payload.overlay.labels, node.id) || Object.hasOwn(payload.overlay.groups, node.id);
   return <aside className={styles.inspector} aria-labelledby="semantic-inspector-heading">
-    <div><p className={styles.eyebrow}>BUKTI & KOREKSI</p><h3 id="semantic-inspector-heading">{nodeLabelForInspector(node, payload)}</h3><p>{node.kind} · {node.confidence === "proven" ? "Terbukti dari source" : `Indikasi · ${node.reason}`}</p></div>
+    <div><p className={styles.eyebrow}>EVIDENCE & CORRECTIONS</p><h3 id="semantic-inspector-heading">{nodeLabelForInspector(node, payload)}</h3><p>{node.kind} · {node.confidence === "proven" ? "Proven from source" : `Indicated · ${node.reason}`}</p></div>
     <EvidenceList items={node.evidence} repository={repository} commitSha={commitSha} />
     <form onSubmit={submit} className={styles.correctionForm}>
-      <label>Nama tampilan<input value={editedLabel} maxLength={100} onChange={event => setEditedLabel(event.currentTarget.value)} /></label>
-      {["concept", "component", "store"].includes(node.kind) ? <label>Kelompok fitur<select value={editedGroup} onChange={event => setEditedGroup(event.currentTarget.value)}><option value="">Otomatis dari model</option>{features.map(feature => <option key={feature.id} value={feature.id}>{payload.overlay.labels[feature.id] ?? feature.label}</option>)}</select></label> : null}
-      <div><button type="submit" disabled={saving}>{saving ? "Menyimpan…" : "Simpan koreksi"}</button><button type="button" disabled={saving || !hasOverride} onClick={() => onReset(node)}>Kembalikan otomatis</button></div>
+      <label>Display name<input value={editedLabel} maxLength={100} onChange={event => setEditedLabel(event.currentTarget.value)} /></label>
+      {["concept", "component", "store"].includes(node.kind) ? <label>Feature group<select value={editedGroup} onChange={event => setEditedGroup(event.currentTarget.value)}><option value="">Automatic from model</option>{features.map(feature => <option key={feature.id} value={feature.id}>{payload.overlay.labels[feature.id] ?? feature.label}</option>)}</select></label> : null}
+      <div><button type="submit" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button><button type="button" disabled={saving || !hasOverride} onClick={() => onReset(node)}>Restore automatic</button></div>
     </form>
-    {message ? <p className={styles.savedMessage} role="status">{message}</p> : null}{error ? <div className={styles.errorBox} role="alert"><p>{error}</p><button type="button" onClick={reload}>Muat ulang model</button></div> : null}
+    {message ? <p className={styles.savedMessage} role="status">{message}</p> : null}{error ? <div className={styles.errorBox} role="alert"><p>{error}</p><button type="button" onClick={reload}>Reload model</button></div> : null}
   </aside>;
 }
 function nodeLabelForInspector(node: SemanticNode, payload: SemanticPayload) { return payload.overlay.labels[node.id] ?? node.label; }
@@ -660,6 +781,105 @@ function colorStyle(id: string): CSSProperties {
   return { "--feature-fill": colors.fill, "--feature-border": colors.border, "--feature-text": colors.text } as CSSProperties;
 }
 
+function packFeatureNetwork(features: SemanticFeature[], bounds: Map<string, { width: number; height: number }>, links: Map<string, Set<string>>) {
+  const maxDimension = Math.max(0, ...features.map(feature => Math.max(bounds.get(feature.id)?.width ?? 280, bounds.get(feature.id)?.height ?? 112)));
+  const cellSize = Math.max(200, maxDimension + 48);
+  const cells = new Map<string, Array<{ id: string; x: number; y: number }>>();
+  const placed = new Map<string, { x: number; y: number }>();
+  const cellKey = (x: number, y: number) => `${Math.floor(x / cellSize)},${Math.floor(y / cellSize)}`;
+  const insert = (item: { id: string; x: number; y: number }) => {
+    const key = cellKey(item.x, item.y);
+    const bucket = cells.get(key) ?? [];
+    bucket.push(item);
+    cells.set(key, bucket);
+  };
+  const collides = (x: number, y: number, id: string) => {
+    const cellX = Math.floor(x / cellSize), cellY = Math.floor(y / cellSize);
+    for (let dx = -2; dx <= 2; dx += 1) for (let dy = -2; dy <= 2; dy += 1) {
+      for (const other of cells.get(`${cellX + dx},${cellY + dy}`) ?? []) {
+        if (other.id === id) continue;
+        const own = bounds.get(id) ?? { width: 280, height: 112 };
+        const otherBounds = bounds.get(other.id) ?? { width: 280, height: 112 };
+        if (Math.abs(x - other.x) < (own.width + otherBounds.width) / 2 + 36 && Math.abs(y - other.y) < (own.height + otherBounds.height) / 2 + 36) return true;
+      }
+    }
+    return false;
+  };
+  const goldenAngle = Math.PI * (3 - Math.sqrt(5));
+  const stableAngle = (id: string) => {
+    let hash = 2166136261;
+    for (const character of id) hash = Math.imul(hash ^ character.charCodeAt(0), 16777619);
+    return ((hash >>> 0) / 0xffffffff) * Math.PI * 2;
+  };
+  const ordered = [...features].sort((left, right) =>
+    Math.max(bounds.get(right.id)?.width ?? 280, bounds.get(right.id)?.height ?? 112) - Math.max(bounds.get(left.id)?.width ?? 280, bounds.get(left.id)?.height ?? 112) ||
+    (links.get(right.id)?.size ?? 0) - (links.get(left.id)?.size ?? 0) ||
+    left.id.localeCompare(right.id));
+  for (const [index, feature] of ordered.entries()) {
+    const ownBounds = bounds.get(feature.id) ?? { width: 280, height: 112 };
+    const placedNeighbors = [...(links.get(feature.id) ?? [])].filter(id => placed.has(id)).map(id => ({ id, point: placed.get(id)! }));
+    let origin: { x: number; y: number };
+    if (placedNeighbors.length) {
+      const centroid = placedNeighbors.reduce((sum, item) => ({ x: sum.x + item.point.x / placedNeighbors.length, y: sum.y + item.point.y / placedNeighbors.length }), { x: 0, y: 0 });
+      const angle = Math.hypot(centroid.x, centroid.y) > 1 ? Math.atan2(centroid.y, centroid.x) : stableAngle(feature.id);
+      const ownExtent = (Math.abs(Math.cos(angle)) * ownBounds.width + Math.abs(Math.sin(angle)) * ownBounds.height) / 2;
+      const neighborExtent = placedNeighbors.reduce((sum, item) => { const neighbor = bounds.get(item.id) ?? { width: 280, height: 112 }; return sum + (Math.abs(Math.cos(angle)) * neighbor.width + Math.abs(Math.sin(angle)) * neighbor.height) / (2 * placedNeighbors.length); }, 0);
+      origin = { x: centroid.x + Math.cos(angle) * (ownExtent + neighborExtent + 80), y: centroid.y + Math.sin(angle) * (ownExtent + neighborExtent + 80) };
+    } else {
+      const radialDistance = index === 0 ? 0 : cellSize * 0.62 * Math.sqrt(index);
+      const angle = index * goldenAngle;
+      origin = { x: Math.cos(angle) * radialDistance, y: Math.sin(angle) * radialDistance };
+    }
+    let point = origin;
+    for (let attempt = 0; collides(point.x, point.y, feature.id); attempt += 1) {
+      const ring = 0.6 + Math.floor(attempt / 8) * 0.55;
+      const angle = stableAngle(feature.id) + attempt * goldenAngle;
+      point = { x: origin.x + Math.cos(angle) * cellSize * ring, y: origin.y + Math.sin(angle) * cellSize * ring };
+    }
+    placed.set(feature.id, point);
+    insert({ id: feature.id, ...point });
+  }
+  let minX = 0, maxX = 0, minY = 0, maxY = 0;
+  for (const feature of features) {
+    const point = placed.get(feature.id)!;
+    const box = bounds.get(feature.id) ?? { width: 280, height: 112 };
+    minX = Math.min(minX, point.x - box.width / 2); maxX = Math.max(maxX, point.x + box.width / 2);
+    minY = Math.min(minY, point.y - box.height / 2); maxY = Math.max(maxY, point.y + box.height / 2);
+  }
+  const padding = 72;
+  const offset = { x: padding - minX, y: padding - minY };
+  const positions = new Map([...placed].map(([id, point]) => [id, { x: point.x + offset.x, y: point.y + offset.y }]));
+  return { positions, offset, width: Math.max(320, maxX - minX + padding * 2), height: Math.max(300, maxY - minY + padding * 2) };
+}
+
+function clipRectEdge(from: { x: number; y: number }, to: { x: number; y: number }, source: { width: number; height: number }, target: { width: number; height: number }) {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const sourceScale = 1 / Math.max(Math.abs(dx) / (source.width / 2), Math.abs(dy) / (source.height / 2), 1);
+  const targetScale = 1 / Math.max(Math.abs(dx) / (target.width / 2), Math.abs(dy) / (target.height / 2), 1);
+  return {
+    from: { x: from.x + dx * sourceScale, y: from.y + dy * sourceScale },
+    to: { x: to.x - dx * targetScale, y: to.y - dy * targetScale },
+  };
+}
+
+/** Child cards occupy two columns; reserve the middle gap for cross-row relations. */
+function routeChildRelation(from: { x: number; y: number }, to: { x: number; y: number }, centerX: number, cardWidth: number, index: number) {
+  if (from.x === to.x && from.y === to.y) {
+    const port = from.x + cardWidth / 2;
+    return { path: `M ${port} ${from.y - 12} H ${port + 18} V ${from.y + 12} H ${port}`, labelX: port + 18, labelY: from.y - 20 };
+  }
+  if (Math.abs(from.y - to.y) < 1) {
+    const direction = Math.sign(to.x - from.x);
+    const start = from.x + direction * cardWidth / 2;
+    const end = to.x - direction * cardWidth / 2;
+    return { path: `M ${start} ${from.y} H ${end}`, labelX: (start + end) / 2, labelY: from.y - 10 };
+  }
+  const start = from.x + (from.x <= centerX ? 1 : -1) * cardWidth / 2;
+  const end = to.x + (to.x <= centerX ? 1 : -1) * cardWidth / 2;
+  const lane = centerX + (index % 5 - 2) * 5;
+  return { path: `M ${start} ${from.y} H ${lane} V ${to.y} H ${end}`, labelX: lane, labelY: (from.y + to.y) / 2 - 8 };
+}
+
 function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, selectedNodeId, selectNode, search, setSearch, features, featureLabel, nodeLabel, nodesForFeature, groupFor, showIndications, setShowIndications, focusedFeatureId, setFocusedFeatureId, zoom, setZoom, reset }: {
   payload: SemanticPayload; expandedFeatures: string[]; toggleExpanded: (id: string) => void;
   selectedNodeId: string | null; selectNode: (id: string) => void; search: string; setSearch: (value: string) => void;
@@ -669,18 +889,15 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
   showIndications: boolean; setShowIndications: (value: boolean) => void; focusedFeatureId: string | null; setFocusedFeatureId: (value: string | null) => void;
   zoom: number; setZoom: (value: number) => void; reset: () => void;
 }) {
+  const graphViewportRef = useRef<HTMLDivElement>(null);
+  const graphViewportSizeRef = useRef<{ width: number; height: number } | null>(null);
   const [listLimitState, setListLimitState] = useState({ search, limit: 50 });
   const listLimit = listLimitState.search === search ? listLimitState.limit : 50;
-  const [pendingRevealFeatureId, setPendingRevealFeatureId] = useState<string | null>(null);
   const [graphNodeLimits, setGraphNodeLimits] = useState<Record<string, number>>({});
   const [focusedGraphNodeId, setFocusedGraphNodeId] = useState<string | null>(null);
+  const [fitRequest, setFitRequest] = useState(0);
+  const appliedFitRequestRef = useRef(fitRequest);
   const graphNodePageSize = 12;
-  useEffect(() => {
-    if (!pendingRevealFeatureId) return;
-    const target = document.getElementById(`semantic-cluster-${encodeURIComponent(pendingRevealFeatureId)}`);
-    if (!target) return;
-    requestAnimationFrame(() => target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" }));
-  }, [listLimit, pendingRevealFeatureId]);
   const allFeatureIds = new Set(payload.model.features.map(feature => feature.id));
   const degree = new Map<string, number>();
   const relationsByFeature = new Map<string, number>();
@@ -748,33 +965,78 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
     return inFocus.slice(0, graphNodeLimits[feature.id] ?? graphNodePageSize);
   }
   const clusterNodes = new Map(displayedFeatures.map(feature => [feature.id, nodesVisibleInCluster(feature)]));
-  const columns = 3;
-  const cellWidth = 390;
-  const positions = new Map<string, { x: number; y: number }>();
-  const circlePositions = new Map<string, { x: number; y: number }>();
-  let height = 44;
-  for (let row = 0; row < Math.ceil(displayedFeatures.length / columns); row += 1) {
-    const rowFeatures = displayedFeatures.slice(row * columns, (row + 1) * columns);
-    const maxNodeRows = Math.max(0, ...rowFeatures.map(feature => expandedFeatures.includes(feature.id) ? Math.ceil((clusterNodes.get(feature.id)?.length ?? 0) / 3) : 0));
-    const rowHeight = Math.max(210, 238 + maxNodeRows * 80);
-    for (let column = 0; column < rowFeatures.length; column += 1) {
-      const feature = rowFeatures[column]!;
-      const cellX = 20 + column * cellWidth;
-      positions.set(feature.id, { x: cellX + cellWidth / 2, y: height + 58 });
-      if (!expandedFeatures.includes(feature.id)) continue;
-      const visibleNodes = clusterNodes.get(feature.id) ?? [];
-      for (const [index, node] of visibleNodes.entries()) {
-        const rowIndex = Math.floor(index / 3);
-        const indexInRow = index % 3;
-        const countInRow = Math.min(3, visibleNodes.length - rowIndex * 3);
-        const rowStart = cellX + cellWidth / 2 - ((countInRow - 1) * 120) / 2;
-        circlePositions.set(`${feature.id}\0${node.id}`, { x: rowStart + indexInRow * 120, y: height + 215 + rowIndex * 80 });
-      }
+  const nodeCardWidth = 210;
+  const nodeCardHeight = 72;
+  const nodeColumnGap = 50;
+  const nodeRowGap = 110;
+  const featureBounds = new Map(displayedFeatures.map(feature => {
+    const count = expandedFeatures.includes(feature.id) ? (clusterNodes.get(feature.id)?.length ?? 0) : 0;
+    const rows = Math.ceil(count / 2);
+    return [feature.id, { width: count ? 520 : 280, height: count ? 86 + rows * nodeRowGap : 112 }];
+  }));
+  const featureLinks = new Map(displayedFeatures.map(feature => [feature.id, new Set<string>()]));
+  for (const edge of groupedEdges) {
+    if (featureLinks.has(edge.source) && featureLinks.has(edge.target)) {
+      featureLinks.get(edge.source)!.add(edge.target);
+      featureLinks.get(edge.target)!.add(edge.source);
     }
-    height += rowHeight + 24;
   }
-  const width = Math.max(820, columns * cellWidth + 40);
-  height = Math.max(300, height);
+  // Put source-related features near each other, then pack remaining clusters
+  // in a deterministic sunflower. A spatial hash keeps collision checks local.
+  const network = packFeatureNetwork(displayedFeatures, featureBounds, featureLinks);
+  const positions = network.positions;
+  const nodePositions = new Map<string, { x: number; y: number }>();
+  for (const feature of displayedFeatures) {
+    if (!expandedFeatures.includes(feature.id)) continue;
+    const center = positions.get(feature.id)!;
+    const visibleNodes = clusterNodes.get(feature.id) ?? [];
+    for (const [index, node] of visibleNodes.entries()) {
+      const row = Math.floor(index / 2);
+      const column = index % 2;
+      nodePositions.set(`${feature.id}\0${node.id}`, {
+        x: center.x + (visibleNodes.length === 1 ? 0 : column === 0 ? -nodeColumnGap / 2 - nodeCardWidth / 2 : nodeColumnGap / 2 + nodeCardWidth / 2),
+        y: center.y - (featureBounds.get(feature.id)!.height / 2) + 122 + row * nodeRowGap,
+      });
+    }
+  }
+  const width = network.width;
+  const height = network.height;
+  const focusedNodeFeatureId = focusedGraphNodeId
+    ? displayedFeatures.find(feature => allNodesForFeature(feature).some(node => node.id === focusedGraphNodeId))?.id
+    : undefined;
+  const graphAnchorFeatureId = displayedFeatures.find(feature => feature.id === focusedFeatureId)?.id
+    ?? focusedNodeFeatureId
+    ?? [...expandedFeatures].reverse().find(featureId => positions.has(featureId))
+    ?? displayedFeatures[0]?.id;
+  const graphLayoutKey = JSON.stringify([payload.revision, displayedFeatures.map(feature => feature.id), expandedFeatures, displayedFeatures.map(feature => [feature.id, clusterNodes.get(feature.id)?.map(node => node.id) ?? []]), focusedFeatureId, focusedGraphNodeId, showIndications]);
+  useEffect(() => {
+    const viewport = graphViewportRef.current;
+    if (!viewport) return;
+    let alignFrame = 0;
+    const fitOrReveal = () => {
+      const viewportSize = { width: viewport.getBoundingClientRect().width, height: viewport.getBoundingClientRect().height };
+      const previousSize = graphViewportSizeRef.current;
+      // SVG content zoom can change the viewport's intrinsic clientHeight. Only
+      // a container-width change is a fit event; content height changes must
+      // preserve manual zoom and only reposition the active feature.
+      const resized = !previousSize || previousSize.width !== viewportSize.width;
+      const forceFit = appliedFitRequestRef.current !== fitRequest;
+      graphViewportSizeRef.current = viewportSize;
+      let alignmentZoom = zoom;
+      if (resized || forceFit) {
+        const minZoom = viewport.clientWidth < 640 ? 85 : 75;
+        alignmentZoom = Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / width * 100)));
+        setZoom(alignmentZoom);
+      }
+      appliedFitRequestRef.current = fitRequest;
+      cancelAnimationFrame(alignFrame);
+      if (graphAnchorFeatureId) alignFrame = requestAnimationFrame(() => focusGraphViewport(viewport, graphAnchorFeatureId, positions, featureBounds, width, height, alignmentZoom));
+    };
+    fitOrReveal();
+    const observer = new ResizeObserver(fitOrReveal);
+    observer.observe(viewport);
+    return () => { observer.disconnect(); cancelAnimationFrame(alignFrame); };
+  }, [fitRequest, graphAnchorFeatureId, graphLayoutKey, height, width, zoom, setZoom]);
   const displayEdges = groupedEdges.filter(edge => positions.has(edge.source) && positions.has(edge.target));
   const displayedGraphRelations = displayedFeatures.flatMap(feature => {
     const visible = clusterNodes.get(feature.id) ?? [];
@@ -795,51 +1057,99 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
   const renderedRelationIds = new Set([...displayedGraphRelations.map(edge => edge.id), ...displayEdges.flatMap(edge => edge.evidence.map(item => item.id))]);
   const graphRelationsOutsideProjection = Math.max(0, relationRows.length - graphProjectionRelationIds.size);
   const graphRelationsNotOnCanvas = Math.max(0, relationRows.length - renderedRelationIds.size);
-  const hiddenGraphNodes = displayedFeatures.reduce((count, feature) => count + Math.max(0, allNodesForFeature(feature).length - (clusterNodes.get(feature.id)?.length ?? 0)), 0);
+  const hiddenGraphNodes = displayedFeatures.reduce((count, feature) => {
+    const visibleCount = expandedFeatures.includes(feature.id) ? (clusterNodes.get(feature.id)?.length ?? 0) : 0;
+    return count + Math.max(0, allNodesForFeature(feature).length - visibleCount);
+  }, 0);
   const listedFeatures = displayedFeatures.slice(0, listLimit);
   const focusedNode = focusedGraphNodeId ? graphNodeById.get(focusedGraphNodeId) : undefined;
   function revealCluster(featureId: string, expanded: boolean) {
     toggleExpanded(featureId);
-    if (expanded) {
-      setPendingRevealFeatureId(null);
-    } else {
+    if (!expanded) {
       const index = features.findIndex(feature => feature.id === featureId);
       if (index >= 0) setListLimitState({ search, limit: Math.max(listLimit, index + 1) });
-      setPendingRevealFeatureId(featureId);
     }
   }
   return <>
-    <div className={styles.controls}><label>Cari fitur, konsep, atau komponen<input type="search" value={search} onChange={event => { setSearch(event.currentTarget.value); setFocusedFeatureId(null); setPendingRevealFeatureId(null); }} placeholder="Cari dalam seluruh graph" /></label><p aria-live="polite">{features.length} dari {payload.model.features.length} fitur · {payload.model.nodes.length} fakta semantik.</p></div>
-    <div className={styles.graphTools} role="group" aria-label="Kontrol knowledge graph">
-      <label><input type="checkbox" checked={showIndications} onChange={event => setShowIndications(event.currentTarget.checked)} />Tampilkan indikasi</label>
-      <div className={styles.zoomControls}><button type="button" onClick={() => setZoom(Math.max(60, zoom - 10))} disabled={zoom <= 60} aria-label="Perkecil knowledge graph">−</button><span aria-live="polite">Zoom {zoom}%</span><button type="button" onClick={() => setZoom(Math.min(150, zoom + 10))} disabled={zoom >= 150} aria-label="Perbesar knowledge graph">+</button></div>
-      <button type="button" onClick={() => { setGraphNodeLimits({}); setFocusedGraphNodeId(null); reset(); }}>Atur ulang graph</button>
-      {focusedFeatureId || focusedGraphNodeId ? <button type="button" onClick={() => { setFocusedFeatureId(null); setFocusedGraphNodeId(null); }}>Tampilkan semua fitur dan node</button> : null}
+    <div className={styles.controls}><label>Search features, concepts, or components<input type="search" value={search} onChange={event => { setSearch(event.currentTarget.value); setFocusedFeatureId(null); }} placeholder="Search all features and evidence" /></label><p aria-live="polite">{features.length} of {payload.model.features.length} features · {payload.model.nodes.length} semantic nodes.</p></div>
+    <div className={styles.graphTools} role="group" aria-label="Knowledge graph controls">
+      <label><input type="checkbox" checked={showIndications} onChange={event => setShowIndications(event.currentTarget.checked)} />Show indicated relationships</label>
+      <div className={styles.zoomControls}><button type="button" onClick={() => setZoom(Math.max(30, zoom - 10))} disabled={zoom <= 30} aria-label="Zoom out knowledge graph">−</button><span aria-live="polite">Zoom {zoom}%</span><button type="button" onClick={() => setZoom(Math.min(150, zoom + 10))} disabled={zoom >= 150} aria-label="Zoom in knowledge graph">+</button></div>
+      <button type="button" onClick={() => { const viewport = graphViewportRef.current; if (!viewport) return; const minZoom = viewport.clientWidth < 640 ? 85 : 75; const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / width * 100))); setZoom(nextZoom); if (graphAnchorFeatureId) requestAnimationFrame(() => focusGraphViewport(viewport, graphAnchorFeatureId, positions, featureBounds, width, height, nextZoom)); }}>Fit graph</button>
+      <button type="button" onClick={() => { setGraphNodeLimits({}); setFocusedGraphNodeId(null); setFitRequest(value => value + 1); reset(); }}>Reset graph</button>
+      {focusedFeatureId || focusedGraphNodeId ? <button type="button" onClick={() => { setFocusedFeatureId(null); setFocusedGraphNodeId(null); }}>Show all features and nodes</button> : null}
     </div>
-    <p className={styles.graphLegend} aria-label="Legenda hubungan knowledge graph"><span><i className={styles.sourceRelationLegend} />Relasi source tersimpan</span><span><i className={styles.indicatedRelationLegend} />Indikasi</span><span><i className={styles.membershipRelationLegend} />Garis titik mengelompokkan node ke fitur; bukan klaim relasi kode</span></p>
-    <div className={styles.clusterViewport} role="region" aria-label="Kanvas cluster knowledge graph; gulir untuk melihat fitur lain" tabIndex={0}>
-      <svg width={width * zoom / 100} height={height * zoom / 100} viewBox={`0 0 ${width} ${height}`} role="group" aria-label="Jaringan cluster fitur, konsep, komponen, dan relasi source">
+    <p className={styles.graphLegend} aria-label="Knowledge graph legend"><span><i className={styles.sourceRelationLegend} />Source relationship</span><span><i className={styles.indicatedRelationLegend} />Indicated relationship</span><span>Feature frames group related responsibilities</span></p>
+    <div ref={graphViewportRef} className={styles.clusterViewport} role="region" aria-label="Knowledge graph canvas; scroll to explore features" tabIndex={0}>
+      <svg width={width * zoom / 100} height={height * zoom / 100} viewBox={`0 0 ${width} ${height}`} role="group" aria-label="Feature, concept, component, and source relationship clusters">
         <defs><marker id={`semantic-arrow-${analysisIdSafe(payload.analysisId)}`} markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" /></marker></defs>
-        {displayEdges.map((edge, index) => { const from = positions.get(edge.source)!, to = positions.get(edge.target)!; const sourceLabel = payload.overlay.labels[edge.source] ?? payload.model.features.find(feature => feature.id === edge.source)?.label ?? edge.source; const targetLabel = payload.overlay.labels[edge.target] ?? payload.model.features.find(feature => feature.id === edge.target)?.label ?? edge.target; const inlineLabel = displayEdges.length === 1; const description = `${sourceLabel} → ${targetLabel} · ${edge.count} relasi source · ${edge.confidence === "proven" ? "Terbukti" : "Indikasi"}`; return <g key={`${edge.source}:${edge.target}`} data-source-id={edge.source} data-target-id={edge.target} data-inline-label={inlineLabel} role="img" aria-label={description} className={edge.confidence === "indicated" ? styles.indicatedEdge : styles.flowEdge}><title>{description}. Buka evidence fitur untuk rincian hubungan dan baris sumber.</title><path d={`M ${from.x} ${from.y} Q ${(from.x + to.x) / 2} ${Math.min(from.y, to.y) - 85 - (index % 3) * 18} ${to.x} ${to.y}`} markerEnd={`url(#semantic-arrow-${analysisIdSafe(payload.analysisId)})`} />{inlineLabel ? <text x={(from.x + to.x) / 2} y={Math.min(from.y, to.y) - 43 - (index % 3) * 9}>{edge.count} relasi antar fitur</text> : null}</g>; })}
+        {displayedFeatures.map(feature => {
+          const point = positions.get(feature.id)!;
+          const size = featureBounds.get(feature.id)!;
+          const colors = featureColors(feature.id);
+          return <rect key={`background:${feature.id}`} className={styles.featureFrame} data-feature-background={feature.id} x={point.x - size.width / 2} y={point.y - size.height / 2} width={size.width} height={size.height} rx="12" fill={colors.fill} stroke={colors.border} />;
+        })}
+        {displayEdges.map((edge, index) => {
+          const from = positions.get(edge.source)!, to = positions.get(edge.target)!;
+          const fromBounds = featureBounds.get(edge.source)!, toBounds = featureBounds.get(edge.target)!;
+          const clipped = clipRectEdge(from, to, fromBounds, toBounds);
+          const sourceLabel = payload.overlay.labels[edge.source] ?? payload.model.features.find(feature => feature.id === edge.source)?.label ?? edge.source;
+          const targetLabel = payload.overlay.labels[edge.target] ?? payload.model.features.find(feature => feature.id === edge.target)?.label ?? edge.target;
+          const inlineLabel = displayEdges.length === 1;
+          const description = `${sourceLabel} → ${targetLabel} · ${edge.count} source relationships · ${edge.confidence === "proven" ? "Proven" : "Indicated"}`;
+          return <g key={`${edge.source}:${edge.target}`} data-source-id={edge.source} data-target-id={edge.target} data-inline-label={inlineLabel} role="img" aria-label={description} className={edge.confidence === "indicated" ? styles.indicatedEdge : styles.flowEdge}>
+            <title>{description}. Expand a feature to inspect relationship evidence and source lines.</title>
+            <path d={`M ${clipped.from.x} ${clipped.from.y} Q ${(clipped.from.x + clipped.to.x) / 2} ${Math.min(clipped.from.y, clipped.to.y) - 85 - (index % 3) * 18} ${clipped.to.x} ${clipped.to.y}`} markerEnd={`url(#semantic-arrow-${analysisIdSafe(payload.analysisId)})`} />
+            {inlineLabel ? <text x={(clipped.from.x + clipped.to.x) / 2} y={Math.min(clipped.from.y, clipped.to.y) - 43 - (index % 3) * 9}>{edge.count} cross-feature relationships</text> : null}
+          </g>;
+        })}
         {displayedFeatures.filter(feature => expandedFeatures.includes(feature.id)).flatMap(feature => {
-          const center = positions.get(feature.id)!;
           const nodes = clusterNodes.get(feature.id) ?? [];
           const nodeById = new Map(nodes.map(node => [node.id, node]));
-          const groupingLines = nodes.map(node => { const point = circlePositions.get(`${feature.id}\0${node.id}`)!; return <g key={`membership:${feature.id}:${node.id}`} className={styles.membershipEdge}><title>{`Pengelompokan ${nodeLabel(node)} ke fitur ${featureLabel(feature)}; ini bukan relasi kode.`}</title><path d={`M ${center.x} ${center.y + 55} C ${center.x} ${center.y + 95}, ${point.x} ${point.y - 56}, ${point.x} ${point.y - 32}`} /></g>; });
           const sourceRelations = displayedGraphRelations.filter(edge => edge.featureId === feature.id && nodeById.has(edge.source) && nodeById.has(edge.target));
-          const relationLines = sourceRelations.map((edge, index) => { const from = circlePositions.get(`${feature.id}\0${edge.source}`), to = circlePositions.get(`${feature.id}\0${edge.target}`); if (!from || !to) return null; const curve = (index % 3 - 1) * 14; return <g key={`source:${feature.id}:${edge.id}`} className={edge.confidence === "indicated" ? styles.indicatedEdge : styles.flowEdge}><title>{`${nodeLabel(nodeById.get(edge.source)!)} ${edge.label} ${nodeLabel(nodeById.get(edge.target)!)} · ${edge.confidence === "proven" ? "Terbukti" : `Indikasi: ${edge.reason}`}`}</title><path d={`M ${from.x} ${from.y} Q ${(from.x + to.x) / 2 + curve} ${(from.y + to.y) / 2 - curve} ${to.x} ${to.y}`} markerEnd={`url(#semantic-arrow-${analysisIdSafe(payload.analysisId)})`} />{sourceRelations.length === 1 ? <text x={(from.x + to.x) / 2} y={Math.min(from.y, to.y) - 40}>{edge.label}</text> : null}</g>; });
-          return [...groupingLines, ...relationLines];
+          const relationLines = sourceRelations.map((edge, index) => {
+            const from = nodePositions.get(`${feature.id}\0${edge.source}`), to = nodePositions.get(`${feature.id}\0${edge.target}`);
+            if (!from || !to) return null;
+            const route = routeChildRelation(from, to, positions.get(feature.id)!.x, nodeCardWidth, index);
+            return <g key={`source:${feature.id}:${edge.id}`} data-edge-id={edge.id} data-source-id={edge.source} data-target-id={edge.target} data-scope-feature-id={feature.id} className={edge.confidence === "indicated" ? styles.indicatedEdge : styles.flowEdge}>
+              <title>{`${nodeLabel(nodeById.get(edge.source)!)} ${edge.label} ${nodeLabel(nodeById.get(edge.target)!)} · ${edge.confidence === "proven" ? "Proven" : `Indicated: ${edge.reason}`}`}</title>
+              <path d={route.path} markerEnd={`url(#semantic-arrow-${analysisIdSafe(payload.analysisId)})`} />
+              {sourceRelations.length === 1 ? <text x={route.labelX} y={route.labelY}>{edge.label}</text> : null}
+            </g>;
+          });
+          return relationLines;
         })}
-        {displayedFeatures.map(feature => { const point = positions.get(feature.id)!; const selected = expandedFeatures.includes(feature.id); const radius = Math.min(66, 48 + Math.min(18, Math.log2((degree.get(feature.id) ?? 0) + 1) * 4)); const totalNodes = allNodesForFeature(feature).length; const visibleNodes = clusterNodes.get(feature.id) ?? []; const colors = featureColors(feature.id); const mainRelationCount = principalRelationsByFeature.get(feature.id) ?? 0; return <g key={feature.id} data-feature-id={feature.id} role="button" tabIndex={0} aria-label={`${featureLabel(feature)}, ${totalNodes} konsep/komponen terpilih dari peran utama, ${mainRelationCount} relasi antarnode utama; ${selected ? "tutup cluster" : "perluas cluster"}`} aria-expanded={selected} onClick={() => revealCluster(feature.id, selected)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); revealCluster(feature.id, selected); } }} className={styles.featureCluster} style={colorStyle(feature.id)}><circle cx={point.x} cy={point.y} r={radius} fill={colors.fill} stroke={colors.border} /><text x={point.x} y={point.y - 4} fill={colors.text}>{splitLabel(featureLabel(feature), 19).map((line, lineIndex) => <tspan key={lineIndex} x={point.x} dy={lineIndex ? 18 : 0}>{line}</tspan>)}</text><text className={styles.clusterCount} x={point.x} y={point.y + radius + 19}>{selected ? `${visibleNodes.length} ditampilkan` : `${totalNodes} konsep/komponen`} · {mainRelationCount} relasi antar node</text></g>; })}
-        {displayedFeatures.filter(feature => expandedFeatures.includes(feature.id)).flatMap(feature => (clusterNodes.get(feature.id) ?? []).map(node => { const point = circlePositions.get(`${feature.id}\0${node.id}`)!; const colors = featureColors(feature.id); const isFocused = focusedGraphNodeId === node.id; return <g key={`node:${feature.id}:${node.id}`} className={`${styles.graphNode} ${node.confidence === "indicated" ? styles.indicatedGraphNode : ""}`} role="button" tabIndex={0} data-kind={node.kind} aria-pressed={selectedNodeId === node.id} aria-label={`${node.kind}: ${nodeLabel(node)}; ${node.confidence === "proven" ? "Terbukti" : `Indikasi: ${node.reason}`}; klik untuk memilih dan memfokuskan tetangga`} onClick={() => { selectNode(node.id); setFocusedFeatureId(null); setFocusedGraphNodeId(isFocused ? null : node.id); }} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectNode(node.id); setFocusedFeatureId(null); setFocusedGraphNodeId(isFocused ? null : node.id); } }}><circle cx={point.x} cy={point.y} r="32" fill={colors.fill} stroke={colors.border} /><text x={point.x} y={point.y - 2}>{splitLabel(nodeLabel(node), 11).map((line, index) => <tspan key={index} x={point.x} dy={index ? 11 : 0}>{line}</tspan>)}</text><text className={styles.graphNodeKind} x={point.x} y={point.y + 24}>{node.kind}</text></g>; }))}
+        {displayedFeatures.map(feature => {
+          const point = positions.get(feature.id)!;
+          const size = featureBounds.get(feature.id)!;
+          const selected = expandedFeatures.includes(feature.id);
+          const totalNodes = allNodesForFeature(feature).length;
+          const visibleNodes = clusterNodes.get(feature.id) ?? [];
+          const mainRelationCount = principalRelationsByFeature.get(feature.id) ?? 0;
+          const left = point.x - size.width / 2;
+          const top = point.y - size.height / 2;
+          const headingLines = splitLabel(featureLabel(feature), 32, 2);
+          const nodeCount = selected ? `${visibleNodes.length} of ${totalNodes}` : `${totalNodes}`;
+          const cardMeta = `${nodeCount} nodes · ${mainRelationCount} links`;
+          return <g key={feature.id} data-testid="semantic-feature-card" data-feature-id={feature.id} role="button" tabIndex={0} aria-label={`${featureLabel(feature)}, ${totalNodes} concepts/components, ${mainRelationCount} primary relationships; ${selected ? "collapse group" : "expand group"}`} aria-expanded={selected} onClick={() => revealCluster(feature.id, selected)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); revealCluster(feature.id, selected); } }} className={styles.featureCluster} style={colorStyle(feature.id)}>
+            <title>{featureLabel(feature)} · {totalNodes} concepts/components · {mainRelationCount} primary relationships</title>
+            <rect className={styles.featureHitbox} x={left} y={top} width={size.width} height={size.height} rx="12" fill="transparent" stroke="none" pointerEvents="all" />
+            <text className={styles.featureCardTitle} x={left + 16} y={top + 28} textAnchor="start">{headingLines.map((line, index) => <tspan key={index} x={left + 16} dy={index ? 17 : 0}>{line}</tspan>)}</text>
+            <text className={styles.featureCardMeta} x={left + 16} y={top + (headingLines.length > 1 ? 62 : 52)} textAnchor="start">{cardMeta}</text>
+          </g>;
+        })}
+        {displayedFeatures.filter(feature => expandedFeatures.includes(feature.id)).flatMap(feature => (clusterNodes.get(feature.id) ?? []).map(node => { const point = nodePositions.get(`${feature.id}\0${node.id}`)!; const colors = featureColors(feature.id); const isFocused = focusedGraphNodeId === node.id; const left = point.x - nodeCardWidth / 2, top = point.y - nodeCardHeight / 2; const labelLines = splitLabel(nodeLabel(node), 24, 2); return <g key={`node:${feature.id}:${node.id}`} data-testid="semantic-graph-node" data-node-id={node.id} className={`${styles.graphNode} ${node.confidence === "indicated" ? styles.indicatedGraphNode : ""}`} role="button" tabIndex={0} data-kind={node.kind} aria-pressed={selectedNodeId === node.id} aria-label={`${node.kind}: ${nodeLabel(node)}; ${node.confidence === "proven" ? "Proven" : `Indicated: ${node.reason}`}; select to inspect evidence and relationships`} onClick={() => { selectNode(node.id); setFocusedFeatureId(null); setFocusedGraphNodeId(isFocused ? null : node.id); }} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); selectNode(node.id); setFocusedFeatureId(null); setFocusedGraphNodeId(isFocused ? null : node.id); } }}><title>{nodeLabel(node)} · {node.kind}</title><rect x={left} y={top} width={nodeCardWidth} height={nodeCardHeight} rx="8" fill={colors.fill} stroke={colors.border} /><text className={styles.graphNodeLabel} x={left + 12} y={top + 24} textAnchor="start">{labelLines.map((line, index) => <tspan key={index} x={left + 12} dy={index ? 16 : 0}>{line}</tspan>)}</text><text className={styles.graphNodeKind} x={left + 12} y={top + 61} textAnchor="start">{node.kind}</text><text className={styles.graphNodeConfidence} x={left + nodeCardWidth - 12} y={top + 61} textAnchor="end">{node.confidence === "proven" ? "PROVEN" : "INDICATED"}</text></g>; }))}
       </svg>
     </div>
-    <p className={styles.flowCoverage}>Warna membedakan fitur dan domain; ukuran lingkaran mengikuti jumlah relasi, bukan kepentingan bisnis. Node di dalam cluster adalah konsep, komponen utama, atau penyimpanan. File, method, property, helper, dan detail kecil tetap di evidence.</p>
-    <p className={styles.flowCoverage} aria-live="polite">Menampilkan {displayedFeatures.length} cluster · {features.length} dari {payload.model.features.length} fitur cocok · {hiddenGraphNodes} konsep/komponen tersembunyi dari kanvas · {graphRelationsNotOnCanvas} relasi source belum tergambar di kanvas (perluas cluster atau lihat evidence).{graphRelationsOutsideProjection ? ` ${graphRelationsOutsideProjection} di antaranya menghubungkan aktivitas atau detail yang tidak menjadi node utama graph.` : ""}{!showIndications ? ` ${payload.model.nodes.filter(node => node.confidence === "indicated" && ["concept", "component", "store"].includes(node.kind)).length} node indikasi disembunyikan.` : ""} {focusedNode ? `Fokus node: ${nodeLabel(focusedNode)}` : ""}</p>
-    <div className={styles.clusterList} aria-label="Daftar semua cluster fitur">{listedFeatures.map(feature => { const expanded = expandedFeatures.includes(feature.id); const allNodes = allNodesForFeature(feature); const nodes = nodesVisibleInCluster(feature); const featureEdges = edgesByFeature.get(feature.id) ?? []; const hiddenCount = Math.max(0, allNodes.length - nodes.length); const colors = featureColors(feature.id); return <section id={`semantic-cluster-${encodeURIComponent(feature.id)}`} key={feature.id} className={styles.clusterCard} style={{ borderLeft: `3px solid ${colors.border}` }}>
-      <div className={styles.clusterActions}><button type="button" className={styles.clusterHeading} onClick={() => toggleExpanded(feature.id)} aria-expanded={expanded} style={colorStyle(feature.id)}><span className={styles.featureIcon} aria-hidden="true" style={{ borderColor: colors.border, backgroundColor: colors.fill, color: colors.text }}>{featureLabel(feature)[0]?.toLocaleUpperCase() ?? "F"}</span><span><strong>{featureLabel(feature)}</strong><small>{nodes.length} dari {allNodes.length} konsep/komponen · {principalRelationsByFeature.get(feature.id) ?? 0} relasi antar node utama{hiddenCount ? ` · ${hiddenCount} node lainnya belum ditampilkan` : ""}</small></span><span>{expanded ? "−" : "+"}</span></button><button className={styles.focusButton} type="button" aria-pressed={focusedFeatureId === feature.id} onClick={() => { setFocusedGraphNodeId(null); setFocusedFeatureId(focusedFeatureId === feature.id ? null : feature.id); }} title="Fokuskan fitur dan relasi tetangganya">{focusedFeatureId === feature.id ? "Fokus aktif" : "Fokus tetangga"}</button></div>
-      {expanded ? <div className={styles.clusterNodes}>{nodes.map(node => <div className={styles.clusterNodeItem} key={node.id}><button type="button" aria-pressed={selectedNodeId === node.id} data-kind={node.kind} data-confidence={node.confidence} onClick={() => selectNode(node.id)}><strong>{nodeLabel(node)}</strong><small>{node.kind} · {node.confidence === "proven" ? "Terbukti" : `Indikasi: ${node.reason}`}</small></button><button className={styles.focusButton} type="button" aria-pressed={focusedGraphNodeId === node.id} onClick={() => { selectNode(node.id); setFocusedFeatureId(null); setFocusedGraphNodeId(focusedGraphNodeId === node.id ? null : node.id); }}>Fokus tetangga node</button></div>)}{hiddenCount ? <button className={styles.loadMore} type="button" onClick={() => setGraphNodeLimits(current => ({ ...current, [feature.id]: (current[feature.id] ?? graphNodePageSize) + graphNodePageSize }))}>Muat {Math.min(graphNodePageSize, hiddenCount)} node berikutnya ({nodes.length} dari {allNodes.length})</button> : null}<RelationshipEvidence edges={featureEdges} nodes={payload.model.nodes} repository={payload.model.snapshot.repository} commitSha={payload.model.snapshot.commitSha} labelForNode={nodeLabel} /></div> : null}
-    </section>; })}</div>
-    {displayedFeatures.length > listedFeatures.length ? <button className={styles.loadMore} type="button" onClick={() => setListLimitState({ search, limit: Math.min(displayedFeatures.length, listLimit + 50) })}>Muat 50 cluster berikutnya ({listedFeatures.length} dari {displayedFeatures.length})</button> : null}
+    <p className={styles.flowCoverage}>Color groups each feature or domain. Feature cards group related responsibilities; expand a card to inspect its main concepts, components, and data stores. Files, methods, properties, helpers, and small details stay in evidence.</p>
+    <p className={styles.flowCoverage} aria-live="polite">Showing {displayedFeatures.length} clusters · {features.length} of {payload.model.features.length} matching features · {hiddenGraphNodes} concepts/components hidden from the canvas · {graphRelationsNotOnCanvas} source relationships not drawn here (expand a cluster or inspect evidence).{graphRelationsOutsideProjection ? ` ${graphRelationsOutsideProjection} connect activities or details outside the primary graph.` : ""}{!showIndications ? ` ${payload.model.nodes.filter(node => node.confidence === "indicated" && ["concept", "component", "store"].includes(node.kind)).length} indicated nodes hidden by the filter.` : ""} {focusedNode ? `Focused node: ${nodeLabel(focusedNode)}` : ""}</p>
+    <details className={styles.featureBrowser} data-testid="semantic-feature-browser">
+      <summary>Browse features and evidence ({displayedFeatures.length})</summary>
+      <div className={styles.clusterList} aria-label="All feature clusters">{listedFeatures.map(feature => { const expanded = expandedFeatures.includes(feature.id); const allNodes = allNodesForFeature(feature); const nodes = nodesVisibleInCluster(feature); const featureEdges = edgesByFeature.get(feature.id) ?? []; const hiddenCount = Math.max(0, allNodes.length - nodes.length); const colors = featureColors(feature.id); return <section id={`semantic-cluster-${encodeURIComponent(feature.id)}`} key={feature.id} className={styles.clusterCard} style={{ borderLeft: `3px solid ${colors.border}` }}>
+      <div className={styles.clusterActions}><button type="button" className={styles.clusterHeading} onClick={() => toggleExpanded(feature.id)} aria-expanded={expanded} style={colorStyle(feature.id)}><span className={styles.featureIcon} aria-hidden="true" style={{ borderColor: colors.border, backgroundColor: colors.fill, color: colors.text }}>{featureLabel(feature)[0]?.toLocaleUpperCase() ?? "F"}</span><span><strong>{featureLabel(feature)}</strong><small>{nodes.length} of {allNodes.length} concepts/components · {principalRelationsByFeature.get(feature.id) ?? 0} primary relationships{hiddenCount ? ` · ${hiddenCount} more nodes not shown` : ""}</small></span><span>{expanded ? "−" : "+"}</span></button><button className={styles.focusButton} type="button" aria-pressed={focusedFeatureId === feature.id} onClick={() => { setFocusedGraphNodeId(null); setFocusedFeatureId(focusedFeatureId === feature.id ? null : feature.id); }} title="Focus this feature and neighboring relationships">{focusedFeatureId === feature.id ? "Focused" : "Focus neighbors"}</button></div>
+      {expanded ? <div className={styles.clusterNodes}>{nodes.map(node => <div className={styles.clusterNodeItem} key={node.id}><button type="button" aria-pressed={selectedNodeId === node.id} data-kind={node.kind} data-confidence={node.confidence} onClick={() => selectNode(node.id)}><strong>{nodeLabel(node)}</strong><small>{node.kind} · {node.confidence === "proven" ? "Proven" : `Indicated: ${node.reason}`}</small></button><button className={styles.focusButton} type="button" aria-pressed={focusedGraphNodeId === node.id} onClick={() => { selectNode(node.id); setFocusedFeatureId(null); setFocusedGraphNodeId(focusedGraphNodeId === node.id ? null : node.id); }}>Focus node neighbors</button></div>)}{hiddenCount ? <button className={styles.loadMore} type="button" onClick={() => setGraphNodeLimits(current => ({ ...current, [feature.id]: (current[feature.id] ?? graphNodePageSize) + graphNodePageSize }))}>Load {Math.min(graphNodePageSize, hiddenCount)} more nodes ({nodes.length} of {allNodes.length})</button> : null}<RelationshipEvidence edges={featureEdges} nodes={payload.model.nodes} repository={payload.model.snapshot.repository} commitSha={payload.model.snapshot.commitSha} labelForNode={nodeLabel} /></div> : null}
+      </section>; })}</div>
+      {displayedFeatures.length > listedFeatures.length ? <button className={styles.loadMore} type="button" onClick={() => setListLimitState({ search, limit: Math.min(displayedFeatures.length, listLimit + 50) })}>Load 50 more clusters ({listedFeatures.length} of {displayedFeatures.length})</button> : null}
+    </details>
   </>;
 }

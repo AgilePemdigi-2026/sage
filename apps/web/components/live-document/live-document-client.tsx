@@ -315,7 +315,7 @@ function DiagramSection({
   if (budget.kind === "unavailable") return <p className={styles.diagramStatus} role="status">Diagram tidak tersedia: {budget.reason} Katalog dan evidence tetap tersedia.</p>;
 
   return <>
-    {useOverview ? <p className={styles.projectionSummary} role="note">Ikhtisar terpilih menampilkan {overviewSummary.shownNodes} dari {overviewSummary.totalNodes} deklarasi dan {overviewSummary.shownRelations} dari {overviewSummary.totalRelations} kelompok relasi. Detail lengkap dapat ditelusuri di katalog dan tabel evidence.</p> : projection.sourceNodeCount !== projection.displayNodeCount || projection.sourceEdgeCount !== projection.displayEdgeCount ? <p className={styles.projectionSummary} role="note">Tampilan diringkas dari {projection.sourceNodeCount} node dan {projection.sourceEdgeCount} relasi menjadi {projection.displayNodeCount} elemen visual dan {projection.displayEdgeCount} garis. Katalog dan bukti sumber di bawah tetap memuat detail lengkap.</p> : null}
+    {useOverview ? <p className={styles.projectionSummary} role="note">Overview terpilih menampilkan {overviewSummary.shownNodes} dari {overviewSummary.totalNodes} deklarasi dan {overviewSummary.shownRelations} dari {overviewSummary.totalRelations} kelompok relasi. Detail lengkap dapat ditelusuri di katalog dan tabel evidence.</p> : projection.sourceNodeCount !== projection.displayNodeCount || projection.sourceEdgeCount !== projection.displayEdgeCount ? <p className={styles.projectionSummary} role="note">Tampilan diringkas dari {projection.sourceNodeCount} node dan {projection.sourceEdgeCount} relasi menjadi {projection.displayNodeCount} elemen visual dan {projection.displayEdgeCount} garis. Katalog dan bukti sumber di bawah tetap memuat detail lengkap.</p> : null}
     {state === "loading" ? <p className={styles.diagramStatus} role="status">Merender diagram canonical secara lokal…</p> : null}
     {state === "unavailable" ? <p className={styles.diagramStatus} role="status">Diagram tidak tersedia karena hasil SVG melewati batas keamanan 4 MiB. Katalog dan evidence tetap tersedia.</p> : null}
     {state === "error" ? <div className={styles.diagramStatus} role="alert">
@@ -379,10 +379,10 @@ function DiagramDocumentSection({ payload, section }: { payload: DocumentPayload
     <div className={styles.sectionHeading}><div><h2 id="diagram-heading">{label}</h2><p>{section === "structure" ? "Pahami area source dan arah dependensinya, lalu buka area untuk menelusuri file." : "Baca class utama dan hubungan yang terbukti, satu area source dalam satu waktu."}</p></div></div>
     <div className={styles.readingControls}>
       <label>{section === "structure" ? "Area arsitektur" : "Area UML"}<select aria-label={section === "structure" ? "Area arsitektur" : "Area UML"} value={area} onChange={event => setReadingArea(event.target.value)}>
-        <option value="">{section === "structure" ? "Ikhtisar repository" : "Class utama repository"}</option>
+        <option value="">{section === "structure" ? "Repository overview" : "Class utama repository"}</option>
         {section === "structure" ? structureView.groups.map(group => <option key={group.id} value={group.id}>{group.label} · {group.filePaths.length} file</option>) : scopes.map(scope => <option key={scope.id} value={scope.id}>{scope.label} · {scope.count} class/interface</option>)}
       </select></label>
-      {area ? <button type="button" onClick={() => setReadingArea("")}>Kembali ke ikhtisar</button> : null}
+      {area ? <button type="button" onClick={() => setReadingArea("")}>Kembali ke overview</button> : null}
       {section === "uml" ? <>
         <button type="button" disabled={offsets.length <= 1} onClick={() => setOffsets(value => value.slice(0, -1))}>Class sebelumnya</button>
         <output aria-live="polite">{umlView.summary.totalNodes ? `${offset + 1}–${offset + umlView.summary.shownNodes} dari ${umlView.summary.totalNodes}` : "0 class/interface"}</output>

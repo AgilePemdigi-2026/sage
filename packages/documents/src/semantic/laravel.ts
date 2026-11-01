@@ -11,6 +11,7 @@ type ServiceClass = { filePath: string; bytes: Uint8Array; source: string; class
 type PhpClassSource = { filePath: string; bytes: Uint8Array; source: string; classInfo: PhpClass };
 type MiddlewareAlias = { classRef: string | null; filePath: string; start: number; end: number };
 type ServiceCall = { start: number; end: number; target: ServiceClass; method: PhpMethod; bindingEvidence: Array<{ start: number; end: number }> };
+type TokenRange = { start: number; end: number };
 const AUTH_MIDDLEWARE = /^(?:auth(?::|$)|auth\.basic)/;
 
 /** Small PHP lexer. It drops comments and treats quoted strings as indivisible tokens. */
@@ -53,6 +54,121 @@ function matching(tokens: Token[], start: number, open = "(", close = ")"): numb
     else if (tokens[i]!.value === close && --depth === 0) return i;
   }
   return -1;
+}
+/** Nested callables are definitions/callback bodies, not automatically part of the enclosing request path. */
+function deferredCallableRanges(tokens: Token[], start: number, end: number): TokenRange[] {
+  const ranges: TokenRange[] = [];
+  for (let i = start; i < end; i += 1) {
+    if (tokens[i]!.value === "function") {
+      let params = i + 1;
+      while (params < end && tokens[params]!.value !== "(" && ![";", "{", "=>"].includes(tokens[params]!.value)) params += 1;
+      const paramsEnd = matching(tokens, params);
+      if (paramsEnd < 0) continue;
+      let body = paramsEnd + 1;
+      while (body < end && !["{", ";", "=>"].includes(tokens[body]!.value)) body += 1;
+      if (tokens[body]?.value !== "{") continue;
+      const bodyEnd = matching(tokens, body, "{", "}");
+      if (bodyEnd > body) { ranges.push({ start: i, end: bodyEnd }); i = bodyEnd; }
+      continue;
+    }
+    if (tokens[i]!.value !== "fn") continue;
+    let params = i + 1;
+    while (params < end && tokens[params]!.value !== "(" && ![";", "{"].includes(tokens[params]!.value)) params += 1;
+    const paramsEnd = matching(tokens, params);
+    if (paramsEnd < 0) continue;
+    let arrow = paramsEnd + 1;
+    while (arrow < end && tokens[arrow]!.value !== "=>" && ![";", "{"].includes(tokens[arrow]!.value)) arrow += 1;
+    if (tokens[arrow]?.value !== "=>") continue;
+    let round = 0, square = 0, curly = 0, expressionEnd = end;
+    for (let cursor = arrow + 1; cursor < end; cursor += 1) {
+      const value = tokens[cursor]!.value;
+      if (round === 0 && square === 0 && curly === 0 && [",", ";", ")", "]", "}"].includes(value)) { expressionEnd = cursor - 1; break; }
+      if (value === "(") round += 1; else if (value === ")") round -= 1;
+      else if (value === "[") square += 1; else if (value === "]") square -= 1;
+      else if (value === "{") curly += 1; else if (value === "}") curly -= 1;
+    }
+    if (expressionEnd >= arrow + 1) { ranges.push({ start: i, end: expressionEnd }); i = expressionEnd; }
+  }
+  return ranges.sort((a, b) => a.start - b.start);
+}
+function rangeAt(ranges: readonly TokenRange[], index: number): TokenRange | undefined {
+  return ranges.find(range => index >= range.start && index <= range.end);
+}
+/** Recognize an unconditional return at method level; returns inside blocks/callbacks are not terminal for the method. */
+function directMethodReturn(tokens: Token[], handler: HandlerInfo): number {
+  let curlyDepth = 0;
+  for (let i = handler.bodyStart; i < handler.bodyEnd; i += 1) {
+    const value = tokens[i]!.value;
+    if (value === "return" && curlyDepth === 0 && (i === handler.bodyStart || [";", "{", "}"].includes(tokens[i - 1]!.value))) return i;
+    if (value === "{") curlyDepth += 1;
+    else if (value === "}") curlyDepth = Math.max(0, curlyDepth - 1);
+  }
+  return -1;
+}
+function directMethodReturnEnd(tokens: Token[], handler: HandlerInfo): number {
+  const start = directMethodReturn(tokens, handler);
+  if (start < 0) return -1;
+  let round = 0, square = 0, curly = 0;
+  for (let i = start + 1; i < handler.bodyEnd; i += 1) {
+    const value = tokens[i]!.value;
+    if (value === ";" && round === 0 && square === 0 && curly === 0) return i;
+    if (value === "}" && round === 0 && square === 0 && curly === 0) return i - 1;
+    if (value === "(") round += 1; else if (value === ")") round -= 1;
+    else if (value === "[") square += 1; else if (value === "]") square -= 1;
+    else if (value === "{") curly += 1; else if (value === "}") curly -= 1;
+  }
+  return handler.bodyEnd - 1;
+}
+function statementTerminator(tokens: Token[], start: number, end: number): number {
+  let round = 0, square = 0, curly = 0;
+  for (let i = start; i < end; i += 1) {
+    const value = tokens[i]!.value;
+    if (value === ";" && round === 0 && square === 0 && curly === 0) return i;
+    if (value === "(") round += 1; else if (value === ")") round -= 1;
+    else if (value === "[") square += 1; else if (value === "]") square -= 1;
+    else if (value === "{") curly += 1; else if (value === "}") curly -= 1;
+  }
+  return -1;
+}
+function methodBraceDepth(tokens: Token[], handler: HandlerInfo, index: number): number {
+  let depth = 0;
+  for (let i = handler.bodyStart; i < index; i += 1) {
+    if (tokens[i]!.value === "{") depth += 1;
+    else if (tokens[i]!.value === "}") depth = Math.max(0, depth - 1);
+  }
+  return depth;
+}
+function simpleQueryAssignment(tokens: Token[], handler: HandlerInfo, operationIndex: number): { name: string; start: number; end: number; startIndex: number; endIndex: number } | null {
+  let startIndex = operationIndex;
+  while (startIndex > handler.bodyStart && tokens[startIndex - 1]!.value !== ";" && !["{", "}"].includes(tokens[startIndex - 1]!.value)) startIndex -= 1;
+  const target = tokens[startIndex];
+  if (!target || target.kind !== "identifier" || !/^\$[A-Za-z_][\w]*$/u.test(target.value) || tokens[startIndex + 1]?.value !== "=" || methodBraceDepth(tokens, handler, startIndex) !== 0) return null;
+  const endIndex = statementTerminator(tokens, startIndex, handler.bodyEnd);
+  if (endIndex < operationIndex) return null;
+  const name = target.value;
+  const mutationTokens = new Set(["=", "+=", "-=", "*=", "/=", ".=", "??=", "%=", "**=", "|=", "&=", "^=", "<<=", ">>=", "++", "--"]);
+  for (let i = handler.bodyStart; i < startIndex; i += 1) {
+    if (tokens[i]!.value === name) return null;
+  }
+  for (let i = startIndex + 1; i <= endIndex; i += 1) {
+    if (tokens[i]!.value === name && (mutationTokens.has(tokens[i + 1]?.value ?? "") || ["++", "--", "&"].includes(tokens[i - 1]?.value ?? ""))) return null;
+  }
+  const operators = new Set(["&&", "||", "??", "?", "+", "-", "*", "/", "%", ".", "==", "===", "!=", "!==", "<", ">", "<=", ">=", "and", "or", "xor"]);
+  let round = 0, square = 0, curly = 0;
+  for (let i = startIndex + 2; i < endIndex; i += 1) {
+    const value = tokens[i]!.value;
+    if (round === 0 && square === 0 && curly === 0 && operators.has(value.toLowerCase())) return null;
+    if (value === "(") round += 1; else if (value === ")") round -= 1;
+    else if (value === "[") square += 1; else if (value === "]") square -= 1;
+    else if (value === "{") curly += 1; else if (value === "}") curly -= 1;
+  }
+  return { name, start: target.start, end: tokens[endIndex]!.end, startIndex, endIndex };
+}
+function unchangedLocalBeforeCondition(tokens: Token[], name: string, afterIndex: number, beforeIndex: number): boolean {
+  for (let i = afterIndex + 1; i < beforeIndex; i += 1) {
+    if (tokens[i]!.value === name) return false;
+  }
+  return true;
 }
 function splitTop(tokens: Token[], start: number, end: number): Token[][] {
   const out: Token[][] = []; let part: Token[] = [], round = 0, square = 0, curly = 0;
@@ -435,6 +551,8 @@ function findServiceCalls(tokens: Token[], handler: HandlerInfo, controllerSourc
   const { owner, bindings, parameters } = controllerServiceBindings(tokens, handler, controllerSource);
   const calls: ServiceCall[] = [], limitations: string[] = [];
   if (!owner) return { calls, limitations };
+  const deferredRanges = deferredCallableRanges(tokens, handler.bodyStart, handler.bodyEnd);
+  const terminalReturnEnd = directMethodReturnEnd(tokens, handler);
   const imports = routeClassImports(controllerSource);
   const reportUnresolved = (label: string) => limitations.push(`Service call ${label} tidak dapat dihubungkan ke satu method source secara statis.`);
   const add = (start: number, end: number, reference: string, methodName: string, bindingEvidence: Array<{ start: number; end: number }>) => {
@@ -445,6 +563,12 @@ function findServiceCalls(tokens: Token[], handler: HandlerInfo, controllerSourc
     calls.push({ start, end, target, method: methods[0]!, bindingEvidence });
   };
   for (let i = handler.bodyStart; i + 5 < handler.bodyEnd; i += 1) {
+    if (terminalReturnEnd >= 0 && i > terminalReturnEnd) break;
+    const deferred = rangeAt(deferredRanges, i);
+    if (deferred) {
+      if (tokens.slice(deferred.start, deferred.end + 1).some(token => token.value === "->" || token.value === "?->")) limitations.push("Nested closure/function contains object calls; its execution is not expanded into the controller request flow.");
+      i = deferred.end; continue;
+    }
     if (tokens[i]!.value === "$this" && ["->", "?->"].includes(tokens[i + 1]!.value) && ["->", "?->"].includes(tokens[i + 3]!.value) && tokens[i + 4]!.kind === "identifier" && tokens[i + 5]!.value === "(") {
       const property = tokens[i + 2]!.value, methodName = tokens[i + 4]!.value, callClose = matching(tokens, i + 5);
       const binding = bindings.get(property);
@@ -454,6 +578,9 @@ function findServiceCalls(tokens: Token[], handler: HandlerInfo, controllerSourc
   }
   const localAssignments = new Map<string, Array<{ index: number; reference: string | null; start: number; end: number }>>();
   for (let i = handler.bodyStart; i + 3 < handler.bodyEnd; i += 1) {
+    if (terminalReturnEnd >= 0 && i > terminalReturnEnd) break;
+    const deferred = rangeAt(deferredRanges, i);
+    if (deferred) { i = deferred.end; continue; }
     if (tokens[i]!.kind !== "identifier" || !tokens[i]!.value.startsWith("$") || tokens[i + 1]!.value !== "=" || tokens[i + 2]!.value !== "new") continue;
     const type = tokens[i + 3]!;
     if (type.kind !== "identifier" || type.value.startsWith("$")) {
@@ -463,6 +590,9 @@ function findServiceCalls(tokens: Token[], handler: HandlerInfo, controllerSourc
     const list = localAssignments.get(tokens[i]!.value.slice(1)) ?? []; list.push({ index: i, reference, start: tokens[i]!.start, end: type.end }); localAssignments.set(tokens[i]!.value.slice(1), list);
   }
   for (let i = handler.bodyStart; i + 3 < handler.bodyEnd; i += 1) {
+    if (terminalReturnEnd >= 0 && i > terminalReturnEnd) break;
+    const deferred = rangeAt(deferredRanges, i);
+    if (deferred) { i = deferred.end; continue; }
     if (tokens[i]!.kind !== "identifier" || !tokens[i]!.value.startsWith("$") || ["$this", "$request"].includes(tokens[i]!.value) || !["->", "?->"].includes(tokens[i + 1]!.value) || tokens[i + 2]!.kind !== "identifier" || tokens[i + 3]!.value !== "(") continue;
     const variable = tokens[i]!.value.slice(1), candidates = localAssignments.get(variable)?.filter(item => item.index < i) ?? [];
     const latest = candidates.at(-1);
@@ -474,6 +604,9 @@ function findServiceCalls(tokens: Token[], handler: HandlerInfo, controllerSourc
       continue;
     }
     if (serviceClassFor(latest.reference, services) || serviceLike(latest.reference)) add(tokens[i]!.start, tokens[callClose > 0 ? callClose : i + 3]!.end, latest.reference, methodName, [{ start: latest.start, end: latest.end }]);
+  }
+  if (terminalReturnEnd >= 0 && tokens.slice(terminalReturnEnd + 1, handler.bodyEnd).some((token, index, rest) => token.value === "->" && rest[index + 2]?.value === "(")) {
+    limitations.push("Calls after an unconditional method-level return are unreachable and omitted from the request flow.");
   }
   return { calls: [...new Map(calls.map(call => [`${call.start}:${call.target.filePath}:${call.method.nameStart}`, call])).values()], limitations: [...new Set(limitations)] };
 }
@@ -569,11 +702,18 @@ function functionDecisions(
   technicalNodeIds: string[], componentId: string, featureId: string,
   addNode: (node: SemanticNode) => string, addEdge: (edge: SemanticEdge) => string,
   context: "controller" | "middleware" = "controller",
-): { nodeIds: string[]; edgeIds: string[] } {
+): { nodeIds: string[]; edgeIds: string[]; branchScopes: Array<{ decisionId: string; start: number; end: number }>; conditionScopes: Array<{ decisionId: string; start: number; end: number; tokenStart: number; tokenEnd: number }>; deferredRanges: TokenRange[] } {
   const nodeIds: string[] = [], edgeIds: string[] = [];
-  const decisions: Array<{ token: Token; label: string; status: string; detail?: string; conditionClose?: number; branchFrom?: number; branchTo?: number }> = [];
+  const branchScopes: Array<{ decisionId: string; start: number; end: number }> = [];
+  const conditionScopes: Array<{ decisionId: string; start: number; end: number; tokenStart: number; tokenEnd: number }> = [];
+  const deferredRanges = deferredCallableRanges(tokens, handler.bodyStart, handler.bodyEnd);
+  const terminalReturnEnd = directMethodReturnEnd(tokens, handler);
+  const decisions: Array<{ token: Token; label: string; status: string; detail?: string; conditionStart?: number; conditionClose?: number; branchFrom?: number; branchTo?: number }> = [];
   const outcomes: Array<{ token: Token; end: number; label: string; detail: string }> = [];
   for (let i = handler.bodyStart; i < handler.bodyEnd; i += 1) {
+    if (terminalReturnEnd >= 0 && i > terminalReturnEnd) break;
+    const deferred = rangeAt(deferredRanges, i);
+    if (deferred) { i = deferred.end; continue; }
     const token = tokens[i]!;
     if (token.value === "if" && tokens[i + 1]?.value === "(") {
       const close = matching(tokens, i + 1); if (close > 0) {
@@ -582,7 +722,7 @@ function functionDecisions(
         while (branchFrom < handler.bodyEnd && tokens[branchFrom]!.value === ")") branchFrom += 1;
         if (tokens[branchFrom]?.value === "{") { const branchClose = matching(tokens, branchFrom, "{", "}"); if (branchClose > branchFrom) { branchFrom += 1; branchTo = branchClose; } }
         else { branchTo = branchFrom; while (branchTo < handler.bodyEnd && tokens[branchTo]!.value !== ";") branchTo += 1; }
-        decisions.push({ token, label: condition.label, detail: condition.detail, status: "guard", conditionClose: close, branchFrom, branchTo });
+        decisions.push({ token, label: condition.label, detail: condition.detail, status: "guard", conditionStart: i + 2, conditionClose: close, branchFrom, branchTo });
       }
     }
     if (["abort", "abort_if", "abort_unless"].includes(token.value) && tokens[i + 1]?.value === "(") {
@@ -595,8 +735,9 @@ function functionDecisions(
     if (token.value === "throw" && tokens[i + 1]?.value === "new") decisions.push({ token, label: "Kegagalan melempar exception", status: "exception" });
     if (token.value === "validate" && tokens[i - 1]?.value === "->") decisions.push({ token, label: "Validasi input", status: "validation" });
     if (token.value === "return") {
-      let end = i + 1; while (end < handler.bodyEnd && tokens[end]!.value !== ";" && end < i + 45) end += 1;
-      const response = explicitResponseDetails(tokens, i, end, source);
+      const end = statementTerminator(tokens, i + 1, handler.bodyEnd);
+      const returnedCallable = end > i && deferredRanges.some(range => range.start > i && range.start < end);
+      const response = returnedCallable || end < 0 ? null : explicitResponseDetails(tokens, i, end, source);
       if (response) {
         const label = response.message ?? `Mengembalikan respons HTTP ${response.status.value}`;
         const detail = response.message
@@ -617,6 +758,19 @@ function functionDecisions(
       : `Pemeriksaan atau hasil kegagalan eksplisit dalam ${context === "middleware" ? "middleware" : "controller"} yang dirujuk route.`;
     const node: SemanticNode = { id, kind: "decision", label: humanLabel(decision.label), featureId, confidence: "proven", reason, evidence: [evidenceSpan(file, bytes, decision.token.start, decisionEnd, "declaration")], technicalNodeIds };
     nodeIds.push(addNode(node));
+    if (decision.status === "guard" && decision.conditionStart !== undefined && decision.conditionClose !== undefined) {
+      const first = tokens[decision.conditionStart];
+      const close = tokens[decision.conditionClose];
+      if (first && close) conditionScopes.push({ decisionId: id, start: first.start, end: close.end, tokenStart: decision.conditionStart, tokenEnd: decision.conditionClose });
+    }
+    if (decision.status === "guard" && decision.branchFrom !== undefined && decision.branchTo !== undefined && decision.conditionClose !== undefined) {
+      const first = tokens[decision.branchFrom], last = tokens[decision.branchTo];
+      if (first && last) branchScopes.push({
+        decisionId: id,
+        start: first.start,
+        end: last.end,
+      });
+    }
     edgeIds.push(addEdge({ id: semanticEdgeId(file, Buffer.byteLength(source.slice(0, decision.token.start), "utf8"), `handler-decision:${componentId}:${id}`), source: componentId, target: id, label: decision.status === "guard" ? "memeriksa" : decision.status === "validation" ? "memvalidasi" : "menangani", confidence: "proven", reason: node.reason, evidence: node.evidence }));
   }
   for (const outcome of outcomes) {
@@ -630,7 +784,7 @@ function functionDecisions(
       edgeIds.push(addEdge({ id: semanticEdgeId(file, Buffer.byteLength(source.slice(0, outcome.token.start), "utf8"), `decision-outcome:${decisionId}:${id}`), source: decisionId, target: id, label: "jika kondisi terpenuhi", confidence: "proven", reason: "Return terjadi di dalam cabang if yang terdeteksi secara statis.", evidence: [evidenceSpan(file, bytes, owner.token.start, tokens[owner.conditionClose!]!.end, "reference"), ...evidence] }));
     }
   }
-  return { nodeIds: [...new Set(nodeIds)], edgeIds: [...new Set(edgeIds)] };
+  return { nodeIds: [...new Set(nodeIds)], edgeIds: [...new Set(edgeIds)], branchScopes, conditionScopes, deferredRanges };
 }
 
 function middlewareAdminGuardProven(tokens: Token[], method: PhpMethod): boolean {
@@ -796,6 +950,54 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
         const handler = handlers[0]!;
         const handlerFlow = functionDecisions(handlerTokens, handler, handlerSource, handlerBytes, handlerPath, controllerNodeIds, controllerId, featureId, addNode, addEdge);
         feature.nodeIds.push(...handlerFlow.nodeIds); feature.edgeIds.push(...handlerFlow.edgeIds);
+        if (handlerFlow.deferredRanges.some(range => handlerTokens.slice(range.start, range.end + 1).some(token => ["response", "json", "jsonresponse"].includes(token.value.toLowerCase())))) {
+          fragment.limitations.push({ filePath: handlerPath, reason: "Respons/decision yang dideklarasikan di dalam nested callable tidak dianggap sebagai hasil langsung request karena callable tersebut mungkin tertunda." });
+        }
+        const linkBranchUse = (targetId: string, useStart: number, useEnd: number, useKind: string) => {
+          const containing = handlerFlow.branchScopes
+            .filter(scope => useStart >= scope.start && useStart <= scope.end)
+            .sort((a, b) => (a.end - a.start) - (b.end - b.start))[0];
+          if (!containing) return;
+          const evidence = [
+            ...(fragment.nodes.find(node => node.id === containing.decisionId)?.evidence ?? []),
+            evidenceSpan(handlerPath, handlerBytes, useStart, useEnd, "reference"),
+          ];
+          const edgeId = semanticEdgeId(handlerPath, Buffer.byteLength(handlerSource.slice(0, useStart), "utf8"), `decision-${useKind}:${containing.decisionId}:${targetId}`);
+          addEdge({ id: edgeId, source: containing.decisionId, target: targetId, label: "jika kondisi terpenuhi", confidence: "proven", reason: `Pemakaian ${useKind} berada di dalam branch if yang eksplisit pada source.`, evidence });
+          feature.edgeIds.push(edgeId);
+        };
+        const linkConditionUse = (sourceId: string, useStart: number, useEnd: number, confidence: SemanticEdge["confidence"]) => {
+          const containing = handlerFlow.conditionScopes.find(scope => useStart >= scope.start && useStart <= scope.end);
+          if (!containing) return;
+          const evidence = [
+            ...(fragment.nodes.find(node => node.id === containing.decisionId)?.evidence ?? []),
+            evidenceSpan(handlerPath, handlerBytes, useStart, useEnd, "reference"),
+          ];
+          const edgeId = semanticEdgeId(handlerPath, Buffer.byteLength(handlerSource.slice(0, useStart), "utf8"), `condition-data:${sourceId}:${containing.decisionId}`);
+          addEdge({ id: edgeId, source: sourceId, target: containing.decisionId, label: "menguji data", confidence,
+            reason: "Operasi model berada di dalam ekspresi kondisi if yang sama pada source.", evidence });
+          feature.edgeIds.push(edgeId);
+        };
+        const linkQueryResultUse = (sourceId: string, operationIndex: number, operationEnd: number, confidence: SemanticEdge["confidence"]) => {
+          if (handlerTokens[operationIndex]!.value !== "exists" || handlerTokens[operationIndex - 1]?.value !== "->") return;
+          const callClose = matching(handlerTokens, operationIndex + 1);
+          if (callClose < 0 || handlerTokens[callClose]!.end !== operationEnd) return;
+          const assignment = simpleQueryAssignment(handlerTokens, handler, operationIndex);
+          if (!assignment || handlerTokens[assignment.startIndex + 2]?.kind !== "identifier" || handlerTokens[assignment.startIndex + 3]?.value !== "::") return;
+          const statementHasDeferredCallback = handlerFlow.deferredRanges.some(range => range.start >= assignment.startIndex && range.start <= assignment.endIndex);
+          if (statementHasDeferredCallback || callClose !== assignment.endIndex - 1) return;
+          for (const scope of handlerFlow.conditionScopes) {
+            if (scope.tokenStart <= assignment.endIndex || scope.tokenEnd !== scope.tokenStart + 1 || handlerTokens[scope.tokenStart]?.value !== assignment.name) continue;
+            if (!unchangedLocalBeforeCondition(handlerTokens, assignment.name, assignment.endIndex, scope.tokenStart)) continue;
+            const decision = fragment.nodes.find(node => node.id === scope.decisionId);
+            if (!decision) continue;
+            const evidence = [evidenceSpan(handlerPath, handlerBytes, assignment.start, assignment.end, "reference"), ...decision.evidence];
+            const edgeId = semanticEdgeId(handlerPath, Buffer.byteLength(handlerSource.slice(0, assignment.start), "utf8"), `query-result:${sourceId}:${scope.decisionId}`);
+            addEdge({ id: edgeId, source: sourceId, target: scope.decisionId, label: "hasil query dipakai", confidence,
+              reason: "Hasil exists() dari query model disimpan dalam local variable tanpa reassignment, lalu dipakai langsung pada kondisi if.", evidence });
+            feature.edgeIds.push(edgeId);
+          }
+        };
         const serviceResolution = findServiceCalls(handlerTokens, handler, handlerSource, services);
         for (const reason of serviceResolution.limitations) fragment.limitations.push({ filePath: handlerPath, reason });
         for (const call of serviceResolution.calls) {
@@ -810,6 +1012,7 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
           const edgeId = semanticEdgeId(handlerPath, Buffer.byteLength(handlerSource.slice(0, call.start), "utf8"), `controller-service:${controllerId}:${serviceId}:${call.method.name}`);
           addEdge({ id: edgeId, source: controllerId, target: serviceId, label: "memanggil layanan", confidence: "proven", reason: "Constructor injection atau constructor local dan pemanggilan method service terhubung secara statis.", evidence: [callSiteEvidence, ...dependencyEvidence, declarationEvidence] });
           feature.nodeIds.push(serviceId); feature.edgeIds.push(edgeId);
+          linkBranchUse(serviceId, call.start, call.end, "service call");
         }
         const controllerClassInfo = phpClasses(handlerSource).find(item => handler.start >= item.start && handler.start < item.end);
         const controllerNamespace = controllerClassInfo?.namespace ?? "";
@@ -818,11 +1021,23 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
           const sourceBytes = input.sources[path]!, source = new TextDecoder().decode(sourceBytes), declaration = phpClasses(source)[0], eloquent = eloquentClass(source);
           return declaration ? [{ path, name: declaration.name, namespace: declaration.namespace, fullName: declaration.namespace ? `${declaration.namespace}\\${declaration.name}` : declaration.name, start: declaration.start, end: declaration.end, eloquent: eloquent?.proven === true }] : [];
         });
+        const knownOperations = ["create", "insert", "upsert", "save", "update", "updateOrCreate", "firstOrCreate", "delete", "destroy", "first", "find", "findOrFail", "firstOrFail", "get", "all", "where", "whereDate", "whereHas", "with", "count", "exists", "query", "pluck", "value", "sum", "paginate", "orderBy"];
+        const terminalReturnEnd = directMethodReturnEnd(handlerTokens, handler);
         for (let tokenIndex = handler.bodyStart; tokenIndex < handler.bodyEnd; tokenIndex += 1) {
+          if (terminalReturnEnd >= 0 && tokenIndex > terminalReturnEnd) {
+            if (["::", "->"].includes(handlerTokens[tokenIndex - 1]?.value ?? "") && knownOperations.includes(handlerTokens[tokenIndex]!.value)) fragment.limitations.push({ filePath: handlerPath, reason: "ORM call setelah unconditional method-level return tidak dapat dijalankan dan dihilangkan dari alur request." });
+            break;
+          }
+          const deferred = rangeAt(handlerFlow.deferredRanges, tokenIndex);
+          if (deferred) {
+            if (handlerTokens.slice(deferred.start, deferred.end + 1).some((candidate, index, slice) => knownOperations.includes(candidate.value) && ["::", "->"].includes(slice[index - 1]?.value ?? ""))) {
+              fragment.limitations.push({ filePath: handlerPath, reason: "ORM call di dalam nested closure/function tidak diperluas menjadi alur request karena callback tersebut mungkin tertunda." });
+            }
+            tokenIndex = deferred.end; continue;
+          }
           const tokenNode = handlerTokens[tokenIndex]!;
           if (tokenNode.kind !== "identifier") continue;
           const previous = handlerTokens[tokenIndex - 1]?.value;
-          const knownOperations = ["create", "insert", "upsert", "save", "update", "updateOrCreate", "firstOrCreate", "delete", "destroy", "first", "find", "findOrFail", "firstOrFail", "get", "all", "where", "whereDate", "whereHas", "with", "count", "exists", "query", "pluck", "value", "sum", "paginate", "orderBy"];
           const staticOperation = previous === "::" && knownOperations.includes(tokenNode.value);
           const chainedOperation = previous === "->" && knownOperations.includes(tokenNode.value);
           const operation = (staticOperation || chainedOperation) && handlerTokens[tokenIndex + 1]?.value === "(";
@@ -849,6 +1064,10 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
           const label = ["create", "insert", "upsert", "save", "update", "updateOrCreate", "firstOrCreate", "delete", "destroy"].includes(tokenNode.value) ? tokenNode.value === "delete" || tokenNode.value === "destroy" ? "menghapus" : "menyimpan" : "membaca";
           addEdge({ id: edgeId, source: controllerId, target: storeId, label, confidence, reason: "Pemanggilan operasi query statis pada model Eloquent dalam method controller yang dirujuk route.", evidence: [evidenceSpan(handlerPath, handlerBytes, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, "reference")] });
           feature.nodeIds.push(storeId); feature.edgeIds.push(edgeId);
+          linkBranchUse(storeId, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, "model operation");
+          linkConditionUse(storeId, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, confidence);
+          const callClose = matching(handlerTokens, tokenIndex + 1);
+          if (callClose > 0) linkQueryResultUse(storeId, tokenIndex, handlerTokens[callClose]!.end, confidence);
         }
       }
     }
