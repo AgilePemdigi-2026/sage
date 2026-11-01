@@ -19,9 +19,9 @@ export function AnalysisQuality({ edges }: { edges: readonly Relation[] }) {
     byReason.set(reason, (byReason.get(reason) ?? 0) + 1);
   }
   return <details className={styles.quality}>
-    <summary>Resolusi referensi: {references.length - unresolved.length} terbukti · {unresolved.length} belum terpecahkan</summary>
+    <summary>Reference resolution: {references.length - unresolved.length} Exact · {unresolved.length} Unresolved</summary>
     <p>Jumlah ini mengecualikan relasi kepemilikan. Unresolved tidak otomatis berarti kode error; target eksternal dan perilaku dinamis tetap dicatat beserta buktinya.</p>
-    {byReason.size ? <ul>{[...byReason].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([reason, count]) => <li key={reason}><strong>{count} · {reason}</strong><span>{explanations[reason] ?? "Lihat alasan dan evidence pada katalog relasi."}</span></li>)}</ul> : <p>Semua referensi yang tercatat pada snapshot ini memiliki target terbukti.</p>}
+    {byReason.size ? <ul>{[...byReason].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([reason, count]) => <li key={reason}><strong>{count} · {reason}</strong><span>{explanations[reason] ?? "Lihat alasan dan evidence pada katalog relasi."}</span></li>)}</ul> : <p>Semua referensi yang tercatat pada snapshot ini memiliki target Exact.</p>}
     <p>Perbaikan resolver berlaku pada analisis baru. Hasil tersimpan mempertahankan snapshot dan provenance versi aslinya.</p>
   </details>;
 }
