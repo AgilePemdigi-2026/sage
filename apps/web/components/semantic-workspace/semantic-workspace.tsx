@@ -585,7 +585,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     (node.kind !== "actor" || scopedFlowEdges.some(edge => edge.source === node.id || edge.target === node.id)));
   const visibleFlowNodeIds = new Set(visibleFlowNodes.map(node => node.id));
   const visibleFlowEdges = scopedFlowEdges.filter(edge => visibleFlowNodeIds.has(edge.source) && visibleFlowNodeIds.has(edge.target) && (!flowNeedle || matchingRelationNodeIds.has(edge.source) || matchingRelationNodeIds.has(edge.target)));
-  const flowKey = `${selectedFeatureId ?? ""}\0${selectedFlowEntryId}\0${query}\0${showIndications}`;
+  const flowKey = JSON.stringify([selectedFeatureId, selectedFlowEntryId, query, showIndications, payload?.revision]);
   // Keep each selected flow intact: paging nodes independently used to drop
   // every edge that crossed a page boundary and made the path unreadable.
   const pageFlowNodes = visibleFlowNodes;
@@ -873,8 +873,6 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
 }) {
   const graphViewportRef = useRef<HTMLDivElement>(null);
   const graphViewportSizeRef = useRef<{ width: number; height: number } | null>(null);
-  const graphZoomRef = useRef(zoom);
-  graphZoomRef.current = zoom;
   const [listLimitState, setListLimitState] = useState({ search, limit: 50 });
   const listLimit = listLimitState.search === search ? listLimitState.limit : 50;
   const [graphNodeLimits, setGraphNodeLimits] = useState<Record<string, number>>({});
@@ -992,7 +990,7 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
     ?? focusedNodeFeatureId
     ?? [...expandedFeatures].reverse().find(featureId => positions.has(featureId))
     ?? displayedFeatures[0]?.id;
-  const graphLayoutKey = `${displayedFeatures.map(feature => feature.id).join("\0")}|${expandedFeatures.join("\0")}|${displayedFeatures.map(feature => `${feature.id}:${clusterNodes.get(feature.id)?.length ?? 0}`).join("\0")}|${focusedFeatureId ?? ""}|${focusedGraphNodeId ?? ""}`;
+  const graphLayoutKey = JSON.stringify([payload.revision, displayedFeatures.map(feature => feature.id), expandedFeatures, displayedFeatures.map(feature => [feature.id, clusterNodes.get(feature.id)?.map(node => node.id) ?? []]), focusedFeatureId, focusedGraphNodeId, showIndications]);
   useEffect(() => {
     const viewport = graphViewportRef.current;
     if (!viewport) return;
@@ -1006,11 +1004,10 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
       const resized = !previousSize || previousSize.width !== viewportSize.width;
       const forceFit = appliedFitRequestRef.current !== fitRequest;
       graphViewportSizeRef.current = viewportSize;
-      let alignmentZoom = graphZoomRef.current;
+      let alignmentZoom = zoom;
       if (resized || forceFit) {
         const minZoom = viewport.clientWidth < 640 ? 85 : 75;
         alignmentZoom = Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / width * 100)));
-        graphZoomRef.current = alignmentZoom;
         setZoom(alignmentZoom);
       }
       appliedFitRequestRef.current = fitRequest;
