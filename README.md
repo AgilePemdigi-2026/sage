@@ -52,7 +52,7 @@ Landing, login, workspace, dan halaman repository memakai backend autentikasi/re
 
 Seluruh kemampuan di atas masuk target MVP lokal. Status implementasi serta acceptance criteria mengikuti [backlog](docs/PRODUCT_BACKLOG.md) dan [test plan](docs/TEST_PLAN.md).
 
-Panduan keterbacaan diagram dan pendekatan source-backed tersedia pada [revisi diagram](docs/DIAGRAM_READABILITY.md). Istilah kontrol mengikuti [bahasa antarmuka](docs/UI_LANGUAGE.md); label dari source tetap dipertahankan. Hasil lama perlu dianalisis ulang untuk memperoleh perubahan extractor.
+Panduan keterbacaan diagram dan pendekatan source-backed tersedia pada [revisi diagram](docs/DIAGRAM_READABILITY.md). Istilah kontrol mengikuti [bahasa antarmuka](docs/UI_LANGUAGE.md); label dari source tetap dipertahankan. Overview interaktif langsung menampilkan koneksi aktor, endpoint/controller, dan data store. Perubahan extractor memerlukan analisis ulang; perubahan tampilan overview berlaku pada model semantik tersimpan.
 
 ## Alur penggunaan
 

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PresentationOverlay, SemanticEdge, SemanticFeature, SemanticModel, SemanticNode, SemanticPayload } from "@sage/documents/semantic/model";
 import { EvidenceLink } from "../live-document/evidence-links.tsx";
 import styles from "./semantic-workspace.module.css";
+import { ArchitectureOverview } from "./architecture-overview.tsx";
 
 type Mode = "flow" | "graph";
 type Props = { analysisId: string; accountKey: string; repository: string; commitSha: string; mode: Mode; legacyFallback?: ReactNode; onLegacyFallback?: () => void; onRevision?: (detail: { revision: number; modelHash: string }) => void };
@@ -413,7 +414,6 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
   const [legacyOpen, setLegacyOpen] = useState(false);
   const [showIndications, setShowIndications] = useState(true);
   const [query, setQuery] = useState("");
-  const [flowFeatureLimit, setFlowFeatureLimit] = useState(50);
   const [flowEntrySelection, setFlowEntrySelection] = useState<{ featureId: string; nodeId: string } | null>(null);
   const [expandedFeatures, setExpandedFeatures] = useState<string[]>([]);
   const [focusedFeatureId, setFocusedFeatureId] = useState<string | null>(null);
@@ -461,7 +461,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     controllerRef.current = controller;
     const combinedSignal = signal ?? controller.signal;
     setState({ status: "loading" }); setSaveError(""); setSaveMessage(""); setLegacyOpen(false);
-    setExpandedFeatures([]); setFocusedFeatureId(null); setGraphZoom(100); setFlowZoom(100); setSelectedFeatureId(null); setFlowEntrySelection(null); setSelectedNodeId(null); setShowIndications(true); setQuery(""); setFlowFeatureLimit(50);
+    setExpandedFeatures([]); setFocusedFeatureId(null); setGraphZoom(100); setFlowZoom(100); setSelectedFeatureId(null); setFlowEntrySelection(null); setSelectedNodeId(null); setShowIndications(true); setQuery("");
     try {
       await verifySession(combinedSignal);
       const response = await fetch(`/api/analyses/${encodeURIComponent(analysisId)}/semantic`, {
@@ -519,16 +519,6 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     }
     return grouped;
   }, [payload]);
-  const actorsGroupedByFeature = useMemo(() => {
-    const grouped = new Map<string, SemanticNode[]>();
-    const append = (featureId: string, node: SemanticNode) => {
-      const rows = grouped.get(featureId) ?? [];
-      if (!rows.some(row => row.id === node.id)) rows.push(node);
-      grouped.set(featureId, rows);
-    };
-    for (const [featureId, nodes] of membersByFeature) for (const node of nodes) if (node.kind === "actor") append(featureId, node);
-    return grouped;
-  }, [membersByFeature]);
   const visibleFeatures = useMemo(() => {
     const needle = query.trim().toLocaleLowerCase();
     if (!needle) return features;
@@ -549,7 +539,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
 
   const evidenceRepository = payload?.model.snapshot.repository ?? repository;
   const evidenceCommitSha = payload?.model.snapshot.commitSha ?? commitSha;
-  const flowFeatures = visibleFeatures.slice(0, flowFeatureLimit);
+  const overviewFeatureIds = useMemo(() => visibleFeatures.map(feature => feature.id), [visibleFeatures]);
 
   function toggleExpanded(featureId: string) {
     setExpandedFeatures(current => current.includes(featureId) ? current.filter(id => id !== featureId) : [...current, featureId]);
@@ -601,7 +591,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
   const layout = flowLayout(pageFlowNodes, pageFlowEdges);
   const flowAnchorNodeId = selectedFlowEntry?.node.id ?? pageFlowNodes.find(node => node.kind === "actor")?.id ?? pageFlowNodes[0]?.id;
   useEffect(() => {
-    if (mode !== "flow" || !flowCanvasRef.current) return;
+    if (!selectedFeature || !flowCanvasRef.current) return;
     const canvas = flowCanvasRef.current;
     let alignFrame = 0;
     let lastViewportWidth = Number.NaN;
@@ -619,13 +609,13 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     const observer = new ResizeObserver(fitWidth);
     observer.observe(canvas);
     return () => { observer.disconnect(); cancelAnimationFrame(alignFrame); };
-  }, [flowAnchorNodeId, flowKey, layout.width, mode]);
+  }, [flowAnchorNodeId, flowKey, layout.width, selectedFeature]);
   useEffect(() => {
     const canvas = flowCanvasRef.current;
-    if (mode !== "flow" || !canvas || !flowAnchorNodeId) return;
+    if (!selectedFeature || !canvas || !flowAnchorNodeId) return;
     const frame = requestAnimationFrame(() => centerFlowViewport(canvas, flowAnchorNodeId, layout.positions, layout.width, flowZoom));
     return () => cancelAnimationFrame(frame);
-  }, [flowAnchorNodeId, flowKey, flowZoom, layout.width, mode]);
+  }, [flowAnchorNodeId, flowKey, flowZoom, layout.width, selectedFeature]);
 
   async function saveOverlay(nextOverlay: PresentationOverlay) {
     if (!payload || saving) return;
@@ -672,7 +662,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
   const fallbackSection = state.status === "legacy" || (state.status === "error" && legacyOpen);
   return <section className={styles.workspace} aria-label={mode === "flow" ? "Alur fitur berbasis source" : "Knowledge graph fitur dan konsep"}>
     <header className={styles.header}>
-      <div><p className={styles.eyebrow}>{mode === "flow" ? "USER FLOW" : "KNOWLEDGE GRAPH"}</p><h2>{mode === "flow" ? "User flows" : "Repository concepts"}</h2><p>{mode === "flow" ? "Pilih fitur untuk menelusuri user action, decision, service, dan hasil yang terhubung ke source." : "Setiap cluster mewakili fitur. Perluas cluster untuk melihat konsep domain, komponen utama, dan data store."}</p></div>
+      <div><p className={styles.eyebrow}>{mode === "flow" ? "USER FLOW" : "KNOWLEDGE GRAPH"}</p><h2>{mode === "flow" ? "User flows" : "Repository concepts"}</h2><p>{mode === "flow" ? "Lihat alur aplikasi dan hubungan source sejak awal. Pilih bagian diagram untuk evidence atau detailed flow." : "Lihat aktor, endpoint/controller, dan data store yang terhubung. Detail konsep tersedia tanpa menyembunyikan diagram utama."}</p></div>
       <div className={styles.statusPills}>{payload ? <><span>{payload.model.snapshot.repository} @ <code>{payload.model.snapshot.commitSha.slice(0, 8)}</code></span>{payload.model.frameworks.length ? <span>{payload.model.frameworks.join(", ")}</span> : null}</> : null}<span>{mode === "flow" ? "Source evidence" : "Feature overview"}</span></div>
     </header>
 
@@ -682,23 +672,11 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
 
     {fallbackSection && legacyFallback ? <div className={styles.legacyFallback}>{legacyFallback}</div> : null}
     {payload ? <AnalysisLimitations items={payload.model.limitations} /> : null}
-    {payload && mode === "flow" ? <>
-      <div className={styles.legend} aria-label="Flow diagram legend"><span data-kind="actor">Actor</span><span data-kind="step">Action</span><span data-kind="decision">Decision</span><span data-kind="component">Service/API</span><span data-kind="store">Data store</span><span data-kind="outcome">Outcome</span><span><i className={styles.dashedLegend} />Indicated relationship</span></div>
+    {payload && (mode === "flow" || selectedFeature) ? <>
+      {selectedFeature ? <div className={styles.legend} aria-label="Flow diagram legend"><span data-kind="actor">Actor</span><span data-kind="step">Action</span><span data-kind="decision">Decision</span><span data-kind="component">Service/API</span><span data-kind="store">Data store</span><span data-kind="outcome">Outcome</span><span><i className={styles.dashedLegend} />Indicated relationship</span></div> : null}
       {!selectedFeature ? <>
         <div className={styles.controls}><label>Search features<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Feature, concept, or source path" /></label><p aria-live="polite">{visibleFeatures.length} of {features.length} features detected.</p></div>
-        <div className={styles.featureGrid} data-testid="semantic-feature-overview">
-        {flowFeatures.map(feature => {
-          const featureNode = payload.model.nodes.find(node => node.id === feature.id);
-          const entries = feature.entryNodeIds.length;
-          const evidenceFiles = new Set(feature.evidence.map(item => item.filePath));
-          const actors = actorsGroupedByFeature.get(feature.id) ?? [];
-          return <button className={styles.featureCard} type="button" key={feature.id} data-feature-id={feature.id} onClick={() => setSelectedFeatureId(feature.id)}>
-            <span className={styles.featureIcon} aria-hidden="true">{(featureLabel(feature)[0] ?? "F").toLocaleUpperCase()}</span><span className={styles.featureBody}><strong>{featureLabel(feature)}</strong><small>{entries} entry points · {feature.nodeIds.length} source facts</small><small>{evidenceFiles.size} source files · {featureNode?.confidence === "indicated" ? "Indicated" : "Source evidence available"}</small>{actors.length ? <span className={styles.actorChips} aria-label={`Actors connected to ${featureLabel(feature)}`}><small>Actors</small>{actors.map(actor => <span key={actor.id} title={actor.reason}>{nodeLabel(actor)} <small>{actor.confidence === "proven" ? "Proven" : "Indicated"}</small></span>)}</span> : <small>No actors detected.</small>}</span><span aria-hidden="true">→</span>
-          </button>;
-        })}
-        {!flowFeatures.length ? <p className={styles.status}>Tidak ada fitur sesuai pencarian.</p> : null}
-        </div>
-        {visibleFeatures.length > flowFeatures.length ? <button className={styles.loadMore} type="button" onClick={() => setFlowFeatureLimit(limit => Math.min(visibleFeatures.length, limit + 50))}>Load 50 more features ({flowFeatures.length} of {visibleFeatures.length})</button> : null}
+        <ArchitectureOverview payload={payload} featureIds={overviewFeatureIds} showIndications={showIndications} onShowIndications={setShowIndications} onOpenFeature={setSelectedFeatureId} onInspectNode={setSelectedNodeId} />
       </> : <>
         <div className={styles.controls}><label>Search steps or evidence<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Action, decision, source path…" /></label><p aria-live="polite">{visibleFlowNodes.length} of {scopedFlowNodes.length} nodes match.</p></div>
         <div className={styles.flowBreadcrumb}><button type="button" onClick={() => setSelectedFeatureId(null)}>All features</button><span aria-hidden="true">/</span><strong>{payload.overlay.labels[selectedFeature.id] ?? selectedFeature.label}</strong><label><input type="checkbox" checked={showIndications} onChange={event => setShowIndications(event.currentTarget.checked)} />Show indicated relationships</label></div>
@@ -734,8 +712,11 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
       }} repository={evidenceRepository} commitSha={evidenceCommitSha} /> : null}
     </> : null}
 
-    {payload && mode === "graph" ? <ClusteredKnowledgeGraph payload={payload} expandedFeatures={expandedFeatures} toggleExpanded={toggleExpanded} selectedNodeId={selectedNodeId} selectNode={setSelectedNodeId} search={query} setSearch={updateSearch} features={visibleFeatures} featureLabel={featureLabel} nodeLabel={nodeLabel} nodesForFeature={renderedFeatureNodes} groupFor={groupFor} showIndications={showIndications} setShowIndications={setShowIndications} focusedFeatureId={focusedFeatureId} setFocusedFeatureId={setFocusedFeatureId} zoom={graphZoom} setZoom={setGraphZoom} reset={() => { setExpandedFeatures([]); setFocusedFeatureId(null); setGraphZoom(100); setSelectedNodeId(null); setShowIndications(true); setQuery(""); }} /> : null}
-    {selectedNode && payload && mode === "graph" ? <NodeCorrection key={`${accountKey}:${selectedNode.id}`} node={selectedNode} payload={payload} editedLabel={editedLabel} editedGroup={editedGroup} setEditedLabel={setEditedLabel} setEditedGroup={setEditedGroup} submit={submitCorrection} saving={saving} message={saveMessage} error={saveError} reload={() => void reload()} features={features} onReset={node => { const labels = { ...payload.overlay.labels }; delete labels[node.id]; const groups = { ...payload.overlay.groups }; delete groups[node.id]; void saveOverlay({ labels, groups }); }} repository={evidenceRepository} commitSha={evidenceCommitSha} /> : null}
+    {payload && mode === "graph" && !selectedFeature ? <>
+      <div className={styles.controls}><label>Search features<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Feature, concept, or source path" /></label><p aria-live="polite">{visibleFeatures.length} of {features.length} features detected.</p></div>
+      <ArchitectureOverview payload={payload} featureIds={overviewFeatureIds} showIndications={showIndications} onShowIndications={setShowIndications} onOpenFeature={setSelectedFeatureId} onInspectNode={setSelectedNodeId} />
+      <details className={styles.featureBrowser}><summary>Explore individual concepts and components</summary><ClusteredKnowledgeGraph payload={payload} expandedFeatures={expandedFeatures} toggleExpanded={toggleExpanded} selectedNodeId={selectedNodeId} selectNode={setSelectedNodeId} search={query} setSearch={updateSearch} features={visibleFeatures} featureLabel={featureLabel} nodeLabel={nodeLabel} nodesForFeature={renderedFeatureNodes} groupFor={groupFor} showIndications={showIndications} setShowIndications={setShowIndications} focusedFeatureId={focusedFeatureId} setFocusedFeatureId={setFocusedFeatureId} zoom={graphZoom} setZoom={setGraphZoom} reset={() => { setExpandedFeatures([]); setFocusedFeatureId(null); setGraphZoom(100); setSelectedNodeId(null); setShowIndications(true); setQuery(""); }} /></details></> : null}
+    {selectedNode && payload && mode === "graph" && !selectedFeature ? <NodeCorrection key={`${accountKey}:${selectedNode.id}`} node={selectedNode} payload={payload} editedLabel={editedLabel} editedGroup={editedGroup} setEditedLabel={setEditedLabel} setEditedGroup={setEditedGroup} submit={submitCorrection} saving={saving} message={saveMessage} error={saveError} reload={() => void reload()} features={features} onReset={node => { const labels = { ...payload.overlay.labels }; delete labels[node.id]; const groups = { ...payload.overlay.groups }; delete groups[node.id]; void saveOverlay({ labels, groups }); }} repository={evidenceRepository} commitSha={evidenceCommitSha} /> : null}
   </section>;
 }
 

@@ -69,3 +69,11 @@
 @media(prefers-reduced-motion:reduce) {
   .featureCard,.graphTools button,.flowTools button,.flowPaging button,.focusButton,.loadMore,.inspector button { transition:none; }
 }
+
+/* Put the connected canvas before explanatory chrome on narrow screens. */
+@media(max-width:600px) {
+  .header p:not(.eyebrow) { display:none; }.header { gap:8px; padding-bottom:10px; }
+  .statusPills span:not(:first-child) { display:none; }.statusPills span { padding:4px 7px; font-size:10px; }
+  .controls { gap:4px; }.controls p { margin:0; font-size:11px; }.controls label { width:100%; }
+  .legend { display:none; }.workspace { gap:10px; }
+}

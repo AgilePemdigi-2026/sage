@@ -22,12 +22,15 @@ import type { PresentationOverlay, SemanticEdge, SemanticFeature, SemanticModel,
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceAppRoot = resolve(projectRoot, "apps/web");
-const artifactDirectory = resolve(projectRoot, "artifacts/semantic-workspace/readability-20261101");
+const artifactDirectory = resolve(projectRoot, "artifacts/semantic-workspace/connected-overview-20261101");
 const accountKey = "qa-semantic-account";
 const analysisId = "qa-semantic-analysis";
 const repository = "AgilePemdigi-2026/sage";
 const commitSha = "a".repeat(40);
 const perpusCorpusPath = process.env.SAGE_SEMANTIC_CORPUS ?? resolve(projectRoot, "artifacts/semantic/container-final/sistem-informasi-perpus-semantic.json");
+const emosyncCorpusPath = process.env.SAGE_SEMANTIC_EMOSYNC_CORPUS ?? resolve(projectRoot, "artifacts/semantic/readability-20261101/emosync-backend-semantic.json");
+const sageCorpusPath = process.env.SAGE_SEMANTIC_SAGE_CORPUS ?? resolve(projectRoot, "artifacts/semantic/readability-20261101/sage-semantic.json");
+const perpusMobileCorpusPath = process.env.SAGE_SEMANTIC_PERPUS_MOBILE_CORPUS ?? resolve(projectRoot, "artifacts/semantic/readability-20261101/sistem-informasi-perpus-semantic.json");
 const privateAccountMarker = "PRIVATE ACCOUNT: fixture owner one";
 
 function evidence(filePath: string, line: number, role: "declaration" | "reference" | "context" = "declaration") {
@@ -287,9 +290,16 @@ async function fulfillJson(route: Route, status: number, body: unknown): Promise
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body), headers: { "Cache-Control": "no-store" } });
 }
 
-async function readPerpusCorpus(): Promise<SemanticPayload | null> {
+async function openOverviewFeature(page: Page, featureId: string): Promise<void> {
+  const card = page.locator(`[data-testid="architecture-node"][data-kind="feature"][data-node-id="${featureId}"]`);
+  await card.click();
+  await page.getByRole("button", { name: "Open detailed flow" }).click();
+  await page.getByTestId("semantic-flow-canvas").waitFor();
+}
+
+async function readCorpus(path: string): Promise<SemanticPayload | null> {
   let raw: Buffer;
-  try { raw = await readFile(perpusCorpusPath); }
+  try { raw = await readFile(path); }
   catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw error;
@@ -326,9 +336,7 @@ function expectedSourceFlowNodeIds(model: SemanticModel, feature: SemanticFeatur
 }
 
 async function verifyActualFeatureFlow(page: Page, payload: SemanticPayload, feature: SemanticFeature): Promise<{ entryId: string; scopeIds: Set<string> }> {
-  const card = page.locator(`[data-testid="semantic-feature-overview"] [data-feature-id="${feature.id}"]`);
-  await card.click();
-  await page.getByTestId("semantic-flow-canvas").waitFor();
+  await openOverviewFeature(page, feature.id);
   if (payload.model.snapshot.repository === "iltizamhasan3/sistem-informasi-perpus") {
     const viewport = await page.evaluate(() => window.innerWidth);
     await page.screenshot({ path: resolve(artifactDirectory, `semantic-flow-perpus-${feature.label.toLowerCase()}-${viewport < 640 ? "mobile" : "desktop"}-initial.png`), fullPage: true });
@@ -495,8 +503,7 @@ async function verifyLargeEvidenceFixture(page: Page, setPayload: (next: Semanti
   setPayload(largePayload);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/qa-semantic-workspace");
-  const feature = page.getByTestId("semantic-feature-overview").getByRole("button", { name: /Peminjaman buku/u });
-  await feature.click();
+  await openOverviewFeature(page, "feature-books");
   const actorNode = page.locator("[data-testid='semantic-flow-canvas'] g[data-node-id='actor-member']");
   await actorNode.waitFor();
   await actorNode.click();
@@ -510,7 +517,8 @@ async function verifyLargeEvidenceFixture(page: Page, setPayload: (next: Semanti
 
 async function verifyLiveGraphIdentityIsolation(page: Page, livePayload: SemanticPayload, control: { switchSession: boolean; graphUnavailable: boolean; mismatchStarted: (() => void) | null; releaseMismatch: Promise<void> | null }): Promise<void> {
   await page.setViewportSize({ width: 1440, height: 1000 });
-  await page.goto("/qa-live-graph");
+  await page.goto("/qa-live-graph", { waitUntil: "domcontentloaded" });
+  await page.locator("summary").filter({ hasText: "Explore individual concepts and components" }).click();
   const featureCircle = page.locator("svg[aria-label^='Feature, concept, component'] g[data-feature-id='feature-books']");
   try { await featureCircle.waitFor({ timeout: 10_000 }); }
   catch (error) {
@@ -536,6 +544,7 @@ async function verifyLiveGraphIdentityIsolation(page: Page, livePayload: Semanti
   await navigation;
   control.switchSession = false;
   await page.getByTestId("fixture-note").waitFor();
+  await page.locator("summary").filter({ hasText: "Explore individual concepts and components" }).click();
   const technicalErrorDisclosure = page.locator("summary").filter({ hasText: "Graph teknis belum tersedia" });
   await technicalErrorDisclosure.waitFor();
   const restoredCircle = page.locator("svg[aria-label^='Feature, concept, component'] g[data-feature-id='feature-books']");
@@ -546,10 +555,241 @@ async function verifyLiveGraphIdentityIsolation(page: Page, livePayload: Semanti
   await page.screenshot({ path: resolve(artifactDirectory, "live-graph-semantic-503-fallback.png"), fullPage: true });
 }
 
+async function verifyConnectedArchitecture(page: Page, payload: SemanticPayload, setPayload: (next: SemanticPayload) => void, viewport: { width: number; height: number }, mode: "flow" | "graph"): Promise<void> {
+  setPayload(payload);
+  await page.setViewportSize(viewport);
+  await page.goto("/qa-semantic-workspace");
+  if (mode === "graph") await page.getByTestId("mode-graph").click();
+  else await page.getByTestId("mode-flow").click();
+  await page.getByTestId("architecture-overview").waitFor();
+  const root = page.getByTestId("architecture-overview");
+  const actors = root.locator("[data-testid='architecture-node'][data-kind='actor']");
+  const features = root.locator("[data-testid='architecture-node'][data-kind='feature']");
+  const stores = root.locator("[data-testid='architecture-node'][data-kind='store']");
+  const edges = root.locator("[data-testid='architecture-edge']");
+  assert.equal(await features.count(), payload.model.features.length, `${mode} first render shows every filtered feature without clicking`);
+  assert.equal(await actors.count(), 3, `${mode} first render shows all three shared actors`);
+  assert.equal(await stores.count(), 8, `${mode} first render shows all eight shared stores`);
+  assert.ok(await root.locator("[data-testid='architecture-node'][data-kind='component']").count() >= 1, `${mode} first render shows shared middleware`);
+  assert.equal(await edges.count(), 38, `${mode} first render projects connected source-backed relations immediately`);
+  const clippedActorLabels = await actors.evaluateAll(elements => {
+    const clipped: string[] = [];
+    for (const element of elements) {
+      const label = element.querySelector("strong");
+      if (label && label.scrollHeight > label.clientHeight + 1) clipped.push(label.textContent ?? "(unnamed actor)");
+    }
+    return clipped;
+  });
+  assert.deepEqual(clippedActorLabels, [], `${mode} actor labels fit their card height`);
+
+  const edgeRows = await edges.evaluateAll(elements => elements.map(element => ({
+    source: element.getAttribute("data-source"), target: element.getAttribute("data-target"),
+    confidence: element.getAttribute("data-confidence"), sourceEdgeIds: (element.getAttribute("data-source-edge-ids") ?? "").split(/\s+/u).filter(Boolean),
+  })));
+  const modelEdges = new Map(payload.model.edges.map(edge => [edge.id, edge]));
+  const mapEndpoint = (edgeId: string, nodeId: string): string => {
+    const node = payload.model.nodes.find(item => item.id === nodeId)!;
+    const memberships = payload.model.features.filter(feature => feature.edgeIds.includes(edgeId) && (node.featureId === feature.id || feature.nodeIds.includes(nodeId)));
+    const shared = node.kind === "actor" || node.kind === "store" || node.kind === "concept"
+      || (node.kind === "component" && payload.model.features.filter(feature => feature.nodeIds.includes(nodeId)).length > 1);
+    if (shared) return nodeId;
+    assert.equal(memberships.length, 1, `source endpoint ${nodeId} belongs to one feature scope for ${edgeId}`);
+    return memberships[0]!.id;
+  };
+  assert.ok(edgeRows.every(row => row.sourceEdgeIds.length > 0 && row.sourceEdgeIds.every(id => modelEdges.has(id))), `${mode} every visible line retains one or more real source edge IDs`);
+  assert.ok(edgeRows.every(row => row.source !== null && row.target !== null), `${mode} each projected relationship names visible endpoint cards`);
+  const displayedSources = new Set(edgeRows.flatMap(row => row.sourceEdgeIds));
+  for (const row of edgeRows) for (const id of row.sourceEdgeIds) {
+    const source = modelEdges.get(id)!;
+    assert.equal(row.source, mapEndpoint(id, source.source), `${mode} source endpoint is the actual source node or its owning feature frame (${id})`);
+    assert.equal(row.target, mapEndpoint(id, source.target), `${mode} target endpoint is the actual target node or its owning feature frame (${id})`);
+  }
+  assert.ok(edgeRows.some(row => row.source === "sem_actor_895313a4beab6c338da0659a" && row.target!.startsWith("sem_feature_") && row.sourceEdgeIds.some(id => modelEdges.get(id)?.source === row.source)), `${mode} visibly connects a real authenticated actor to a feature endpoint`);
+  assert.ok(edgeRows.some(row => row.target === "sem_store_99bf1919b8215005bd8b3a28" && row.source!.startsWith("sem_feature_") && row.sourceEdgeIds.some(id => modelEdges.get(id)?.target === row.target)), `${mode} visibly connects a feature to the real check-in store`);
+  assert.equal(edgeRows.filter(row => row.source!.startsWith("sem_feature_") && row.target!.startsWith("sem_feature_")).length, 0, `${mode} does not invent feature-to-feature calls from shared stores`);
+  assert.ok(displayedSources.size >= 38, `${mode} preserves every raw source edge behind its connected overview arrows`);
+
+  const firstFeature = features.first();
+  const firstActor = actors.first();
+  const firstEdge = edges.first();
+  const visibleInitial = await page.evaluate(() => {
+    const viewport = document.querySelector<HTMLElement>("[data-testid='architecture-overview'] [aria-label*='architecture canvas']");
+    const box = viewport?.getBoundingClientRect();
+    if (!box) return null;
+    const featureRects = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='architecture-node'][data-kind='feature']"));
+    const actorRects = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='architecture-node'][data-kind='actor']"));
+    const edgeRects = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='architecture-edge']"));
+    const featureVisible = featureRects.some(element => { const rect = element.getBoundingClientRect(); return rect.width > 0 && rect.height > 0 && rect.left < box.right && rect.right > box.left && rect.top < box.bottom && rect.bottom > box.top; });
+    const actorVisible = actorRects.some(element => { const rect = element.getBoundingClientRect(); return rect.width > 0 && rect.height > 0 && rect.left < box.right && rect.right > box.left && rect.top < box.bottom && rect.bottom > box.top; });
+    const edgeVisible = edgeRects.some(element => { const rect = element.getBoundingClientRect(); return rect.width > 0 && rect.height > 0 && rect.left < box.right && rect.right > box.left && rect.top < box.bottom && rect.bottom > box.top; });
+    return { hasFeature: featureVisible, hasActor: actorVisible, hasEdge: edgeVisible };
+  });
+  assert.ok(visibleInitial?.hasFeature && visibleInitial.hasActor && visibleInitial.hasEdge, `${mode} at ${viewport.width}px shows a feature, actor, and connecting arrow on initial screen: ${JSON.stringify(visibleInitial)}`);
+  const firstScreen = await page.evaluate(() => {
+    let feature = false, actor = false, edge = false;
+    for (const element of Array.from(document.querySelectorAll("[data-testid='architecture-node'][data-kind='feature']"))) { const rect = element.getBoundingClientRect(); if (rect.width > 0 && rect.height > 0 && rect.left < window.innerWidth && rect.right > 0 && rect.top < window.innerHeight && rect.bottom > 0) feature = true; }
+    for (const element of Array.from(document.querySelectorAll("[data-testid='architecture-node'][data-kind='actor']"))) { const rect = element.getBoundingClientRect(); if (rect.width > 0 && rect.height > 0 && rect.left < window.innerWidth && rect.right > 0 && rect.top < window.innerHeight && rect.bottom > 0) actor = true; }
+    for (const element of Array.from(document.querySelectorAll("[data-testid='architecture-edge']"))) { const rect = element.getBoundingClientRect(); if (rect.width > 0 && rect.height > 0 && rect.left < window.innerWidth && rect.right > 0 && rect.top < window.innerHeight && rect.bottom > 0) edge = true; }
+    return { feature, actor, edge };
+  });
+  assert.ok(firstScreen.feature && firstScreen.actor && firstScreen.edge, `${mode} at ${viewport.width}px shows a connected architecture path above the browser fold: ${JSON.stringify(firstScreen)}`);
+  const cardBounds = await firstFeature.boundingBox();
+  assert.ok(cardBounds && cardBounds.width >= (viewport.width < 640 ? 180 : 260) && cardBounds.height >= 80, `${mode} first feature remains readable at ${viewport.width}px`);
+  assert.ok(await firstActor.count() > 0 && await firstEdge.count() > 0);
+
+  const geometry = await root.locator("svg[aria-label='Source architecture relationships']").evaluate(svg => {
+    const visibleCards = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='architecture-node']")).map(element => {
+      const rect = element.getBoundingClientRect();
+      return { id: element.getAttribute("data-node-id"), left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+    });
+    const paths = Array.from(svg.querySelectorAll<SVGGElement>("[data-testid='architecture-edge']"));
+    const errors: string[] = [];
+    for (const edge of paths) {
+      const path = edge.querySelector<SVGPathElement>("path[marker-end]");
+      if (!path) { errors.push("missing line"); continue; }
+      const length = path.getTotalLength();
+      const samples = Math.max(20, Math.ceil(length / 12));
+      for (let i = 1; i < samples; i += 1) {
+        const point = path.getPointAtLength(length * i / samples);
+        const screen = new DOMPoint(point.x, point.y).matrixTransform(path.getScreenCTM()!);
+        const obstacle = visibleCards.find(card => card.id !== edge.getAttribute("data-source") && card.id !== edge.getAttribute("data-target")
+          && screen.x > card.left + 2 && screen.x < card.right - 2 && screen.y > card.top + 2 && screen.y < card.bottom - 2);
+        if (obstacle) { errors.push(`${edge.getAttribute("data-source")}→${edge.getAttribute("data-target")} enters ${obstacle.id}`); break; }
+      }
+    }
+    return errors;
+  });
+  assert.deepEqual(geometry, [], `${mode} sampled SVG lines must not pass behind unrelated cards`);
+  const headingGeometry = await root.locator("[class*='laneHeading']").evaluateAll(headings => {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='architecture-node']")).map(card => {
+      const rect = card.getBoundingClientRect();
+      return { id: card.getAttribute("data-node-id"), left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+    });
+    const errors: string[] = [];
+    for (const heading of Array.from(headings)) {
+      const rect = heading.getBoundingClientRect();
+      const collision = cards.find(card => rect.left < card.right - 1 && rect.right > card.left + 1 && rect.top < card.bottom - 1 && rect.bottom > card.top + 1);
+      if (collision) errors.push(`${heading.textContent?.trim() ?? "lane heading"} overlaps ${collision.id}`);
+    }
+    return errors;
+  });
+  assert.deepEqual(headingGeometry, [], `${mode} lane headings remain clear of architecture cards`);
+  await page.screenshot({ path: resolve(artifactDirectory, `emosync-architecture-${mode}-${viewport.width}-initial.png`), fullPage: true });
+  const labelGeometry = await root.locator("svg[aria-label='Source architecture relationships']").evaluate(svg => {
+    const visibleCards = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='architecture-node']")).map(element => {
+      const rect = element.getBoundingClientRect();
+      return { id: element.getAttribute("data-node-id"), left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+    });
+    const labels = Array.from(svg.querySelectorAll<SVGTextElement>("[data-testid='architecture-edge'] text")).filter(label => {
+      const style = getComputedStyle(label);
+      const rect = label.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
+    }).map(label => {
+      const rect = label.getBoundingClientRect();
+      const edge = label.closest<SVGGElement>("[data-testid='architecture-edge']")!;
+      return { text: label.textContent ?? "", source: edge.getAttribute("data-source"), target: edge.getAttribute("data-target"), left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+    });
+    const errors: string[] = [];
+    for (let i = 0; i < labels.length; i += 1) {
+      const label = labels[i]!;
+      const card = visibleCards.find(item => item.id !== label.source && item.id !== label.target
+        && label.left < item.right - 2 && label.right > item.left + 2 && label.top < item.bottom - 2 && label.bottom > item.top + 2);
+      if (card) errors.push(`label “${label.text}” is obscured by ${card.id}`);
+      for (let j = i + 1; j < labels.length; j += 1) {
+        const other = labels[j]!;
+        if (label.left < other.right - 2 && label.right > other.left + 2 && label.top < other.bottom - 2 && label.bottom > other.top + 2) {
+          errors.push(`labels “${label.text}” and “${other.text}” overlap`);
+        }
+      }
+    }
+    return errors;
+  });
+  assert.deepEqual(labelGeometry, [], `${mode} visible edge labels must avoid cards and one another`);
+  if (mode === "flow") {
+    await firstFeature.focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("button", { name: "Open detailed flow" }).waitFor();
+    await page.getByRole("button", { name: "Open detailed flow" }).click();
+    await page.getByTestId("semantic-flow-canvas").waitFor();
+    await page.getByRole("button", { name: "All features" }).click();
+  }
+  const indication = root.getByRole("checkbox", { name: "Show indicated relationships" });
+  await indication.uncheck();
+  const provenCount = await root.locator("[data-testid='architecture-edge'][data-confidence='proven']").count();
+  assert.ok(provenCount > 0 && await root.locator("[data-testid='architecture-edge'][data-confidence='indicated']").count() === 0, `${mode} hides indicated source paths while preserving proven paths`);
+  await indication.check();
+  const zoom = Number((await root.locator("output").textContent())?.replace("%", ""));
+  assert.ok(Number.isFinite(zoom), `${mode} exposes its current auto-fit zoom`);
+  await root.getByRole("button", { name: "Zoom in architecture" }).click();
+  await root.getByText(`${zoom + 10}%`, { exact: true }).waitFor();
+  await root.screenshot({ path: resolve(artifactDirectory, `emosync-architecture-${mode}-${viewport.width}.png`) });
+}
+
+async function verifyActualEmosyncArchitecture(page: Page, payload: SemanticPayload, setPayload: (next: SemanticPayload) => void): Promise<void> {
+  assert.equal(payload.model.snapshot.repository, "iltizamhasan3/emosync-backend");
+  await verifyConnectedArchitecture(page, payload, setPayload, { width: 1440, height: 1000 }, "flow");
+  await verifyConnectedArchitecture(page, payload, setPayload, { width: 1440, height: 1000 }, "graph");
+  await verifyConnectedArchitecture(page, payload, setPayload, { width: 390, height: 844 }, "flow");
+  await verifyConnectedArchitecture(page, payload, setPayload, { width: 390, height: 844 }, "graph");
+}
+
+async function verifyStoredCorpusMobileOverview(page: Page, payload: SemanticPayload, setPayload: (next: SemanticPayload) => void, name: "perpus" | "sage", mode: "flow" | "graph"): Promise<void> {
+  setPayload(payload);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/qa-semantic-workspace");
+  await page.getByTestId(mode === "flow" ? "mode-flow" : "mode-graph").click();
+  const root = page.getByTestId("architecture-overview");
+  await root.waitFor();
+  const features = root.locator("[data-testid='architecture-node'][data-kind='feature']");
+  const actors = root.locator("[data-testid='architecture-node'][data-kind='actor']");
+  const inputs = root.locator("[data-testid='architecture-node'][data-kind='actor'],[data-testid='architecture-node'][data-kind='component']");
+  const stores = root.locator("[data-testid='architecture-node'][data-kind='store']");
+  const edges = root.locator("[data-testid='architecture-edge']");
+  assert.equal(await features.count(), payload.model.features.length, `${name} ${mode} initial mobile overview retains every feature`);
+  assert.ok(await inputs.count() > 0, `${name} ${mode} initial mobile overview includes a shared actor or service`);
+  const clippedActorLabels = await actors.evaluateAll(elements => {
+    const clipped: string[] = [];
+    for (const element of elements) {
+      const label = element.querySelector("strong");
+      if (label && label.scrollHeight > label.clientHeight + 1) clipped.push(label.textContent ?? "(unnamed actor)");
+    }
+    return clipped;
+  });
+  assert.deepEqual(clippedActorLabels, [], `${name} ${mode} actor labels fit their mobile cards`);
+  const expectedStores = payload.model.nodes.filter(node => node.kind === "store").length;
+  assert.equal(await stores.count() > 0, expectedStores > 0, `${name} ${mode} only shows data-store cards when the source model contains data stores`);
+  assert.ok(await edges.count() > 0, `${name} ${mode} initial mobile overview has source relationships before any node click`);
+  const displayedNodes = await root.locator("[data-testid='architecture-node']").evaluateAll(elements => elements.map(element => ({ id: element.getAttribute("data-node-id"), kind: element.getAttribute("data-kind") })));
+  const displayedById = new Map(displayedNodes.map(node => [node.id, node.kind]));
+  const modelEdgeIds = new Set(payload.model.edges.map(edge => edge.id));
+  const edgeRows = await edges.evaluateAll(elements => elements.map(element => ({
+    source: element.getAttribute("data-source"), target: element.getAttribute("data-target"),
+    ids: (element.getAttribute("data-source-edge-ids") ?? "").split(/\s+/u).filter(Boolean),
+  })));
+  assert.ok(edgeRows.every(edge => edge.source && edge.target && displayedById.has(edge.source) && displayedById.has(edge.target)), `${name} ${mode} every drawn relationship terminates at visible source cards`);
+  assert.ok(edgeRows.every(edge => edge.ids.length > 0 && edge.ids.every(id => modelEdgeIds.has(id))), `${name} ${mode} drawn relationships carry real source edge IDs`);
+  assert.ok(edgeRows.some(edge => [edge.source, edge.target].some(id => displayedById.get(id) === "feature")
+    && [edge.source, edge.target].some(id => displayedById.get(id) === "actor" || displayedById.get(id) === "component")), `${name} ${mode} connects at least one real actor/service to a feature frame`);
+  const initiallyVisible = await page.evaluate(() => {
+    let feature = false, input = false, edge = false;
+    for (const element of Array.from(document.querySelectorAll("[data-testid='architecture-node'][data-kind='feature']"))) { const rect = element.getBoundingClientRect(); if (rect.width > 0 && rect.height > 0 && rect.left < window.innerWidth && rect.right > 0 && rect.top < window.innerHeight && rect.bottom > 0) feature = true; }
+    for (const element of Array.from(document.querySelectorAll("[data-testid='architecture-node'][data-kind='actor'],[data-testid='architecture-node'][data-kind='component']"))) { const rect = element.getBoundingClientRect(); if (rect.width > 0 && rect.height > 0 && rect.left < window.innerWidth && rect.right > 0 && rect.top < window.innerHeight && rect.bottom > 0) input = true; }
+    for (const element of Array.from(document.querySelectorAll("[data-testid='architecture-edge']"))) { const rect = element.getBoundingClientRect(); if (rect.width > 0 && rect.height > 0 && rect.left < window.innerWidth && rect.right > 0 && rect.top < window.innerHeight && rect.bottom > 0) edge = true; }
+    return {
+      feature,
+      input,
+      edge,
+    };
+  });
+  assert.ok(initiallyVisible.feature && initiallyVisible.input && initiallyVisible.edge, `${name} ${mode} mobile first viewport shows a feature, actor/service, and relationship without scrolling: ${JSON.stringify(initiallyVisible)}`);
+  await page.screenshot({ path: resolve(artifactDirectory, `${name}-architecture-${mode}-390-initial.png`), fullPage: true });
+}
+
 async function verifyActualPerpusCorpus(page: Page, payload: SemanticPayload, setPayload: (next: SemanticPayload) => void): Promise<void> {
   setPayload(payload);
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/qa-semantic-workspace");
+  await page.getByTestId("mode-flow").click();
   await page.getByRole("heading", { name: "User flows" }).waitFor();
   await waitForFixtureRevision(page, 0);
 
@@ -583,6 +823,7 @@ async function verifyActualPerpusCorpus(page: Page, payload: SemanticPayload, se
 
   await page.getByTestId("mode-graph").click();
   await page.getByRole("heading", { name: "Repository concepts" }).waitFor();
+  await page.locator("summary").filter({ hasText: "Explore individual concepts and components" }).click();
   const booksFeature = payload.model.features.find(item => item.label === "Books")!;
   const graph = page.locator("svg[aria-label^='Feature, concept, component']");
   const booksCluster = graph.locator(`g[data-feature-id="${booksFeature.id}"]`);
@@ -608,6 +849,7 @@ async function verifyActualPerpusCorpus(page: Page, payload: SemanticPayload, se
 
   await page.getByTestId("mode-graph").click();
   await page.getByRole("heading", { name: "Repository concepts" }).waitFor();
+  await page.locator("summary").filter({ hasText: "Explore individual concepts and components" }).click();
   const mobileBooksCluster = page.locator(`svg[aria-label^='Feature, concept, component'] [data-testid='semantic-feature-card'][data-feature-id="${mobileBooks.id}"]`);
   await mobileBooksCluster.focus();
   await page.keyboard.press("Enter");
@@ -629,18 +871,19 @@ async function verifyDesktopFlowAndOverlay(page: Page, getPayload: () => Semanti
   await page.getByTestId("fixture-note").waitFor();
   await page.getByRole("heading", { name: "User flows" }).waitFor();
   await page.waitForTimeout(500);
-  const overview = page.getByTestId("semantic-feature-overview");
+  const overview = page.getByTestId("architecture-overview");
   if (await overview.count() === 0) {
     await page.screenshot({ path: resolve(artifactDirectory, "semantic-flow-error.png"), fullPage: true });
     throw new Error(`Semantic flow overview did not render: ${await page.locator("body").innerText()}`);
   }
-  assert.equal(await page.locator("[aria-label^='Actors connected']").count(), 2, "overview lists each source-backed actor alongside its feature");
-  assert.equal(await page.getByText(/Anggota terautentikasi/u).count(), 1);
+  assert.ok(await page.locator("[data-testid='architecture-node'][data-kind='actor']").count() >= 2, "the initial architecture shows shared source-backed actors");
+  assert.ok(await page.locator("[data-testid='architecture-edge']").count() > 0, "the initial architecture shows source-backed connections before interaction");
   await waitForFixtureRevision(page, 0);
 
-  const featureCard = page.getByTestId("semantic-feature-overview").getByRole("button", { name: /Peminjaman buku/u });
+  const featureCard = page.locator("[data-testid='architecture-node'][data-kind='feature'][data-node-id='feature-books']");
   await featureCard.focus();
   await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "Open detailed flow" }).click();
   await page.getByTestId("semantic-flow-canvas").waitFor();
   const entrySelector = page.getByRole("combobox", { name: "Start flow from" });
   const selectedEntryId = await entrySelector.inputValue();
@@ -687,8 +930,10 @@ async function verifyDesktopFlowAndOverlay(page: Page, getPayload: () => Semanti
 
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-flow-desktop.png"), fullPage: true });
 
+  await page.getByRole("button", { name: "All features" }).click();
   await page.getByTestId("mode-graph").click();
   await page.getByRole("heading", { name: "Repository concepts" }).waitFor();
+  await page.locator("summary").filter({ hasText: "Explore individual concepts and components" }).click();
   const graphCanvas = page.getByRole("region", { name: /Knowledge graph canvas/u });
   await graphCanvas.waitFor();
   const firstFeatureCard = page.locator("svg[aria-label^='Feature, concept, component'] [data-testid='semantic-feature-card']").first();
@@ -804,6 +1049,7 @@ async function verifyDesktopFlowAndOverlay(page: Page, getPayload: () => Semanti
   assert.equal(getPayload().revision, 6, "a 409 conflict does not overwrite the latest stored revision");
   await page.getByRole("button", { name: "Reload model" }).click();
   await waitForFixtureRevision(page, 6);
+  await page.locator("summary").filter({ hasText: "Explore individual concepts and components" }).click();
   await page.locator("svg[aria-label^='Feature, concept, component']").waitFor();
   assert.ok(fixtureControl.getCount >= 2 && fixtureControl.patchCount >= 7, "the browser exercised GET and PATCH fixture endpoints");
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-graph-desktop.png"), fullPage: true });
@@ -842,7 +1088,10 @@ async function main(): Promise<void> {
     await waitForNext(port, child, server.output, server.initialOutput);
 
     let payload = buildFixture();
-    const actualCorpusPayload = await readPerpusCorpus();
+    const actualCorpusPayload = await readCorpus(perpusCorpusPath);
+    const actualEmosyncPayload = await readCorpus(emosyncCorpusPath);
+    const actualSagePayload = await readCorpus(sageCorpusPath);
+    const actualPerpusMobilePayload = await readCorpus(perpusMobileCorpusPath);
     const fixtureControl = { conflictNext: false, getCount: 0, patchCount: 0 };
     const livePayload = buildFixture();
     livePayload.model.features[0]!.label = privateAccountMarker;
@@ -906,15 +1155,22 @@ async function main(): Promise<void> {
 
     const securityOnly = process.env.SAGE_SEMANTIC_UI_SECURITY_ONLY === "1";
     if (!securityOnly) {
+      if (actualEmosyncPayload) await verifyActualEmosyncArchitecture(page, actualEmosyncPayload, next => { payload = next; });
+      if (actualPerpusMobilePayload) {
+        await verifyStoredCorpusMobileOverview(page, actualPerpusMobilePayload, next => { payload = next; }, "perpus", "flow");
+        await verifyStoredCorpusMobileOverview(page, actualPerpusMobilePayload, next => { payload = next; }, "perpus", "graph");
+      }
+      if (actualSagePayload) {
+        await verifyStoredCorpusMobileOverview(page, actualSagePayload, next => { payload = next; }, "sage", "flow");
+        await verifyStoredCorpusMobileOverview(page, actualSagePayload, next => { payload = next; }, "sage", "graph");
+      }
+      payload = buildFixture();
       await verifyDesktopFlowAndOverlay(page, () => payload, next => { payload = next; }, fixtureControl);
 
       await page.setViewportSize({ width: 390, height: 844 });
       await page.getByTestId("mode-flow").click();
-  await page.getByRole("heading", { name: "User flows" }).waitFor();
-      const mobileCard = page.getByTestId("semantic-feature-overview").getByRole("button", { name: /Peminjaman buku/u });
-      await mobileCard.focus();
-      await page.keyboard.press("Enter");
-      await page.getByTestId("semantic-flow-canvas").waitFor();
+      await page.getByRole("heading", { name: "User flows" }).waitFor();
+      await openOverviewFeature(page, "feature-books");
       const mobileOverflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       const overflowElements = mobileOverflow > 1 ? await page.evaluate(() => Array.from(document.querySelectorAll<HTMLElement>("body *")).flatMap(element => { const box = element.getBoundingClientRect(); return box.right > window.innerWidth + 1 ? [{ tag: element.tagName, className: typeof element.className === "string" ? element.className : "", right: Math.round(box.right * 10) / 10, width: Math.round(box.width * 10) / 10, text: element.innerText?.slice(0, 80) ?? "" }] : []; }).slice(0, 10)) : [];
       const layoutSizes = mobileOverflow > 1 ? await page.evaluate(() => [document.documentElement, document.body, document.querySelector("main"), document.querySelector("section[aria-label='Alur fitur berbasis source']")].filter((element): element is HTMLElement => element instanceof HTMLElement).map(element => { const box = element.getBoundingClientRect(), style = getComputedStyle(element); return { tag: element.tagName, className: typeof element.className === "string" ? element.className : "", left: box.left, right: box.right, width: box.width, clientWidth: element.clientWidth, boxSizing: style.boxSizing, padding: style.padding, margin: style.margin }; })) : [];
@@ -924,10 +1180,17 @@ async function main(): Promise<void> {
     }
     await verifyLiveGraphIdentityIsolation(page, livePayload, liveGraphControl);
     if (actualCorpusPayload && !securityOnly) await verifyActualPerpusCorpus(page, actualCorpusPayload, next => { payload = next; });
+
     assert.deepEqual(pageErrors, [], "the browser should not emit uncaught client exceptions");
     await context.close();
     process.stdout.write(`Semantic workspace browser fixture passed: GET=${fixtureControl.getCount}, PATCH=${fixtureControl.patchCount}, screenshots=${artifactDirectory}\n`);
     process.stdout.write("Synthetic fixture scope: real Next dev page/component + intercepted deterministic HTTP fixtures; no database, analyzer worker, or real model integration.\n");
+    if (actualEmosyncPayload) process.stdout.write(`Stored Emosync architecture smoke passed: ${emosyncCorpusPath}; ${actualEmosyncPayload.model.nodes.length} nodes, ${actualEmosyncPayload.model.edges.length} edges, ${actualEmosyncPayload.model.features.length} features; connected overview checks ran before interaction on desktop/mobile. This reuses saved analyzer output and does not run a fresh analysis.\n`);
+    else process.stdout.write(`Stored Emosync architecture smoke skipped: ${emosyncCorpusPath} is missing.\n`);
+    if (actualPerpusMobilePayload) process.stdout.write(`Stored Perpus initial mobile overview passed: ${perpusMobileCorpusPath}; flow and graph modes were checked without selecting a feature.\n`);
+    else process.stdout.write(`Stored Perpus initial mobile overview skipped: ${perpusMobileCorpusPath} is missing.\n`);
+    if (actualSagePayload) process.stdout.write(`Stored SAGE initial mobile overview passed: ${sageCorpusPath}; flow and graph modes were checked without selecting a feature.\n`);
+    else process.stdout.write(`Stored SAGE initial mobile overview skipped: ${sageCorpusPath} is missing.\n`);
     if (actualCorpusPayload) process.stdout.write(`Stored-corpus smoke passed: ${perpusCorpusPath}; ${actualCorpusPayload.model.nodes.length} nodes, ${actualCorpusPayload.model.edges.length} edges, ${actualCorpusPayload.model.features.length} features; snapshot ${actualCorpusPayload.model.snapshot.repository}@${actualCorpusPayload.model.snapshot.commitSha}. This reuses saved analyzer output and does not run a fresh analysis.\n`);
     else process.stdout.write(`Stored-corpus smoke skipped: ${perpusCorpusPath} is missing; set SAGE_SEMANTIC_CORPUS to an available semantic model JSON.\n`);
   } finally {
