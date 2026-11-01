@@ -24,3 +24,44 @@
 .workspace { box-sizing:border-box; grid-template-columns:minmax(0,1fr); }.workspace > * { min-width:0; }.flowStepList { min-width:0; grid-template-columns:minmax(0,1fr); }.flowStepList > article { min-width:0; }
 .flowEntryTools { display:flex; flex-wrap:wrap; align-items:end; gap:10px 16px; padding:12px; border:1px solid #d1d9e0; border-radius:8px; background:#f6f8fa; }.flowEntryTools > label { display:grid; flex:1 1 min(100%,340px); gap:6px; color:#59636e; font-size:12px; font-weight:600; }.flowEntryTools select { width:100%; min-height:40px; padding:8px 10px; border:1px solid #d1d9e0; border-radius:6px; background:#fff; color:#1f2328; font:inherit; font-size:14px; }.flowEntryTools select:focus-visible { outline:2px solid #0969da; outline-offset:2px; }.flowEntryTools p { flex:1 1 240px; margin:0; color:#59636e; font-size:13px; }
 @media(max-width:600px) { .flowEntryTools { display:grid; grid-template-columns:minmax(0,1fr); } }
+
+/* Keep the semantic work surface readable on wide monitors and phones. */
+.workspace { width:min(100%, 1440px); max-width:1440px; padding:clamp(14px, 2vw, 24px); }
+.flowCanvas svg,.clusterViewport svg { margin-inline:auto; }
+.flowCanvas { background-color:#fff; background-image:radial-gradient(#d0d7de .8px,transparent .8px); background-size:18px 18px; }
+.clusterViewport { background-color:#fff; background-image:radial-gradient(#d0d7de .8px,transparent .8px); background-size:18px 18px; }
+.flowEdge path { stroke:#57606a; stroke-width:2.2; }
+.flowEdge text { fill:#24292f; font-size:12px; font-weight:600; stroke:#fff; stroke-width:6px; }
+.indicatedEdge path { stroke:#bf8700; stroke-width:2; stroke-dasharray:7 5; }
+.flowNode rect,.flowNode polygon { filter:drop-shadow(0 2px 3px #1f23281a); }
+.featureCard,.graphTools button,.flowTools button,.flowPaging button,.focusButton,.loadMore,.inspector button { transition:background-color .15s ease,border-color .15s ease,box-shadow .15s ease,transform .15s ease; }
+.featureCard:active,.graphTools button:active,.flowTools button:active,.focusButton:active,.loadMore:active { transform:translateY(1px); }
+.graphNode circle { filter:drop-shadow(0 2px 3px #1f23281f); }
+.graphNode text { font-size:11px; font-weight:600; }
+.graphNode .graphNodeKind { font-size:8px; font-weight:500; }
+.featureCluster circle { filter:drop-shadow(0 3px 5px #1f23281c); }
+.featureCluster rect { stroke-width:2; filter:drop-shadow(0 3px 6px #1f23281a); fill-opacity:.28; }
+.featureCluster text { text-anchor:start; }
+.featureCluster .featureCardTitle { fill:#1f2328; font-size:14px; font-weight:700; }
+.featureCluster .featureCardMeta { fill:#59636e; font-size:10px; font-weight:500; }
+.graphNode rect { stroke-width:1.5; filter:drop-shadow(0 2px 4px #1f232818); }
+.graphNode text { text-anchor:start; font-size:12px; font-weight:600; }
+.graphNode .graphNodeLabel { fill:#1f2328; text-anchor:start; }
+.graphNode .graphNodeKind { fill:#59636e; font-size:9px; font-weight:500; text-anchor:start; }
+.graphNode .graphNodeConfidence { fill:#59636e; font-size:8px; font-weight:700; letter-spacing:.04em; text-anchor:end; }
+.featureFrame { stroke-width:2; filter:drop-shadow(0 3px 6px #1f23281a); fill-opacity:.28; }
+.featureCluster .featureHitbox { fill:transparent; stroke:none; filter:none; fill-opacity:0; }
+.featureCluster:focus-visible .featureHitbox { stroke:#0969da; stroke-width:3; }
+.graphNode:hover rect,.graphNode[aria-pressed="true"] rect,.graphNode:focus-visible rect { stroke-width:3; filter:brightness(.98) drop-shadow(0 2px 4px #1f232833); }
+.graphNode.indicatedGraphNode rect { stroke-dasharray:5 4; }
+.clusterViewport marker path { fill:#59636e; }
+@media(max-width:600px) {
+  .workspace { border-radius:8px; }
+  .header { display:grid; }
+  .statusPills { font-size:11px; }
+  .flowCanvas,.clusterViewport { max-height:62vh; }
+  .flowTools { position:sticky; left:0; justify-content:flex-start; }
+}
+@media(prefers-reduced-motion:reduce) {
+  .featureCard,.graphTools button,.flowTools button,.flowPaging button,.focusButton,.loadMore,.inspector button { transition:none; }
+}
