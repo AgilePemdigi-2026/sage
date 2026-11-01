@@ -28,7 +28,7 @@ export function ArchitectureOverview({ payload, featureIds, showIndications, onS
   const featureNodes = diagram.nodes.filter(node => node.kind === "feature");
   const firstFeatureConnections = new Set(diagram.edges.filter(edge => edge.source === featureNodes[0]?.id || edge.target === featureNodes[0]?.id).flatMap(edge => [edge.source, edge.target]));
   const inputs = diagram.nodes.filter(node => node.kind === "actor" || node.kind === "component").sort((a, b) => Number(firstFeatureConnections.has(b.id)) - Number(firstFeatureConnections.has(a.id)));
-  const outputs = diagram.nodes.filter(node => node.kind === "store" || node.kind === "concept");
+  const outputs = diagram.nodes.filter(node => node.kind === "store" || node.kind === "concept").sort((a, b) => Number(firstFeatureConnections.has(b.id)) - Number(firstFeatureConnections.has(a.id)));
   const nodeById = new Map(diagram.nodes.map(node => [node.id, node]));
   const boxes = new Map<string, Box>();
   const compactFeatureWidth = Math.max(240, Math.min(368, surfaceWidth - 32));
@@ -129,7 +129,7 @@ export function ArchitectureOverview({ payload, featureIds, showIndications, onS
               const path = routing.path;
               const active = selectedEdge?.id === edge.id || selectedNode?.id === edge.source || selectedNode?.id === edge.target;
               const label = edge.labels.join(" / ");
-              const labelVisible = !compact && (selectedEdge?.id === edge.id || ((outgoing.get(edge.source)?.length ?? 0) <= 3 && (incoming.get(edge.target)?.length ?? 0) <= 3));
+              const labelVisible = !compact && !inputs.some(node => node.id === edge.source || node.id === edge.target) && (selectedEdge?.id === edge.id || ((outgoing.get(edge.source)?.length ?? 0) <= 3 && (incoming.get(edge.target)?.length ?? 0) <= 3));
               return <g key={edge.id} data-testid="architecture-edge" data-source={edge.source} data-target={edge.target} data-source-edge-ids={edge.sourceEdgeIds.join(" ")} data-confidence={edge.confidence} className={`${styles.edge} ${edge.confidence === "indicated" ? styles.indicated : ""} ${active ? styles.activeEdge : ""}`} role="button" tabIndex={0} aria-label={`${nodeById.get(edge.source)?.label} → ${nodeById.get(edge.target)?.label}: ${label}; ${edge.sourceEdgeIds.length} source relationships`} onClick={() => setSelected({ kind: "edge", id: edge.id })} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelected({ kind: "edge", id: edge.id }); } }}>
                 <title>{`${label} · ${edge.confidence} · ${edge.sourceEdgeIds.length} source relationships`}</title><path className={styles.edgeHitbox} d={path} /><path className={styles.edgeLine} d={path} markerEnd={`url(#${markerId})`} />
                 {labelVisible ? <text x={routing.labelX} y={routing.labelY} textAnchor={routing.anchor}>{(edge.labels[0] ?? "source relation").slice(0, 12)}{(edge.labels[0]?.length ?? 0) > 12 ? "…" : ""}{edge.labels.length > 1 ? ` +${edge.labels.length - 1}` : ""}</text> : null}
