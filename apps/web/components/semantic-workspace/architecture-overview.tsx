@@ -38,7 +38,7 @@ export function ArchitectureOverview({ payload, featureIds, showIndications, onS
   // Shared identities stay outside feature frames. Reading order is not execution order.
   const extraInputTop = Math.max(featureTop + featureNodes.length * 218, featureTop + outputs.length * 154) + 48;
   inputs.forEach((node, index) => boxes.set(node.id, compact
-    ? { x: index < 2 ? 16 + index % 2 * (compactFeatureWidth + 12) / 2 : 16, y: index < 2 ? 60 : extraInputTop + (index - 2) * 104, width: index < 2 ? (compactFeatureWidth - 12) / 2 : compactFeatureWidth, height: 84 }
+    ? { x: index < 2 ? 16 + index % 2 * (compactFeatureWidth + 12) / 2 : 16, y: index < 2 ? 60 : extraInputTop + (index - 2) * 122, width: index < 2 ? (compactFeatureWidth - 12) / 2 : compactFeatureWidth, height: 100 }
     : { x: 32, y: 88 + index * 154, width: 238, height: 112 }));
   outputs.forEach((node, index) => boxes.set(node.id, { x: compact ? compactRight + 116 : 914, y: compact ? featureTop + index * 154 : 88 + index * 154, width: 238, height: 112 }));
   const width = compact ? compactRight + 386 : 1184;
