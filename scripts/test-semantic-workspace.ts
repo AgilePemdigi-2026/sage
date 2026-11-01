@@ -660,6 +660,20 @@ async function verifyConnectedArchitecture(page: Page, payload: SemanticPayload,
     return errors;
   });
   assert.deepEqual(geometry, [], `${mode} sampled SVG lines must not pass behind unrelated cards`);
+  const headingGeometry = await root.locator("[class*='laneHeading']").evaluateAll(headings => {
+    const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='architecture-node']")).map(card => {
+      const rect = card.getBoundingClientRect();
+      return { id: card.getAttribute("data-node-id"), left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom };
+    });
+    const errors: string[] = [];
+    for (const heading of Array.from(headings)) {
+      const rect = heading.getBoundingClientRect();
+      const collision = cards.find(card => rect.left < card.right - 1 && rect.right > card.left + 1 && rect.top < card.bottom - 1 && rect.bottom > card.top + 1);
+      if (collision) errors.push(`${heading.textContent?.trim() ?? "lane heading"} overlaps ${collision.id}`);
+    }
+    return errors;
+  });
+  assert.deepEqual(headingGeometry, [], `${mode} lane headings remain clear of architecture cards`);
   await page.screenshot({ path: resolve(artifactDirectory, `emosync-architecture-${mode}-${viewport.width}-initial.png`), fullPage: true });
   const labelGeometry = await root.locator("svg[aria-label='Source architecture relationships']").evaluate(svg => {
     const visibleCards = Array.from(document.querySelectorAll<HTMLElement>("[data-testid='architecture-node']")).map(element => {
