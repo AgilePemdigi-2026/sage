@@ -148,7 +148,7 @@ function buildLargeEvidenceFixture(): SemanticPayload {
   return payload;
 }
 
-function liveGraphFixture(): unknown {
+function liveGraphFixture(nodeName = "private fixture"): unknown {
   return {
     analysisId,
     accountKey,
@@ -165,7 +165,7 @@ function liveGraphFixture(): unknown {
       repository,
       branch: "main",
       commitSha,
-      nodes: [{ id: "module-private-fixture", name: "private fixture", label: "private fixture", kind: "Module", category: "Berkas", origin: "repository", qualifiedName: "private fixture", filePath: "src/private.ts", line: 1 }],
+      nodes: [{ id: "module-private-fixture", name: nodeName, label: nodeName, kind: "Module", category: "Berkas", origin: "source", qualifiedName: nodeName, filePath: "src/private.ts", line: 1 }],
       edges: [],
     },
   };
@@ -515,17 +515,43 @@ async function verifyLargeEvidenceFixture(page: Page, setPayload: (next: Semanti
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-over-100-source-files.png"), fullPage: true });
 }
 
-async function verifyLiveGraphIdentityIsolation(page: Page, livePayload: SemanticPayload, control: { switchSession: boolean; graphUnavailable: boolean; mismatchStarted: (() => void) | null; releaseMismatch: Promise<void> | null }): Promise<void> {
+function buildEmptySemanticFixture(): SemanticPayload {
+  const payload = buildFixture();
+  payload.model = {
+    ...payload.model,
+    nodes: [],
+    edges: [],
+    features: [],
+    limitations: [{ filePath: "public/js/app.js", reason: "No supported user flow could be established from this source snapshot." }],
+  };
+  return payload;
+}
+
+async function verifyEmptySemanticFlow(page: Page, setPayload: (next: SemanticPayload) => void): Promise<void> {
+  setPayload(buildEmptySemanticFixture());
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/qa-semantic-workspace");
+  await page.getByTestId("semantic-unavailable").waitFor();
+  await page.getByRole("heading", { name: "No supported user flow detected", exact: true }).waitFor();
+  assert.equal(await page.locator("[data-testid='semantic-flow-canvas'], [data-testid='architecture-overview']").count(), 0, "an empty semantic model explains the missing flow instead of rendering a blank diagram");
+}
+
+async function verifyLiveGraphIdentityIsolation(page: Page, control: { switchSession: boolean; graphUnavailable: boolean; graphRequests: number; semanticRequests: number; mismatchStarted: (() => void) | null; releaseMismatch: Promise<void> | null }): Promise<void> {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.goto("/qa-live-graph", { waitUntil: "domcontentloaded" });
-  await page.locator("summary").filter({ hasText: "Explore individual concepts and components" }).click();
-  const featureCircle = page.locator("svg[aria-label^='Feature, concept, component'] g[data-feature-id='feature-books']");
-  try { await featureCircle.waitFor({ timeout: 10_000 }); }
+  const graphCanvas = page.getByRole("region", { name: "Kanvas knowledge graph" });
+  try { await graphCanvas.waitFor({ timeout: 10_000 }); }
   catch (error) {
     await page.screenshot({ path: resolve(artifactDirectory, "live-graph-identity-failed.png"), fullPage: true });
-    throw new Error(`Live semantic graph did not render: ${await page.locator("body").innerText()}\n${error instanceof Error ? error.message : String(error)}`);
+    throw new Error(`Primary CKG graph did not render: ${await page.locator("body").innerText()}\n${error instanceof Error ? error.message : String(error)}`);
   }
-  assert.ok((await featureCircle.getAttribute("aria-label"))?.startsWith(`${privateAccountMarker},`), "the authenticated fixture account label is visible before switching accounts");
+  await page.getByRole("heading", { name: "Struktur source code", exact: true }).waitFor();
+  assert.equal(await page.getByTestId("canonical-counts").innerText(), "Kanonik: 1 node · 0 relasi", "the authenticated CKG payload is rendered as the primary graph");
+  assert.equal(await graphCanvas.evaluate(element => Boolean(element.closest("details"))), false, "the primary CKG canvas is visible without opening a disclosure");
+  assert.equal(await page.locator("svg[aria-label^='Feature, concept, component']").count(), 0, "the code graph does not render the semantic feature diagram");
+  assert.equal(control.semanticRequests, 0, "the live Code Knowledge page does not request a semantic fallback");
+  const privateNodeOption = page.locator("[data-testid='graph-node-picker'] option").filter({ hasText: privateAccountMarker });
+  assert.equal(await privateNodeOption.count(), 1, "the authenticated CKG's private source node is available in the node picker");
 
   let releaseSwitch!: () => void;
   control.releaseMismatch = new Promise<void>(resolve => { releaseSwitch = resolve; });
@@ -534,9 +560,9 @@ async function verifyLiveGraphIdentityIsolation(page: Page, livePayload: Semanti
   const initialUrl = page.url();
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await switchStarted;
-  await featureCircle.waitFor({ state: "detached" });
-  assert.equal(await page.url(), initialUrl, "semantic private labels disappear before the delayed account check navigates");
-  assert.equal(await page.locator("[aria-label='Knowledge graph fitur dan konsep']").count(), 0, "parent identity recheck unmounts the child semantic state while it is pending");
+  await graphCanvas.waitFor({ state: "detached" });
+  assert.equal(await page.url(), initialUrl, "private CKG labels disappear before the delayed account check navigates");
+  assert.equal(await page.locator("[data-testid='graph-node-picker'] option").filter({ hasText: privateAccountMarker }).count(), 0, "a session recheck removes private CKG node labels while the account is unresolved");
 
   const navigation = page.waitForNavigation();
   control.graphUnavailable = true;
@@ -544,15 +570,21 @@ async function verifyLiveGraphIdentityIsolation(page: Page, livePayload: Semanti
   await navigation;
   control.switchSession = false;
   await page.getByTestId("fixture-note").waitFor();
-  await page.locator("summary").filter({ hasText: "Explore individual concepts and components" }).click();
-  const technicalErrorDisclosure = page.locator("summary").filter({ hasText: "Graph teknis belum tersedia" });
-  await technicalErrorDisclosure.waitFor();
-  const restoredCircle = page.locator("svg[aria-label^='Feature, concept, component'] g[data-feature-id='feature-books']");
-  await restoredCircle.waitFor();
-  assert.ok((await restoredCircle.getAttribute("aria-label"))?.startsWith(`${privateAccountMarker},`), "a verified semantic model remains available when the technical graph endpoint returns 503");
-  await technicalErrorDisclosure.click();
-  await page.getByText("Graph sementara tidak dapat dibaca.", { exact: true }).waitFor();
-  await page.screenshot({ path: resolve(artifactDirectory, "live-graph-semantic-503-fallback.png"), fullPage: true });
+  const unavailableAlert = page.getByRole("alert");
+  await unavailableAlert.waitFor();
+  await page.getByText("Code Knowledge sementara tidak tersedia.", { exact: true }).waitFor();
+  await page.getByText("Fixture graph service unavailable.", { exact: true }).waitFor();
+  assert.equal(await graphCanvas.count(), 0, "a 503 does not substitute the semantic diagram for a missing CKG graph");
+  assert.equal(await page.locator("svg[aria-label^='Feature, concept, component']").count(), 0, "a 503 does not render an architecture or semantic fallback");
+  assert.equal(control.semanticRequests, 0, "the 503 path does not fetch semantic data as a fallback");
+  await page.screenshot({ path: resolve(artifactDirectory, "live-graph-503-error.png"), fullPage: true });
+
+  const requestsBeforeRetry = control.graphRequests;
+  control.graphUnavailable = false;
+  await unavailableAlert.getByRole("button", { name: "Coba lagi" }).click();
+  await graphCanvas.waitFor();
+  assert.ok(control.graphRequests > requestsBeforeRetry, "retry requests the CKG endpoint again");
+  assert.equal(await page.locator("[data-testid='graph-node-picker'] option").filter({ hasText: privateAccountMarker }).count(), 1, "retry restores the CKG only after the account check succeeds");
 }
 
 async function verifyConnectedArchitecture(page: Page, payload: SemanticPayload, setPayload: (next: SemanticPayload) => void, viewport: { width: number; height: number }, mode: "flow" | "graph"): Promise<void> {
@@ -1093,10 +1125,8 @@ async function main(): Promise<void> {
     const actualSagePayload = await readCorpus(sageCorpusPath);
     const actualPerpusMobilePayload = await readCorpus(perpusMobileCorpusPath);
     const fixtureControl = { conflictNext: false, getCount: 0, patchCount: 0 };
-    const livePayload = buildFixture();
-    livePayload.model.features[0]!.label = privateAccountMarker;
-    const liveGraphControl: { switchSession: boolean; graphUnavailable: boolean; mismatchStarted: (() => void) | null; releaseMismatch: Promise<void> | null } = {
-      switchSession: false, graphUnavailable: false, mismatchStarted: null, releaseMismatch: null,
+    const liveGraphControl: { switchSession: boolean; graphUnavailable: boolean; graphRequests: number; semanticRequests: number; mismatchStarted: (() => void) | null; releaseMismatch: Promise<void> | null } = {
+      switchSession: false, graphUnavailable: false, graphRequests: 0, semanticRequests: 0, mismatchStarted: null, releaseMismatch: null,
     };
     browser = await chromium.launch({ headless: true, args: ["--disable-background-networking", "--disable-default-apps"] });
     const context = await browser.newContext({ baseURL: `http://127.0.0.1:${port}`, viewport: { width: 1440, height: 1000 }, reducedMotion: "reduce" });
@@ -1118,17 +1148,18 @@ async function main(): Promise<void> {
     });
     await page.route(`**/api/analyses/${analysisId}/graph`, async route => {
       assert.equal(route.request().headers()["x-sage-account"], accountKey, "technical graph reads must use the expected owner header");
+      liveGraphControl.graphRequests += 1;
       if (liveGraphControl.graphUnavailable) {
         await fulfillJson(route, 503, { error: { code: "GRAPH_UNAVAILABLE", message: "Fixture graph service unavailable." } });
         return;
       }
-      await fulfillJson(route, 200, { data: liveGraphFixture() });
+      await fulfillJson(route, 200, { data: liveGraphFixture(privateAccountMarker) });
     });
     await page.route(`**/api/analyses/${analysisId}/semantic**`, async route => {
       assert.equal(route.request().headers()["x-sage-account"], accountKey, "semantic reads must use the expected owner header");
       if (route.request().frame().url().includes("/qa-live-graph")) {
-        assert.equal(route.request().method(), "GET", "the live-graph security fixture only needs a semantic read");
-        await fulfillJson(route, 200, { data: livePayload });
+        liveGraphControl.semanticRequests += 1;
+        await fulfillJson(route, 503, { error: { code: "UNEXPECTED_SEMANTIC_REQUEST", message: "The Code Knowledge page must use the CKG endpoint only." } });
         return;
       }
       if (route.request().method() === "GET") {
@@ -1177,8 +1208,9 @@ async function main(): Promise<void> {
       assert.ok(mobileOverflow <= 1, `mobile page must not overflow horizontally (measured ${mobileOverflow}px; elements=${JSON.stringify(overflowElements)}; layout=${JSON.stringify(layoutSizes)})`);
       await page.screenshot({ path: resolve(artifactDirectory, "semantic-flow-mobile.png"), fullPage: true });
       await verifyLargeEvidenceFixture(page, next => { payload = next; });
+      await verifyEmptySemanticFlow(page, next => { payload = next; });
     }
-    await verifyLiveGraphIdentityIsolation(page, livePayload, liveGraphControl);
+    await verifyLiveGraphIdentityIsolation(page, liveGraphControl);
     if (actualCorpusPayload && !securityOnly) await verifyActualPerpusCorpus(page, actualCorpusPayload, next => { payload = next; });
 
     assert.deepEqual(pageErrors, [], "the browser should not emit uncaught client exceptions");

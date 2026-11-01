@@ -1266,8 +1266,20 @@ export function extractNext(input: SemanticInput): SemanticFragment {
     const file = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, kind);
     entries.push({ path, bytes, text, file });
   }
+  // A directory called "pages" is also common in plain JS applications.
+  // Require a Next dependency in the owning package before reporting Pages Router.
+  const nextPackages = Object.entries(input.sources).flatMap(([path, bytes]) => {
+    const normalized = path.replaceAll("\\", "/");
+    if (!/(?:^|\/)package\.json$/u.test(normalized)) return [];
+    try {
+      const manifest = JSON.parse(new TextDecoder().decode(bytes));
+      return manifest?.dependencies?.next || manifest?.devDependencies?.next
+        ? [normalized.slice(0, -"package.json".length)] : [];
+    } catch { return []; }
+  });
   for (const [path] of Object.entries(input.sources).sort(([a], [b]) => a.localeCompare(b))) {
-    if (!scriptKind(path) || excludeFromMainFlow(path) || !/(?:^|\/)pages\//u.test(path.replaceAll("\\", "/"))) continue;
+    const normalized = path.replaceAll("\\", "/");
+    if (!scriptKind(path) || excludeFromMainFlow(path) || !nextPackages.some(root => normalized.startsWith(root) && /^(?:src\/)?pages\//u.test(normalized.slice(root.length)))) continue;
     fragment.frameworks.push("Next.js Pages Router");
     fragment.limitations.push({ filePath: path, reason: "Next.js Pages Router ditemukan, tetapi extractor saat ini hanya membuktikan alur App Router." });
   }

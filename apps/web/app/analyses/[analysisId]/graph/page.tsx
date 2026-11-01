@@ -9,7 +9,7 @@ import { LiveGraphClient } from "../../../../components/live-graph/live-graph-cl
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Knowledge Graph — SAGE",
+  title: "Code Knowledge — SAGE",
   robots: { index: false, follow: false },
 };
 
