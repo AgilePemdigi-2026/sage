@@ -862,6 +862,24 @@ function clipRectEdge(from: { x: number; y: number }, to: { x: number; y: number
   };
 }
 
+/** Child cards occupy two columns; reserve the middle gap for cross-row relations. */
+function routeChildRelation(from: { x: number; y: number }, to: { x: number; y: number }, centerX: number, cardWidth: number, index: number) {
+  if (from.x === to.x && from.y === to.y) {
+    const port = from.x + cardWidth / 2;
+    return { path: `M ${port} ${from.y - 12} H ${port + 18} V ${from.y + 12} H ${port}`, labelX: port + 18, labelY: from.y - 20 };
+  }
+  if (Math.abs(from.y - to.y) < 1) {
+    const direction = Math.sign(to.x - from.x);
+    const start = from.x + direction * cardWidth / 2;
+    const end = to.x - direction * cardWidth / 2;
+    return { path: `M ${start} ${from.y} H ${end}`, labelX: (start + end) / 2, labelY: from.y - 10 };
+  }
+  const start = from.x + (from.x <= centerX ? 1 : -1) * cardWidth / 2;
+  const end = to.x + (to.x <= centerX ? 1 : -1) * cardWidth / 2;
+  const lane = centerX + (index % 5 - 2) * 5;
+  return { path: `M ${start} ${from.y} H ${lane} V ${to.y} H ${end}`, labelX: lane, labelY: (from.y + to.y) / 2 - 8 };
+}
+
 function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, selectedNodeId, selectNode, search, setSearch, features, featureLabel, nodeLabel, nodesForFeature, groupFor, showIndications, setShowIndications, focusedFeatureId, setFocusedFeatureId, zoom, setZoom, reset }: {
   payload: SemanticPayload; expandedFeatures: string[]; toggleExpanded: (id: string) => void;
   selectedNodeId: string | null; selectNode: (id: string) => void; search: string; setSearch: (value: string) => void;
@@ -1089,7 +1107,16 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
           const nodes = clusterNodes.get(feature.id) ?? [];
           const nodeById = new Map(nodes.map(node => [node.id, node]));
           const sourceRelations = displayedGraphRelations.filter(edge => edge.featureId === feature.id && nodeById.has(edge.source) && nodeById.has(edge.target));
-          const relationLines = sourceRelations.map((edge, index) => { const from = nodePositions.get(`${feature.id}\0${edge.source}`), to = nodePositions.get(`${feature.id}\0${edge.target}`); if (!from || !to) return null; const clipped = clipRectEdge(from, to, { width: nodeCardWidth, height: nodeCardHeight }, { width: nodeCardWidth, height: nodeCardHeight }); const curve = (index % 3 - 1) * 14; return <g key={`source:${feature.id}:${edge.id}`} className={edge.confidence === "indicated" ? styles.indicatedEdge : styles.flowEdge}><title>{`${nodeLabel(nodeById.get(edge.source)!)} ${edge.label} ${nodeLabel(nodeById.get(edge.target)!)} · ${edge.confidence === "proven" ? "Proven" : `Indicated: ${edge.reason}`}`}</title><path d={`M ${clipped.from.x} ${clipped.from.y} Q ${(clipped.from.x + clipped.to.x) / 2 + curve} ${(clipped.from.y + clipped.to.y) / 2 - curve} ${clipped.to.x} ${clipped.to.y}`} markerEnd={`url(#semantic-arrow-${analysisIdSafe(payload.analysisId)})`} />{sourceRelations.length === 1 ? <text x={(clipped.from.x + clipped.to.x) / 2} y={Math.min(clipped.from.y, clipped.to.y) - 40}>{edge.label}</text> : null}</g>; });
+          const relationLines = sourceRelations.map((edge, index) => {
+            const from = nodePositions.get(`${feature.id}\0${edge.source}`), to = nodePositions.get(`${feature.id}\0${edge.target}`);
+            if (!from || !to) return null;
+            const route = routeChildRelation(from, to, positions.get(feature.id)!.x, nodeCardWidth, index);
+            return <g key={`source:${feature.id}:${edge.id}`} data-edge-id={edge.id} data-source-id={edge.source} data-target-id={edge.target} data-scope-feature-id={feature.id} className={edge.confidence === "indicated" ? styles.indicatedEdge : styles.flowEdge}>
+              <title>{`${nodeLabel(nodeById.get(edge.source)!)} ${edge.label} ${nodeLabel(nodeById.get(edge.target)!)} · ${edge.confidence === "proven" ? "Proven" : `Indicated: ${edge.reason}`}`}</title>
+              <path d={route.path} markerEnd={`url(#semantic-arrow-${analysisIdSafe(payload.analysisId)})`} />
+              {sourceRelations.length === 1 ? <text x={route.labelX} y={route.labelY}>{edge.label}</text> : null}
+            </g>;
+          });
           return relationLines;
         })}
         {displayedFeatures.map(feature => {
