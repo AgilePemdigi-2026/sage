@@ -673,7 +673,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     {fallbackSection && legacyFallback ? <div className={styles.legacyFallback}>{legacyFallback}</div> : null}
     {payload ? <AnalysisLimitations items={payload.model.limitations} /> : null}
     {payload && (mode === "flow" || selectedFeature) ? <>
-      <div className={styles.legend} aria-label="Flow diagram legend"><span data-kind="actor">Actor</span><span data-kind="step">Action</span><span data-kind="decision">Decision</span><span data-kind="component">Service/API</span><span data-kind="store">Data store</span><span data-kind="outcome">Outcome</span><span><i className={styles.dashedLegend} />Indicated relationship</span></div>
+      {selectedFeature ? <div className={styles.legend} aria-label="Flow diagram legend"><span data-kind="actor">Actor</span><span data-kind="step">Action</span><span data-kind="decision">Decision</span><span data-kind="component">Service/API</span><span data-kind="store">Data store</span><span data-kind="outcome">Outcome</span><span><i className={styles.dashedLegend} />Indicated relationship</span></div> : null}
       {!selectedFeature ? <>
         <div className={styles.controls}><label>Search features<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Feature, concept, or source path" /></label><p aria-live="polite">{visibleFeatures.length} of {features.length} features detected.</p></div>
         <ArchitectureOverview payload={payload} featureIds={overviewFeatureIds} showIndications={showIndications} onShowIndications={setShowIndications} onOpenFeature={setSelectedFeatureId} onInspectNode={setSelectedNodeId} />
