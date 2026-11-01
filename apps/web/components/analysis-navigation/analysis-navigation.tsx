@@ -10,7 +10,7 @@ export function AnalysisNavigation({ analysisId, active, resultsAvailable = true
   const base = `/analyses/${encodeURIComponent(analysisId)}`;
   const items = [
     { id: "progress", label: "Progres", href: base, glyph: "01" },
-    { id: "graph", label: "Knowledge graph", href: `${base}/graph`, glyph: "02" },
+    { id: "graph", label: "Code Knowledge", href: `${base}/graph`, glyph: "02" },
     { id: "document", label: "Dokumentasi", href: `${base}/document`, glyph: "03" },
   ];
   return <nav className={styles.navigation} aria-label="Navigasi hasil analisis">

@@ -13,7 +13,6 @@ import { filterGraph } from "./graph-filters.ts";
 import { parseLiveGraphPayload } from "./graph-data.ts";
 import { AnalysisQuality } from "../analysis-quality/analysis-quality.tsx";
 import { NodeInspector } from "./node-inspector.tsx";
-import { SemanticWorkspace } from "../semantic-workspace/semantic-workspace.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
 import ui from "../ui-foundation/ui-foundation.module.css";
 
@@ -44,7 +43,6 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [selectedKinds, setSelectedKinds] = useState<NodeKind[]>([]);
-  const [technicalOpen, setTechnicalOpen] = useState(false);
   const nodePickerRef = useRef<HTMLSelectElement>(null);
   const generation = useRef(0);
   const graphController = useRef<AbortController | null>(null);
@@ -69,7 +67,6 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       setVerifiedIdentity(null);
       setPayload(null);
       setSelectedId(null);
-      setTechnicalOpen(false);
       window.location.replace(`${window.location.pathname}${window.location.search}`);
     }
 
@@ -81,7 +78,6 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       setVerifiedIdentity(null);
       setPayload(null);
       setSelectedId(null);
-      setTechnicalOpen(false);
       window.location.replace("/login?error=session");
     }
 
@@ -100,6 +96,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       const controller = new AbortController();
       sessionController.current = controller;
       try {
+        setVerifiedIdentity(null);
         const response = await fetch("/api/auth/session", {
           headers: headers(),
           cache: "no-store",
@@ -182,7 +179,6 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
       setPayload(null);
       setVerifiedIdentity(null);
       setSelectedId(null);
-      setTechnicalOpen(false);
       setError(null);
       setBusy(true);
       try {
@@ -267,8 +263,8 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
     // The server-rendered identity defines the scope of this client page.
   }, [analysisId, accountKey]);
 
-  const visiblePayload = payload?.analysisId === analysisId && payload.accountKey === accountKey ? payload : null;
-  const semanticIdentityVerified = verifiedIdentity?.analysisId === analysisId && verifiedIdentity.accountKey === accountKey;
+  const identityVerified = verifiedIdentity?.analysisId === analysisId && verifiedIdentity.accountKey === accountKey;
+  const visiblePayload = identityVerified && payload?.analysisId === analysisId && payload.accountKey === accountKey ? payload : null;
   const filterResult = useMemo(() => visiblePayload ? filterGraph(visiblePayload.graph, query, selectedKinds) : null, [visiblePayload, query, selectedKinds]);
   const projectionFocusId = mode === "focus" ? selectedId : null;
   const projection = useMemo(() => {
@@ -330,36 +326,27 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
     if (!error) return null;
     if (error.status === 404) return <div className={`${ui.notice} ${ui.error}`} role="alert"><strong>Analisis tidak ditemukan.</strong><p>Graph ini tidak tersedia untuk akun yang sedang aktif.</p></div>;
     if (error.status === 409) return <div className={`${ui.notice} ${ui.warning}`} role="alert"><strong>Graph belum tersedia.</strong><p>{error.message} Selesaikan analisis terlebih dahulu, lalu buka kembali graph.</p><p className={ui.noticeAction}><Link href={`/analyses/${encodeURIComponent(analysisId)}`}>Kembali ke progres analisis</Link></p><button type="button" className={styles.graphControl} onClick={() => refreshRef.current?.()}>Coba lagi</button></div>;
-    if (error.status === 503) return <div className={`${ui.notice} ${ui.error}`} role="alert"><strong>Graph sementara tidak dapat dibaca.</strong><p>{error.message}</p><button type="button" className={styles.graphControl} onClick={() => refreshRef.current?.()}>Coba lagi</button></div>;
-    return <div className={`${ui.notice} ${ui.error}`} role="alert"><strong>Graph belum dapat dimuat.</strong><p>{error.message}</p><button type="button" className={styles.graphControl} onClick={() => refreshRef.current?.()}>Coba lagi</button></div>;
+    if (error.status === 503) return <div className={`${ui.notice} ${ui.error}`} role="alert"><strong>Code Knowledge sementara tidak tersedia.</strong><p>{error.message}</p><button type="button" className={styles.graphControl} onClick={() => refreshRef.current?.()}>Coba lagi</button></div>;
+    return <div className={`${ui.notice} ${ui.error}`} role="alert"><strong>Code Knowledge tidak dapat dimuat.</strong><p>{error.message}</p><button type="button" className={styles.graphControl} onClick={() => refreshRef.current?.()}>Coba lagi</button></div>;
   }
 
   return <div className={styles.graphShell}>
     <div className={ui.pageHeading}>
-      <p className={ui.eyebrow}>KNOWLEDGE GRAPH</p>
-      <h1>Jelajahi fitur dan konsep</h1>
-      <p className={ui.muted}>Mulai dari fitur aplikasi, telusuri hubungan pentingnya, lalu buka bukti source.</p>
+      <p className={ui.eyebrow}>CODE KNOWLEDGE</p>
+      <h1>Struktur source code</h1>
+      <p className={ui.muted}>Telusuri module, symbol, dependency, dan bukti pada source code di commit yang dianalisis.</p>
     </div>
 
     {!visiblePayload && (busy || payload) ? <p className={ui.loading} role="status">Memeriksa akun dan memuat knowledge graph…</p> : null}
-    {error && !visiblePayload ? <details className={styles.compactGraphDetails}><summary>Graph teknis belum tersedia</summary>{errorContent()}</details> : null}
+    {error && !visiblePayload ? errorContent() : null}
 
     <AnalysisNavigation analysisId={analysisId} active="graph" />
-    {semanticIdentityVerified ? <SemanticWorkspace
-      key={`${analysisId}:${accountKey}:semantic-graph`}
-      analysisId={analysisId} accountKey={accountKey} repository={visiblePayload?.snapshot.repository ?? ""}
-      commitSha={visiblePayload?.snapshot.commitSha ?? ""} mode="graph"
-      legacyFallback={<p>Diagram lama tersedia pada bagian “Graph teknis berdasarkan AST”.</p>}
-      onLegacyFallback={() => setTechnicalOpen(true)}
-    /> : null}
 
     {visiblePayload && filterResult && projection && canonicalCounts ? <>
-      <details className={styles.compactGraphDetails} open={technicalOpen} onToggle={event => setTechnicalOpen(event.currentTarget.open)}>
-        <summary>Graph teknis berdasarkan AST</summary>
       <section className={styles.graphCard} aria-label="Knowledge graph analisis">
         <div className={styles.graphCardHeader}>
           <div>
-            <h2>Snapshot analisis</h2>
+            <h2>Repository structure</h2>
             <p className={styles.repositoryPath}>{visiblePayload.graph.repository}<span aria-hidden="true"> · </span>{visiblePayload.graph.branch ?? "branch tidak diketahui"}</p>
           </div>
 
@@ -453,7 +440,6 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         </p>
       </section>
       <p className={styles.liveGraphFooter}><Link href={`/analyses/${encodeURIComponent(analysisId)}`}>Kembali ke progres analisis</Link></p>
-      </details>
     </> : null}
   </div>;
 }
