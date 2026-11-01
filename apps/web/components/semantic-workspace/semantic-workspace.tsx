@@ -147,6 +147,40 @@ function flowScope(entryId: string, nodes: SemanticNode[], edges: SemanticEdge[]
   return { nodes: scopeNodes, edges: scopeEdges };
 }
 
+function centerFlowViewport(canvas: HTMLDivElement, anchorId: string, positions: Map<string, { x: number; y: number }>, layoutWidth: number, zoom: number) {
+  const anchor = positions.get(anchorId);
+  if (!anchor) {
+    canvas.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    return;
+  }
+  const contentWidth = layoutWidth * zoom / 100;
+  const maxScrollLeft = Math.max(0, contentWidth - canvas.clientWidth);
+  const left = Math.max(0, Math.min(maxScrollLeft, anchor.x * zoom / 100 - canvas.clientWidth / 2));
+  canvas.scrollTo({ top: 0, left, behavior: "auto" });
+}
+
+function focusGraphViewport(viewport: HTMLDivElement, featureId: string, positions: Map<string, { x: number; y: number }>, bounds: Map<string, { width: number; height: number }>, nodePositions: Map<string, { x: number; y: number }>, clusterNodes: Map<string, SemanticNode[]>, expandedFeatures: string[], canvasWidth: number, canvasHeight: number, zoom: number) {
+  const center = positions.get(featureId);
+  const size = bounds.get(featureId);
+  if (!center || !size) {
+    viewport.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    return;
+  }
+  const scale = zoom / 100;
+  const frameWidth = size.width * scale;
+  const frameLeft = (center.x - size.width / 2) * scale;
+  const desiredLeft = frameWidth > viewport.clientWidth ? frameLeft : center.x * scale - viewport.clientWidth / 2;
+  const desiredTopNode = expandedFeatures.includes(featureId) ? clusterNodes.get(featureId)?.[0] : undefined;
+  const firstNodePosition = desiredTopNode ? nodePositions.get(`${featureId}\0${desiredTopNode.id}`) : undefined;
+  const frameTop = center.y - size.height / 2;
+  const anchorY = firstNodePosition?.y ?? frameTop + 28;
+  const maxLeft = Math.max(0, canvasWidth * scale - viewport.clientWidth);
+  const maxTop = Math.max(0, canvasHeight * scale - viewport.clientHeight);
+  const left = Math.max(0, Math.min(maxLeft, desiredLeft));
+  const top = Math.max(0, Math.min(maxTop, anchorY * scale - viewport.clientHeight / 2));
+  viewport.scrollTo({ top, left, behavior: "auto" });
+}
+
 function splitLabel(value: string, max = 22, maxLines = 3): string[] {
   const words = value.trim().split(/\s+/u).flatMap(word => {
     const chars = Array.from(word);
@@ -568,19 +602,29 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     edgeDegrees.set(edge.source, sourceDegree); edgeDegrees.set(edge.target, targetDegree);
   }
   const layout = flowLayout(pageFlowNodes, pageFlowEdges);
+  const flowAnchorNodeId = selectedFlowEntry?.node.id ?? pageFlowNodes.find(node => node.kind === "actor")?.id ?? pageFlowNodes[0]?.id;
   useEffect(() => {
     if (mode !== "flow" || !flowCanvasRef.current) return;
     const canvas = flowCanvasRef.current;
+    let alignFrame = 0;
     const fitWidth = () => {
       const minZoom = canvas.clientWidth < 640 ? 55 : 30;
       const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((canvas.clientWidth - 32) / layout.width * 100)));
       setFlowZoom(current => current === nextZoom ? current : nextZoom);
+      cancelAnimationFrame(alignFrame);
+      if (flowAnchorNodeId) alignFrame = requestAnimationFrame(() => centerFlowViewport(canvas, flowAnchorNodeId, layout.positions, layout.width, nextZoom));
     };
     fitWidth();
     const observer = new ResizeObserver(fitWidth);
     observer.observe(canvas);
-    return () => observer.disconnect();
-  }, [flowKey, layout.width, mode]);
+    return () => { observer.disconnect(); cancelAnimationFrame(alignFrame); };
+  }, [flowAnchorNodeId, flowKey, layout.width, mode]);
+  useEffect(() => {
+    const canvas = flowCanvasRef.current;
+    if (mode !== "flow" || !canvas || !flowAnchorNodeId) return;
+    const frame = requestAnimationFrame(() => centerFlowViewport(canvas, flowAnchorNodeId, layout.positions, layout.width, flowZoom));
+    return () => cancelAnimationFrame(frame);
+  }, [flowAnchorNodeId, flowKey, flowZoom, layout.width, mode]);
 
   async function saveOverlay(nextOverlay: PresentationOverlay) {
     if (!payload || saving) return;
@@ -664,7 +708,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
           </select></label>
           <p aria-live="polite">{selectedFlowEntry ? `Source path from ${nodeLabel(selectedFlowEntry.node)}${selectedFlowEntry.actorNodes.length ? `, triggered by ${selectedFlowEntry.actorNodes.map(nodeLabel).join(", ")}` : ""}.` : `Feature overview with ${selectedFlowNodes.length} source facts.`}</p>
         </div>
-        <div className={styles.flowTools} role="group" aria-label="User flow diagram controls"><button type="button" onClick={() => setFlowZoom(value => Math.max(30, value - 10))} disabled={flowZoom <= 30} aria-label="Zoom out user flow">−</button><span aria-live="polite">Zoom {flowZoom}%</span><button type="button" onClick={() => setFlowZoom(value => Math.min(150, value + 10))} disabled={flowZoom >= 150} aria-label="Zoom in user flow">+</button><button type="button" onClick={() => { const canvas = flowCanvasRef.current; const width = canvas?.clientWidth ?? layout.width; const minZoom = width < 640 ? 55 : 30; setFlowZoom(Math.max(minZoom, Math.min(100, Math.floor((width - 20) / layout.width * 100)))); requestAnimationFrame(() => canvas?.scrollTo({ top: 0, left: 0, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" })); }}>Fit diagram</button></div>
+        <div className={styles.flowTools} role="group" aria-label="User flow diagram controls"><button type="button" onClick={() => setFlowZoom(value => Math.max(30, value - 10))} disabled={flowZoom <= 30} aria-label="Zoom out user flow">−</button><span aria-live="polite">Zoom {flowZoom}%</span><button type="button" onClick={() => setFlowZoom(value => Math.min(150, value + 10))} disabled={flowZoom >= 150} aria-label="Zoom in user flow">+</button><button type="button" onClick={() => { const canvas = flowCanvasRef.current; if (!canvas) return; const minZoom = canvas.clientWidth < 640 ? 55 : 30; const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((canvas.clientWidth - 32) / layout.width * 100))); setFlowZoom(nextZoom); requestAnimationFrame(() => { if (flowAnchorNodeId) centerFlowViewport(canvas, flowAnchorNodeId, layout.positions, layout.width, nextZoom); else canvas.scrollTo({ top: 0, left: 0, behavior: "auto" }); }); }}>Fit diagram</button></div>
         <p className={styles.flowCoverage} aria-live="polite">Showing all {pageFlowNodes.length} nodes and {pageFlowEdges.length} source relationships in this flow. {selectedFlowEntry && selectedFlowNodes.length > scopedFlowNodes.length ? `${selectedFlowNodes.length - scopedFlowNodes.length} unrelated feature facts are outside this entry point; select “All feature facts” to inspect them. ` : ""}{!showIndications ? `${scopedFlowNodes.filter(node => node.confidence === "indicated").length} indicated nodes are hidden by the filter.` : ""}</p>
         <p className={styles.edgeLabelGuidance}>Arrows follow source relationships. Decision branches show their labels on the diagram; open Relationship evidence for all labels, rationale, and source lines.</p>
         <div ref={flowCanvasRef} className={styles.flowCanvas} data-testid="semantic-flow-canvas" role="region" aria-label={`${selectedFlowEntry ? "User flow" : "Feature overview"} ${featureLabel(selectedFeature)}`} tabIndex={0}>
@@ -827,18 +871,16 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
   zoom: number; setZoom: (value: number) => void; reset: () => void;
 }) {
   const graphViewportRef = useRef<HTMLDivElement>(null);
+  const graphViewportSizeRef = useRef<{ width: number; height: number } | null>(null);
+  const graphZoomRef = useRef(zoom);
+  graphZoomRef.current = zoom;
   const [listLimitState, setListLimitState] = useState({ search, limit: 50 });
   const listLimit = listLimitState.search === search ? listLimitState.limit : 50;
-  const [pendingRevealFeatureId, setPendingRevealFeatureId] = useState<string | null>(null);
   const [graphNodeLimits, setGraphNodeLimits] = useState<Record<string, number>>({});
   const [focusedGraphNodeId, setFocusedGraphNodeId] = useState<string | null>(null);
+  const [fitRequest, setFitRequest] = useState(0);
+  const appliedFitRequestRef = useRef(fitRequest);
   const graphNodePageSize = 12;
-  useEffect(() => {
-    if (!pendingRevealFeatureId) return;
-    const target = document.getElementById(`semantic-cluster-${encodeURIComponent(pendingRevealFeatureId)}`);
-    if (!target) return;
-    requestAnimationFrame(() => target.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "center" }));
-  }, [listLimit, pendingRevealFeatureId]);
   const allFeatureIds = new Set(payload.model.features.map(feature => feature.id));
   const degree = new Map<string, number>();
   const relationsByFeature = new Map<string, number>();
@@ -942,19 +984,40 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
   }
   const width = network.width;
   const height = network.height;
+  const focusedNodeFeatureId = focusedGraphNodeId
+    ? displayedFeatures.find(feature => allNodesForFeature(feature).some(node => node.id === focusedGraphNodeId))?.id
+    : undefined;
+  const graphAnchorFeatureId = displayedFeatures.find(feature => feature.id === focusedFeatureId)?.id
+    ?? focusedNodeFeatureId
+    ?? [...expandedFeatures].reverse().find(featureId => positions.has(featureId))
+    ?? displayedFeatures[0]?.id;
+  const graphLayoutKey = `${displayedFeatures.map(feature => feature.id).join("\0")}|${expandedFeatures.join("\0")}|${displayedFeatures.map(feature => `${feature.id}:${clusterNodes.get(feature.id)?.length ?? 0}`).join("\0")}|${focusedFeatureId ?? ""}|${focusedGraphNodeId ?? ""}`;
   useEffect(() => {
     const viewport = graphViewportRef.current;
     if (!viewport) return;
-    const fitWidth = () => {
-      const minZoom = viewport.clientWidth < 640 ? 85 : 75;
-      const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / width * 100)));
-      setZoom(nextZoom);
+    let alignFrame = 0;
+    const fitOrReveal = () => {
+      const viewportSize = { width: viewport.clientWidth, height: viewport.clientHeight };
+      const previousSize = graphViewportSizeRef.current;
+      const resized = !previousSize || previousSize.width !== viewportSize.width || previousSize.height !== viewportSize.height;
+      const forceFit = appliedFitRequestRef.current !== fitRequest;
+      graphViewportSizeRef.current = viewportSize;
+      let alignmentZoom = graphZoomRef.current;
+      if (resized || forceFit) {
+        const minZoom = viewport.clientWidth < 640 ? 85 : 75;
+        alignmentZoom = Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / width * 100)));
+        graphZoomRef.current = alignmentZoom;
+        setZoom(alignmentZoom);
+      }
+      appliedFitRequestRef.current = fitRequest;
+      cancelAnimationFrame(alignFrame);
+      if (graphAnchorFeatureId) alignFrame = requestAnimationFrame(() => focusGraphViewport(viewport, graphAnchorFeatureId, positions, featureBounds, nodePositions, clusterNodes, expandedFeatures, width, height, alignmentZoom));
     };
-    fitWidth();
-    const observer = new ResizeObserver(fitWidth);
+    fitOrReveal();
+    const observer = new ResizeObserver(fitOrReveal);
     observer.observe(viewport);
-    return () => observer.disconnect();
-  }, [width, setZoom]);
+    return () => { observer.disconnect(); cancelAnimationFrame(alignFrame); };
+  }, [fitRequest, graphAnchorFeatureId, graphLayoutKey, height, width, zoom, setZoom]);
   const displayEdges = groupedEdges.filter(edge => positions.has(edge.source) && positions.has(edge.target));
   const displayedGraphRelations = displayedFeatures.flatMap(feature => {
     const visible = clusterNodes.get(feature.id) ?? [];
@@ -983,21 +1046,18 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
   const focusedNode = focusedGraphNodeId ? graphNodeById.get(focusedGraphNodeId) : undefined;
   function revealCluster(featureId: string, expanded: boolean) {
     toggleExpanded(featureId);
-    if (expanded) {
-      setPendingRevealFeatureId(null);
-    } else {
+    if (!expanded) {
       const index = features.findIndex(feature => feature.id === featureId);
       if (index >= 0) setListLimitState({ search, limit: Math.max(listLimit, index + 1) });
-      setPendingRevealFeatureId(featureId);
     }
   }
   return <>
-    <div className={styles.controls}><label>Search features, concepts, or components<input type="search" value={search} onChange={event => { setSearch(event.currentTarget.value); setFocusedFeatureId(null); setPendingRevealFeatureId(null); }} placeholder="Search all features and evidence" /></label><p aria-live="polite">{features.length} of {payload.model.features.length} features · {payload.model.nodes.length} semantic nodes.</p></div>
+    <div className={styles.controls}><label>Search features, concepts, or components<input type="search" value={search} onChange={event => { setSearch(event.currentTarget.value); setFocusedFeatureId(null); }} placeholder="Search all features and evidence" /></label><p aria-live="polite">{features.length} of {payload.model.features.length} features · {payload.model.nodes.length} semantic nodes.</p></div>
     <div className={styles.graphTools} role="group" aria-label="Knowledge graph controls">
       <label><input type="checkbox" checked={showIndications} onChange={event => setShowIndications(event.currentTarget.checked)} />Show indicated relationships</label>
       <div className={styles.zoomControls}><button type="button" onClick={() => setZoom(Math.max(30, zoom - 10))} disabled={zoom <= 30} aria-label="Zoom out knowledge graph">−</button><span aria-live="polite">Zoom {zoom}%</span><button type="button" onClick={() => setZoom(Math.min(150, zoom + 10))} disabled={zoom >= 150} aria-label="Zoom in knowledge graph">+</button></div>
-      <button type="button" onClick={() => { const viewport = graphViewportRef.current; if (viewport) { const minZoom = viewport.clientWidth < 640 ? 85 : 75; const canvasWidth = viewport.querySelector("svg")?.viewBox.baseVal.width ?? width; setZoom(Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / canvasWidth * 100)))); } }}>Fit graph</button>
-      <button type="button" onClick={() => { setGraphNodeLimits({}); setFocusedGraphNodeId(null); reset(); const viewport = graphViewportRef.current; if (viewport) requestAnimationFrame(() => { const minZoom = viewport.clientWidth < 640 ? 85 : 75; const canvasWidth = viewport.querySelector("svg")?.viewBox.baseVal.width ?? width; setZoom(Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / canvasWidth * 100)))); }); }}>Reset graph</button>
+      <button type="button" onClick={() => { const viewport = graphViewportRef.current; if (!viewport) return; const minZoom = viewport.clientWidth < 640 ? 85 : 75; const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / width * 100))); setZoom(nextZoom); if (graphAnchorFeatureId) requestAnimationFrame(() => focusGraphViewport(viewport, graphAnchorFeatureId, positions, featureBounds, nodePositions, clusterNodes, expandedFeatures, width, height, nextZoom)); }}>Fit graph</button>
+      <button type="button" onClick={() => { setGraphNodeLimits({}); setFocusedGraphNodeId(null); setFitRequest(value => value + 1); reset(); }}>Reset graph</button>
       {focusedFeatureId || focusedGraphNodeId ? <button type="button" onClick={() => { setFocusedFeatureId(null); setFocusedGraphNodeId(null); }}>Show all features and nodes</button> : null}
     </div>
     <p className={styles.graphLegend} aria-label="Knowledge graph legend"><span><i className={styles.sourceRelationLegend} />Source relationship</span><span><i className={styles.indicatedRelationLegend} />Indicated relationship</span><span>Feature frames group related responsibilities</span></p>
@@ -1055,10 +1115,13 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
     </div>
     <p className={styles.flowCoverage}>Color groups each feature or domain. Feature cards group related responsibilities; expand a card to inspect its main concepts, components, and data stores. Files, methods, properties, helpers, and small details stay in evidence.</p>
     <p className={styles.flowCoverage} aria-live="polite">Showing {displayedFeatures.length} clusters · {features.length} of {payload.model.features.length} matching features · {hiddenGraphNodes} concepts/components hidden from the canvas · {graphRelationsNotOnCanvas} source relationships not drawn here (expand a cluster or inspect evidence).{graphRelationsOutsideProjection ? ` ${graphRelationsOutsideProjection} connect activities or details outside the primary graph.` : ""}{!showIndications ? ` ${payload.model.nodes.filter(node => node.confidence === "indicated" && ["concept", "component", "store"].includes(node.kind)).length} indicated nodes hidden by the filter.` : ""} {focusedNode ? `Focused node: ${nodeLabel(focusedNode)}` : ""}</p>
-    <div className={styles.clusterList} aria-label="All feature clusters">{listedFeatures.map(feature => { const expanded = expandedFeatures.includes(feature.id); const allNodes = allNodesForFeature(feature); const nodes = nodesVisibleInCluster(feature); const featureEdges = edgesByFeature.get(feature.id) ?? []; const hiddenCount = Math.max(0, allNodes.length - nodes.length); const colors = featureColors(feature.id); return <section id={`semantic-cluster-${encodeURIComponent(feature.id)}`} key={feature.id} className={styles.clusterCard} style={{ borderLeft: `3px solid ${colors.border}` }}>
+    <details className={styles.featureBrowser} data-testid="semantic-feature-browser">
+      <summary>Browse features and evidence ({displayedFeatures.length})</summary>
+      <div className={styles.clusterList} aria-label="All feature clusters">{listedFeatures.map(feature => { const expanded = expandedFeatures.includes(feature.id); const allNodes = allNodesForFeature(feature); const nodes = nodesVisibleInCluster(feature); const featureEdges = edgesByFeature.get(feature.id) ?? []; const hiddenCount = Math.max(0, allNodes.length - nodes.length); const colors = featureColors(feature.id); return <section id={`semantic-cluster-${encodeURIComponent(feature.id)}`} key={feature.id} className={styles.clusterCard} style={{ borderLeft: `3px solid ${colors.border}` }}>
       <div className={styles.clusterActions}><button type="button" className={styles.clusterHeading} onClick={() => toggleExpanded(feature.id)} aria-expanded={expanded} style={colorStyle(feature.id)}><span className={styles.featureIcon} aria-hidden="true" style={{ borderColor: colors.border, backgroundColor: colors.fill, color: colors.text }}>{featureLabel(feature)[0]?.toLocaleUpperCase() ?? "F"}</span><span><strong>{featureLabel(feature)}</strong><small>{nodes.length} of {allNodes.length} concepts/components · {principalRelationsByFeature.get(feature.id) ?? 0} primary relationships{hiddenCount ? ` · ${hiddenCount} more nodes not shown` : ""}</small></span><span>{expanded ? "−" : "+"}</span></button><button className={styles.focusButton} type="button" aria-pressed={focusedFeatureId === feature.id} onClick={() => { setFocusedGraphNodeId(null); setFocusedFeatureId(focusedFeatureId === feature.id ? null : feature.id); }} title="Focus this feature and neighboring relationships">{focusedFeatureId === feature.id ? "Focused" : "Focus neighbors"}</button></div>
       {expanded ? <div className={styles.clusterNodes}>{nodes.map(node => <div className={styles.clusterNodeItem} key={node.id}><button type="button" aria-pressed={selectedNodeId === node.id} data-kind={node.kind} data-confidence={node.confidence} onClick={() => selectNode(node.id)}><strong>{nodeLabel(node)}</strong><small>{node.kind} · {node.confidence === "proven" ? "Proven" : `Indicated: ${node.reason}`}</small></button><button className={styles.focusButton} type="button" aria-pressed={focusedGraphNodeId === node.id} onClick={() => { selectNode(node.id); setFocusedFeatureId(null); setFocusedGraphNodeId(focusedGraphNodeId === node.id ? null : node.id); }}>Focus node neighbors</button></div>)}{hiddenCount ? <button className={styles.loadMore} type="button" onClick={() => setGraphNodeLimits(current => ({ ...current, [feature.id]: (current[feature.id] ?? graphNodePageSize) + graphNodePageSize }))}>Load {Math.min(graphNodePageSize, hiddenCount)} more nodes ({nodes.length} of {allNodes.length})</button> : null}<RelationshipEvidence edges={featureEdges} nodes={payload.model.nodes} repository={payload.model.snapshot.repository} commitSha={payload.model.snapshot.commitSha} labelForNode={nodeLabel} /></div> : null}
-    </section>; })}</div>
-    {displayedFeatures.length > listedFeatures.length ? <button className={styles.loadMore} type="button" onClick={() => setListLimitState({ search, limit: Math.min(displayedFeatures.length, listLimit + 50) })}>Load 50 more clusters ({listedFeatures.length} of {displayedFeatures.length})</button> : null}
+      </section>; })}</div>
+      {displayedFeatures.length > listedFeatures.length ? <button className={styles.loadMore} type="button" onClick={() => setListLimitState({ search, limit: Math.min(displayedFeatures.length, listLimit + 50) })}>Load 50 more clusters ({listedFeatures.length} of {displayedFeatures.length})</button> : null}
+    </details>
   </>;
 }

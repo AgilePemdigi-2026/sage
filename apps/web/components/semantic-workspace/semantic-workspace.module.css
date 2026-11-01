@@ -55,6 +55,10 @@
 .graphNode:hover rect,.graphNode[aria-pressed="true"] rect,.graphNode:focus-visible rect { stroke-width:3; filter:brightness(.98) drop-shadow(0 2px 4px #1f232833); }
 .graphNode.indicatedGraphNode rect { stroke-dasharray:5 4; }
 .clusterViewport marker path { fill:#59636e; }
+.featureBrowser { border:1px solid #d1d9e0; border-radius:8px; background:#f6f8fa; }
+.featureBrowser > summary { padding:12px 14px; color:#0969da; font-size:14px; font-weight:600; cursor:pointer; }
+.featureBrowser[open] > summary { border-bottom:1px solid #d1d9e0; }
+.featureBrowser > .clusterList { padding:12px; }
 @media(max-width:600px) {
   .workspace { border-radius:8px; }
   .header { display:grid; }
