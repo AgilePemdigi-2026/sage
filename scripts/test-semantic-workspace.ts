@@ -429,6 +429,50 @@ async function assertGraphRelationshipPathsUnfilled(page: Page, label: string): 
   assert.deepEqual(paths.filter(item => item.fill !== "none"), [], `${label} keeps relationship curves unfilled so they cannot paint over the graph`);
 }
 
+async function assertIntraFeaturePathsAvoidUnrelatedCards(page: Page, featureId: string, label: string): Promise<void> {
+  const result = await page.locator("svg[aria-label^='Feature, concept, component']").evaluate((svg, requestedFeatureId) => {
+    const cards = Array.from(svg.querySelectorAll<SVGGElement>("[data-testid='semantic-graph-node']")).flatMap(element => {
+      const id = element.getAttribute("data-node-id");
+      const rect = element.querySelector("rect");
+      if (!id || !rect) return [];
+      const bounds = rect.getBBox();
+      return [{ id, left: bounds.x, top: bounds.y, right: bounds.x + bounds.width, bottom: bounds.y + bounds.height }];
+    });
+    const edges = Array.from(svg.querySelectorAll<SVGGElement>("g[data-scope-feature-id][data-edge-id]"))
+      .filter(group => group.getAttribute("data-scope-feature-id") === requestedFeatureId);
+    const violations: Array<{ edgeId: string | null; sourceId: string | null; targetId: string | null; obstacleId: string; fraction: number; x: number; y: number }> = [];
+    for (const edge of edges) {
+      const path = edge.querySelector("path[marker-end]") as SVGPathElement | null;
+      if (!path) {
+        violations.push({ edgeId: edge.getAttribute("data-edge-id"), sourceId: edge.getAttribute("data-source-id"), targetId: edge.getAttribute("data-target-id"), obstacleId: "missing relationship path", fraction: 0, x: 0, y: 0 });
+        continue;
+      }
+      const length = path.getTotalLength();
+      if (!Number.isFinite(length) || length <= 0) {
+        violations.push({ edgeId: edge.getAttribute("data-edge-id"), sourceId: edge.getAttribute("data-source-id"), targetId: edge.getAttribute("data-target-id"), obstacleId: "empty relationship path", fraction: 0, x: 0, y: 0 });
+        continue;
+      }
+      const sourceId = edge.getAttribute("data-source-id");
+      const targetId = edge.getAttribute("data-target-id");
+      const samples = Math.max(20, Math.ceil(length / 12));
+      for (let index = 1; index < samples; index += 1) {
+        const fraction = index / samples;
+        const point = path.getPointAtLength(length * fraction);
+        const obstacle = cards.find(card => card.id !== sourceId && card.id !== targetId
+          && point.x >= card.left && point.x <= card.right && point.y >= card.top && point.y <= card.bottom);
+        if (obstacle) {
+          violations.push({ edgeId: edge.getAttribute("data-edge-id"), sourceId, targetId, obstacleId: obstacle.id, fraction, x: point.x, y: point.y });
+          break;
+        }
+      }
+    }
+    return { edgeCount: edges.length, cardCount: cards.length, violations };
+  }, featureId);
+  assert.ok(result.edgeCount > 0, `${label} renders intra-feature relationship paths for ${featureId}`);
+  assert.ok(result.cardCount > 0, `${label} renders card rectangles for intersection checks`);
+  assert.deepEqual(result.violations, [], `${label} routes every intra-feature edge clear of unrelated visible node cards`);
+}
+
 async function assertGraphFeatureChildVisible(page: Page, feature: SemanticFeature, label: string): Promise<void> {
   const graph = page.locator("svg[aria-label^='Feature, concept, component']");
   const viewport = page.locator("[role='region'][aria-label^='Knowledge graph canvas']");
@@ -547,6 +591,7 @@ async function verifyActualPerpusCorpus(page: Page, payload: SemanticPayload, se
   assert.equal(await booksCluster.getAttribute("aria-expanded"), "true", "the actual Books cluster expands by keyboard");
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-graph-perpus-books-expanded-initial.png"), fullPage: true });
   await assertGraphFeatureChildVisible(page, booksFeature, "desktop corpus graph");
+  await assertIntraFeaturePathsAvoidUnrelatedCards(page, booksFeature.id, "desktop Perpus Books graph");
   assert.ok(await graph.locator("g[data-kind='component'], g[data-kind='store'], g[data-kind='concept']").count() > 0, "the real expanded graph exposes principal concept/component/store nodes");
   await assertGraphRelationshipPathsUnfilled(page, "desktop corpus graph");
   await assertNoHorizontalOverflow(page, "desktop corpus graph");
@@ -569,6 +614,7 @@ async function verifyActualPerpusCorpus(page: Page, payload: SemanticPayload, se
   assert.ok(await page.locator("svg [data-testid='semantic-graph-node']").count() > 0, "mobile knowledge graph reveals source-backed cards by keyboard");
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-graph-perpus-books-mobile.png"), fullPage: true });
   await assertGraphFeatureChildVisible(page, mobileBooks, "mobile corpus graph");
+  await assertIntraFeaturePathsAvoidUnrelatedCards(page, mobileBooks.id, "mobile Perpus Books graph");
   await assertGraphRelationshipPathsUnfilled(page, "mobile corpus graph");
   await assertGraphCardLabelsFit(page, "mobile corpus graph");
   await assertNoHorizontalOverflow(page, "mobile corpus graph");
@@ -667,8 +713,10 @@ async function verifyDesktopFlowAndOverlay(page: Page, getPayload: () => Semanti
     });
     const cards = [...featureCards, ...nodeCards].flatMap(item => item.card ? [item.card] : []);
     const edges = Array.from(svg.querySelectorAll<SVGPathElement>("path[marker-end]")).map(path => {
-      const values = path.getAttribute("d")?.match(/-?\d+(?:\.\d+)?/gu)?.map(Number) ?? [];
-      return { start: { x: values[0] ?? NaN, y: values[1] ?? NaN }, end: { x: values.at(-2) ?? NaN, y: values.at(-1) ?? NaN } };
+      const length = path.getTotalLength();
+      const start = path.getPointAtLength(0);
+      const end = path.getPointAtLength(length);
+      return { start: { x: start.x, y: start.y }, end: { x: end.x, y: end.y } };
     });
     return { featureCards, nodeCards, cards, edges };
   });
@@ -712,6 +760,7 @@ async function verifyDesktopFlowAndOverlay(page: Page, getPayload: () => Semanti
   await page.getByText(/^1 of 2 features · \d+ semantic nodes\.$/u).waitFor();
   await page.getByRole("searchbox", { name: "Search features, concepts, or components" }).fill("");
   await bookCard.getByRole("button", { name: /Peminjaman buku/u }).click();
+  await assertIntraFeaturePathsAvoidUnrelatedCards(page, "feature-books", "synthetic Books graph");
   await page.locator("svg g[data-kind='component']").first().click();
   await page.getByText(/Focused node:/u).waitFor();
   await page.getByRole("button", { name: "Reset graph" }).click();

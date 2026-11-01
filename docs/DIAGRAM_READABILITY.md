@@ -48,4 +48,6 @@ Playwright lulus pada 1440×1000 dan 390×844 menggunakan API fixture terkontrol
 
 Jalur hubungan termasuk yang Indicated diperiksa melalui computed style `fill: none`, sehingga kurva tidak menghasilkan bidang hitam yang menutup diagram. Bukti screenshot diperiksa secara visual; group yang lebar pada mobile tetap menggunakan pan internal agar label terbaca. Daftar fallback fitur/evidence tertutup secara default dan tidak memaksa scroll halaman saat group dipilih. Respons fixture tercatat GET=9/PATCH=7, bukan hitungan endpoint produksi yang telah diuji.
 
-Source UI yang diuji memiliki SHA-256 TSX `637a341464efacbd17ea0793f2a9c91beb29cc83299588d79e4859ae71297bfd` dan CSS `a8d619d0489d74dfec95c966082df9fd27d180bc43c82ef615032f0301a2fdba`; hash sama sebelum/sesudah run. Screenshot: `artifacts/semantic-workspace/readability-20261101/`.
+Source UI yang diuji memiliki SHA-256 TSX `8f84dc13f1b758024d0f6d593d4c9300c60f7187cf73cfbb6c75dede699e4943` dan CSS `a8d619d0489d74dfec95c966082df9fd27d180bc43c82ef615032f0301a2fdba`; hash sama sebelum/sesudah run. Screenshot: `artifacts/semantic-workspace/readability-20261101/`.
+
+Hubungan antar-child dalam fitur menggunakan gutter antarkolom. Tes browser mengambil sampel sepanjang path SVG dan menolak path yang masuk ke card lain selain endpoint, pada Books sintetis serta Perpus desktop/mobile. Pemeriksaan ini tidak menyatakan semua hubungan lintas fitur bebas dari persilangan.
