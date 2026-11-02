@@ -688,7 +688,7 @@ test("plain JavaScript page modules do not imply Next.js Pages Router", () => {
   assert.deepEqual(model.frameworks, []);
   assert.deepEqual(model.features, []);
   assert.deepEqual(model.edges, []);
-  assert.deepEqual(model.limitations, []);
+  assert.ok(model.limitations.some(item => /Tidak ada user flow/u.test(item.reason)));
 });
 
 test("Pages Router requires a Next package and conventional package-relative route path", () => {

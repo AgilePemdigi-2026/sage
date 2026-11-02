@@ -611,3 +611,19 @@ Route::prefix($dynamicPrefix)->group(function () {
   assert.ok(result.limitations.some(item => item.reason.includes("middleware dinamis")));
   assert.ok(result.limitations.some(item => item.reason.includes("prefix dinamis")));
 });
+
+test("unresolved Laravel controller actions are references, not proven execution", () => {
+  const result = extractLaravel(fixture({
+    [ROUTES]: `<?php Route::get('/missing', [MissingController::class, 'show']); Route::get('/method', [PresentController::class, 'absent']);`,
+    "app/Http/Controllers/PresentController.php": "<?php class PresentController { public function index() {} }",
+  }));
+  for (const path of ["/missing", "/method"]) {
+    const route = result.nodes.find(node => node.kind === "step" && node.label.endsWith(path));
+    assert.ok(route);
+    const edge = result.edges.find(item => item.source === route.id && item.label === "merujuk action");
+    assert.ok(edge);
+    assert.equal(edge.confidence, "indicated");
+    assert.equal(result.edges.some(item => item.source === route.id && item.label === "menjalankan" && item.confidence === "proven"), false);
+  }
+  assert.ok(result.limitations.some(item => /Controller MissingController/u.test(item.reason)));
+});

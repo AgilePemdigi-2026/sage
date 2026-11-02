@@ -882,7 +882,7 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
     const handlers = handlerBytes ? findHandlers(handlerTokens).get(route.action.toLowerCase()) ?? [] : [];
     const controllerClass = handlerBytes ? phpClassName(handlerSource) : null;
     const sourceName = controllerClass ?? route.controller;
-    const matchingCcm = ccmNodes.filter(node => node.kind === "Class" && node.name.toLowerCase() === sourceName.toLowerCase() && (handlerPath === null || node.filePath === handlerPath));
+    const matchingCcm = handlerPath ? ccmNodes.filter(node => node.kind === "Class" && node.name.toLowerCase() === sourceName.toLowerCase() && node.filePath === handlerPath) : [];
     const controllerNodeIds = matchingCcm.map(node => node.id);
     const routeId = semanticId("component", routeFile, Buffer.byteLength(routeSource.slice(0, route.start), "utf8"), `route:${route.methods.join(",")}:${route.path}:${route.controller}@${route.action}`);
     const auth = route.scope.middlewareUnknown ? undefined : route.scope.middleware.find(item => AUTH_MIDDLEWARE.test(item));
@@ -903,7 +903,7 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
       ? adminGuardProven ? "Alias admin terhubung ke middleware yang memeriksa identitas/izin dan menolak akses dengan status HTTP literal." : "Route memakai alias admin, tetapi pemeriksaan izin belum dibuktikan sepenuhnya pada middleware source."
       : auth ? `Route dilindungi middleware eksplisit ${auth}.` : "Route memiliki deklarasi handler pada permukaan API yang dipindai; middleware tingkat aplikasi tidak disimpulkan.";
     const actorId = addNode({ id: semanticId("actor", routeFile, 0, `${actorLabel}:${route.scope.middleware.join("|")}`), kind: "actor", label: actorLabel, featureId, confidence: actorConfidence, reason: actorReason, evidence: [routeEvidence], technicalNodeIds: [] });
-    addNode({ id: routeId, kind: "step", label: `${route.methods.join("/").toUpperCase()} ${route.path}`, featureId, confidence: "proven", reason: "Route dengan path dan method literal terhubung ke controller method statis.", evidence: [routeEvidence], technicalNodeIds: [] });
+    addNode({ id: routeId, kind: "step", label: `${route.methods.join("/").toUpperCase()} ${route.path}`, featureId, confidence: "proven", reason: "Route mendeklarasikan path, method HTTP, dan action controller secara literal.", evidence: [routeEvidence], technicalNodeIds: [] });
     feature.routeIds.push(routeId); feature.entryNodeIds.push(routeId); feature.nodeIds.push(actorId, routeId);
     addEdge({ id: semanticEdgeId(routeFile, Buffer.byteLength(routeSource.slice(0, route.start), "utf8"), `client-route:${actorId}:${routeId}`), source: actorId, target: routeId, label: auth ? "dilindungi oleh" : "menerima permintaan dari", confidence: actorConfidence, reason: actorReason, evidence: [routeEvidence] });
     feature.edgeIds.push(semanticEdgeId(routeFile, Buffer.byteLength(routeSource.slice(0, route.start), "utf8"), `client-route:${actorId}:${routeId}`));
@@ -911,7 +911,7 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
     const actionStart = actionHandler?.nameStart ?? route.start, actionEnd = actionHandler?.nameEnd ?? route.end;
     const controllerId = addNode({ id: semanticId("component", handlerPath ?? routeFile, handlerBytes ? Buffer.byteLength(handlerSource.slice(0, actionStart), "utf8") : Buffer.byteLength(routeSource.slice(0, route.start), "utf8"), `controller:${route.controller}@${route.action}`), kind: "component", label: `${route.controller}@${route.action}`, featureId, confidence: "proven", reason: "Action controller dirujuk secara literal oleh deklarasi route.", evidence: [handlerBytes && actionHandler ? evidenceSpan(handlerPath!, handlerBytes, actionStart, actionEnd, "declaration") : routeEvidence], technicalNodeIds: controllerNodeIds });
     const routeControllerEdge = semanticEdgeId(routeFile, Buffer.byteLength(routeSource.slice(0, route.start), "utf8"), `route-controller:${routeId}:${controllerId}`);
-    addEdge({ id: routeControllerEdge, source: routeId, target: controllerId, label: "menjalankan", confidence: "proven", reason: "Route menyebut pasangan controller::method secara literal.", evidence: [routeEvidence] });
+    addEdge({ id: routeControllerEdge, source: routeId, target: controllerId, label: actionHandler ? "menjalankan" : "merujuk action", confidence: actionHandler ? "proven" : "indicated", reason: actionHandler ? "Route menyebut controller dan method yang ditemukan secara unik pada source." : "Route menyebut action secara literal, tetapi controller atau method belum ditemukan secara unik pada source.", evidence: [routeEvidence] });
     feature.nodeIds.push(controllerId); feature.edgeIds.push(routeControllerEdge);
     if (admin) {
       if (middlewareAlias?.classRef && middlewareSource && adminMethod) {
