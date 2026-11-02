@@ -172,3 +172,10 @@ Proyeksi graph diuji deterministik, bebas mutasi canonical, mengangkat anggota k
 Jalankan `npm run test:semantic` dan `npm run test:bdd:semantic`, lalu integration PostgreSQL di database disposable. Uji owner/account isolation, label/kelompok, reset, konflik dua penulis, revisi historis ekspor, legacy fallback, evidence kosong/tidak cocok, serta source dinamis. Pinned corpus Perpus/SAGE/Emosync menguji alur positif dan negatif; semua sumber/evidence dibandingkan commit beku. Playwright memeriksa overview/detail, cluster, pencarian, fokus, indikasi, keyboard, zoom, dan ukuran desktop/mobile. Fixture besar harus mempertahankan keterjangkauan semua fitur tanpa menjadikan helper node utama.
 
 Pengukuran menyertakan waktu ekstraksi, puncak memori, serta ukuran model/PDF/Markdown; kegagalan dicatat sebelum perbaikan. Tidak menaikkan batas source/worker agar benchmark terlihat lulus. Prosedur dan batas pengakuan hasil ada pada [SEMANTIC_ANALYSIS](SEMANTIC_ANALYSIS.md).
+
+
+## OPS-01 — diagnostik dan pemulihan worker
+
+T-OPS-01 memakai `tests/worker-diagnostics.test.ts` dan `tests/worker-runtime.test.ts` untuk redaksi metadata, retry terbatas, pemisahan startup/heartbeat/claim/handler, penolakan replay hasil claim ambigu, drain sibling serta shutdown saat backoff. Probe proses/database disposable memeriksa koneksi tidak tersedia, lock database dengan beban CPU, recovery, health dan SIGTERM; kredensial salah serta konfigurasi rusak tetap fail-closed tanpa bocoran canary.
+
+T-ANA-01 dan lifecycle mengulang owner/attempt/lease fencing pada PostgreSQL nyata. T-ANA-06 mengulang SIGKILL, expiry lease alami 120 detik, recovery `WORKER_INTERRUPTED` dan retry yang memublikasikan hasil sembilan tahap. GitHub memakai fixture, bukan akses live. Hasil, batas resource dan status review aktual dicatat pada [OPS-01_CHECKS](OPS-01_CHECKS.md); probe ini tidak membuktikan kapasitas server bersama atau penyebab insiden historis #104.

@@ -1,113 +1,81 @@
-import { writeFile } from "node:fs/promises";
-import { setTimeout as delay } from "node:timers/promises";
+import { rm, writeFile } from "node:fs/promises";
 import { hostname } from "node:os";
-import {
-  ANALYSIS_RUNTIME_LEASE_DURATION_MS,
-  claimAnalysisJob,
-  claimExportJob,
-  claimCleanupJob,
-  database,
-  disconnectDatabase,
-} from "@sage/database";
-import { createAnalysisPipeline } from "./pipeline.ts";
-import { createExportWorker } from "./export-handlers.ts";
-import { createCleanupWorker } from "./cleanup-handlers.ts";
+import { ANALYSIS_RUNTIME_LEASE_DURATION_MS, claimAnalysisJob, claimExportJob, claimCleanupJob, database, disconnectDatabase } from "@sage/database";
+import { classifyWorkerError, type WorkerPhase } from "./diagnostics.ts";
+import { runWorkerRuntime, WorkerRuntimeFailure, type WorkerRuntimeEvent } from "./runtime.ts";
 
-const WORKER_HEARTBEAT_INTERVAL_MS = 5_000;
-const QUEUE_POLL_INTERVAL_MS = 1_000;
-
-function isAbortError(error: unknown): boolean {
-  return typeof error === "object" && error !== null && "name" in error && error.name === "AbortError";
-}
-
-async function wait(milliseconds: number, signal: AbortSignal): Promise<void> {
-  try {
-    await delay(milliseconds, undefined, { signal });
-  } catch (error) {
-    if (!isAbortError(error)) throw error;
-  }
+const HEARTBEAT_PATH = "/tmp/sage-worker-heartbeat";
+const emit = (event: WorkerRuntimeEvent) => console.error(JSON.stringify(event));
+function diagnostic(error: unknown, phase: WorkerPhase): void {
+  emit({ event: "worker_failed", phase, queue: null, code: classifyWorkerError(error).code, attempt: 1, delayMs: 0 });
 }
 
 async function main(): Promise<void> {
-  const id = hostname();
-  const db = database();
   const controller = new AbortController();
-  let fatalError: unknown;
-  const stop = () => controller.abort(new Error("WORKER_SHUTDOWN"));
-  const fail = (error: unknown) => {
-    fatalError ??= error;
-    if (!controller.signal.aborted) controller.abort(error);
-  };
-  const onSignal = () => stop();
-  process.once("SIGTERM", onSignal);
-  process.once("SIGINT", onSignal);
-
-  const pipeline = createAnalysisPipeline({
-    db,
-    storageRoot: process.env.STORAGE_ROOT ?? "/app/storage",
-    leaseDurationMs: ANALYSIS_RUNTIME_LEASE_DURATION_MS,
-  });
-  const exportWorker = createExportWorker({ db, storageRoot: process.env.STORAGE_ROOT ?? "/app/storage" });
-  const cleanupWorker = createCleanupWorker({ db, storageRoot: process.env.STORAGE_ROOT ?? "/app/storage" });
-  console.log(JSON.stringify({ event: "worker_started", mode: "durable_queue" }));
-  const heartbeatLoop = async () => {
-    while (!controller.signal.aborted) {
-      await db.workerHeartbeat.upsert({ where: { id }, create: { id }, update: { lastSeen: new Date() } });
-      await writeFile("/tmp/sage-worker-heartbeat", String(Date.now()));
-      await wait(WORKER_HEARTBEAT_INTERVAL_MS, controller.signal);
-    }
-  };
-  const consumerLoop = async () => {
-    while (!controller.signal.aborted) {
-      const claim = await claimAnalysisJob(db, { leaseDurationMs: ANALYSIS_RUNTIME_LEASE_DURATION_MS });
-      if (controller.signal.aborted) return;
-      if (claim) {
-        await pipeline(claim, controller.signal);
-      } else {
-        await wait(QUEUE_POLL_INTERVAL_MS, controller.signal);
-      }
-    }
-  };
-
-  const exportConsumerLoop = async () => {
-    while (!controller.signal.aborted) {
-      const claim = await claimExportJob(db, { leaseDurationMs: 120_000 });
-      if (controller.signal.aborted) return;
-      if (claim) {
-        await exportWorker.process(claim, controller.signal);
-      } else {
-        await wait(QUEUE_POLL_INTERVAL_MS, controller.signal);
-      }
-    }
-  };
-
-  const cleanupConsumerLoop = async () => {
-    while (!controller.signal.aborted) {
-      const claim = await claimCleanupJob(db, { leaseDurationMs: 30_000 });
-      if (controller.signal.aborted) return;
-      if (claim) await cleanupWorker.process(claim, controller.signal);
-      else await wait(QUEUE_POLL_INTERVAL_MS * 2, controller.signal);
-    }
-  };
-  const tasks = [heartbeatLoop(), consumerLoop(), exportConsumerLoop(), cleanupConsumerLoop()];
+  const stop = () => controller.abort();
+  process.once("SIGTERM", stop);
+  process.once("SIGINT", stop);
+  let phase: WorkerPhase = "startup";
+  let failed = false;
   try {
-    await Promise.race(tasks.map(task => task.then(() => {
-      if (!controller.signal.aborted) throw new Error("Worker service loop stopped unexpectedly.");
-    })));
+    await rm(HEARTBEAT_PATH, { force: true });
+    // Import configuration-dependent modules inside the safe startup boundary.
+    const [{ createAnalysisPipeline }, { createExportWorker }, { createCleanupWorker }] = await Promise.all([
+      import("./pipeline.ts"), import("./export-handlers.ts"), import("./cleanup-handlers.ts"),
+    ]);
+    const db = database();
+    const id = hostname();
+    const storageRoot = process.env.STORAGE_ROOT ?? "/app/storage";
+    const pipeline = createAnalysisPipeline({ db, storageRoot, leaseDurationMs: ANALYSIS_RUNTIME_LEASE_DURATION_MS });
+    const exporter = createExportWorker({ db, storageRoot });
+    const cleaner = createCleanupWorker({ db, storageRoot });
+    console.log(JSON.stringify({ event: "worker_started", mode: "durable_queue" }));
+    let ready = false;
+    await runWorkerRuntime({
+      parentSignal: controller.signal,
+      emit,
+      heartbeat: async () => {
+        await db.$transaction(async tx => {
+          // Keep an idempotent service heartbeat bounded under database lock pressure.
+          await tx.$executeRaw`SET LOCAL lock_timeout = '2s'`;
+          await tx.$executeRaw`SET LOCAL statement_timeout = '5s'`;
+          await tx.workerHeartbeat.upsert({ where: { id }, create: { id }, update: { lastSeen: new Date() } });
+        }, { maxWait: 2_000, timeout: 8_000 });
+        await writeFile(HEARTBEAT_PATH, String(Date.now()));
+        if (!ready) { ready = true; console.log(JSON.stringify({ event: "worker_ready", mode: "durable_queue" })); }
+      },
+      consumers: [
+        { queue: "analysis", idleMs: 1_000, claim: async () => {
+          const claim = await claimAnalysisJob(db, { leaseDurationMs: ANALYSIS_RUNTIME_LEASE_DURATION_MS });
+          return claim ? async signal => { await pipeline(claim, signal); } : null;
+        } },
+        { queue: "export", idleMs: 1_000, claim: async () => {
+          const claim = await claimExportJob(db, { leaseDurationMs: 120_000 });
+          return claim ? signal => exporter.process(claim, signal) : null;
+        } },
+        { queue: "cleanup", idleMs: 2_000, claim: async () => {
+          const claim = await claimCleanupJob(db, { leaseDurationMs: 30_000 });
+          return claim ? signal => cleaner.process(claim, signal) : null;
+        } },
+      ],
+    });
   } catch (error) {
-    fail(error);
+    failed = true;
+    if (!(error instanceof WorkerRuntimeFailure)) diagnostic(error, phase);
   } finally {
-    stop();
-    await Promise.allSettled(tasks);
-    process.off("SIGTERM", onSignal);
-    process.off("SIGINT", onSignal);
-    await disconnectDatabase();
+    controller.abort();
+    phase = "shutdown";
+    // Failure in one cleanup must not skip the other or leak signal listeners.
+    const cleanup = await Promise.allSettled([rm(HEARTBEAT_PATH, { force: true }), disconnectDatabase()]);
+    for (const result of cleanup) if (result.status === "rejected") { failed = true; diagnostic(result.reason, phase); }
+    process.off("SIGTERM", stop);
+    process.off("SIGINT", stop);
   }
-
-  if (fatalError !== undefined) throw fatalError;
+  if (failed) process.exitCode = 1;
 }
 
-main().catch(() => {
-  console.error(JSON.stringify({ event: "worker_failed", code: "ENVIRONMENT_UNAVAILABLE" }));
+void main().catch(() => {
+  // Last-resort boundary: do not let Node print a raw database/provider exception.
+  emit({ event: "worker_failed", phase: "startup", queue: null, code: "UNCLASSIFIED", attempt: 1, delayMs: 0 });
   process.exitCode = 1;
 });

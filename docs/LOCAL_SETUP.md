@@ -100,6 +100,6 @@ docker compose up -d --wait --wait-timeout 180
 docker compose logs --tail=20 worker
 ```
 
-Worker saat ini mencatat `worker_started` dengan `mode=durable_queue`. Log `mode=environment` atau `queueEnabled=false` menunjukkan image lama yang hanya mengirim heartbeat; status healthy saja tidak membuktikan analyzer aktif. Rebuild web dan worker bersama agar API, skema, dan pipeline seversi. Named volume tetap dipertahankan.
+Worker mencatat `worker_started` dengan `mode=durable_queue` saat boot, lalu `worker_ready` setelah heartbeat database dan file health pertama berhasil. Consumer antrean baru dimulai sesudah ready. Diagnostik fase dan retry terbatas dijelaskan pada [OPS-01_CHECKS](OPS-01_CHECKS.md). Log `mode=environment` atau `queueEnabled=false` menunjukkan image lama yang hanya mengirim heartbeat; status healthy saja tidak membuktikan analyzer aktif. Rebuild web dan worker bersama agar API, skema, dan pipeline seversi. Named volume tetap dipertahankan.
 
 Database sebelumnya dibatasi 384 MiB; uji repository nyata dengan ADD sekitar 28 MB dan mirror JSON memicu OOM saat penyimpanan. Batas 1 GiB memberi ruang untuk operasi tersebut. Batas container adalah plafon, bukan alokasi RAM tetap. Worker analisis memakai lease renewable 120 detik; setelah SIGKILL, pemulihan menunggu lease alami kedaluwarsa (hingga sekitar dua menit), lalu retry mempertahankan target snapshot.

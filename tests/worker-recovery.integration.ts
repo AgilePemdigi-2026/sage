@@ -66,7 +66,8 @@ test("T-ANA06 actual worker recovers a killed claim and publishes the same targe
   let restarted: Worker | undefined;
   try {
     assert.equal(await db.job.count({ where: { type: "ANALYSIS", status: { in: ["QUEUED", "RUNNING"] } } }), 0, "stop other consumers and drain jobs before recovery test");
-    assert.equal((await db.workerSlot.findUniqueOrThrow({ where: { slotKey: "analysis" }, select: { jobId: true } })).jobId, null);
+    const initialSlot = await db.workerSlot.findUnique({ where: { slotKey: "analysis" }, select: { jobId: true } });
+    assert.equal(initialSlot?.jobId ?? null, null, "a fresh database may not have an analysis slot yet");
     await mkdir(storageRoot, { mode: 0o700 });
     let repo = await db.repository.findUnique({ where: { githubRepositoryId: repositoryId }, select: { id: true, fullName: true } });
     if (!repo) {
