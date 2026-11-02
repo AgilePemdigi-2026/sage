@@ -2,9 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { analyzeReferences as analyzePhpReferences } from "@sage/analyzer-php";
 import { analyzeReferences as analyzeJsReferences } from "@sage/analyzer-js";
-import { canonicalizeCkg, type CcmV1, type CcmSnapshot } from "@sage/contracts";
+import { canonicalizeCkg, parseCanonicalCkg, type CcmV1, type CcmSnapshot } from "@sage/contracts";
 import {
   parseCanonicalArchitectureDocument,
+  parseVerifiedArchitectureDocument,
   projectArchitectureDocument,
 } from "../packages/documents/src/architecture-document.ts";
 
@@ -119,6 +120,12 @@ class MissingChild extends MissingBase {}
 
     const replay = parseCanonicalArchitectureDocument(projected.json, canonical.json, item.sources, projected.sha256, canonical.sha256);
     assert.deepEqual(replay, projected);
+    const verifiedGraph = parseCanonicalCkg(canonical.json, item.sources, canonical.sha256);
+    assert.ok(verifiedGraph.ok);
+    assert.deepEqual(parseVerifiedArchitectureDocument(projected.json, verifiedGraph, projected.sha256), projected);
+    assert.deepEqual(parseVerifiedArchitectureDocument("{", verifiedGraph), { ok: false, errorCode: "ADD_JSON_INVALID" });
+    assert.deepEqual(parseVerifiedArchitectureDocument(`${projected.json} `, verifiedGraph), { ok: false, errorCode: "ADD_JSON_NOT_CANONICAL" });
+    assert.deepEqual(parseVerifiedArchitectureDocument(projected.json, verifiedGraph, "0".repeat(64)), { ok: false, errorCode: "ADD_CONTENT_HASH_MISMATCH" });
   }
 
   const jsCanonical = await canonicalizeAnalysis(cases[0].ccm, jsSources);

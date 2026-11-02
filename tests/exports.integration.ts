@@ -10,7 +10,7 @@ import test from "node:test";
 import { canonicalizeCkg } from "@sage/contracts";
 import { analyzeReferences } from "@sage/analyzer-js";
 import { projectArchitectureDocument } from "@sage/documents/model";
-import { MARKDOWN_RENDERER_VERSION } from "../packages/documents/src/markdown.ts";
+import { MARKDOWN_RENDERER_VERSION, renderMarkdownDocument } from "../packages/documents/src/markdown.ts";
 import {
   claimExportJob,
   claimCleanupJob,
@@ -123,7 +123,7 @@ async function createPublishedAnalysis(db: PrismaClient, input: {
     sha256: digest(archive),
     byteLength: BigInt(archive.byteLength),
   } });
-  return { analysisId: analysis.id, documentHash: canonicalDocument.sha256, archive, archivePath, sourceStorageObjectId: storageObject.id };
+  return { analysisId: analysis.id, documentHash: canonicalDocument.sha256, markdown: renderMarkdownDocument(canonicalDocument.value), archive, archivePath, sourceStorageObjectId: storageObject.id };
 }
 
 test("EXP-01 Markdown export deduplicates, persists private checksummed files, retries failures and recovers stale leases without touching analysis jobs", {
@@ -204,7 +204,9 @@ test("EXP-01 Markdown export deduplicates, persists private checksummed files, r
     const download = await loadExportDownloadForUser(db, storageRoot, owner.id, first.analysisId, firstEnqueue.export.id);
     assert.equal(download.kind, "ready");
     if (download.kind === "ready") {
-      assert.match(Buffer.from(download.value.bytes).toString("utf8"), /Architecture Definition Document/);
+      assert.equal(Buffer.from(download.value.bytes).toString("utf8"), first.markdown, "streamed output preserves the exact canonical Markdown bytes");
+      assert.equal(ready?.contentHash, digest(download.value.bytes), "stored hash matches downloaded streamed bytes");
+      assert.equal(download.value.bytes.byteLength, Buffer.byteLength(first.markdown, "utf8"), "stored byte length matches the exact UTF-8 Markdown size");
       assert.match(download.value.filename, /^sage-[a-z0-9_-]+-[a-f0-9]{7}\.md$/);
     }
 

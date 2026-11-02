@@ -1,0 +1,119 @@
+{
+  "issue": 113,
+  "title": "Bound memory during large technical document exports",
+  "verificationDate": "2026-11-02",
+  "verificationStatus": "PASS",
+  "exportOutcome": "CONTROLLED_TERMINAL_EXPORT_LIMITS",
+  "interpretation": "The production export worker processed the frozen SAGE corpus without process abort under the existing 2 GiB / 1.5 CPU limit. Both formats reached owner-scoped terminal size errors because this snapshot's verified canonical ADD is 161,534,141 bytes. No export file or storage row was published.",
+  "fixture": {
+    "repository": "AgilePemdigi-2026/sage",
+    "commit": "c2dc3d84b220c572fb5b2ce85dd3605e89b11a73",
+    "sourceFiles": 369,
+    "sourceBytes": 3189530,
+    "sourceManifestArchiveSha256": "f9a424a264cc935bd762e18c9d9e5f8de42532ecbadd64fedc59ffef88ef5813",
+    "sourceCkgSha256": "ad2bb2ddc6be91f2b24ade7b402fef2ec649cfe8253b09aafd95e8dbf40e50d2",
+    "semanticArtifactSha256": "8e09c5f185cf83d106d3482a431cae0dae0350a9d2037defb6ac32379e02a63a",
+    "semanticModelHash": "8e09c5f185cf83d106d3482a431cae0dae0350a9d2037defb6ac32379e02a63a",
+    "canonicalDocumentSha256": "4cb5da848e969e3f24dff3f0d493f460f7cfd8eaf8e5fe7232ab6188c78ada8a",
+    "canonicalDocumentBytes": 161534141,
+    "storageLayoutVersion": 2,
+    "semanticPresentationRevision": 1,
+    "sourceArchiveForWorker": {
+      "format": "gzip-compressed tar rebuilt from the exact frozen source files",
+      "bytes": 727149,
+      "sourceBytesValidatedByWorker": 3189530
+    }
+  },
+  "database": {
+    "name": "sage_export20",
+    "isolation": "separate disposable PostgreSQL container; not the application database",
+    "containerMemoryLimitBytes": 1610612736,
+    "dataTmpfsLimitBytes": 1073741824,
+    "workerCgroupIncludesDatabase": false,
+    "cleanup": "seed records and temporary storage removed after report generation"
+  },
+  "worker": {
+    "image": "sage-semantic-qa:local",
+    "imageDigest": "sha256:7825a1a1a176d06cec8d09453fbaf792bbbc63bf25dbef72102d086c571b3508",
+    "runtime": "Node v24.22.0, linux/arm64",
+    "memoryLimitBytes": 2147483648,
+    "cpuLimit": 1.5,
+    "pidsLimit": 256,
+    "rootFilesystemReadOnly": true,
+    "tmpfsBytes": 536870912,
+    "sharedMemoryBytes": 134217728,
+    "coreDumps": "disabled",
+    "exitCode": 0,
+    "oomKilled": false,
+    "elapsedMs": 26339
+  },
+  "outputs": [
+    {
+      "format": "MARKDOWN",
+      "rendererVersion": "1.0.0",
+      "sizeLimitBytes": 33554432,
+      "terminalStatus": "FAILED",
+      "errorCode": "EXPORT_TOO_LARGE",
+      "storageObjectPublished": false,
+      "finalOrPendingFilePublished": false,
+      "newExportDirectoriesLeft": 0
+    },
+    {
+      "format": "PDF",
+      "rendererVersion": "2.3.0",
+      "documentHtmlLimitBytes": 12582912,
+      "terminalStatus": "FAILED",
+      "errorCode": "PDF_DOCUMENT_LIMIT_EXCEEDED",
+      "storageObjectPublished": false,
+      "finalOrPendingFilePublished": false,
+      "newExportDirectoriesLeft": 0,
+      "detail": "The PDF renderer rejected the document during its size preflight; no PDF was rendered or published."
+    }
+  ],
+  "resourceEvidence": {
+    "processPeakRssBytes": 1885569024,
+    "workerCgroupPeakChargedBytes": 1856581632,
+    "workerCgroupLimitBytes": 2147483648,
+    "cgroupHeadroomBytesAtPeak": 290902016,
+    "workerProcessAborted": false
+  },
+  "ownerAndPinChecks": {
+    "outsiderCouldReadSemanticModel": false,
+    "outsiderCouldReadExport": false,
+    "ownerModelHashMatchedFrozenArtifact": true,
+    "immutablePresentationRevision": 1,
+    "jobsUsedPinnedDocumentAndModel": true
+  },
+  "setupAttemptsExcludedFromProductionResult": [
+    {
+      "classification": "invalid-test-fixture",
+      "detail": "Early seed attempts used a twelve-hex archive prefix instead of the required six and the CCM provenance configurationHash instead of the CKG envelope configurationHash. The generic errors came from fixture-integrity failures, not production-worker findings. The accepted run uses the corrected archive path and configuration hash.",
+      "references": [
+        "artifacts/semantic/issue113-production-worker-20261102/raw/invalid-snapshot-prefix-worker-report.json",
+        "artifacts/semantic/issue113-production-worker-20261102/raw/invalid-seed-config-worker-report.json"
+      ]
+    },
+    {
+      "classification": "disposable-database-seed-resource-failure",
+      "detail": "Setup-only attempts exhausted a 512 MiB WAL tmpfs on a repeated seed and were SIGKILLed with 256/768 MiB database memory caps during large graph/document inserts. The accepted run used a separate 1.5 GiB database cap and 1 GiB tmpfs; the production worker remained capped at 2 GiB / 1.5 CPU.",
+      "references": [
+        "artifacts/semantic/issue113-production-worker-20261102/raw/db-seed-768m-failure.log",
+        "artifacts/semantic/issue113-production-worker-20261102/raw/db-seed-768m-failure-state.txt"
+      ]
+    }
+  ],
+  "reproduction": {
+    "helperPath": "artifacts/semantic/issue113-production-export-replay.ts",
+    "helperSha256": "2d70a757469a6cfa3075ee6052741be653574d3ff6ff614c5c5134413b6eb294",
+    "rawWorkerReport": "artifacts/semantic/issue113-production-worker-20261102/raw/worker-report.json",
+    "rawWorkerReportSha256": "1cf5d2e019828d05a70bd43d2ff3fa04c46a77d8589a5315f42bbb9b86ec6ee6",
+    "rawWorkerConsole": "artifacts/semantic/issue113-production-worker-20261102/raw/worker-console.log",
+    "rawWorkerConsoleSha256": "09e7ee7e6fbaf4e3d636197154b162925d5aae5e778725320233c55de8677d65",
+    "containerLimitsRecord": "artifacts/semantic/issue113-production-worker-20261102/raw/container-limits.txt",
+    "containerLimitsSha256": "dc2abf401ae947cd2f701591c8c15e29ad69ad3e75e4e4461af944e9553561a2",
+    "baselineGraphArtifact": "artifacts/semantic/issue113-baseline-20261102/sage-ckg.json",
+    "baselineGraphSha256": "ad2bb2ddc6be91f2b24ade7b402fef2ec649cfe8253b09aafd95e8dbf40e50d2",
+    "baselineSemanticArtifact": "artifacts/semantic/issue113-baseline-20261102/sage-semantic.json",
+    "baselineSemanticSha256": "8e09c5f185cf83d106d3482a431cae0dae0350a9d2037defb6ac32379e02a63a"
+  }
+}

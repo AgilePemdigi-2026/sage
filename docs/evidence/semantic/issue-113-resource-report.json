@@ -1,0 +1,230 @@
+{
+  "schemaVersion": 1,
+  "issue": 113,
+  "measuredAt": "2026-11-02",
+  "classification": "Fresh bounded-container reproduction. Source analysis passes, but the baseline export process aborts at the V8 heap limit.",
+  "corpus": {
+    "repository": "AgilePemdigi-2026/sage",
+    "commit": "c2dc3d84b220c572fb5b2ce85dd3605e89b11a73",
+    "snapshotMetadataSha256": "31563184e058eddb64c73a2e094a7ce0a536b3c690eae78adcbfecd74ae29ba8",
+    "archiveSha256": "f9a424a264cc935bd762e18c9d9e5f8de42532ecbadd64fedc59ffef88ef5813",
+    "sourceFiles": 369,
+    "sourceBytes": 3189530,
+    "frozenCorpusPath": "Prior local QA worktree artifacts/semantic/corpora/sage; mounted read-only and not committed"
+  },
+  "environment": {
+    "dockerContext": "colima-sage",
+    "image": "sage-semantic-qa:local",
+    "imageSha256": "7825a1a1a176d06cec8d09453fbaf792bbbc63bf25dbef72102d086c571b3508",
+    "imageCreatedAt": "2026-10-30T18:52:33.310258953+07:00",
+    "platform": "linux/arm64",
+    "node": "v24.22.0",
+    "limits": {
+      "memoryBytes": 2147483648,
+      "cpus": 1.5,
+      "network": "none",
+      "readOnlyRootFilesystem": true,
+      "tmpfsBytes": 536870912,
+      "shmBytes": 134217728,
+      "pids": 256
+    },
+    "sourceAndExportUseSeparateFreshContainers": true
+  },
+  "commands": {
+    "sourceRunner": "node --import tsx scripts/benchmark-semantic.ts /corpus /results",
+    "exportRunner": "node --import tsx scripts/benchmark-semantic-export.ts /corpus /results",
+    "containerArgs": [
+      "docker --context colima-sage run --rm",
+      "--network none",
+      "--memory=2g --cpus=1.5",
+      "--pids-limit=256 --shm-size=128m",
+      "--read-only --tmpfs /tmp:rw,size=536870912",
+      "-v <frozen-corpus>:/corpus:ro -v <private-results>:/results",
+      "--entrypoint sh sage-semantic-qa:local -c <runner>"
+    ],
+    "afterOverlayDirectories": [
+      "packages/contracts/src",
+      "packages/analyzer-js/src",
+      "packages/documents/src",
+      "packages/database/src",
+      "packages/analyzer-php/bin",
+      "packages/analyzer-php/src",
+      "apps/worker/src",
+      "scripts"
+    ],
+    "afterOverlaysAreReadOnly": true,
+    "privateRerunScript": "artifacts/semantic/rerun-issue113.sh"
+  },
+  "codeProvenance": {
+    "baseline": {
+      "sourceOverlay": false,
+      "sourceRunnerSha256InImage": "a79af2a607e4560b5415e746209b659282364e46fde695cd9a7c40e3392d7ff7",
+      "exportRunnerSha256InImage": "1ebcf969019fc14f1519776a4db5994879954cac5b09b986d18fa8f4cc7e236e",
+      "note": "Baseline code ran from the pinned image; the benchmark script hashes matched the old coolify worktree."
+    },
+    "afterSourceReplay": {
+      "sourceOverlay": true,
+      "sourceRunnerSha256": "a79af2a607e4560b5415e746209b659282364e46fde695cd9a7c40e3392d7ff7",
+      "semanticBuildSha256": "2d16e0b1f3e60427440ce6aec9177d01354e8a495871225add444d155b195818",
+      "extractorVersion": "0.3.0"
+    },
+    "afterRendererReplay": {
+      "sourceOverlay": true,
+      "sourceMeasurementReusedFrom": "artifacts/semantic/issue113-baseline-20261102/sage-report.json",
+      "exportRunnerSha256": "e3a6499bc456793d334f34ebca871f579cf657c8ee9df0aeac4dc9ff3f76296f",
+      "markdownRendererSha256": "591384b3cd4ec34c1baac38c7049e25698372a00bbfbac4b602102bfa0c322da",
+      "architectureProjectionSha256": "0a82c24db4f49c266d24e913d7302cce1ec3e21eb8225aae685d22d21f3c17b5"
+    }
+  },
+  "runs": {
+    "baseline": {
+      "sourceReplay": {
+        "status": "PASS",
+        "extractorVersion": "0.1.0",
+        "sourceAnalysisMs": 80642.054023,
+        "semanticModelMs": 1340.632433,
+        "processPeakRssBytes": 1114664960,
+        "containerPeakChargedBytes": 1117777920,
+        "semanticBytes": 291947,
+        "semanticModelSha256": "8e09c5f185cf83d106d3482a431cae0dae0350a9d2037defb6ac32379e02a63a",
+        "ckgBytes": 49385119,
+        "ckgSha256": "ad2bb2ddc6be91f2b24ade7b402fef2ec649cfe8253b09aafd95e8dbf40e50d2",
+        "features": 14,
+        "nodes": 192,
+        "edges": 218
+      },
+      "export": {
+        "status": "FAIL_EXPORT_PROCESS",
+        "exitCode": 134,
+        "wallElapsedMs": 17065,
+        "lastPhase": "markdown-render",
+        "errorCode": "V8_HEAP_LIMIT",
+        "error": "FATAL ERROR: Ineffective mark-compacts near heap limit Allocation failed - JavaScript heap out of memory",
+        "lastGcObservation": "1014.3 (1029.4) MB before mark-compact; 1010.1 (1014.6) MB after mark-compact",
+        "processPeakRssBytes": null,
+        "containerPeakChargedBytes": null,
+        "metricsUnavailableBecauseProcessAborted": true
+      },
+      "overallStatus": "FAIL_EXPORT_PROCESS"
+    },
+    "afterSourceOverlay": {
+      "sourceReplay": {
+        "status": "PASS",
+        "extractorVersion": "0.3.0",
+        "sourceAnalysisMs": 99318.982773,
+        "semanticModelMs": 1630.461236,
+        "processPeakRssBytes": 1194848256,
+        "containerPeakChargedBytes": 1169428480,
+        "semanticModelSha256": "5098aa27e412880992a267eb18c29865e9f17cbc0d35af087236a40a9d877b7c",
+        "ckgSha256": "ad2bb2ddc6be91f2b24ade7b402fef2ec649cfe8253b09aafd95e8dbf40e50d2",
+        "nodeCount": 192,
+        "edgeCount": 218,
+        "modelDifferenceFromBaseline": "extractorVersion only; sourceCkgHash and all other semantic fields match"
+      },
+      "overallStatus": "PASS_SOURCE_REPLAY_ONLY"
+    },
+    "afterRendererOverlay": {
+      "sourceStatus": "PASS_REUSED_FRESH_BASELINE_SOURCE_MEASUREMENT",
+      "sourceMeasurementReusedFrom": "artifacts/semantic/issue113-baseline-20261102/sage-report.json",
+      "semanticModelSha256": "8e09c5f185cf83d106d3482a431cae0dae0350a9d2037defb6ac32379e02a63a",
+      "ckgSha256": "ad2bb2ddc6be91f2b24ade7b402fef2ec649cfe8253b09aafd95e8dbf40e50d2",
+      "export": {
+        "status": "FAIL_EXPORT_CONTROLLED_LIMITS",
+        "processCompleted": true,
+        "exitCode": 1,
+        "elapsedMs": 23613.393667,
+        "canonicalDocumentBytes": 161534141,
+        "markdown": {
+          "status": "EXPORT_TOO_LARGE",
+          "combinedMaxBytes": 33554432,
+          "semanticPrefixBytes": 322896,
+          "documentMaxBytesAfterPrefix": 33231536,
+          "combinedBytesWrittenBeforeRejection": 33515162,
+          "sha256": null,
+          "partialFileRemoved": true
+        },
+        "pdf": {
+          "status": "PDF_DOCUMENT_LIMIT_EXCEEDED",
+          "elapsedMs": 4212.080213,
+          "bytes": null,
+          "sha256": null
+        },
+        "processPeakRssBytes": 1665884160,
+        "containerPeakChargedBytes": 1696329728,
+        "heapAbort": false
+      },
+      "overallStatus": "CONTROLLED_TERMINAL_EXPORT_LIMITS"
+    }
+  },
+  "interpretation": {
+    "firstSageProjectionMeasurementBytes": 161534141,
+    "projectionMeasurementNote": "This is the first SAGE canonical document size measured after projection completed. The historical SAGE export aborted before recording canonicalDocumentBytes; the 11,033,066-byte figure in the historical resource report belongs to Perpus.",
+    "comparisonNote": "Renderer-only after run reused the fresh baseline source output so both sides have identical CKG and semantic model hashes. A separate fresh source-overlay replay is recorded above; its only model difference is extractorVersion 0.1.0 to 0.3.0.",
+    "resourceLimitNote": "No memory, CPU, network, or export-size limits were raised. After renderer code completed with controlled size errors under the same 2 GiB / 1.5 CPU container cap.",
+    "privateArtifactNote": "Raw corpus, CKG, and semantic artifacts remain in ignored private artifact directories. This tracked report stores summary metrics and SHA-256 references only."
+  },
+  "artifactReferences": {
+    "corpusSnapshotMetadata": {
+      "path": "artifacts/semantic/issue113-baseline-20261102/corpus-snapshot.json",
+      "sha256": "31563184e058eddb64c73a2e094a7ce0a536b3c690eae78adcbfecd74ae29ba8"
+    },
+    "baselineSourceReport": {
+      "path": "artifacts/semantic/issue113-baseline-20261102/sage-report.json",
+      "sha256": "ce2215b63f77002f20b8692d1f58eaeb2b315e7429c0add2237b293dcce09287"
+    },
+    "baselineSourceLog": {
+      "path": "artifacts/semantic/issue113-baseline-20261102/source-container.log",
+      "sha256": "665ad4872a8ffb5b1d57d7acbfbb55824ad5f81845163782f56a201031642669"
+    },
+    "baselineExportLog": {
+      "path": "artifacts/semantic/issue113-baseline-20261102/export-container.log",
+      "sha256": "5bd10c74d59949b871f52c4659feffdfff03710a5497fdc107dcb365f2d8f215"
+    },
+    "baselineCkg": {
+      "path": "artifacts/semantic/issue113-baseline-20261102/sage-ckg.json",
+      "bytes": 49385119,
+      "sha256": "ad2bb2ddc6be91f2b24ade7b402fef2ec649cfe8253b09aafd95e8dbf40e50d2"
+    },
+    "baselineSemanticModel": {
+      "path": "artifacts/semantic/issue113-baseline-20261102/sage-semantic.json",
+      "bytes": 291947,
+      "sha256": "8e09c5f185cf83d106d3482a431cae0dae0350a9d2037defb6ac32379e02a63a"
+    },
+    "afterSourceOverlayReport": {
+      "path": "artifacts/semantic/issue113-after-20261102/sage-report.json",
+      "sha256": "9437923e86cc6b27eb88fdf4b996caecbbe301765d16f3bab1a7a8e60752425a"
+    },
+    "afterSourceOverlayLog": {
+      "path": "artifacts/semantic/issue113-after-20261102/source-container.log",
+      "sha256": "d6b2e9bf0c0c59c270145de23d2addfa844ed008dc3d318e5bc7e2316ec45d6d"
+    },
+    "afterSourceOverlaySemanticModel": {
+      "path": "artifacts/semantic/issue113-after-20261102/sage-semantic.json",
+      "bytes": 291947,
+      "sha256": "5098aa27e412880992a267eb18c29865e9f17cbc0d35af087236a40a9d877b7c"
+    },
+    "afterSourceOverlayCkg": {
+      "path": "artifacts/semantic/issue113-after-20261102/sage-ckg.json",
+      "bytes": 49385119,
+      "sha256": "ad2bb2ddc6be91f2b24ade7b402fef2ec649cfe8253b09aafd95e8dbf40e50d2"
+    },
+    "afterRendererReport": {
+      "path": "artifacts/semantic/issue113-after-renderer-recheck-20261102/sage-report.json",
+      "sha256": "fac19e3b51f9893dc1d8efe597f15696c41a8d56762d57ffd1164459d59b60a3"
+    },
+    "afterRendererExportLog": {
+      "path": "artifacts/semantic/issue113-after-renderer-recheck-20261102/export-container.log",
+      "sha256": "c1b9b9ac2140811f2b81563fe8844b73779993fbea7921a76b21138e18bffe9a"
+    },
+    "afterRendererCkg": {
+      "path": "artifacts/semantic/issue113-after-renderer-recheck-20261102/sage-ckg.json",
+      "bytes": 49385119,
+      "sha256": "ad2bb2ddc6be91f2b24ade7b402fef2ec649cfe8253b09aafd95e8dbf40e50d2"
+    },
+    "afterRendererSemanticModel": {
+      "path": "artifacts/semantic/issue113-after-renderer-recheck-20261102/sage-semantic.json",
+      "bytes": 291947,
+      "sha256": "8e09c5f185cf83d106d3482a431cae0dae0350a9d2037defb6ac32379e02a63a"
+    }
+  }
+}

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { parseCanonicalCkg } from "@sage/contracts";
 import {
-  parseCanonicalArchitectureDocument,
+  parseVerifiedArchitectureDocument,
   projectArchitectureDocument,
 } from "@sage/documents/model";
 import type { ArchitectureDocumentV1 } from "@sage/documents/model";
@@ -408,12 +408,10 @@ export async function readCanonicalDocumentForUser(
     throw new CanonicalDocumentIntegrityError();
   }
 
-  const parsedDocument = parseCanonicalArchitectureDocument(
+  const parsedDocument = parseVerifiedArchitectureDocument(
     row.canonicalContent,
-    bundle.canonicalContent,
-    safeSourceBytes,
+    parsedGraph,
     row.contentHash,
-    bundle.contentHash,
   );
   const legacyDocumentMirrors = row.storageLayoutVersion === 1 && parsedDocument.ok
     ? [

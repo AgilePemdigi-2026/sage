@@ -6,7 +6,7 @@ import { applyPresentation } from "./presentation.ts";
 export interface SemanticPresentation { model: SemanticModel; overlay: PresentationOverlay; revision: number }
 const escape = (text: string) => text.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]!);
 function code(text: string): string {
-  const fence = "`".repeat(Math.max(1, ...(text.match(/`+/g) ?? []).map(s => s.length + 1)));
+  const fence = "`".repeat((text.match(/`+/g) ?? []).reduce((max, run) => Math.max(max, run.length + 1), 1));
   const visible = text.replace(/\r/g,"\\r").replace(/\n/g,"\\n").replace(/\t/g,"\\t").replace(/[\u0000-\u001f\u007f]/g,"�");
   return `${fence} ${visible} ${fence}`;
 }
