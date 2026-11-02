@@ -1,0 +1,309 @@
+{
+  "schemaVersion": 1,
+  "issue": 104,
+  "date": "2026-11-02",
+  "verificationStatus": "PASS",
+  "baseCommit": "4c4c8c375f888b4edae6c5b9c455946bc9ef9538",
+  "scope": "Disposable database and real worker process probes. Original historical incident cause remains unverified; no live GitHub or shared-server capacity claim.",
+  "workerBudget": {
+    "memoryBytes": 2147483648,
+    "cpus": 1.5,
+    "swapDisabled": true,
+    "readOnlyRoot": true,
+    "tmpfsBytes": 536870912,
+    "pids": 256
+  },
+  "environment": {
+    "context": "colima-sage",
+    "architecture": "linux/arm64",
+    "node": "v24.22.0",
+    "imageId": "sha256:7825a1a1a176d06cec8d09453fbaf792bbbc63bf25dbef72102d086c571b3508",
+    "database": "disposable sage-ops104-db, 512 MiB RAM and 128 MiB data tmpfs; sage_ops104/sage_queue01/sage_pipeline16; no product database access"
+  },
+  "baseline": {
+    "scenario": "Database unreachable on isolated localhost port 1",
+    "summary": {
+      "container": "sage-ops104-baseline-outage",
+      "exitCode": 1,
+      "oomKilled": false,
+      "elapsedMs": 4847,
+      "memoryLimitBytes": 2147483648,
+      "cpuNanoLimit": 1500000000
+    },
+    "diagnostic": "worker_failed / ENVIRONMENT_UNAVAILABLE",
+    "resource": {
+      "event": "probe_resource_usage",
+      "exitCode": 1,
+      "runtime": "v24.22.0",
+      "processPeakRssBytes": 359596032,
+      "cgroupPeakBytes": 344256512,
+      "cpuStat": "usage_usec 3830925\nuser_usec 1908827\nsystem_usec 1922097\ncore_sched.force_idle_usec 0\nnr_periods 43\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n"
+    }
+  },
+  "currentPersistentOutage": {
+    "summary": {
+      "container": "sage-ops104-current-final-outage",
+      "exitCode": 1,
+      "oomKilled": false,
+      "elapsedMs": 6794,
+      "memoryLimitBytes": 2147483648,
+      "cpuNanoLimit": 1500000000
+    },
+    "diagnostics": [
+      {
+        "event": "worker_retry",
+        "phase": "startup",
+        "queue": null,
+        "code": "DATABASE_UNREACHABLE",
+        "attempt": 1,
+        "delayMs": 500
+      },
+      {
+        "event": "worker_retry",
+        "phase": "startup",
+        "queue": null,
+        "code": "DATABASE_UNREACHABLE",
+        "attempt": 2,
+        "delayMs": 1500
+      },
+      {
+        "event": "worker_retry",
+        "phase": "startup",
+        "queue": null,
+        "code": "DATABASE_UNREACHABLE",
+        "attempt": 3,
+        "delayMs": 3000
+      },
+      {
+        "event": "worker_failed",
+        "phase": "startup",
+        "queue": null,
+        "code": "DATABASE_UNREACHABLE",
+        "attempt": 4,
+        "delayMs": 0
+      }
+    ],
+    "resource": {
+      "event": "probe_resource_usage",
+      "exitCode": 1,
+      "runtime": "v24.22.0",
+      "processPeakRssBytes": 392945664,
+      "cgroupPeakBytes": 357384192,
+      "cpuStat": "usage_usec 2213032\nuser_usec 1367581\nsystem_usec 845450\ncore_sched.force_idle_usec 0\nnr_periods 28\nnr_throttled 1\nthrottled_usec 27646\nnr_bursts 0\nburst_usec 0\n",
+      "heartbeatFilePresent": false
+    }
+  },
+  "currentDatabaseLockAndCpuPressure": {
+    "status": "PASS",
+    "startupRecovery": true,
+    "heartbeatRecovery": true,
+    "concurrentCpuProbeMs": 8000,
+    "shutdownDuringRetryMs": 693,
+    "exitCode": 0,
+    "oomKilled": false,
+    "resource": {
+      "event": "probe_resource_usage",
+      "exitCode": 0,
+      "runtime": "v24.22.0",
+      "processPeakRssBytes": 397475840,
+      "cgroupPeakBytes": 361156608,
+      "cpuStat": "usage_usec 9961646\nuser_usec 9677171\nsystem_usec 284475\ncore_sched.force_idle_usec 0\nnr_periods 132\nnr_throttled 1\nthrottled_usec 12525\nnr_bursts 0\nburst_usec 0\n",
+      "heartbeatFilePresent": false
+    },
+    "memoryLimitBytes": 2147483648,
+    "cpuNanoLimit": 1500000000
+  },
+  "failClosedAuthentication": {
+    "status": "PASS",
+    "exitCode": 1,
+    "oomKilled": false,
+    "elapsedMs": 2511,
+    "diagnostic": {
+      "event": "worker_failed",
+      "phase": "startup",
+      "queue": null,
+      "code": "DATABASE_AUTHENTICATION",
+      "attempt": 1,
+      "delayMs": 0
+    },
+    "resource": {
+      "event": "probe_resource_usage",
+      "exitCode": 1,
+      "runtime": "v24.22.0",
+      "processPeakRssBytes": 358322176,
+      "cgroupPeakBytes": 319922176,
+      "cpuStat": "usage_usec 2037271\nuser_usec 1380539\nsystem_usec 656732\ncore_sched.force_idle_usec 0\nnr_periods 20\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n",
+      "heartbeatFilePresent": false
+    }
+  },
+  "failClosedConfiguration": {
+    "status": "PASS",
+    "exitCode": 1,
+    "oomKilled": false,
+    "elapsedMs": 2350,
+    "diagnostic": {
+      "event": "worker_failed",
+      "phase": "startup",
+      "queue": null,
+      "code": "SYNTAX_ERROR",
+      "attempt": 1,
+      "delayMs": 0
+    },
+    "resource": {
+      "event": "probe_resource_usage",
+      "exitCode": 1,
+      "runtime": "v24.22.0",
+      "processPeakRssBytes": 317800448,
+      "cgroupPeakBytes": 281874432,
+      "cpuStat": "usage_usec 1809011\nuser_usec 1193987\nsystem_usec 615023\ncore_sched.force_idle_usec 0\nnr_periods 19\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n",
+      "heartbeatFilePresent": false
+    }
+  },
+  "regressions": {
+    "unit": {
+      "pass": 509,
+      "skip": 2,
+      "fail": 0
+    },
+    "focused": {
+      "pass": 13,
+      "fail": 0
+    },
+    "queueAndStageLifecycle": {
+      "pass": 2,
+      "fail": 0,
+      "scope": "actual PostgreSQL, owner isolation, FIFO, atomic claims, duplicate/stale lease and attempt fencing, cancellation"
+    },
+    "killedWorkerRecovery": {
+      "pass": 1,
+      "fail": 0,
+      "elapsedTestMs": 128139.509542,
+      "scope": "actual child worker SIGKILL, 120-second lease expiry, WORKER_INTERRUPTED recovery, explicit retry then nine-stage single canonical publication; provider fixture replaces live GitHub"
+    },
+    "typecheck": "PASS",
+    "lint": "PASS with 3 pre-existing React hook warnings outside this change",
+    "completeCheck": "PASS: npm run check (lint, root/web typecheck, 509 unit pass / 2 skip, 8 data tests pass)"
+  },
+  "setupCorrection": {
+    "detail": "Initial recovery test assumed an analysis WorkerSlot already existed; updated fixture accepts an absent slot in a freshly migrated database while still rejecting an occupied slot. Initial failure retained privately. Initial busy harness used incompatible Docker hostname/network options; fixed test setup, not an application failure."
+  },
+  "limitations": [
+    "Controlled database locks and one 8-second CPU probe do not establish arbitrary shared-server capacity.",
+    "Original historical OPS-01 restart cause was not inferred from a generic log.",
+    "No Coolify deployment or quota increase."
+  ],
+  "sourceFingerprints": [
+    {
+      "path": "apps/worker/src/index.ts",
+      "sha256": "5b4f94170fb940e6c3689f5cc3f33e67bd0481f9853b4a00579adbc677f02147"
+    },
+    {
+      "path": "apps/worker/src/runtime.ts",
+      "sha256": "b716eb5a3567f521beefdcb61628d90cc375983e6430343065f6a69e6e59a1c1"
+    },
+    {
+      "path": "apps/worker/src/diagnostics.ts",
+      "sha256": "8d8d9bbcebeb0f02383cd1bb57f4f83c0cc9e7fa8f86037362a44412f3bc57e6"
+    },
+    {
+      "path": "apps/worker/src/health.ts",
+      "sha256": "ae7ed639179b3a3c32c80a11c7cc0e39ad7f3bfa0e7c87a1a184d662ee0b22b1"
+    },
+    {
+      "path": "tests/worker-runtime.test.ts",
+      "sha256": "209b2eb34854ce0774ad03cc472c8baa564db9d529a5c61219cc98e8b3ece771"
+    },
+    {
+      "path": "tests/worker-diagnostics.test.ts",
+      "sha256": "d9dfd70b62203a16a25811d7a724a1999feb70959eda8c42d9d05f5e98edd14f"
+    },
+    {
+      "path": "tests/worker-recovery.integration.ts",
+      "sha256": "16b9f09dc620ae3f21f2a0e89be8c123dfc0edc09f4cfd6458a3ced200db5418"
+    }
+  ],
+  "privateEvidence": [
+    {
+      "path": "artifacts/ops104-20261102/baseline-outage.log",
+      "sha256": "6a9b70ff2508048e27d035619fead492be349eedfcd58ad4876fde6ab3d14d76"
+    },
+    {
+      "path": "artifacts/ops104-20261102/current-final-outage.log",
+      "sha256": "4f073fe80871998f672e904473354e9aa347d9130dd52a46241c12580247bd66"
+    },
+    {
+      "path": "artifacts/ops104-20261102/busy-worker.log",
+      "sha256": "895c6e85a57d5ceb18c07c9fc5b7e536f7d6d86f08cb392555f2bcf550d743b0"
+    },
+    {
+      "path": "artifacts/ops104-20261102/busy-summary.json",
+      "sha256": "283cf4b22164a10429fb5a1271f235f44131a7391b8f989c39f870f1837f9a1d"
+    },
+    {
+      "path": "artifacts/ops104-20261102/auth.log",
+      "sha256": "f663191f83a89c58c76fe2d10a073940c20d9c824f8507a6e2fbbebbd35f9780"
+    },
+    {
+      "path": "artifacts/ops104-20261102/config.log",
+      "sha256": "09a67a6dfd6861ae13a5cd53b32f13a1b0a690872ab0cb58efb4a6fece9bb40f"
+    },
+    {
+      "path": "artifacts/ops104-20261102/recovery-integration.log",
+      "sha256": "84a1f25ccfdc11596dc21e02783536e298801f88a7d6793e10163e6617e5cb30"
+    },
+    {
+      "path": "artifacts/ops104-20261102/queue-lifecycle-integration.log",
+      "sha256": "b8c9664fe9185883d7e5ad40e5bf27a585e200fd3b477b1c09a2618863a0c8a3"
+    },
+    {
+      "path": "artifacts/ops104-20261102/unit.log",
+      "sha256": "68df55a27ae8c0c7401d2461772ea7f23abacb8d39278e1922846a85b0b855cc"
+    },
+    {
+      "path": "artifacts/ops104-20261102/focused.log",
+      "sha256": "3cf55149044c8890f95730857776e2be19b14bd91b21c14f4fa7f1f6097cbd8e"
+    },
+    {
+      "path": "artifacts/ops104-20261102/typecheck-final.log",
+      "sha256": "b494d51cb0bca505cec9739f821fcc5c9f005388576a6e6023e951d48c37bdcc"
+    },
+    {
+      "path": "artifacts/ops104-20261102/lint.log",
+      "sha256": "c63d2f46b84bc93c305a6caae2fad3bf871bad312bb8d4bb2242789f8bff7938"
+    },
+    {
+      "path": "artifacts/ops104-20261102/run-busy.py",
+      "sha256": "a59357fba057632f58228d6cdfd592f37244a83ffb1e73dc709d5bf997acb5a5"
+    },
+    {
+      "path": "artifacts/ops104-20261102/run-outage.py",
+      "sha256": "2950b75aa9f91bdb9c4471083d7662a39c210e7dcb1c4cd7752fec3d9052eeab"
+    },
+    {
+      "path": "artifacts/ops104-20261102/run-fatal.py",
+      "sha256": "024f20c64206f26dbfbd9d14bb751c22ffdb67ce62177c692c1bd14c7b534e08"
+    },
+    {
+      "path": "artifacts/ops104-20261102/probe.mjs",
+      "sha256": "0fc87cbf9e54d8f4715f1615fbe77aae22352f615805fa012bbb9f94f46104ca"
+    },
+    {
+      "path": "artifacts/ops104-20261102/check-final.log",
+      "sha256": "cf780892fe0166e00ae2fa92b05b7337fac356e73ba7bb2bfbfc396e16896333"
+    },
+    {
+      "path": "artifacts/ops104-20261102/docker-limits.json",
+      "sha256": "7f37b65a961500f0ac0b121c3659fa304478dbe24042a4615cd1f331e0c1d831"
+    }
+  ],
+  "cleanup": "All nine owned OPS-104 containers removed after retaining sanitized limits and private evidence; live web/worker/database healthy.",
+  "localWorker": "Updated from verified source after checking no queued/running product jobs; worker_started and worker_ready observed, copied source SHA-256 matches repository.",
+  "review": {
+    "kind": "Independent read-only agent review of final local staged diff",
+    "result": "No material findings",
+    "focusedTestsPass": 13,
+    "scope": "Runtime/diagnostics, installed Prisma/pg mappings, cancellation/drain and marker lifecycle; Docker/DB probes were not rerun by reviewer",
+    "executionNote": "Luna audit/implementation/test agents hit usage limits before delivery; root completed implementation and verification. Sol reviewer completed independent review. No human or PR approval is claimed.",
+    "minorObservation": "An in-flight heartbeat may briefly publish readiness during cancellation; abort gates prevent handling a returned claim and final drain removes the marker."
+  }
+}

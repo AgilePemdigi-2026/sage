@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import {
   parseCanonicalCkg,
+  type CanonicalCkgResult,
   type CcmEdge,
   type CcmFile,
   type CcmLimitation,
@@ -131,6 +132,11 @@ export function projectArchitectureDocument(
   const parsed = parseCanonicalCkg(canonicalCkgJson, sourceBytes, expectedCkgSha256);
   if (!parsed.ok) return { ok: false, errorCode: parsed.errorCode };
 
+  return projectVerifiedArchitectureDocument(parsed);
+}
+
+/** Project from the exact source-verified graph already held by the reader. */
+export function projectVerifiedArchitectureDocument(parsed: Extract<CanonicalCkgResult, { ok: true }>): ArchitectureDocumentResult {
   const diagrams = projectVerifiedCkgDiagrams(parsed);
   if (!diagrams.ok) return { ok: false, errorCode: diagrams.errorCode };
   if (diagrams.value.ckgSha256 !== parsed.sha256) {
@@ -171,14 +177,29 @@ export function parseCanonicalArchitectureDocument(
   if (expectedDocumentSha256 !== undefined && digest(documentJson) !== expectedDocumentSha256) {
     return { ok: false, errorCode: "ADD_CONTENT_HASH_MISMATCH" };
   }
-  try {
-    JSON.parse(documentJson) as unknown;
-  } catch {
-    return { ok: false, errorCode: "ADD_JSON_INVALID" };
+  const parsedGraph = parseCanonicalCkg(canonicalCkgJson, sourceBytes, expectedCkgSha256);
+  if (!parsedGraph.ok) {
+    // Preserve invalid-JSON precedence without parsing an extra tree on valid reads.
+    try { JSON.parse(documentJson); } catch { return { ok: false, errorCode: "ADD_JSON_INVALID" }; }
+    return parsedGraph;
   }
+  return parseVerifiedArchitectureDocument(documentJson, parsedGraph, expectedDocumentSha256);
+}
 
-  const expected = projectArchitectureDocument(canonicalCkgJson, sourceBytes, expectedCkgSha256);
+/** Verify canonical bytes without parsing a second ADD tree or replaying a second graph. */
+export function parseVerifiedArchitectureDocument(
+  documentJson: string,
+  parsedGraph: Extract<CanonicalCkgResult, { ok: true }>,
+  expectedDocumentSha256?: string,
+): ArchitectureDocumentResult {
+  if (typeof documentJson !== "string") return { ok: false, errorCode: "ADD_JSON_INVALID" };
+  if (expectedDocumentSha256 !== undefined && !SHA256.test(expectedDocumentSha256)) return { ok: false, errorCode: "ADD_CONTENT_HASH_INVALID" };
+  if (expectedDocumentSha256 !== undefined && digest(documentJson) !== expectedDocumentSha256) return { ok: false, errorCode: "ADD_CONTENT_HASH_MISMATCH" };
+  const expected = projectVerifiedArchitectureDocument(parsedGraph);
   if (!expected.ok) return expected;
-  if (expected.json !== documentJson) return { ok: false, errorCode: "ADD_JSON_NOT_CANONICAL" };
+  if (expected.json !== documentJson) {
+    try { JSON.parse(documentJson); } catch { return { ok: false, errorCode: "ADD_JSON_INVALID" }; }
+    return { ok: false, errorCode: "ADD_JSON_NOT_CANONICAL" };
+  }
   return expected;
 }

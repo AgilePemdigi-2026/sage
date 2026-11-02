@@ -674,7 +674,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     {payload ? <AnalysisLimitations items={payload.model.limitations} /> : null}
     {payload && features.length === 0 ? <div className={styles.legacyNotice} role="status" data-testid="semantic-unavailable">
       <h3>No supported user flow detected</h3>
-      <p>Snapshot ini belum menghasilkan model alur aplikasi. Extractor alur saat ini mendukung pola Next.js App Router dan Laravel; struktur aplikasi lain belum didukung. Ini berbeda dari Code Knowledge, yang membaca komponen dan dependency dari source code.</p>
+      <p>Snapshot ini belum menghasilkan model alur aplikasi. Extractor mendukung pola tertentu pada Next.js dan Laravel, serta kandidat route Node.js HTTP yang terbatas. Pola lain belum tentu didukung. Ini berbeda dari Code Knowledge, yang membaca komponen dan dependency dari source code.</p>
       <p>Model tersimpan memakai extractor {payload.model.extractorVersion}. Analisis ulang diperlukan untuk memakai perbaikan extractor; analisis ulang tidak menjamin dukungan untuk framework lain.</p>
       <a href={`/analyses/${encodeURIComponent(analysisId)}/graph`}>Buka Code Knowledge</a>
     </div> : null}

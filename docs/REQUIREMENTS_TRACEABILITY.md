@@ -150,3 +150,8 @@ UI-02 (#59) dan UI-03 (#60) menambah frontend Figma pada Sprint 1. Preview progr
 ## Optimasi storage sebelum deployment
 
 PERF-01 #96 merupakan paket teknis lokal pendukung persistensi dan efisiensi; tidak menambah requirement SRS atau menyatakan acceptance release selesai. T-PERF-01 membuktikan canonical/source/hash/owner tetap terjaga saat mirror lama dihapus, dengan regresi alur graph/dokumen dan ekspor layout 2. Pemetaan requirement yang ada tidak berubah. Hasil, pengukuran dan batas tercatat pada [PERF-01_CHECKS](PERF-01_CHECKS.md); REL-01/FIN-01 tetap memiliki gate sendiri.
+
+
+## Bukti operasional OPS-01 — 2 November 2026
+
+OPS-01 #104 menambah T-OPS-01 untuk diagnostik aman dan retry service terbatas, serta mengulang T-ANA-01/T-ANA-06 untuk owner/lease/attempt fencing, shutdown, recovery `WORKER_INTERRUPTED` dan publikasi setelah retry eksplisit. [OPS-01_CHECKS](OPS-01_CHECKS.md) memisahkan unit, PostgreSQL/proses nyata dan provider fixture; batas worker tetap 2 GiB/1,5 CPU. Ini mendukung FIN-01/QA-02/REL-01 tanpa menerima seluruh gate release atau kapasitas server bersama.
