@@ -1,6 +1,6 @@
 # Requirements traceability
 
-Status diperbarui 27 Oktober 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Paket Sprint 1 memiliki bukti implementasi terpisah; keberadaan mapping tidak membuktikan acceptance MVP penuh. Status “paket teruji” mengacu bukti issue dan check record, termasuk batas pengujian controlled/live; status Planned tetap menunggu penerimaan produk.
+Status diperbarui 9 November 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Mapping bukan bukti acceptance penuh. Status mengacu bukti pada issue/check record dan menyatakan batas controlled/live; `Planned` berarti belum ada bukti penerimaan yang dicatat. Signoff lokal REL-01 tidak menyatakan deployment Coolify atau kapasitas server bersama sudah teruji.
 
 Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Rincian perilaku dibaca bersama sumber dan PRD, bukan digantikan hanya oleh judul. ID backlog adalah ID internal; nomor issue GitHub tersedia pada tabel product backlog. Test ID merujuk [test plan](TEST_PLAN.md).
 
@@ -87,18 +87,18 @@ ID `APP-*` merupakan tambahan project, bukan identifier yang diklaim berasal dar
 
 | ID | Requirement | Backlog | Test case/bukti | Status |
 | --- | --- | --- | --- | --- |
-| APP-01 | Semua analisis memerlukan login dan history milik pengguna | GH-01, HIST-01, DATA-01 | T-GH-01, T-DATA-01, T-HIST-01 | Planned |
-| APP-02 | Setelah login, public repository pihak lain dapat dipilih melalui URL/slug | GH-02, REP-01 | T-GH-03, T-REP-01 | Planned |
+| APP-01 | Semua analisis memerlukan login dan history milik pengguna | GH-01, HIST-01, DATA-01 | T-GH-01, T-DATA-01, T-HIST-01 | Fresh GitHub login, owner history, and test-analysis deletion verified on isolated empty-volume Docker run; broader owner-isolation/error coverage remains in GH/DATA/HIST records ([QA-02](QA-02_CHECKS.md)) |
+| APP-02 | Setelah login, public repository pihak lain dapat dipilih melalui URL/slug | GH-02, REP-01 | T-GH-03, T-REP-01 | Live public repository list and pinned full-SHA target selection verified on fresh run; provider/error matrix remains in GH-02/REP-01 ([QA-02](QA-02_CHECKS.md)) |
 | APP-03 | Hanya satu analysis repository aktif secara global dengan antrean | ANA-01 | T-ANA-01 | Planned |
 | APP-04 | Target full SHA immutable sebelum antrean dan retry memakai record baru | REP-02, ANA-07 | T-REP-02, T-ANA-06 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
 | APP-05 | Hasil/snapshot disimpan sampai user menghapus; deletion membersihkan turunannya | DATA-01, DATA-02 | T-DATA-01, T-DATA-02 | Implemented; owner-only cleanup/retry teruji ([bukti](DATA-02_CHECKS.md)) |
-| APP-06 | Semua komponen MVP berjalan lokal melalui Docker Compose | ENV-01, REL-01 | T-REL-01 | Planned |
-| APP-07 | UI menggunakan Bahasa Indonesia | UI-01, QA-03 | T-UI-01 | Planned |
-| APP-08 | Mobile first dengan pengalaman laptop/desktop yang tetap lengkap | UI-01, GRAPH-01, QA-03 | T-UI-01 | Planned |
-| APP-09 | LLM tidak menjadi dependency MVP sebelum freeze | ENV-01, REL-01 | T-REL-01 dan review dependency/config | Planned |
+| APP-06 | Semua komponen MVP berjalan lokal melalui Docker Compose | ENV-01, REL-01 | T-REL-01 | Fresh isolated database/storage volumes, migration, healthy services, login, analysis, docs, exports and cleanup verified locally; Coolify/shared host not tested ([REL-01](REL-01_CHECKS.md)) |
+| APP-07 | UI menggunakan Bahasa Indonesia | UI-01, QA-03 | T-UI-01 | Teruji pada history, progress, graph, dokumen dan alur repository; [QA-03](QA-03_CHECKS.md), batas text-contrast sampling berlaku |
+| APP-08 | Mobile first dengan pengalaman laptop/desktop yang tetap lengkap | UI-01, GRAPH-01, QA-03 | T-UI-01 | Lima viewport diuji untuk halaman utama dan graph; [QA-03](QA-03_CHECKS.md), batas raster/SVG contrast tetap dicatat |
+| APP-09 | LLM tidak menjadi dependency MVP sebelum freeze | ENV-01, REL-01 | T-REL-01 dan review dependency/config | Tidak ada integrasi/provider LLM atau credential model pada source/config; analyzer berbasis aturan statis dan dependency scan lokal |
 | APP-10 | PHP dan JS/TS dikembangkan paralel dan diuji melalui capability matrix | ANA-03, ANA-04, QA-01 | T-ANA-03, T-ANA-04 | Dua capability matrix, 33 fakta resolver, signoff source oracle dan benchmark dua corpus tersedia; batas kapasitas dicatat (QA-01_CHECKS) |
 | APP-11 | Error pipeline, recovery, source unavailable, dan export retry dapat ditindaklanjuti | ANA-07, GRAPH-03, EXP-01, EXP-02 | T-ANA-06, T-GRAPH-03, T-EXP-03 | Pipeline/retry/recovery memiliki bukti terkontrol (ANA-07_CHECKS); source unavailable/retry teruji (GRAPH-03_CHECKS); failure/retry Markdown tersedia (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
-| APP-12 | Seluruh fitur MVP ditargetkan selesai Sprint 2, Sprint 3 finishing | REL-01, FIN-01, FIN-02, FIN-03, FIN-04 | T-REL-01 dan review sprint | Planned |
+| APP-12 | Seluruh fitur MVP ditargetkan selesai Sprint 2, Sprint 3 finishing | REL-01, FIN-01, FIN-02, FIN-03, FIN-04 | T-REL-01 dan review sprint | Jadwal target 15 November 2026; issue signoff Sprint 2 #24/#26 menunggu review dan merge PR ini. Tanggal milestone belum dinyatakan tercapai sebelum Sprint 2 berakhir. |
 | APP-13 | Handoff memakai issue/PR dan commit Conventional Commit satu kalimat | PLAN-01 | Pemeriksaan dokumentasi, issue/PR, dan metadata commit aktual | Kebijakan disepakati |
 
 ## Nonfunctional requirement dan batas teknis
@@ -113,8 +113,8 @@ ID `NFR-*` adalah indeks lokal untuk pengujian prinsip yang tersebar di SRS; buk
 | NFR-04 | Source asli tidak berubah dan kode target tidak dieksekusi, SRS 5.2 dan glossary | REP-02, ANA-03, ANA-04 | T-SEC-01 | Snapshot/adapter teruji tanpa eksekusi source atau konfigurasi target |
 | NFR-05 | Credential terlindungi dan akses user terisolasi, SRS 5.3 | GH-01, DATA-01, DATA-02 | T-GH-02, T-DATA-01, T-DATA-02, T-SEC-01 | Owner/auth/cleanup teruji; signoff keamanan menyeluruh tetap QA-02 |
 | NFR-06 | Progress tetap tersedia dan resource/performa diukur, SRS 5.1 | ENV-01, ANA-01, ANA-07, QA-01 | T-ANA-01, T-ANA-02, T-REL-01 | Benchmark enam run pada dua corpus repository tersedia (QA-01_CHECKS); progres browser/worker teruji dengan provider terkontrol (ANA-07_CHECKS); kapasitas dekat ceiling belum diterima, SLA tetap TBD |
-| NFR-07 | Usability serta bahasa/responsivitas keputusan project, SRS 5.4 dan APP-07/08 | UI-01, QA-03 | T-UI-01 | Planned |
-| NFR-08 | Maintainability adapter/contracts dan interoperabilitas, SRS 5.4 | ENV-01, ANA-05, REL-01 | T-ANA-04, T-REL-01 | Planned |
+| NFR-07 | Usability serta bahasa/responsivitas keputusan project, SRS 5.4 dan APP-07/08 | UI-01, QA-03 | T-UI-01 | Lima viewport, keyboard focus dan visible text contrast lulus dalam scope sampled; SVG/canvas contrast tidak dipixel-audit ([QA-03](QA-03_CHECKS.md)) |
+| NFR-08 | Maintainability adapter/contracts dan interoperabilitas, SRS 5.4 | ENV-01, ANA-05, REL-01 | T-ANA-04, T-REL-01 | Adapter contract, semantic fixtures, typecheck, serta build Docker lokal teruji; registry pull, domain, Coolify dan interoperability server bersama belum diuji ([REL-01](REL-01_CHECKS.md)) |
 | NFR-09 | Kegagalan export tidak mengubah hasil, SRS 5.2 | EXP-01, EXP-02 | T-EXP-03 | Ekspor/retry Markdown menjaga hash analisis/CKG/ADD; PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
 
 ## Resolusi ketidaksesuaian

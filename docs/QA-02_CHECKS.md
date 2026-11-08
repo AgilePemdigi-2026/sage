@@ -1,44 +1,39 @@
 # QA-02 — Integrasi dan release evidence
 
-**Hasil verifikasi: lulus untuk signoff lokal; issue #24 tetap menunggu PR perubahan ini selesai direview dan digabung.** Fresh run 9 November 2026 memakai aplikasi lokal hasil build Docker, Node.js 24.22.0, dan akun GitHub `iltizamhasan3`. Bukti yang aman untuk repository publik disimpan di [QA-02 live integration report](evidence/QA-02-live-integration-2026-11-09.json). Identitas dan source SHA repository private sengaja tidak dicatat.
+**Hasil verifikasi lokal: lulus dengan batasan yang dicatat.** Issue [#24](https://github.com/AgilePemdigi-2026/sage/issues/24) tetap terbuka sampai PR ini mendapat independent review dan merge. Run bersih dilakukan pada 9 November 2026 dengan image Docker yang dibangun dari source commit `6174452423da75f8090d98ef63a87bef23f5cb80`. Bukti terstruktur yang aman untuk repository publik ada di [laporan live integration](evidence/QA-02-live-integration-2026-11-09.json).
 
-## Fresh end-to-end run
+## Fresh Docker-to-demo run
 
-Playwright memakai UI untuk memilih repository private yang sudah diizinkan, memeriksa target, dan mengirim analisis. Worker menyelesaikan sembilan stage. Halaman Code Knowledge, Software Engineering Diagram, dan dokumentasi terbuka tanpa page error. Kedua export diunduh melalui aplikasi dan cocok dengan content hash yang disimpan.
+Compose project `sage-cleanqa` menggunakan volume database dan storage baru. Sebelum login, database tidak berisi user atau analysis. Migrasi selesai; database, web, dan worker sehat; halaman aplikasi serta `/api/health` merespons HTTP 200. Volume stack lokal lama tidak disentuh.
+
+Login GitHub berhasil melalui browser pada akun `iltizamhasan3`. Daftar repository publik tampil dan repository `iltizamhasan3/sistem-informasi-perpus` dipilih pada branch `master`, commit [`d72c3532a7d59cab242fb705ab201cf99ef35e88`](https://github.com/iltizamhasan3/sistem-informasi-perpus/commit/d72c3532a7d59cab242fb705ab201cf99ef35e88). Analysis dimulai dari UI dan selesai dalam 45 detik.
 
 | Check | Actual result |
 | --- | --- |
-| Pipeline | `COMPLETED_WITH_LIMITATIONS`; 9/9 stages; 6,594 Code Knowledge nodes dan 8,570 edges |
-| Software Engineering Diagram | 5 features, 15 route candidates, 28 outcomes, 76 relationships; seluruh relasi berstatus **Indikasi** |
-| Node HTTP source evidence | Handler yang di-import ditemukan dipanggil dengan pasangan request/response dari callback `node:http` `createServer`; `server.listen` dan runtime reachability tidak disimpulkan |
-| Markdown | `READY`, downloaded; 30,282,983 bytes; stored content hash matched |
-| PDF | `READY`, downloaded; 431,593 bytes; stored content hash matched; PDF signature valid |
-| Cleanup | Test analysis dihapus sesudah verifikasi; cleanup selesai |
+| Pipeline | `COMPLETED_WITH_LIMITATIONS`; 9/9 stages |
+| Code Knowledge | 105 source files; 3,116 nodes / 3,420 edges; 655 Exact / 2,765 Unresolved |
+| Software Engineering Diagram | 17 features; 67 displayed connections; 189 source relationships represented; displayed links are marked **Indikasi** |
+| Architecture Definition Document | Opened; Interface Catalog evidence links target the pinned GitHub commit and source line ranges |
+| Markdown | `READY`; 13,234,876 bytes in storage; UI fetched the file and passed its SHA-256 check against the export record before starting the download |
+| PDF | `READY`; 2,268,622 bytes in storage; UI verified PDF content type and SHA-256 against the export record before starting the download |
+| History and delete | The analysis appeared in history, was permanently deleted after explicit approval, cleanup completed, and history returned to its empty state |
 
-Relasi Node HTTP tetap **Indikasi**, bukan bukti runtime: extractor membaca source statis dan tidak menjalankan repository yang dianalisis. Batasan ini terlihat pada evidence dan model; status resolver Code Knowledge tidak diubah. Pengujian positif/negatif memastikan callback dengan urutan argumen yang salah tidak ditampilkan sebagai hubungan terdaftar.
+The export hashes in the database matched the corresponding storage-object hashes. This run verified the PDF download integrity but did not independently render every page for visual clipping review; see the earlier PDF render checks in [EXP-02](EXP-02_CHECKS.md).
 
-## Regression dan provider checks
+## Automated regression and provider checks
 
-- Fresh browser regression melewati landing/health, auth/workspace, repository target, dan isolasi akun pada lebar 360, 390, 768, 1024, dan 1440 px.
-- Playwright provider terpisah menggunakan akun nyata untuk membaca repository publik, installation, serta repository private yang diizinkan; alur mencakup branch dan target tanpa membuat analysis.
-- Fresh authenticated UI submission dan provider checks melengkapi evidence OAuth/provider yang telah tercatat pada run sebelumnya. Regression suite memakai controlled provider responses dan tidak dihitung sebagai live GitHub test.
-- Perpus dan Emosync sebelumnya menyelesaikan pipeline serta export; hasil dan keterbatasannya tetap tercatat di tabel historis di bawah. Resolusi referensi yang belum pasti tetap ditandai sebagai limitation.
-- `npm run test:semantic`: 104/104 passed. Final full test suite: 537 passed, 0 failed, 0 skipped. The PDF input-boundary tests also pass. Typecheck, lint, Docker production build, and browser suites passed; lint retains three pre-existing React Hooks warnings.
+- Latest code regression: `npm run test:semantic` 105/105 passed; `npm test` 538 passed, 0 failed, 0 skipped; `npm run test:data` 8/8 passed; semantic Cucumber BDD 3 scenarios / 17 steps passed.
+- Typecheck and production Docker build passed. Lint passed with three existing React Hooks warnings in `semantic-workspace.tsx`.
+- Browser regression covers landing/health, auth/workspace, repository target and account isolation at 360, 390, 768, 1024, and 1440 px. Those deterministic cases use controlled provider responses and are not counted as live GitHub checks.
+- Separate live provider checks used GitHub to read public repositories, installations, an authorized private repository, branch metadata, and the target commit without creating an analysis. The fresh clean-volume analysis above used a public repository.
+- The fresh run showed `COMPLETED_WITH_LIMITATIONS`; successful completion does not imply all Code Knowledge references were resolved or every source behavior was recovered.
 
-## Hasil repository pembanding sebelumnya
+## Additional source coverage and limits
 
-| Public sample and pinned commit | Pipeline and Code Knowledge | Software Engineering Diagram | Export |
-| --- | --- | --- | --- |
-| `iltizamhasan3/sistem-informasi-perpus`, `master`, [`d72c3532a7d59cab242fb705ab201cf99ef35e88`](https://github.com/iltizamhasan3/sistem-informasi-perpus/commit/d72c3532a7d59cab242fb705ab201cf99ef35e88) | 21.5 s; 9/9 stages; 105 files; 3,116 nodes / 3,420 edges | 17/17 features; 67 displayed connections; 189 represented source relationships | Markdown READY (13,234,876 bytes); PDF READY (3,368,578 bytes); prior run did not record a separate byte-for-byte download check |
-| `iltizamhasan3/emosync-backend`, `main`, [`a22992668658538f6fc10b904d6f7b2ed09124ac`](https://github.com/iltizamhasan3/emosync-backend/commit/a22992668658538f6fc10b904d6f7b2ed09124ac) | 14.7 s; 9/9 stages; 122 files; 513 nodes / 1,408 edges; 87 Exact / 1,321 Unresolved | 14/14 features; 149 source relationships | Markdown and PDF downloaded; both HTTP 200 and hash matched; PDF signature valid |
+- An earlier private Node.js HTTP end-to-end run used app build `b29127b32afb8ac4cf427627bc60e983d2d3b230` and is recorded without private repository identity or source SHA. It produced 9/9 stages and 76 indicated semantic relationships. A later independent review found false-positive registration cases; commit `6174452` fixes them and the negative regression tests now pass, but the private repository has not been replayed through the final Docker image.
+- The final source replay benchmark for that private sample recorded 147 files, 28,259,410 canonical ADD bytes, 30,290,957 Markdown bytes, 730,055 PDF bytes, 638,320,640 bytes process peak RSS, 5 features, and 76 indicated relationships. This is a static replay/resource check, not a second live app run or human semantic-correctness signoff.
+- Earlier public Perpus and Emosync runs are historical comparisons; their results and unresolved references remain in the linked report. They are not substitutes for the fresh clean-volume run.
+- Node HTTP relationships are static **Indikasi**: the extractor does not claim that `server.listen` executed or that a route is runtime-reachable. Dynamic registration remains unsupported. PDF is compact; Markdown carries the complete technical detail.
+- No Coolify deployment, shared-host capacity test, backup restore, or multi-group load test was run. Private source identity and SHA are intentionally omitted from public evidence.
 
-An earlier private Node HTTP baseline had zero represented relationships and its PDF exceeded the document input limit. That result is superseded by the fresh run above: source-backed registration evidence was added, and compact PDF rendering now accepts the canonical model while retaining separate HTML/PDF bounds. The earlier failure is not counted as a current pass.
-
-## Scope and limitations
-
-- This is local release evidence, not a Coolify deployment, shared-host capacity test, or a test of an empty database volume.
-- Emosync and Perpus retain unresolved references and extraction limits; successful pipeline completion does not mean every source behavior was recovered.
-- Node HTTP registration only supports the narrowly recognized static import and callback-dispatch pattern. Dynamic mounting, shadowed bindings, and runtime listening are not inferred.
-- The PDF is intentionally a compact overview and per-flow document; full relationship explanations, line evidence, documentation text, and technical registers remain in Markdown.
-
-Provider-boundary and prior history checks remain in [GH-02](GH-02_CHECKS.md) and [HIST-01](HIST-01_CHECKS.md). Close #24 after this implementation PR has an independent review and is merged.
+Provider and history component coverage remains documented in [GH-02](GH-02_CHECKS.md) and [HIST-01](HIST-01_CHECKS.md). Close #24 only after this implementation PR is independently reviewed and merged.

@@ -1,18 +1,86 @@
 {
-  "run": "sprint2-live-integration-2026-11-09",
-  "applicationCommitSha": "b29127b32afb8ac4cf427627bc60e983d2d3b230",
+  "run": "sprint2-final-gates-2026-11-09",
+  "status": "LOCAL_SCOPE_PASS_PENDING_INDEPENDENT_REVIEW_AND_MERGE",
+  "applicationCommitSha": "6174452423da75f8090d98ef63a87bef23f5cb80",
   "runtime": {
     "node": "v24.22.0",
     "colimaProfile": "sage",
     "cpu": 2,
     "memoryGiB": 4,
-    "diskGiB": 30
+    "diskGiB": 30,
+    "postgres": "17-bookworm",
+    "composeProject": "sage-cleanqa",
+    "databaseAndStorageVolumes": "fresh isolated volumes created for QA; original sage volumes preserved"
   },
-  "authorization": {
-    "githubOAuth": "PASS; prior interactive OAuth evidence plus fresh authenticated provider and UI runs",
+  "freshDockerRun": {
+    "databaseAtStart": {
+      "users": 0,
+      "analyses": 0
+    },
+    "migrations": "PASS; migration container exited 0",
+    "services": "PASS; database, web, worker healthy; / and /api/health returned HTTP 200",
+    "githubOAuth": "PASS; interactive authorization completed from the fresh database",
     "account": "iltizamhasan3",
-    "privateAppScope": "authorized private repository only",
-    "publicRepositoryList": "PASS"
+    "repository": "iltizamhasan3/sistem-informasi-perpus",
+    "visibility": "public",
+    "branch": "master",
+    "commitSha": "d72c3532a7d59cab242fb705ab201cf99ef35e88",
+    "submission": "PASS; selected and submitted through the signed-in browser UI",
+    "analysis": {
+      "status": "COMPLETED_WITH_LIMITATIONS",
+      "durationSeconds": 45,
+      "stages": "9/9",
+      "sourceFiles": 105,
+      "codeKnowledge": {
+        "nodes": 3116,
+        "edges": 3420,
+        "exact": 655,
+        "unresolved": 2765
+      },
+      "softwareEngineeringDiagram": {
+        "features": 17,
+        "displayedConnections": 67,
+        "representedSourceRelationships": 189,
+        "displayedRelationshipConfidence": "all indicated"
+      },
+      "resultViewsOpened": [
+        "Code Knowledge",
+        "Software Engineering Diagram",
+        "Architecture Definition Document / Interface Catalog"
+      ]
+    },
+    "exports": {
+      "markdown": {
+        "status": "READY",
+        "storageBytes": 13234876,
+        "storageObjectHashMatchesExportHash": true,
+        "browserDownloadFlow": "PASS; UI fetched bytes, verified SHA-256 against export record, then triggered download"
+      },
+      "pdf": {
+        "status": "READY",
+        "storageBytes": 2268622,
+        "storageObjectHashMatchesExportHash": true,
+        "browserDownloadFlow": "PASS; UI verified PDF content type and SHA-256 against export record, then triggered download",
+        "freshVisualRenderInspection": false
+      }
+    },
+    "historyAndCleanup": {
+      "historyRecordVisible": true,
+      "permanentDelete": "PASS after explicit user approval in the isolated QA database",
+      "cleanupJob": "COMPLETED",
+      "historyAfterDelete": "empty"
+    }
+  },
+  "liveProviderChecks": {
+    "status": "PASS",
+    "checks": [
+      "public repository list",
+      "GitHub App installation",
+      "authorized private repository metadata",
+      "branch and target commit selection"
+    ],
+    "analysisCreated": false,
+    "note": "These checks are separate from the fresh public-repository analysis."
   },
   "browserRegression": {
     "status": "PASS",
@@ -29,24 +97,22 @@
       1024,
       1440
     ],
-    "providerResponses": "controlled in aggregate regression; live provider checks are reported separately",
-    "liveProvider": {
-      "status": "PASS",
-      "checks": [
-        "public repository list",
-        "GitHub App installation",
-        "authorized private repository",
-        "branch and analysis target selection"
-      ],
-      "createdAnalysis": false
-    }
+    "providerResponses": "controlled for deterministic regression; not counted as live GitHub checks"
   },
-  "freshAnalysis": {
-    "sample": "private Node.js HTTP sample; repository identity and source SHA intentionally redacted",
+  "finalCodeRegression": {
+    "semanticTests": "105/105 passed",
+    "fullSuite": "538 passed, 0 failed, 0 skipped",
+    "dataTests": "8/8 passed",
+    "semanticCucumberBdd": "3 scenarios, 17 steps passed",
+    "typecheck": "PASS",
+    "lint": "PASS with 3 existing React Hooks warnings in semantic-workspace.tsx",
+    "productionDockerBuild": "PASS; production Next.js build completed"
+  },
+  "priorPrivateNodeHttpE2E": {
+    "applicationCommitSha": "b29127b32afb8ac4cf427627bc60e983d2d3b230",
+    "repositoryIdentityAndSourceSha": "redacted",
     "status": "COMPLETED_WITH_LIMITATIONS",
     "stages": "9/9",
-    "browserSubmission": "PASS; selected target and submitted using the signed-in UI",
-    "resultPages": "PASS; Code Knowledge, Software Engineering Diagram, and documentation opened without page errors",
     "codeKnowledge": {
       "nodes": 6594,
       "edges": 8570
@@ -56,28 +122,18 @@
       "routeCandidates": 15,
       "outcomes": 28,
       "relationships": 76,
-      "confidence": "all indicated",
-      "nodeHttpRegistrationEvidence": "static import and request/response forwarding in node:http createServer callback",
-      "runtimeListenClaimed": false
+      "confidence": "all indicated"
     },
     "exports": {
-      "markdown": {
-        "status": "READY_AND_DOWNLOADED",
-        "bytes": 30282983,
-        "contentHashMatched": true
-      },
-      "pdf": {
-        "status": "READY_AND_DOWNLOADED",
-        "bytes": 431593,
-        "contentHashMatched": true,
-        "signatureValid": true
-      }
+      "markdownBytes": 30282983,
+      "pdfBytes": 431593,
+      "priorRunHashCheck": "PASS"
     },
-    "cleanup": "PASS; generated test analysis deleted and cleanup completed"
+    "finalBuildReplay": "NOT_RUN; the shadowing/unreachable-dispatch correction is covered by final regression tests, but this private archive was not replayed through the final image."
   },
-  "sourceReplayBenchmark": {
-    "status": "PASS",
-    "identity": "private Node.js HTTP source redacted",
+  "privateNodeHttpStaticReplay": {
+    "status": "PASS; static replay/resource evidence from the initial extractor implementation",
+    "repositoryIdentityAndSourceSha": "redacted",
     "sourceFiles": 147,
     "canonicalAddBytes": 28259410,
     "markdownBytes": 30290957,
@@ -88,9 +144,9 @@
     "relationships": 76,
     "confidence": "all indicated",
     "limitations": 3,
-    "note": "Static replay and size/resource evidence are not human semantic-correctness signoff."
+    "note": "Static replay is not a live app run or human semantic-correctness signoff."
   },
-  "publicComparisonRuns": [
+  "priorPublicComparisonRuns": [
     {
       "sample": "iltizamhasan3/emosync-backend",
       "commitSha": "a22992668658538f6fc10b904d6f7b2ed09124ac",
@@ -109,19 +165,10 @@
         "sourceRelationships": 149
       },
       "exports": {
-        "markdown": {
-          "status": "READY_AND_DOWNLOADED",
-          "bytes": 5125688,
-          "httpStatus": 200,
-          "contentHashMatched": true
-        },
-        "pdf": {
-          "status": "READY_AND_DOWNLOADED",
-          "bytes": 955856,
-          "httpStatus": 200,
-          "contentHashMatched": true,
-          "signatureValid": true
-        }
+        "markdownBytes": 5125688,
+        "pdfBytes": 955856,
+        "downloadAndHashMatch": true,
+        "pdfSignatureValid": true
       }
     },
     {
@@ -144,32 +191,19 @@
         "representedSourceRelationships": 189
       },
       "exports": {
-        "markdown": {
-          "status": "READY",
-          "bytes": 13234876,
-          "downloaded": false
-        },
-        "pdf": {
-          "status": "READY",
-          "bytes": 3368578,
-          "downloaded": false
-        }
-      }
+        "markdownBytes": 13234876,
+        "pdfBytes": 3368578,
+        "downloaded": false
+      },
+      "note": "Historical run; distinct from the fresh-volume run above."
     }
   ],
-  "testEvidence": {
-    "semanticTests": "104/104 passed",
-    "fullSuite": "537 passed, 0 failed, 0 skipped",
-    "typecheck": "PASS",
-    "lint": "PASS with 3 pre-existing React Hooks warnings",
-    "productionDockerBuild": "PASS",
-    "browserRegression": "PASS"
-  },
   "limitations": [
-    "Node HTTP relationships are indicated from narrow static registration evidence; server.listen execution and runtime reachability are not inferred.",
-    "PDF is compact; full line-level evidence and documentation context remain in Markdown.",
-    "Perpus and Emosync retain unresolved references and extraction limitations; successful completion does not mean all source behavior was recovered.",
-    "This is local Docker evidence, not Coolify deployment, empty-volume recovery, or shared-host capacity testing.",
-    "The source replay benchmark is not independent human semantic-correctness signoff."
+    "Static Node HTTP relationships remain Indikasi; server.listen execution and runtime reachability are not inferred.",
+    "The final private Node HTTP archive has not been replayed through the final Docker image after the shadowing/unreachable-dispatch correction.",
+    "Fresh PDF bytes were hash-verified by the UI but not visually rendered in this fresh-volume run.",
+    "Perpus and Emosync retain unresolved references and extraction limitations.",
+    "This is local Docker evidence, not Coolify deployment, shared-host capacity, backup restore, or multi-group load acceptance.",
+    "Private repository identity and source SHA are intentionally omitted from public evidence."
   ]
 }
