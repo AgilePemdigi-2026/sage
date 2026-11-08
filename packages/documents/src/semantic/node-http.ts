@@ -428,7 +428,30 @@ function isStaticallyReachableCall(call: ts.CallExpression): boolean {
   return !!root && directReachableCalls(root).includes(call);
 }
 
-function callbackParameterMayBeShadowed(reference: ts.Identifier, callback: ts.FunctionLikeDeclaration, expected: string): boolean {
+function isAssignmentOperator(kind: ts.SyntaxKind): boolean {
+  return kind === ts.SyntaxKind.EqualsToken ||
+    (kind >= ts.SyntaxKind.FirstCompoundAssignment && kind <= ts.SyntaxKind.LastCompoundAssignment);
+}
+
+/** Match a callback parameter when it is the binding being assigned, not a property on its value. */
+function assignmentTargetHasName(target: ts.Expression, expected: string): boolean {
+  if (ts.isIdentifier(target)) return target.text === expected;
+  if (ts.isParenthesizedExpression(target)) return assignmentTargetHasName(target.expression, expected);
+  if (ts.isArrayLiteralExpression(target)) return target.elements.some(element =>
+    !ts.isOmittedExpression(element) && assignmentTargetHasName(ts.isSpreadElement(element) ? element.expression : element, expected));
+  if (ts.isObjectLiteralExpression(target)) return target.properties.some(property => {
+    if (ts.isShorthandPropertyAssignment(property)) return property.name.text === expected;
+    if (ts.isPropertyAssignment(property)) return assignmentTargetHasName(property.initializer, expected);
+    if (ts.isSpreadAssignment(property)) return assignmentTargetHasName(property.expression, expected);
+    return false;
+  });
+  if (ts.isBinaryExpression(target) && isAssignmentOperator(target.operatorToken.kind)) {
+    return assignmentTargetHasName(target.left, expected);
+  }
+  return false;
+}
+
+function callbackParameterMayBeRebound(reference: ts.Identifier, callback: ts.FunctionLikeDeclaration, expected: string): boolean {
   let current: ts.Node | undefined = reference.parent;
   while (current && current !== callback.body && current !== callback) {
     if (ts.isBlock(current) && current.statements.some(statement => statementDeclaresName(statement, expected))) return true;
@@ -442,6 +465,12 @@ function callbackParameterMayBeShadowed(reference: ts.Identifier, callback: ts.F
     if (shadowed || node !== callback.body && ts.isFunctionLike(node)) return;
     if (ts.isVariableDeclaration(node) && bindingNameHas(node.name, expected)) shadowed = true;
     else if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name?.text === expected) shadowed = true;
+    else if (ts.isBinaryExpression(node) && isAssignmentOperator(node.operatorToken.kind) && assignmentTargetHasName(node.left, expected)) shadowed = true;
+    else if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+        [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) &&
+        assignmentTargetHasName(node.operand, expected)) shadowed = true;
+    else if ((ts.isForInStatement(node) || ts.isForOfStatement(node)) && !ts.isVariableDeclarationList(node.initializer) &&
+        assignmentTargetHasName(node.initializer, expected)) shadowed = true;
     if (!shadowed) ts.forEachChild(node, visit);
   };
   if (callback.body) visit(callback.body);
@@ -486,8 +515,8 @@ function registeredHandlerEvidence(handlerEntry: SourceEntry, handler: ts.Functi
                   !importedNameMayBeShadowed(child.expression, localHandlerName) &&
                   child.arguments.length >= 2 && ts.isIdentifier(child.arguments[0]!) && child.arguments[0]!.text === requestName &&
                   ts.isIdentifier(child.arguments[1]!) && child.arguments[1]!.text === responseName &&
-                  !callbackParameterMayBeShadowed(child.arguments[0] as ts.Identifier, callback, requestName) &&
-                  !callbackParameterMayBeShadowed(child.arguments[1] as ts.Identifier, callback, responseName)) {
+                  !callbackParameterMayBeRebound(child.arguments[0] as ts.Identifier, callback, requestName) &&
+                  !callbackParameterMayBeRebound(child.arguments[1] as ts.Identifier, callback, responseName)) {
                 registrations.push([
                   nodeEvidence(serverEntry, node, "context"),
                   nodeEvidence(serverEntry, statement, "reference"),

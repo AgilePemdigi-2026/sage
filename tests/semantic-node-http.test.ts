@@ -124,6 +124,12 @@ export function createApi() { return makeServer((request, response) => { void di
   assert.match(boundary.reason, /listener execution.*unverified/u);
   assert.ok(result.limitations.some(item => /server\.listen execution/u.test(item.reason)));
 
+  const propertyMutation = server.replace("dispatch(request, response)", "request.headers.set('x-trace', '1'); dispatch(request, response)");
+  const propertyMutationResult = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": propertyMutation }));
+  assert.ok(propertyMutationResult.edges.some(edge => edge.source === propertyMutationResult.nodes.find(node => node.kind === "actor")?.id &&
+    edge.target === propertyMutationResult.nodes.find(node => node.kind === "step" && node.label === "GET /api/health")?.id),
+  "mutating a request property does not rebind the callback request parameter");
+
   const wrongParameters = server.replace("dispatch(request, response)", "dispatch(response, request)");
   const unmatched = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": wrongParameters }));
   const unmatchedActor = unmatched.nodes.find(node => node.kind === "actor");
@@ -131,7 +137,7 @@ export function createApi() { return makeServer((request, response) => { void di
     "a mismatched callback argument order is not treated as handler registration evidence");
 });
 
-test("Node HTTP omits registration hints for type-only, shadowed, or unreachable imported calls", () => {
+test("Node HTTP omits registration hints for type-only, shadowed, mutated, or unreachable imported calls", () => {
   const routes = `
 function pathParts(request: Request) { return new URL(request.url).pathname.split("/").filter(Boolean); }
 export async function handleRequest(request: Request, response: Response) {
@@ -161,6 +167,15 @@ ${registration}
   assertNotRegistered(base(`export function createApi() {
   return makeServer((request, response, dispatch) => { dispatch(request, response); });
 }`), "a callback parameter shadowing the imported handler is not registration evidence");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { request = {} as Request; dispatch(request, response); });
+}`), "a reassigned callback request parameter is not the original Node HTTP request");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { response = {} as Response; dispatch(request, response); });
+}`), "a reassigned callback response parameter is not the original Node HTTP response");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { ({ request, response } = getReplacement()); dispatch(request, response); });
+}`), "destructuring assignment cannot replace the callback request/response pair");
   assertNotRegistered(base(`export function createApi() {
   return makeServer((request, response) => { return; dispatch(request, response); });
 }`), "a dispatch after an unconditional return is unreachable");
