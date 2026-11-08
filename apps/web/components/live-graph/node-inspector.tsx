@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CcmSnapshot, EvidenceSpan } from "@sage/contracts";
+import { explainCkgEdge } from "@sage/documents/semantic/explanations";
 import type {
   NodeInspectorFile,
   NodeInspectorPayload,
@@ -141,6 +142,7 @@ export function NodeInspector({
   const [sourceAttempt, setSourceAttempt] = useState(0);
   const [incomingVisible, setIncomingVisible] = useState(6);
   const [outgoingVisible, setOutgoingVisible] = useState(6);
+  const [explainedEdgeId, setExplainedEdgeId] = useState<string | null>(null);
   const nodeController = useRef<AbortController | null>(null);
   const sourceController = useRef<AbortController | null>(null);
   const nodeGeneration = useRef(0);
@@ -374,6 +376,8 @@ export function NodeInspector({
             {edge.unresolvedReason ? <span>Alasan: {edge.unresolvedReason}</span> : null}
           </p>
           <p className={styles.inspectorPeer}>{peer.kind} · <code>{peer.qualifiedName}</code></p>
+          <button type="button" className={styles.inspectorMore} aria-expanded={explainedEdgeId === edge.id} aria-controls={`node-inspector-explanation-${encodeURIComponent(edge.id)}`} onClick={() => setExplainedEdgeId(current => current === edge.id ? null : edge.id)}>Mengapa terhubung?</button>
+          {explainedEdgeId === edge.id ? <CkgRelationshipExplanation edge={edge} id={`node-inspector-explanation-${encodeURIComponent(edge.id)}`} /> : null}
           {edge.evidence.length ? relationEvidence(edge, files) : <p className={styles.inspectorUnavailable}>Bukti lokasi relasi tidak tersedia.</p>}
         </li>)}
       </ul>}
@@ -487,4 +491,20 @@ export function NodeInspector({
       </div> : null}
     </dialog>
   </>;
+}
+
+function CkgRelationshipExplanation({ edge, id }: { edge: NodeInspectorRelation["edge"]; id: string }) {
+  const explanation = explainCkgEdge(edge);
+  return <section className={styles.inspectorTechnical} id={id} aria-label="Mengapa terhubung?" data-testid="ckg-edge-explanation" data-edge-id={edge.id}>
+    <h4>Mengapa terhubung?</h4>
+    <dl className={styles.inspectorDetails}>
+      <div><dt>Origin</dt><dd>{explanation.origin}</dd></div>
+      <div><dt>Rule</dt><dd><code>{explanation.rule}</code></dd></div>
+      <div><dt>Resolution</dt><dd>{edge.resolution}{edge.unresolvedReason ? ` · ${edge.unresolvedReason}` : ""}</dd></div>
+      <div><dt>Reason</dt><dd>{explanation.summary}</dd></div>
+      <div><dt>Source edge IDs</dt><dd><code>{explanation.sourceEdgeIds.join(", ") || "Unavailable"}</code></dd></div>
+    </dl>
+    <h5>Limitations</h5>
+    <ul>{explanation.limitations.map((item, index) => <li key={`${edge.id}:limit:${index}`}>{item}</li>)}</ul>
+  </section>;
 }

@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { SCHEMA_VERSION, type CcmNode, type CcmV1 } from "@sage/contracts";
+import { SCHEMA_VERSION, type CcmEdge, type CcmNode, type CcmV1 } from "@sage/contracts";
 import { extractLaravel } from "../packages/documents/src/semantic/laravel.ts";
 import type { SemanticInput } from "../packages/documents/src/semantic/model.ts";
 import { isSemanticModel } from "../packages/documents/src/semantic/validation.ts";
@@ -230,6 +230,76 @@ class LocalCheckinService { public function record() { return true; } }`,
     assert.ok(edge.evidence.some(span => span.filePath.includes("Services/") && span.role === "declaration"));
   }
   assert.equal(result.limitations.some(item => item.reason.includes("service call")), false);
+});
+
+test("Laravel follows an exact CKG service call and assigns its model write to the service method", () => {
+  const overrides = {
+    [ROUTES]: `<?php
+use App\\Http\\Controllers\\SubmissionController;
+Route::post('/submit', [SubmissionController::class, 'submit']);`,
+    "app/Http/Controllers/SubmissionController.php": `<?php
+namespace App\\Http\\Controllers;
+use App\\Services\\SubmissionService;
+class SubmissionController {
+    public function __construct(private SubmissionService $service) {}
+    public function submit() { return $this->service->record(); }
+}`,
+    "app/Services/SubmissionService.php": `<?php
+namespace App\\Services;
+use App\\Models\\Submission;
+class SubmissionService {
+    public function record() { return Submission::create([]); }
+}`,
+    "app/Models/Submission.php": `<?php
+namespace App\\Models;
+use Illuminate\\Database\\Eloquent\\Model;
+class Submission extends Model {}`,
+  };
+  const input = fixture(overrides);
+  const ccmSpan = (path: string, source: string, start: number, end: number, role: "declaration" | "reference") => {
+    const before = source.slice(0, start), through = source.slice(0, end);
+    const startLineParts = before.split("\n"), endLineParts = through.split("\n");
+    return {
+      filePath: path,
+      fileSha256: createHash("sha256").update(source).digest("hex"),
+      startByte: Buffer.byteLength(before, "utf8"), endByte: Buffer.byteLength(through, "utf8"),
+      startLine: startLineParts.length, endLine: endLineParts.length,
+      startColumn: Array.from(startLineParts.at(-1) ?? "").length + 1, endColumn: Array.from(endLineParts.at(-1) ?? "").length + 1,
+      role,
+    };
+  };
+  const methodNode = (id: string, filePath: string, className: string, methodName: string): CcmNode => {
+    const source = new TextDecoder().decode(input.sources[filePath]!);
+    const start = source.indexOf(`function ${methodName}`), end = source.indexOf("}", start) + 1;
+    return { id, kind: "Method", name: methodName, qualifiedName: `${className}::${methodName}`, language: "php", filePath,
+      location: ccmSpan(filePath, source, start, end, "declaration"), parentId: `class:${className}`, origin: "source", signature: null, attributes: {} };
+  };
+  const controllerPath = "app/Http/Controllers/SubmissionController.php", servicePath = "app/Services/SubmissionService.php";
+  const caller = methodNode("method:submission-controller", controllerPath, "SubmissionController", "submit");
+  const writer = methodNode("method:submission-service", servicePath, "SubmissionService", "record");
+  input.ccm.nodes.push(caller, writer);
+  const controllerSource = new TextDecoder().decode(input.sources[controllerPath]!);
+  const callAt = controllerSource.indexOf("record()"), reference = ccmSpan(controllerPath, controllerSource, callAt, callAt + "record".length, "reference");
+  const exactCall: CcmEdge = { id: "edge:submission-service", sourceId: caller.id, targetId: writer.id, kind: "CALLS", resolution: "Exact", evidence: [reference], unresolvedReason: null };
+  input.ccm.edges.push(exactCall);
+
+  const result = extractLaravel(input);
+  const service = result.nodes.find(node => node.kind === "component" && node.label === "SubmissionService@record");
+  const store = result.nodes.find(node => node.kind === "store" && node.label === "Submission");
+  assert.ok(service && store);
+  assert.ok(result.edges.some(edge => edge.source === result.nodes.find(node => node.label === "SubmissionController@submit")?.id && edge.target === service.id && edge.label === "memanggil layanan"),
+    "the route caller owns its relationship to the uniquely resolved service method");
+  const write = result.edges.find(edge => edge.source === service.id && edge.target === store.id && edge.label === "menyimpan");
+  assert.ok(write, "the service method that performs the Eloquent operation owns the store relationship");
+  assert.ok(write.evidence.some(span => span.filePath === controllerPath && span.role === "reference"), "the source call connecting controller and service is cited");
+  assert.ok(write.evidence.some(span => span.filePath === servicePath && span.role === "reference"), "the service's model write is cited");
+  assert.equal(result.edges.some(edge => edge.source === result.nodes.find(node => node.label === "SubmissionController@submit")?.id && edge.target === store.id && edge.label === "menyimpan"), false,
+    "a caller is not shown as the writer when its called service performs the write");
+
+  const withoutExactCall = fixture(overrides);
+  const untraced = extractLaravel(withoutExactCall);
+  assert.equal(untraced.nodes.some(node => node.kind === "store" && node.label === "Submission"), false,
+    "a same-named service source is not expanded without a unique exact CKG CALLS edge");
 });
 
 test("Laravel reports unresolved or inaccessible service calls without inventing traversal edges", () => {

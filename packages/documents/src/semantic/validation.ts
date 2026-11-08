@@ -1,4 +1,5 @@
 import type { SemanticModel, PresentationOverlay } from "./model.ts";
+import { isDocumentationContext } from "./documentation-validation.ts";
 
 const SHA256 = /^[a-f0-9]{64}$/;
 const NODE_KINDS = new Set(["actor", "feature", "concept", "component", "store", "step", "decision", "outcome"]);
@@ -59,13 +60,16 @@ function nonblank(value: unknown): value is string {
 
 /** Runtime structural check shared by storage and consumers of the semantic payload. */
 export function isSemanticModel(value: unknown, context: SemanticValidationContext = {}): value is SemanticModel {
-  if (!exact(value, ["schemaVersion", "extractorVersion", "sourceCkgHash", "snapshot", "nodes", "edges", "features", "frameworks", "limitations"]) ||
-      value.schemaVersion !== "sage-semantic-v1" || typeof value.extractorVersion !== "string" || !value.extractorVersion.trim() ||
+  if (!plain(value)) return false;
+  const v2 = value.schemaVersion === "sage-semantic-v2";
+  if (!exact(value, ["schemaVersion", "extractorVersion", "sourceCkgHash", "snapshot", "nodes", "edges", "features", "frameworks", "limitations", ...(v2 ? ["documentation"] : [])]) ||
+      (!v2 && value.schemaVersion !== "sage-semantic-v1") || typeof value.extractorVersion !== "string" || !value.extractorVersion.trim() ||
       typeof value.sourceCkgHash !== "string" || !SHA256.test(value.sourceCkgHash) ||
       (context.sourceCkgHash !== undefined && value.sourceCkgHash !== context.sourceCkgHash) ||
       !exact(value.snapshot, ["repository", "branch", "commitSha"]) || typeof value.snapshot.repository !== "string" ||
       !(value.snapshot.branch === null || typeof value.snapshot.branch === "string") || typeof value.snapshot.commitSha !== "string" ||
       (context.snapshot !== undefined && JSON.stringify(value.snapshot) !== JSON.stringify(context.snapshot))) return false;
+  if (v2 && !isDocumentationContext(value.documentation, context.fileHashes)) return false;
   const nodes = dataArray(value.nodes, 30_000);
   const edges = dataArray(value.edges, 100_000);
   const features = dataArray(value.features, 10_000);
@@ -106,8 +110,21 @@ export function isSemanticModel(value: unknown, context: SemanticValidationConte
     if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds"]) ||
         (candidate.featureId !== null && (typeof candidate.featureId !== "string" || !featureIds.has(candidate.featureId)))) return false;
   }
+  const declaredEdgeIds = new Set(edges.filter(plain).map(edge => edge.id));
   for (const candidate of edges) {
-    if (!exact(candidate, ["id", "source", "target", "label", "confidence", "reason", "evidence"])) return false;
+    if (!exact(candidate, ["id", "source", "target", "label", "confidence", "reason", "evidence", ...(v2 ? ["explanation"] : [])])) return false;
+    if (v2) {
+      const explanation = candidate.explanation;
+      if (!exact(explanation, ["kind", "origin", "rule", "summary", "limitations", "sourceEdgeIds"]) ||
+          !nonblank(explanation.kind) || explanation.kind.length > 100 ||
+          typeof explanation.origin !== "string" || !["code", "documentation", "mixed"].includes(explanation.origin) ||
+          !nonblank(explanation.rule) || explanation.rule.length > 160 ||
+          !nonblank(explanation.summary) || explanation.summary.length > 1000) return false;
+      const limits = dataArray(explanation.limitations, 100);
+      const sourceIds = dataArray(explanation.sourceEdgeIds, 100_000);
+      if (!limits || limits.some(item => !nonblank(item) || item.length > 1000) ||
+          !sourceIds || sourceIds.length === 0 || sourceIds.some(id => typeof id !== "string" || !declaredEdgeIds.has(id))) return false;
+    }
     const evidence = dataArray(candidate.evidence, 2_000);
     if (typeof candidate.id !== "string" || !candidate.id || edgeIds.has(candidate.id) ||
         typeof candidate.source !== "string" || !nodeIds.has(candidate.source) ||

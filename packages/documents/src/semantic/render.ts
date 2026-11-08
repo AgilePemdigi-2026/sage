@@ -2,6 +2,14 @@ import type { ArchitectureDocumentV1 } from "../architecture-document.ts";
 import type { EvidenceSpan } from "@sage/contracts";
 import type { SemanticModel, SemanticNode, SemanticEdge, PresentationOverlay } from "./model.ts";
 import { applyPresentation } from "./presentation.ts";
+import type { DocumentationBlock } from "./documentation.ts";
+import { relationshipExplanation } from "./explanations.ts";
+
+function documentationBlockLines(block: DocumentationBlock): string[] {
+  if (block.kind === "list") return block.items.map(item => `${block.ordered ? "(ordered) " : ""}${item.checked === null ? "" : item.checked ? "[x] " : "[ ] "}${item.text}`);
+  if (block.kind === "table") return block.rows.map(row => row.cells.join(" | "));
+  return [block.kind === "example" ? `Contoh inert (${block.language ?? "text"}): ${block.text}` : block.text];
+}
 
 export interface SemanticPresentation { model: SemanticModel; overlay: PresentationOverlay; revision: number }
 const escape = (text: string) => text.replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]!);
@@ -29,6 +37,28 @@ export function renderSemanticMarkdown(input: SemanticPresentation): string {
   for (const node of model.nodes) lines.push(`### ${code(node.label)}`, `- ID / kind / feature: ${code(node.id)} / ${code(node.kind)} / ${code(node.featureId ?? "none")}`, `- Tingkat bukti: ${node.confidence === "proven" ? "Terbukti" : "Indikasi"}; ${code(node.reason)}`, `- Technical nodes: ${node.technicalNodeIds.map(code).join(", ") || "none"}`, ...markdownEvidence(model, node.evidence), "");
   lines.push("## Seluruh hubungan", "");
   for (const edge of model.edges) lines.push(`- ${code(edge.id)}: ${code(edge.source)} → ${code(edge.target)} — ${code(edge.label)} (${edge.confidence === "proven" ? "Terbukti" : "Indikasi"})`, `  - Alasan: ${code(edge.reason)}`, ...markdownEvidence(model, edge.evidence));
+  if (model.schemaVersion === "sage-semantic-v2") {
+    const nodeLabels = new Map(model.nodes.map(node => [node.id, node.label]));
+    lines.push("", "## Mengapa terhubung?", "");
+    for (const edge of model.edges) {
+      const explanation = relationshipExplanation(edge);
+      if (explanation) lines.push(`### ${code(nodeLabels.get(edge.source) ?? edge.source)} → ${code(nodeLabels.get(edge.target) ?? edge.target)}`, `- ID: ${code(edge.id)}`, `- Jenis / asal / aturan: ${code(explanation.kind)} / ${code(explanation.origin)} / ${code(explanation.rule)}`,
+        `- ${code(explanation.summary)}`, ...explanation.limitations.map(limit => `- Batasan: ${code(limit)}`),
+        `- Hubungan asal: ${explanation.sourceEdgeIds.map(code).join(", ")}`, ...markdownEvidence(model, edge.evidence), "");
+    }
+    lines.push("## Konteks dokumentasi", "", "Pernyataan dokumentasi dan referensi file; bukan bukti pemanggilan atau eksekusi runtime.", "");
+    if (model.documentation) {
+      lines.push(`Cakupan: ${code(JSON.stringify(model.documentation.coverage))}`, "");
+      for (const doc of model.documentation.documents) {
+        lines.push(`### ${code(doc.filePath)}`, `SHA-256: ${code(doc.fileSha256)}`);
+        for (const section of doc.sections) {
+          if (section.heading) lines.push(`#### ${code(section.heading)}`, ...markdownEvidence(model, section.evidence ? [section.evidence] : []));
+          for (const block of section.blocks) lines.push(...documentationBlockLines(block).map(line => `- ${code(line)}`), ...markdownEvidence(model, [block.evidence]));
+        }
+      }
+      for (const reference of model.documentation.references) lines.push(`- ${code(reference.sourcePath)} mendokumentasikan/merujuk ${code(reference.targetPath ?? reference.target)} (${code(reference.resolution)}).${reference.resolution === "missing" || reference.resolution === "unsafe" ? " Perlu ditinjau; bukan bukti seluruh dokumentasi salah." : ""}`, ...markdownEvidence(model, [reference.evidence]));
+    }
+  }
   lines.push("", "## Batas pengenalan", "", ...model.limitations.map(item => `- ${code(item.filePath)}: ${code(item.reason)}`), "", "## Koreksi pengguna", "", code(JSON.stringify(input.overlay)), "");
   return lines.join("\n");
 }
@@ -150,5 +180,24 @@ export function renderSemanticPdfPages(input: SemanticPresentation, document: Ar
     const evidence = span ? `${span.filePath}:${span.startLine}–${span.endLine}` : "Tidak tercatat";
     pages.push(`<section class="semantic-page"><p class="eyebrow">SAGE / USER FLOW</p><h1>${e(feature.label)} · ${e(flow.label)}</h1><p>${flow.nodes.length} konsep/langkah dan ${flow.edges.length} hubungan pada halaman ini. ${flow.omittedRelations} hubungan melintasi bagian alur lain; seluruh relasi tersedia pada Markdown.</p><div class="semantic-figure">${renderSemanticFlowSvg(flow.nodes,flow.edges)}</div>${legend}<p class="caption">Evidence utama: ${url ? `<a href="${e(url)}">${e(evidence)}</a>` : e(evidence)}. Setiap langkah sumber tercantum pada halaman alur atau konsep terkait; tidak ada panah pengganti untuk hubungan antarhalaman.</p></section>`);
   }
-  return `<style>.semantic-page{break-before:page;page-break-before:always;break-inside:avoid;min-height:175mm}.semantic-page h1{font-size:23px;margin:4px 0 8px}.semantic-page>p{font-size:10px}.semantic-figure{height:125mm;display:flex;align-items:center;justify-content:center}.semantic-figure svg{width:100%;height:100%;object-fit:contain}.semantic-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.semantic-overview article{border:1px solid #d1d9e0;border-left:3px solid #8250df;border-radius:6px;padding:8px;background:#f6f8fa;min-width:0}.semantic-overview h2{font-size:12px;overflow-wrap:anywhere;margin:0}.semantic-overview p{font-size:9px;margin:5px 0 0}</style>${pages.join("")}`;
+  if (model.schemaVersion === "sage-semantic-v2") {
+    const nodeLabels = new Map(model.nodes.map(node => [node.id, node.label]));
+    const evidenceHtml = (spans: EvidenceSpan[]) => spans.map(span => {
+      const url = evidenceUrl(model, span), label = `${span.filePath}:${span.startLine}–${span.endLine}`;
+      return `<p>${url ? `<a href="${e(url)}">${e(label)}</a>` : e(label)} · SHA-256 ${e(span.fileSha256)} · bytes ${span.startByte}–${span.endByte}</p>`;
+    }).join("");
+    for (const edge of model.edges) {
+      const explanation = relationshipExplanation(edge);
+      if (explanation) pages.push(`<section class="semantic-detail"><h2>Mengapa terhubung?</h2><h2>${e(nodeLabels.get(edge.source) ?? edge.source)} → ${e(nodeLabels.get(edge.target) ?? edge.target)}</h2><p>${e(edge.label)} · ${edge.confidence === "proven" ? "Terbukti dalam batas aturan statis" : "Indikasi"}</p><p>ID: ${e(edge.id)}</p><p>${e(explanation.origin)} · ${e(explanation.kind)} · ${e(explanation.rule)}</p><p>${e(explanation.summary)}</p>${explanation.limitations.map(limit => `<p>Batasan: ${e(limit)}</p>`).join("")}<p>Hubungan asal: ${explanation.sourceEdgeIds.map(e).join(", ")}</p>${evidenceHtml(edge.evidence)}</section>`);
+    }
+    if (model.documentation) {
+      pages.push(`<section class="semantic-documentation-start semantic-detail"><h1>Konteks dokumentasi</h1><p>Pernyataan dokumentasi dan referensi file; bukan bukti pemanggilan atau eksekusi runtime.</p><p>${e(JSON.stringify(model.documentation.coverage))}</p></section>`);
+      for (const doc of model.documentation.documents) for (const section of doc.sections) {
+        // Small chunks may flow over physical pages, without hiding or truncating source text.
+        pages.push(`<section class="semantic-detail"><h2>${e(doc.filePath)} · ${e(section.heading ?? doc.title ?? "Dokumentasi")}</h2><p>SHA-256 ${e(doc.fileSha256)}</p>${evidenceHtml(section.evidence ? [section.evidence] : [])}${section.blocks.map(block => `<article>${documentationBlockLines(block).map(line => `<p>${e(line)}</p>`).join("")}${evidenceHtml([block.evidence])}</article>`).join("")}</section>`);
+      }
+      for (const reference of model.documentation.references) pages.push(`<section class="semantic-detail"><p>${e(reference.sourcePath)} mendokumentasikan/merujuk ${e(reference.targetPath ?? reference.target)} · ${e(reference.resolution)}${reference.resolution === "missing" || reference.resolution === "unsafe" ? " · Perlu ditinjau" : ""}</p>${evidenceHtml([reference.evidence])}</section>`);
+    }
+  }
+  return `<style>.semantic-detail{font-size:10px;overflow-wrap:anywhere}.semantic-detail p{white-space:pre-wrap;line-height:1.45}.semantic-detail h2{font-size:13px;break-after:avoid}.semantic-documentation-start{break-before:page}.semantic-documentation-start h1{font-size:23px;margin:4px 0 8px}.semantic-page{break-before:page;page-break-before:always;break-inside:avoid;min-height:175mm}.semantic-page h1{font-size:23px;margin:4px 0 8px}.semantic-page>p{font-size:10px}.semantic-figure{height:125mm;display:flex;align-items:center;justify-content:center}.semantic-figure svg{width:100%;height:100%;object-fit:contain}.semantic-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.semantic-overview article{border:1px solid #d1d9e0;border-left:3px solid #8250df;border-radius:6px;padding:8px;background:#f6f8fa;min-width:0}.semantic-overview h2{font-size:12px;overflow-wrap:anywhere;margin:0}.semantic-overview p{font-size:9px;margin:5px 0 0}</style>${pages.join("")}`;
 }

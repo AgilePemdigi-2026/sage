@@ -1,4 +1,4 @@
-import { ANALYSIS_STAGE_DEFINITIONS } from "@sage/contracts";
+import { ANALYSIS_STAGE_DEFINITIONS } from "@sage/contracts/stages";
 import type { AnalysisDetailRecord, HistoryListResult } from "@sage/database";
 
 const stageLabels = new Map(ANALYSIS_STAGE_DEFINITIONS.map(stage => [stage.key, stage.label] as const));

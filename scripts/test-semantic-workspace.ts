@@ -6,8 +6,7 @@ import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/pr
 import { dirname, relative, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
-import { chromium, type Page, type Route } from "playwright";
-import { EDGE_KINDS, EDGE_RESOLUTIONS, EVIDENCE_ROLES, LANGUAGES, NODE_KINDS, NODE_ORIGINS, UNRESOLVED_REASONS } from "@sage/contracts";
+import { chromium, type Locator, type Page, type Route } from "playwright";
 import type { PresentationOverlay, SemanticEdge, SemanticFeature, SemanticModel, SemanticNode, SemanticPayload } from "@sage/documents/semantic/model";
 
 /**
@@ -22,7 +21,7 @@ import type { PresentationOverlay, SemanticEdge, SemanticFeature, SemanticModel,
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceAppRoot = resolve(projectRoot, "apps/web");
-const artifactDirectory = resolve(projectRoot, "artifacts/semantic-workspace/connected-overview-20261101");
+const artifactDirectory = resolve(projectRoot, "artifacts/semantic-workspace/explainable-20261108");
 const accountKey = "qa-semantic-account";
 const analysisId = "qa-semantic-analysis";
 const repository = "AgilePemdigi-2026/sage";
@@ -61,7 +60,12 @@ function buildFixture(): SemanticPayload {
     return id;
   };
   const addEdge = (id: string, source: string, target: string, label: string, confidence: SemanticEdge["confidence"], line: number, file = bookPath) => {
-    edges.push({ id, source, target, label, confidence, reason: `Hubungan ${label} dideklarasikan pada baris fixture ${line}.`, evidence: [evidence(file, line, "reference")] });
+    const reason = `Hubungan ${label} dideklarasikan pada baris fixture ${line}.`;
+    const origin = id === "edge-member-catalog-doc" ? "documentation" : id === "edge-admin-session" ? "mixed" : "code";
+    edges.push({ id, source, target, label, confidence, reason, evidence: [evidence(file, line, "reference")], explanation: {
+      kind: "source_relationship", origin, rule: `fixture:${origin}`, summary: reason,
+      limitations: ["Fixture explanation; this does not establish runtime execution."], sourceEdgeIds: [id],
+    } });
     return id;
   };
 
@@ -72,6 +76,7 @@ function buildFixture(): SemanticPayload {
   const firstStep = addNode("step-open-catalog", "step", "Buka katalog buku", bookFeatureId, "proven", 11);
   bookNodeIds.push(firstStep);
   bookEdgeIds.push(addEdge("edge-member-catalog", member, firstStep, "membuka", "proven", 12));
+  bookEdgeIds.push(addEdge("edge-member-catalog-doc", member, firstStep, "didokumentasikan sebagai entry", "proven", 13, "README.md"));
   let previous = firstStep;
   for (let index = 0; index < 26; index += 1) {
     const step = addNode(`step-search-${String(index).padStart(2, "0")}`, "step", `Cari buku tahap ${index + 1}`, bookFeatureId, "proven", 20 + index);
@@ -126,10 +131,19 @@ function buildFixture(): SemanticPayload {
     revision: 0,
     overlay: { labels: {}, groups: {} },
     model: {
-      schemaVersion: "sage-semantic-v1",
+      schemaVersion: "sage-semantic-v2",
       extractorVersion: "qa-controlled-fixture-v1",
       sourceCkgHash: "d".repeat(64),
       snapshot: { repository, branch: "main", commitSha },
+      documentation: {
+        documents: [{ filePath: "README.md", kind: "root-readme", fileSha256: "c".repeat(64), byteLength: 96, title: "Fixture overview", sections: [{
+          heading: "Overview", depth: 1, evidence: { ...evidence("README.md", 1, "context"), fileSha256: "c".repeat(64) },
+          inlineCode: [{ text: "bookingId", evidence: { ...evidence("README.md", 2, "context"), fileSha256: "c".repeat(64) } }],
+          blocks: [{ kind: "paragraph", text: "Fixture overview mentions bookingId. <img src=x onerror=window.__fixtureXss=true>", evidence: { ...evidence("README.md", 2, "context"), fileSha256: "c".repeat(64) }, inlineCode: [{ text: "bookingId", evidence: { ...evidence("README.md", 2, "context"), fileSha256: "c".repeat(64) } }] }],
+        }] }],
+        references: [{ sourcePath: "README.md", target: "src/app/api/books/route.ts", targetPath: "src/app/api/books/route.ts", resolution: "resolved", evidence: { ...evidence("README.md", 3, "reference"), fileSha256: "c".repeat(64) } }],
+        coverage: { snapshotPathCount: 4, candidateFileCount: 1, documentCount: 1, documentByteCount: 96, skipped: [] },
+      },
       nodes,
       edges,
       features,
@@ -137,6 +151,20 @@ function buildFixture(): SemanticPayload {
       limitations: [{ filePath: bookPath, reason: "Pemanggilan helper dinamis pada fixture tidak membuktikan urutan aktivitas selanjutnya." }],
     },
   };
+}
+
+function buildLegacyFixture(): SemanticPayload {
+  const payload = buildFixture();
+  const legacyModel = structuredClone(payload.model);
+  legacyModel.schemaVersion = "sage-semantic-v1";
+  delete legacyModel.documentation;
+  legacyModel.edges = legacyModel.edges.map(edge => {
+    const legacyEdge = { ...edge };
+    delete legacyEdge.explanation;
+    return legacyEdge;
+  });
+  payload.model = legacyModel;
+  return payload;
 }
 
 function buildLargeEvidenceFixture(): SemanticPayload {
@@ -272,20 +300,6 @@ async function stopNext(child: ChildProcess): Promise<void> {
   }
 }
 
-async function installBrowserContractsShim(appRoot: string): Promise<void> {
-  const contractsShimPath = resolve(appRoot, "qa-contracts-browser.ts");
-  const browserSafeValues = { LANGUAGES, NODE_KINDS, EDGE_KINDS, NODE_ORIGINS, EDGE_RESOLUTIONS, UNRESOLVED_REASONS, EVIDENCE_ROLES };
-  const shim = Object.entries(browserSafeValues).map(([name, values]) => `export const ${name} = ${JSON.stringify(values)} as const;`).join("\n") + "\n";
-  await writeFile(contractsShimPath, shim, { flag: "wx" });
-  const configPath = resolve(appRoot, "next.config.ts");
-  const originalConfig = await readFile(configPath, "utf8");
-  const insertionPoint = "const nextConfig: NextConfig = {";
-  assert.ok(originalConfig.includes(insertionPoint), "the QA copy keeps the expected Next config shape before adding its browser-only package alias");
-  const browserAlias = JSON.stringify(contractsShimPath);
-  const patchedConfig = originalConfig.replace(insertionPoint, `${insertionPoint}\n  webpack(config, { isServer }) {\n    if (!isServer) config.resolve.alias = { ...(config.resolve.alias ?? {}), "@sage/contracts": ${browserAlias} };\n    return config;\n  },`);
-  await writeFile(configPath, patchedConfig);
-}
-
 async function fulfillJson(route: Route, status: number, body: unknown): Promise<void> {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body), headers: { "Cache-Control": "no-store" } });
 }
@@ -295,6 +309,31 @@ async function openOverviewFeature(page: Page, featureId: string): Promise<void>
   await card.click();
   await page.getByRole("button", { name: "Open detailed flow" }).click();
   await page.getByTestId("semantic-flow-canvas").waitFor();
+}
+
+async function pointerPointOnFlowEdge(page: Page, edge: Locator, expectedEdgeId: string): Promise<{ x: number; y: number }> {
+  await edge.scrollIntoViewIfNeeded();
+  const points = await edge.locator("path").first().evaluate(element => {
+    const path = element as SVGGeometryElement;
+    const matrix = path.getScreenCTM();
+    if (!matrix) throw new Error("The flow edge has no screen transform.");
+    const length = path.getTotalLength();
+    return Array.from({ length: 19 }, (_, index) => {
+      const point = path.getPointAtLength(length * (index + 1) / 20);
+      const screenPoint = new DOMPoint(point.x, point.y).matrixTransform(matrix);
+      return { x: screenPoint.x, y: screenPoint.y };
+    });
+  });
+  const hit = await page.evaluate(({ points: candidates, expected }) => {
+    for (const point of candidates) {
+      const target = document.elementFromPoint(point.x, point.y);
+      const edgeId = target?.closest<SVGGElement>("[data-edge-id]")?.getAttribute("data-edge-id") ?? null;
+      if (edgeId === expected) return { point, edgeId, tag: target?.tagName ?? "none" };
+    }
+    return { point: null, edgeId: null, tag: "none" };
+  }, { points, expected: expectedEdgeId });
+  assert.ok(hit.point, `a real pointer coordinate lands on flow edge ${expectedEdgeId} (target=${hit.tag}, edge=${hit.edgeId})`);
+  return hit.point;
 }
 
 async function readCorpus(path: string): Promise<SemanticPayload | null> {
@@ -742,7 +781,16 @@ async function verifyConnectedArchitecture(page: Page, payload: SemanticPayload,
     await page.keyboard.press("Enter");
     await page.getByRole("button", { name: "Open detailed flow" }).waitFor();
     await page.getByRole("button", { name: "Open detailed flow" }).click();
-    await page.getByTestId("semantic-flow-canvas").waitFor();
+    await page.getByTestId("semantic-flow-canvas").waitFor({ timeout: 5000 }).catch(async () => {
+      const state = await page.evaluate(() => ({
+        flowMode: document.querySelector("[data-testid='mode-flow']")?.getAttribute("aria-pressed"),
+        overviewCount: document.querySelectorAll("[data-testid='architecture-overview']").length,
+        flowCanvasCount: document.querySelectorAll("[data-testid='semantic-flow-canvas']").length,
+        openFlowButtons: Array.from(document.querySelectorAll("button")).filter(button => button.textContent?.includes("Open detailed flow")).length,
+        workspaceText: document.querySelector("section[aria-label='Alur fitur berbasis source']")?.textContent?.slice(0, 600) ?? null,
+      }));
+      throw new Error(`Feature selection did not open the flow canvas: ${JSON.stringify(state)}`);
+    });
     await page.getByRole("button", { name: "All features" }).click();
   }
   const indication = root.getByRole("checkbox", { name: "Show indicated relationships" });
@@ -1019,7 +1067,9 @@ async function verifyDesktopFlowAndOverlay(page: Page, getPayload: () => Semanti
   assert.equal(await crossFeatureCanvas.locator("g[data-source-id='feature-books'][data-target-id='feature-auth']").count(), 1, "cross-feature relationships retain the books-to-auth direction");
   assert.equal(await crossFeatureCanvas.locator("g[data-source-id='feature-auth'][data-target-id='feature-books']").count(), 1, "the reverse source relationship remains a separate directed edge");
   assert.equal(await crossFeatureCanvas.locator("g[data-inline-label='true']").count(), 0, "opposite cross-feature arrows omit colliding inline labels while keeping accessible titles");
-  assert.equal(await crossFeatureCanvas.locator("g[role='img'][aria-label]").count(), 2, "each directed cross-feature edge remains available to assistive technology");
+  const accessibleCrossFeatureEdges = crossFeatureCanvas.locator("g[data-source-id^='feature-'][data-target-id^='feature-'][role='button'][tabindex='0'][aria-label]");
+  assert.equal(await accessibleCrossFeatureEdges.count(), 2, "each directed cross-feature edge is a keyboard-selectable control with an accessible name");
+  assert.ok((await accessibleCrossFeatureEdges.evaluateAll(elements => elements.map(element => element.getAttribute("aria-label")))).every(label => label?.includes("select to open relationship explanation")), "cross-feature edge names announce the explanation action");
   await page.screenshot({ path: resolve(artifactDirectory, "semantic-graph-expanded-desktop.png"), fullPage: true });
   await page.locator("details[data-testid='semantic-feature-browser'] > summary").click();
   const bookCard = page.locator("#semantic-cluster-feature-books");
@@ -1088,6 +1138,108 @@ async function verifyDesktopFlowAndOverlay(page: Page, getPayload: () => Semanti
   setPayload(getPayload());
 }
 
+async function verifyRelationshipExplainability(page: Page, setPayload: (next: SemanticPayload) => void): Promise<void> {
+  const payload = buildFixture();
+  setPayload(payload);
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/qa-semantic-workspace");
+
+  const docs = page.getByTestId("documentation-context");
+  await docs.waitFor();
+  await page.getByTestId("documentation-coverage").waitFor();
+  await docs.locator(":scope > summary").click();
+  await docs.getByText("Read snapshot documentation (1)").click();
+  const projectedText = await docs.getByTestId("documentation-block").first().innerText();
+  assert.ok(projectedText.includes("Fixture overview mentions bookingId."), "the parsed documentation projection is visible as text");
+  assert.ok(projectedText.includes("<img src=x onerror=window.__fixtureXss=true>"), "documentation text containing markup remains literal React text");
+  assert.equal(await docs.locator("img[onerror]").count(), 0, "documentation markup is never inserted as raw HTML");
+  assert.equal(await page.evaluate(() => (window as Window & { __fixtureXss?: boolean }).__fixtureXss), undefined, "documentation cannot execute embedded event handlers");
+  await docs.getByText("Documentation file references (1)").click();
+  assert.ok((await docs.innerText()).includes("mendokumentasikan/merujuk file"), "resolved documentation links are described as file references");
+  const readmeEvidence = docs.locator("a.sageEvidenceLink").first();
+  assert.ok((await readmeEvidence.getAttribute("href"))?.includes(commitSha), "documentation evidence links to the same source commit");
+
+  const root = page.getByTestId("architecture-overview");
+  const aggregates = await root.locator("[data-testid='architecture-edge']").evaluateAll(elements => elements.filter(element => (element.getAttribute("data-source-edge-ids") ?? "").trim().split(/\s+/u).filter(Boolean).length > 1).map(element => element.getAttribute("data-source-edge-ids")));
+  assert.ok(aggregates.some(ids => ids?.includes("edge-member-catalog") && ids.includes("edge-member-catalog-doc")), "the architecture canvas groups parallel source edges and preserves both source IDs");
+  const candidate = root.locator("[data-testid='architecture-edge']");
+  const count = await candidate.count();
+  let selectedIndex = -1;
+  for (let index = 0; index < count; index += 1) {
+    const ids = await candidate.nth(index).getAttribute("data-source-edge-ids");
+    if ((ids ?? "").includes("edge-member-catalog") && (ids ?? "").includes("edge-member-catalog-doc")) { selectedIndex = index; break; }
+  }
+  assert.ok(selectedIndex >= 0, "the parallel actor-to-entry relationships remain visible in one aggregate arrow");
+  const grouped = candidate.nth(selectedIndex);
+  await grouped.scrollIntoViewIfNeeded();
+  const hitPoint = await grouped.locator("path").first().evaluate(element => {
+    const path = element as SVGGeometryElement;
+    const matrix = path.getScreenCTM();
+    if (!matrix) throw new Error("The architecture edge has no screen transform.");
+    const midpoint = path.getPointAtLength(path.getTotalLength() / 2);
+    const screenPoint = new DOMPoint(midpoint.x, midpoint.y).matrixTransform(matrix);
+    return { x: screenPoint.x, y: screenPoint.y };
+  });
+  const pointerHit = await page.evaluate(({ x, y }) => {
+    const target = document.elementFromPoint(x, y);
+    const edge = target?.closest<SVGGElement>("[data-testid='architecture-edge']");
+    return { tag: target?.tagName ?? "none", edgeIds: edge?.getAttribute("data-source-edge-ids") ?? null };
+  }, hitPoint);
+  assert.equal(pointerHit.edgeIds, await grouped.getAttribute("data-source-edge-ids"), `the real pointer coordinate lands on the selected aggregate relationship (target=${pointerHit.tag}, ids=${pointerHit.edgeIds})`);
+  await page.mouse.click(hitPoint.x, hitPoint.y);
+  const panel = page.getByTestId("relationship-explanation");
+  await panel.waitFor();
+  const listedSourceIds = await panel.locator("[data-source-edge-id]").evaluateAll(elements => elements.map(element => element.getAttribute("data-source-edge-id")));
+  assert.deepEqual(new Set(listedSourceIds), new Set(["edge-member-catalog", "edge-member-catalog-doc"]), "the aggregate explanation lists each original edge without paging");
+  const aggregateText = await panel.innerText();
+  assert.ok(aggregateText.includes("code") && aggregateText.includes("documentation"), "aggregate explanations show each member's own origin");
+  assert.ok(aggregateText.includes("Limitations") && aggregateText.includes("Source evidence"), "aggregate explanations show limits and linked source evidence");
+  await panel.getByRole("button", { name: "Close explanation" }).click();
+  await panel.waitFor({ state: "detached" });
+  await grouped.focus();
+  await page.keyboard.press("Enter");
+  await panel.waitFor();
+  assert.equal(await panel.locator("[data-source-edge-id]").count(), 2, "keyboard activation opens the aggregate explanation inspector");
+
+  await page.getByLabel("Relationship origin").selectOption("documentation");
+  const documentedIds = await root.locator("[data-testid='architecture-edge']").evaluateAll(elements => elements.flatMap(element => (element.getAttribute("data-source-edge-ids") ?? "").split(/\s+/u).filter(Boolean)));
+  assert.ok(documentedIds.includes("edge-member-catalog-doc"), "the documentation origin filter keeps the documented relationship on the canvas");
+  assert.ok(!documentedIds.includes("edge-member-catalog"), "the documentation origin filter removes code-only relationship members");
+
+  await page.getByLabel("Relationship origin").selectOption("all");
+  await openOverviewFeature(page, "feature-books");
+  const flowEdge = page.locator("[data-testid='semantic-flow-canvas'] g[data-edge-id='edge-member-catalog']");
+  const flowHitPoint = await pointerPointOnFlowEdge(page, flowEdge, "edge-member-catalog");
+  await page.mouse.click(flowHitPoint.x, flowHitPoint.y);
+  const flowPanel = page.getByTestId("relationship-explanation");
+  await flowPanel.waitFor();
+  assert.ok((await flowPanel.innerText()).includes("edge-member-catalog") && (await flowPanel.innerText()).includes("Origin"), "a pointer-selected code flow edge opens its explanation");
+  const documentationFlowEdge = page.locator("[data-testid='semantic-flow-canvas'] g[data-edge-id='edge-member-catalog-doc']");
+  const documentationHitPoint = await pointerPointOnFlowEdge(page, documentationFlowEdge, "edge-member-catalog-doc");
+  await page.mouse.click(documentationHitPoint.x, documentationHitPoint.y);
+  assert.ok((await flowPanel.innerText()).includes("edge-member-catalog-doc") && (await flowPanel.innerText()).includes("documentation"), "a pointer-selected documentation flow edge opens its own explanation");
+  await flowPanel.getByRole("button", { name: "Close explanation" }).click();
+  await flowPanel.waitFor({ state: "detached" });
+  await flowEdge.focus();
+  await page.keyboard.press("Enter");
+  await flowPanel.waitFor();
+  assert.ok((await flowPanel.innerText()).includes("edge-member-catalog"), "keyboard selection opens the source edge explanation");
+
+  setPayload(buildLegacyFixture());
+  await page.goto("/qa-semantic-workspace");
+  await openOverviewFeature(page, "feature-books");
+  const legacyEdge = page.locator("[data-testid='semantic-flow-canvas'] g[data-edge-id='edge-member-catalog']");
+  await legacyEdge.focus();
+  await page.keyboard.press("Enter");
+  const legacyPanel = page.getByTestId("relationship-explanation");
+  await legacyPanel.waitFor();
+  const legacyText = await legacyPanel.innerText();
+  assert.ok(legacyText.includes("Explanation provenance is unavailable for this legacy relationship"), "legacy relationships state that explanation provenance is unavailable");
+  assert.ok(legacyText.includes("No origin or rule is inferred"), "legacy relationships do not fabricate origin or rules");
+  assert.ok(legacyText.includes("no structured limitation metadata"), "legacy relationships report unavailable limitations explicitly");
+  await page.getByTestId("documentation-context-legacy").waitFor();
+}
+
 async function main(): Promise<void> {
   await mkdir(artifactDirectory, { recursive: true });
   const isolatedRoot = await mkdtemp(resolve(tmpdir(), "sage-semantic-workspace-"));
@@ -1109,7 +1261,6 @@ async function main(): Promise<void> {
     });
     await symlink(resolve(projectRoot, "node_modules"), resolve(isolatedRoot, "node_modules"), "dir");
     await symlink(resolve(projectRoot, "packages"), resolve(isolatedRoot, "packages"), "dir");
-    await installBrowserContractsShim(appRoot);
     await mkdir(testPageDirectory, { recursive: true });
     await mkdir(liveGraphPageDirectory, { recursive: true });
     await writeFile(testPagePath, testRouteSource(), { flag: "wx" });
@@ -1197,6 +1348,9 @@ async function main(): Promise<void> {
       }
       payload = buildFixture();
       await verifyDesktopFlowAndOverlay(page, () => payload, next => { payload = next; }, fixtureControl);
+      await verifyRelationshipExplainability(page, next => { payload = next; });
+      payload = buildFixture();
+      await page.goto("/qa-semantic-workspace");
 
       await page.setViewportSize({ width: 390, height: 844 });
       await page.getByTestId("mode-flow").click();

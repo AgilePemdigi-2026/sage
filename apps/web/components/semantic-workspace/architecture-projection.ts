@@ -1,5 +1,7 @@
 import type { SemanticEdge, SemanticKind, SemanticNode, SemanticPayload } from "@sage/documents/semantic/model";
 
+export type ExplanationOriginFilter = "all" | "code" | "documentation" | "mixed" | "legacy";
+
 /** A source-backed overview node. Feature nodes describe ownership; source nodes retain canonical identities. */
 export interface ArchitectureNode {
   id: string;
@@ -47,6 +49,7 @@ const GROUPABLE_REFERENCE_KINDS = new Set<SemanticKind>(["actor", "store", "conc
 export interface ArchitectureProjectionOptions {
   featureIds?: string[];
   showIndications?: boolean;
+  origin?: ExplanationOriginFilter;
   query?: string;
 }
 
@@ -101,7 +104,8 @@ export function buildArchitectureProjection(payload: SemanticPayload, options: A
   const query = options.query?.trim().toLocaleLowerCase() ?? "";
   const entryIds = new Set<string>();
   for (const feature of features) for (const id of feature.entryNodeIds) entryIds.add(id);
-  const sourceEdges = model.edges.filter(edge => options.showIndications !== false || edge.confidence === "proven");
+  const sourceEdges = model.edges.filter(edge => (options.showIndications !== false || edge.confidence === "proven") &&
+    (!options.origin || options.origin === "all" || (edge.explanation?.origin ?? "legacy") === options.origin));
   const scopedEdgeIds = new Set(sourceEdges.map(edge => edge.id));
   const edgeScopesById = new Map<string, string[]>();
   for (const feature of features) for (const edgeId of feature.edgeIds) {

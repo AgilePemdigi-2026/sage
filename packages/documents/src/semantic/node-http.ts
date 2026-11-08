@@ -1,9 +1,11 @@
 import ts from "typescript";
+import type { CcmEdge, CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { SemanticEdge, SemanticFeature, SemanticFragment, SemanticInput, SemanticNode } from "./model.ts";
 import { compactEvidence, emptyFragment, evidenceSpan, humanLabel, semanticEdgeId, semanticId, semanticNode, technicalNodesForSpan } from "./builder.ts";
 
 type SourceEntry = { path: string; bytes: Uint8Array; source: ts.SourceFile };
-type RouteMatch = { method: string; path: string; evidenceNode: ts.IfStatement; body: ts.Statement; confidence: "proven" | "indicated" };
+type RouteMatch = { method: string; path: string; evidenceNode: ts.IfStatement; evidenceNodes: ts.IfStatement[]; body: ts.Statement; confidence: "proven" | "indicated" };
+type ConditionTerm = { expression: ts.Expression; negated: boolean };
 const METHODS = new Set(["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"]);
 const SOURCE_EXTENSIONS = /\.[cm]?[jt]sx?$/u;
 const MAX_ROUTE_ALTERNATIVES = 32;
@@ -18,72 +20,81 @@ function isString(node: ts.Expression): node is ts.StringLiteralLike {
   return ts.isStringLiteralLike(node) || ts.isNoSubstitutionTemplateLiteral(node);
 }
 
-function conditionAlternatives(node: ts.Expression): ts.Expression[][] {
+function conditionAlternatives(node: ts.Expression, negated = false): ConditionTerm[][] {
   while (ts.isParenthesizedExpression(node)) node = node.expression;
-  if (!ts.isBinaryExpression(node)) return [[node]];
-  if (node.operatorToken.kind === ts.SyntaxKind.BarBarToken) return [...conditionAlternatives(node.left), ...conditionAlternatives(node.right)].slice(0, MAX_ROUTE_ALTERNATIVES);
-  if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken) {
-    const output: ts.Expression[][] = [];
-    for (const left of conditionAlternatives(node.left)) {
-      for (const right of conditionAlternatives(node.right)) {
+  if (ts.isPrefixUnaryExpression(node) && node.operator === ts.SyntaxKind.ExclamationToken) return conditionAlternatives(node.operand, !negated);
+  if (!ts.isBinaryExpression(node)) return [[{ expression: node, negated }]];
+  const isOr = node.operatorToken.kind === ts.SyntaxKind.BarBarToken;
+  const isAnd = node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken;
+  if (!isOr && !isAnd) return [[{ expression: node, negated }]];
+  if (isOr !== negated) return [...conditionAlternatives(node.left, negated), ...conditionAlternatives(node.right, negated)].slice(0, MAX_ROUTE_ALTERNATIVES);
+  if (isOr || isAnd) {
+    const output: ConditionTerm[][] = [];
+    for (const left of conditionAlternatives(node.left, negated)) {
+      for (const right of conditionAlternatives(node.right, negated)) {
         output.push([...left, ...right]);
         if (output.length >= MAX_ROUTE_ALTERNATIVES) return output;
       }
     }
     return output;
   }
-  return [[node]];
+  return [];
 }
 
 function propertyAccess(node: ts.Expression, name: string): node is ts.PropertyAccessExpression {
   return ts.isPropertyAccessExpression(node) && node.name.text === name;
 }
 
-function routeConditions(condition: ts.Expression): Array<{ method: string; path: string }> {
-  const output: Array<{ method: string; path: string }> = [];
-  for (const terms of conditionAlternatives(condition)) {
+function routeConditionsFromTerms(terms: ConditionTerm[]): Array<{ method: string; path: string }> {
     let method: string | null = null;
     let length: number | null = null;
-    let invalid = terms.some(term => term.kind === ts.SyntaxKind.FalseKeyword);
+    let invalid = false;
     const segments = new Map<number, string>();
+    const excludedMethods = new Set<string>();
+    const excludedLengths = new Set<number>();
+    const excludedSegments = new Map<number, Set<string>>();
     for (const term of terms) {
-      if (!ts.isBinaryExpression(term) || term.operatorToken.kind !== ts.SyntaxKind.EqualsEqualsEqualsToken) continue;
-      const { left, right } = term;
-      if (ts.isIdentifier(left) && left.text === "method" && isString(right)) {
-        const candidate = right.text.toUpperCase();
-        if (METHODS.has(candidate)) {
-          if (method && method !== candidate) invalid = true;
-          method = candidate;
+      const expression = term.expression;
+      if (expression.kind === ts.SyntaxKind.FalseKeyword) { if (!term.negated) invalid = true; continue; }
+      if (expression.kind === ts.SyntaxKind.TrueKeyword) { if (term.negated) invalid = true; continue; }
+      if (!ts.isBinaryExpression(expression) || ![ts.SyntaxKind.EqualsEqualsEqualsToken, ts.SyntaxKind.ExclamationEqualsEqualsToken].includes(expression.operatorToken.kind)) continue;
+      const { left, right } = expression;
+      const equality = (expression.operatorToken.kind === ts.SyntaxKind.EqualsEqualsEqualsToken) !== term.negated;
+      const applyLiteral = (subject: "method" | "length" | "segment", key: number | null, value: string | number) => {
+        if (subject === "method") {
+          const candidate = String(value).toUpperCase();
+          if (!METHODS.has(candidate)) return;
+          if (equality) { if (method && method !== candidate || excludedMethods.has(candidate)) invalid = true; method = candidate; }
+          else { excludedMethods.add(candidate); if (method === candidate) invalid = true; }
+          return;
         }
-      } else if (ts.isIdentifier(right) && right.text === "method" && isString(left)) {
-        const candidate = left.text.toUpperCase();
-        if (METHODS.has(candidate)) {
-          if (method && method !== candidate) invalid = true;
-          method = candidate;
+        if (subject === "length") {
+          const candidate = Number(value);
+          if (equality) { if (length !== null && length !== candidate || excludedLengths.has(candidate)) invalid = true; length = candidate; }
+          else { excludedLengths.add(candidate); if (length === candidate) invalid = true; }
+          return;
         }
-      }
-      if (propertyAccess(left, "length") && ts.isIdentifier(left.expression) && left.expression.text === "parts" && ts.isNumericLiteral(right)) {
-        const candidate = Number(right.text); if (length !== null && length !== candidate) invalid = true; length = candidate;
-      }
-      if (propertyAccess(right, "length") && ts.isIdentifier(right.expression) && right.expression.text === "parts" && ts.isNumericLiteral(left)) {
-        const candidate = Number(left.text); if (length !== null && length !== candidate) invalid = true; length = candidate;
-      }
+        if (key === null) return;
+        const candidate = String(value), previous = segments.get(key);
+        const excluded = excludedSegments.get(key) ?? new Set<string>();
+        if (equality) { if (previous !== undefined && previous !== candidate || excluded.has(candidate)) invalid = true; segments.set(key, candidate); }
+        else { excluded.add(candidate); excludedSegments.set(key, excluded); if (previous === candidate) invalid = true; }
+      };
+      if (ts.isIdentifier(left) && left.text === "method" && isString(right)) applyLiteral("method", null, right.text);
+      else if (ts.isIdentifier(right) && right.text === "method" && isString(left)) applyLiteral("method", null, left.text);
+      if (propertyAccess(left, "length") && ts.isIdentifier(left.expression) && left.expression.text === "parts" && ts.isNumericLiteral(right)) applyLiteral("length", null, Number(right.text));
+      else if (propertyAccess(right, "length") && ts.isIdentifier(right.expression) && right.expression.text === "parts" && ts.isNumericLiteral(left)) applyLiteral("length", null, Number(left.text));
       const partLiteral = (indexExpression: ts.Expression, valueExpression: ts.Expression) => {
         if (!ts.isElementAccessExpression(indexExpression) || !ts.isIdentifier(indexExpression.expression) || indexExpression.expression.text !== "parts" ||
             !indexExpression.argumentExpression || !ts.isNumericLiteral(indexExpression.argumentExpression) || !isString(valueExpression)) return;
-        const index = Number(indexExpression.argumentExpression.text);
-        const previous = segments.get(index);
-        if (previous !== undefined && previous !== valueExpression.text) invalid = true;
-        segments.set(index, valueExpression.text);
+        applyLiteral("segment", Number(indexExpression.argumentExpression.text), valueExpression.text);
       };
       partLiteral(left, right);
       partLiteral(right, left);
     }
-    if (invalid || !method || length === null || length < 1 || length > 32 || segments.size === 0) continue;
+    if (invalid || !method || length === null || length < 1 || length > 32 || segments.size === 0) return [];
     const path = `/${Array.from({ length }, (_, index) => segments.get(index) ?? ":param").join("/")}`;
-    output.push({ method, path });
-  }
-  return output;
+  return [{ method, path }];
 }
 
 function requestNameForMethodBinding(fn: ts.FunctionLikeDeclaration): string | null {
@@ -158,21 +169,71 @@ function handlerFunctions(source: ts.SourceFile): ts.FunctionLikeDeclaration[] {
 function collectRoutes(fn: ts.FunctionLikeDeclaration): RouteMatch[] {
   if (!fn.body || !ts.isBlock(fn.body)) return [];
   const output: RouteMatch[] = [];
-  const reachableTries: ts.Block[] = [];
-  for (const statement of fn.body.statements) {
-    if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) break;
-    if (ts.isTryStatement(statement)) reachableTries.push(statement.tryBlock);
-  }
-  const scopes = [fn.body, ...reachableTries];
-  for (const scope of scopes) {
-    for (const statement of scope.statements) {
-      if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) break;
-      if (!ts.isIfStatement(statement)) continue;
-      const matches = routeConditions(statement.expression);
-      for (const match of matches) output.push({ ...match, evidenceNode: statement, body: statement.thenStatement, confidence: match.path.includes(":param") ? "indicated" : "proven" });
+  const alwaysExits = (statement: ts.Statement): boolean => {
+    if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) return true;
+    if (ts.isBlock(statement)) {
+      for (const child of statement.statements) if (alwaysExits(child)) return true;
+      return false;
     }
-  }
-  return output;
+    return ts.isIfStatement(statement) && !!statement.elseStatement && alwaysExits(statement.thenStatement) && alwaysExits(statement.elseStatement);
+  };
+  const visitStatements = (statements: readonly ts.Statement[], contexts: ConditionTerm[][], evidenceNodes: ts.IfStatement[]) => {
+    for (const statement of statements) {
+      if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) break;
+      visitStatement(statement, contexts, evidenceNodes);
+      if (alwaysExits(statement)) break;
+    }
+  };
+  const combine = (left: ConditionTerm[][], right: ConditionTerm[][]): ConditionTerm[][] => {
+    const output: ConditionTerm[][] = [];
+    for (const leftTerms of left) {
+      for (const rightTerms of right) {
+        output.push([...leftTerms, ...rightTerms]);
+        if (output.length >= MAX_ROUTE_ALTERNATIVES) return output;
+      }
+    }
+    return output;
+  };
+  const visitStatement = (statement: ts.Statement, contexts: ConditionTerm[][], evidenceNodes: ts.IfStatement[]) => {
+    if (ts.isIfStatement(statement)) {
+      const positive = conditionAlternatives(statement.expression);
+      const routeContexts = combine(contexts, positive);
+      const inherited = new Set(contexts.flatMap(routeConditionsFromTerms).map(match => `${match.method}\0${match.path}`));
+      for (const terms of routeContexts) {
+        for (const match of routeConditionsFromTerms(terms)) {
+          if (inherited.has(`${match.method}\0${match.path}`)) continue;
+          output.push({ ...match, evidenceNode: statement, evidenceNodes: [...evidenceNodes, statement], body: statement.thenStatement, confidence: match.path.includes(":param") ? "indicated" : "proven" });
+        }
+      }
+      visitStatement(statement.thenStatement, routeContexts, [...evidenceNodes, statement]);
+      if (statement.elseStatement) {
+        const negative = combine(contexts, conditionAlternatives(statement.expression, true));
+        visitStatement(statement.elseStatement, negative, [...evidenceNodes, statement]);
+      }
+      return;
+    }
+    if (ts.isBlock(statement)) { visitStatements(statement.statements, contexts, evidenceNodes); return; }
+    if (ts.isTryStatement(statement)) { visitStatements(statement.tryBlock.statements, contexts, evidenceNodes); return; }
+    if (ts.isFunctionLike(statement) || ts.isClassDeclaration(statement)) return;
+    ts.forEachChild(statement, child => {
+      if (ts.isIfStatement(child)) visitStatement(child, contexts, evidenceNodes);
+    });
+  };
+  visitStatements(fn.body.statements, [[]], []);
+  const unique = new Map<string, RouteMatch>();
+  for (const route of output) unique.set(`${route.method}\0${route.path}\0${route.evidenceNodes.map(node => node.getStart(fn.getSourceFile())).join(",")}`, route);
+  const routes = [...unique.values()];
+  const pathSpecificity = (path: string) => path.split("/").filter(Boolean);
+  return routes.filter(route => {
+    const segments = pathSpecificity(route.path);
+    if (!segments.includes(":param")) return true;
+    return !routes.some(other => {
+      if (other === route || other.method !== route.method || !other.evidenceNodes.includes(route.evidenceNode)) return false;
+      const otherSegments = pathSpecificity(other.path);
+      return otherSegments.length === segments.length && segments.some((segment, index) => segment === ":param" && otherSegments[index] !== ":param") &&
+        segments.every((segment, index) => segment === ":param" || otherSegments[index] === segment);
+    });
+  });
 }
 
 function familyFor(path: string): { key: string; label: string } {
@@ -184,8 +245,8 @@ function familyFor(path: string): { key: string; label: string } {
   return { key: key.toLowerCase(), label: humanLabel(key) };
 }
 
-function nodeEvidence(entry: SourceEntry, node: ts.Node) {
-  return evidenceSpan(entry.path, entry.bytes, node.getStart(entry.source), node.end, "declaration");
+function nodeEvidence(entry: SourceEntry, node: ts.Node, role: "declaration" | "reference" | "context" = "declaration") {
+  return evidenceSpan(entry.path, entry.bytes, node.getStart(entry.source), node.end, role);
 }
 
 function isExit(node: ts.Node): boolean {
@@ -250,55 +311,282 @@ function addEdge(fragment: SemanticFragment, feature: SemanticFeature, edge: Sem
   if (!feature.edgeIds.includes(edge.id)) feature.edgeIds.push(edge.id);
 }
 
+function callableName(handler: ts.FunctionLikeDeclaration): string | null {
+  if (ts.isFunctionDeclaration(handler) && handler.name) return handler.name.text;
+  if (ts.isMethodDeclaration(handler) && ts.isIdentifier(handler.name)) return handler.name.text;
+  return null;
+}
+
+function exactCallableNode(input: SemanticInput, entry: SourceEntry, handler: ts.FunctionLikeDeclaration): CcmNode | null {
+  const name = callableName(handler);
+  if (!name) return null;
+  const span = nodeEvidence(entry, handler);
+  const matches = input.ccm.nodes.filter(node => node.filePath === entry.path && ["Function", "Method"].includes(node.kind) && node.name === name && node.location !== null &&
+    node.location.startByte <= span.endByte && node.location.endByte >= span.startByte);
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+function astCallableForNode(entry: SourceEntry, target: CcmNode): ts.FunctionLikeDeclaration | null {
+  if (!target.location || target.filePath !== entry.path) return null;
+  const matches: ts.FunctionLikeDeclaration[] = [];
+  const visit = (node: ts.Node) => {
+    if (callableName(node as ts.FunctionLikeDeclaration) === target.name && (ts.isFunctionDeclaration(node) || ts.isMethodDeclaration(node))) {
+      const nodeStart = Buffer.byteLength(entry.source.text.slice(0, node.getStart(entry.source)), "utf8");
+      const nodeEnd = Buffer.byteLength(entry.source.text.slice(0, node.end), "utf8");
+      if (nodeStart <= target.location!.endByte && nodeEnd >= target.location!.startByte) matches.push(node as ts.FunctionLikeDeclaration);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(entry.source);
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+function literalBoolean(expression: ts.Expression): boolean | null {
+  const value = ts.isParenthesizedExpression(expression) ? expression.expression : expression;
+  if (value.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (value.kind === ts.SyntaxKind.FalseKeyword) return false;
+  if (ts.isPrefixUnaryExpression(value) && value.operator === ts.SyntaxKind.ExclamationToken) {
+    const nested = literalBoolean(value.operand);
+    return nested === null ? null : !nested;
+  }
+  return null;
+}
+
+function statementAlwaysExits(statement: ts.Statement): boolean {
+  if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) return true;
+  if (ts.isBlock(statement)) {
+    for (const child of statement.statements) if (statementAlwaysExits(child)) return true;
+    return false;
+  }
+  if (ts.isIfStatement(statement)) {
+    const condition = literalBoolean(statement.expression);
+    if (condition === true) return statementAlwaysExits(statement.thenStatement);
+    if (condition === false) return statement.elseStatement ? statementAlwaysExits(statement.elseStatement) : false;
+    return !!statement.elseStatement && statementAlwaysExits(statement.thenStatement) && statementAlwaysExits(statement.elseStatement);
+  }
+  return false;
+}
+
+/** Collect only calls reachable from this route branch; callable values stay deferred. */
+function directReachableCalls(root: ts.Node): ts.CallExpression[] {
+  const calls: ts.CallExpression[] = [];
+  const scanNode = (node: ts.Node) => {
+    if (node !== root && ts.isFunctionLike(node)) return;
+    if (ts.isCallExpression(node)) calls.push(node);
+    if (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken].includes(node.operatorToken.kind)) {
+      scanNode(node.left);
+      const left = literalBoolean(node.left);
+      if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken && left === false || node.operatorToken.kind === ts.SyntaxKind.BarBarToken && left === true) return;
+      scanNode(node.right);
+      return;
+    }
+    if (ts.isConditionalExpression(node)) {
+      scanNode(node.condition);
+      const condition = literalBoolean(node.condition);
+      if (condition === true) scanNode(node.whenTrue);
+      else if (condition === false) scanNode(node.whenFalse);
+      else { scanNode(node.whenTrue); scanNode(node.whenFalse); }
+      return;
+    }
+    ts.forEachChild(node, scanNode);
+  };
+  const scanStatement = (statement: ts.Statement): boolean => {
+    if (ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement)) return false;
+    if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) {
+      if (statement.expression) scanNode(statement.expression);
+      return true;
+    }
+    if (ts.isBlock(statement)) return scanStatements(statement.statements);
+    if (ts.isIfStatement(statement)) {
+      const condition = literalBoolean(statement.expression);
+      if (condition === true) return scanStatement(statement.thenStatement);
+      if (condition === false) return statement.elseStatement ? scanStatement(statement.elseStatement) : false;
+      scanNode(statement.expression);
+      const thenExits = scanStatement(statement.thenStatement);
+      const elseExits = statement.elseStatement ? scanStatement(statement.elseStatement) : false;
+      return thenExits && elseExits;
+    }
+    if (ts.isTryStatement(statement)) {
+      const tryExits = scanStatement(statement.tryBlock);
+      const catchExits = statement.catchClause ? scanStatement(statement.catchClause.block) : false;
+      const finallyExits = statement.finallyBlock ? scanStatement(statement.finallyBlock) : false;
+      return finallyExits || tryExits && catchExits;
+    }
+    if (ts.isSwitchStatement(statement)) return false;
+    scanNode(statement);
+    return false;
+  };
+  const scanStatements = (statements: readonly ts.Statement[]): boolean => {
+    for (const statement of statements) {
+      if (scanStatement(statement) || statementAlwaysExits(statement)) return true;
+    }
+    return false;
+  };
+  if (ts.isBlock(root)) scanStatements(root.statements);
+  else if (ts.isStatement(root)) scanStatement(root);
+  else scanNode(root);
+  return [...new Set(calls)];
+}
+
+function storeOperation(call: ts.CallExpression): { table: string; operation: string } | null {
+  if (!ts.isPropertyAccessExpression(call.expression)) return null;
+  const operation = call.expression.name.text;
+  if (!/^(?:find|select|count|aggregate|list|get|all|query|create|insert|upsert|save|write|update|delete|remove)/iu.test(operation)) return null;
+  const segments: string[] = [];
+  let current: ts.Expression = call.expression.expression;
+  while (ts.isPropertyAccessExpression(current)) { segments.unshift(current.name.text); current = current.expression; }
+  if (ts.isIdentifier(current)) segments.unshift(current.text);
+  if (!/^(?:prisma|db|database|client)$/iu.test(segments[0] ?? "") || segments.length < 2) return null;
+  return { table: segments[1]!, operation };
+}
+
+function callConditions(entry: SourceEntry, call: ts.CallExpression, stopAt: ts.Node): ReturnType<typeof nodeEvidence>[] {
+  const spans: ReturnType<typeof nodeEvidence>[] = [];
+  let parent: ts.Node | undefined = call.parent;
+  while (parent && parent !== stopAt) {
+    if (ts.isIfStatement(parent)) spans.push(nodeEvidence(entry, parent.expression, "context"));
+    parent = parent.parent;
+  }
+  return spans;
+}
+
+function addExactCrossFileEffects(fragment: SemanticFragment, input: SemanticInput, entriesByPath: ReadonlyMap<string, SourceEntry>,
+  entry: SourceEntry, handler: ts.FunctionLikeDeclaration, route: RouteMatch, routeId: string, routeEvidence: EvidenceSpan[], feature: SemanticFeature, nodeMap: Map<string, SemanticNode>): void {
+  const callerCcm = exactCallableNode(input, entry, handler);
+  if (!callerCcm) return;
+  const calls = directReachableCalls(route.body);
+  const resolved: Array<{ call: ts.CallExpression; targetNode: CcmNode; targetEntry: SourceEntry; target: ts.FunctionLikeDeclaration; ccmEdge: CcmEdge }> = [];
+  for (const call of calls) {
+    const callSpan = nodeEvidence(entry, call, "reference");
+    const siteEdges = input.ccm.edges.filter(edge => edge.kind === "CALLS" && edge.sourceId === callerCcm.id &&
+      edge.evidence.some(span => span.filePath === entry.path && span.startByte >= callSpan.startByte && span.endByte <= callSpan.endByte));
+    if (siteEdges.length !== 1 || siteEdges[0]!.resolution !== "Exact") {
+      if (siteEdges.length) fragment.limitations.push({ filePath: entry.path, reason: "Cross-file call in a Node HTTP route has an unresolved or ambiguous CKG binding; the target effect is omitted." });
+      continue;
+    }
+    const ccmEdge = siteEdges[0]!;
+    const targetNode = input.ccm.nodes.find(node => node.id === ccmEdge.targetId);
+    if (!targetNode || !targetNode.filePath || targetNode.filePath === entry.path || !["Function", "Method"].includes(targetNode.kind)) continue;
+    const targetEntry = entriesByPath.get(targetNode.filePath);
+    const target = targetEntry && astCallableForNode(targetEntry, targetNode);
+    if (!targetEntry || !target || !target.body) {
+      fragment.limitations.push({ filePath: entry.path, reason: "Exact CKG call target does not map to one supplied function body; cross-file effects are omitted." });
+      continue;
+    }
+    resolved.push({ call, targetNode, targetEntry, target, ccmEdge });
+  }
+  if (!resolved.length) return;
+  const handlerSpan = nodeEvidence(entry, handler);
+  const callerName = callableName(handler) ?? "Node HTTP handler";
+  const callerId = semanticId("component", entry.path, handlerSpan.startByte, `node-http-handler:${callerName}`);
+  if (!nodeMap.has(callerId)) {
+    const caller = semanticNode({ kind: "component", filePath: entry.path, startByte: handlerSpan.startByte, key: `node-http-handler:${callerName}`,
+      label: `${humanLabel(callerName)} Handler`, featureId: feature.id, confidence: "indicated",
+      reason: "Named Node HTTP handler contains exact CKG call sites; runtime route mounting remains unverified.", evidence: [handlerSpan],
+      technicalNodeIds: [callerCcm.id] });
+    nodeMap.set(callerId, caller); feature.nodeIds.push(callerId);
+  }
+  const handlerEdge = { id: semanticEdgeId(entry.path, handlerSpan.startByte, `node-http:route-handler:${routeId}:${callerId}`), source: routeId, target: callerId,
+    label: "ditangani oleh", confidence: "indicated", reason: "Route guard berada di dalam handler bernama; runtime mounting belum diverifikasi.", evidence: compactEvidence([...routeEvidence, handlerSpan]) } satisfies SemanticEdge;
+  addEdge(fragment, feature, handlerEdge);
+  for (const item of resolved) {
+    if (!item.target.body) continue;
+    const targetBody = item.target.body;
+    const targetSpan = nodeEvidence(item.targetEntry, item.target);
+    const serviceId = semanticId("component", item.targetEntry.path, targetSpan.startByte, `node-http-service:${item.targetNode.qualifiedName}`);
+    if (!nodeMap.has(serviceId)) {
+      const service = semanticNode({ kind: "component", filePath: item.targetEntry.path, startByte: targetSpan.startByte, key: `node-http-service:${item.targetNode.qualifiedName}`,
+        label: humanLabel(item.targetNode.qualifiedName), featureId: feature.id, confidence: "indicated",
+        reason: "One exact CKG CALLS edge links the route handler to this source declaration; runtime mounting is unverified.", evidence: [targetSpan],
+        technicalNodeIds: [item.targetNode.id] });
+      nodeMap.set(serviceId, service); feature.nodeIds.push(serviceId);
+    }
+    const callSpan = nodeEvidence(entry, item.call, "reference");
+    const callEdge = { id: semanticEdgeId(entry.path, callSpan.startByte, `node-http:handler-service:${callerId}:${serviceId}`), source: callerId, target: serviceId,
+      label: "memanggil fungsi", confidence: "indicated", reason: "Call site matches one exact CKG CALLS edge; only this direct target is traced, runtime route mounting is unverified, and transitive helper calls are omitted.",
+      evidence: [...compactEvidence(routeEvidence), callSpan, ...item.ccmEdge.evidence, ...callConditions(entry, item.call, route.body), targetSpan] } satisfies SemanticEdge;
+    addEdge(fragment, feature, callEdge);
+    const serviceCalls = directReachableCalls(targetBody);
+    for (const operationCall of serviceCalls) {
+      const operation = storeOperation(operationCall);
+      if (!operation) continue;
+      const operationSpan = nodeEvidence(item.targetEntry, operationCall, "reference");
+      const storeId = semanticId("store", item.targetEntry.path, 0, `node-http-store:${operation.table.toLowerCase()}`);
+      const existingStore = nodeMap.get(storeId);
+      if (!existingStore) {
+        const store = semanticNode({ kind: "store", filePath: item.targetEntry.path, startByte: operationSpan.startByte, key: `node-http-store:${operation.table}`,
+          label: humanLabel(operation.table), featureId: feature.id, confidence: "indicated",
+          reason: `Operasi ${operation.operation} menyebut tabel literal melalui pola receiver database, tetapi binding store tidak diverifikasi.`,
+          evidence: [operationSpan], technicalNodeIds: technicalNodesForSpan(input.ccm.nodes, item.targetEntry.path, operationSpan.startByte, operationSpan.endByte) });
+        store.id = storeId;
+        nodeMap.set(storeId, store); feature.nodeIds.push(storeId);
+      } else {
+        existingStore.evidence = compactEvidence([...existingStore.evidence, operationSpan]);
+        if (existingStore.featureId !== feature.id) existingStore.featureId = null;
+      }
+      const label = /^(?:find|select|count|aggregate|list|get|all|query)/iu.test(operation.operation) ? "membaca" : /^(?:delete|remove)/iu.test(operation.operation) ? "menghapus" : /^(?:update|upsert)/iu.test(operation.operation) ? "mengubah" : "menyimpan";
+      const storeEdge = { id: semanticEdgeId(item.targetEntry.path, operationSpan.startByte, `node-http:service-store:${serviceId}:${storeId}:${operation.operation}`),
+        source: serviceId, target: storeId, label, confidence: "indicated", reason: "Operasi store langsung berada di dalam fungsi yang dipanggil oleh route handler; receiver database belum diverifikasi dan helper lanjutan tidak ditelusuri.",
+        evidence: [operationSpan, ...callConditions(item.targetEntry, operationCall, targetBody)] } satisfies SemanticEdge;
+      addEdge(fragment, feature, storeEdge);
+    }
+  }
+}
+
 /** Extract only explicit method/path guards from a small Node HTTP handler shape. */
 export function extractNodeHttp(input: SemanticInput): SemanticFragment {
   const fragment = emptyFragment();
   const featureMap = new Map<string, SemanticFeature>();
   const nodeMap = new Map<string, SemanticNode>();
   const seenRouteKeys = new Set<string>();
-  for (const [path, bytes] of Object.entries(input.sources).sort(([a], [b]) => a.localeCompare(b))) {
-    if (!SOURCE_EXTENSIONS.test(path) || /(^|\/)(node_modules|vendor|dist|build|coverage|tests?|fixtures?)(\/|$)/iu.test(path)) continue;
+  const entries = Object.entries(input.sources).sort(([a], [b]) => a.localeCompare(b)).flatMap(([path, bytes]) => {
+    if (!SOURCE_EXTENSIONS.test(path) || /(^|\/)(node_modules|vendor|dist|build|coverage|tests?|fixtures?)(\/|$)/iu.test(path)) return [];
     const text = new TextDecoder().decode(bytes);
-    const source = ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(path));
-    const entry = { path, bytes, source };
+    return [{ path, bytes, source: ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(path)) }];
+  });
+  const entriesByPath = new Map(entries.map(entry => [entry.path, entry]));
+  for (const entry of entries) {
+    const { path, source } = entry;
     for (const handler of handlerFunctions(source)) {
       const routes = collectRoutes(handler);
       if (!routes.length) {
         fragment.limitations.push({ filePath: path, reason: "Node HTTP handler detected, but no static method and path guard was recognized; dynamic dispatch is not inferred." });
         continue;
       }
-      fragment.limitations.push({ filePath: path, reason: "Only direct route guards in the named HTTP handler are extracted; nested route composition, runtime mounting, and reachability are not verified." });
+      fragment.limitations.push({ filePath: path, reason: "Method/path guard chains in the named HTTP handler are extracted; runtime mounting and framework-level reachability are not verified." });
       for (const route of routes) {
         const routeKey = `${path}\0${route.method}\0${route.path}\0${route.evidenceNode.getStart(source)}`;
         if (seenRouteKeys.has(routeKey)) continue;
         seenRouteKeys.add(routeKey);
         const routeSpan = nodeEvidence(entry, route.evidenceNode);
+        const routeEvidence = compactEvidence(route.evidenceNodes.map(node => nodeEvidence(entry, node)));
         const feature = featureFor(route);
         let featureModel = featureMap.get(feature.id);
         if (!featureModel) {
           featureModel = { ...feature, entryNodeIds: [], nodeIds: [], edgeIds: [], evidence: [] };
           featureMap.set(feature.id, featureModel);
           const featureNode = semanticNode({ kind: "feature", filePath: path, startByte: routeSpan.startByte, key: feature.id, label: feature.label, featureId: null,
-            confidence: "indicated", reason: "Kelompok fitur diringkas dari kandidat path; registrasi handler belum diverifikasi.", evidence: [routeSpan] });
+            confidence: "indicated", reason: "Kelompok fitur diringkas dari kandidat path; registrasi handler belum diverifikasi.", evidence: routeEvidence });
           featureNode.id = feature.id;
           nodeMap.set(featureNode.id, featureNode);
           featureModel.nodeIds.push(featureNode.id);
         }
-        featureModel.evidence = compactEvidence([...featureModel.evidence, routeSpan]);
+        featureModel.evidence = compactEvidence([...featureModel.evidence, ...routeEvidence]);
 
         const routeLabel = `${route.method} ${route.path}`;
         const routeId = semanticId("step", path, routeSpan.startByte, `node-http:${routeLabel}`);
         const routeNode = semanticNode({ kind: "step", filePath: path, startByte: routeSpan.startByte, key: routeLabel, label: routeLabel,
-          featureId: featureModel.id, confidence: "indicated", reason: "Method dan path match guard ditemukan pada handler bernama; runtime mounting dan reachability aplikasi belum diverifikasi.", evidence: [routeSpan],
-          technicalNodeIds: technicalNodesForSpan(input.ccm.nodes, path, routeSpan.startByte, routeSpan.endByte) });
+          featureId: featureModel.id, confidence: "indicated", reason: "Method dan path guard ditemukan pada handler bernama; runtime mounting dan reachability aplikasi belum diverifikasi.", evidence: routeEvidence,
+          technicalNodeIds: [...new Set(routeEvidence.flatMap(span => technicalNodesForSpan(input.ccm.nodes, span.filePath, span.startByte, span.endByte)))] });
         routeNode.id = routeId;
         routeNode.label = routeLabel;
         nodeMap.set(routeId, routeNode);
         featureModel.entryNodeIds.push(routeId);
         featureModel.nodeIds.push(routeId);
         const featureEdge = { id: semanticEdgeId(path, routeSpan.startByte, `node-http:feature:${featureModel.id}:${routeId}`), source: featureModel.nodeIds.find(id => nodeMap.get(id)?.kind === "feature")!, target: routeId,
-          label: "includes endpoint", confidence: "indicated", reason: "Endpoint dikelompokkan berdasarkan literal route path.", evidence: [routeSpan] } satisfies SemanticEdge;
+          label: "includes endpoint", confidence: "indicated", reason: "Endpoint dikelompokkan berdasarkan literal route path.", evidence: routeEvidence } satisfies SemanticEdge;
         addEdge(fragment, featureModel, featureEdge);
+        addExactCrossFileEffects(fragment, input, entriesByPath, entry, handler, route, routeId, routeEvidence, featureModel, nodeMap);
 
         const body = route.body;
         const visitDecisions = (node: ts.Node) => {

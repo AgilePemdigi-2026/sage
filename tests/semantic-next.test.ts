@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import type { CcmV1 } from "@sage/contracts";
+import type { CcmNode, CcmV1 } from "@sage/contracts";
 import { buildSemanticModel } from "../packages/documents/src/semantic/build.ts";
 import { emptyFragment, evidenceSpan, humanLabel } from "../packages/documents/src/semantic/builder.ts";
 import { extractNext } from "../packages/documents/src/semantic/next.ts";
@@ -20,6 +20,23 @@ function input(sources: Record<string, string>) {
     nodes: [], edges: [], limitations: [],
   } as unknown as CcmV1;
   return { ccm, sourceCkgHash: "d".repeat(64), sources: encoded };
+}
+
+function addExactFunctionCall(inputValue: ReturnType<typeof input>, sourcePath: string, sourceStart: string, sourceName: string,
+  targetPath: string, targetStart: string, targetName: string, callName = targetName): void {
+  const declarationNode = (id: string, path: string, source: string, startMarker: string, name: string): CcmNode => {
+    const start = source.indexOf(startMarker), close = source.indexOf("\n}", start), end = close < 0 ? source.length : close + 2;
+    return { id, kind: "Function", name, qualifiedName: name, language: "typescript", filePath: path,
+      location: evidenceSpan(path, inputValue.sources[path]!, start, end, "declaration"), parentId: null, origin: "source", signature: null, attributes: {} };
+  };
+  const source = new TextDecoder().decode(inputValue.sources[sourcePath]!);
+  const target = new TextDecoder().decode(inputValue.sources[targetPath]!);
+  const sourceNode = declarationNode(`function:${sourceName}`, sourcePath, source, sourceStart, sourceName);
+  const targetNode = declarationNode(`function:${targetName}`, targetPath, target, targetStart, targetName);
+  const callAt = source.indexOf(callName, source.indexOf(sourceStart));
+  inputValue.ccm.nodes.push(sourceNode, targetNode);
+  inputValue.ccm.edges.push({ id: `call:${sourceName}:${targetName}`, sourceId: sourceNode.id, targetId: targetNode.id, kind: "CALLS", resolution: "Exact",
+    evidence: [evidenceSpan(sourcePath, inputValue.sources[sourcePath]!, callAt, callAt + callName.length, "reference")], unresolvedReason: null });
 }
 
 function pinnedSageSources(paths: string[]): Record<string, string> {
@@ -419,6 +436,95 @@ test("wrapper callbacks stay indicated while statically returned factory handler
   assert.ok(result.edges.some(edge => edge.source === delegated.id && edge.label === "membaca"));
 });
 
+test("Next expands one uniquely exact cross-file call and assigns a helper write to its writer", () => {
+  const sources = {
+    "src/app/api/submissions/route.ts": [
+      'import { persistSubmission } from "../../../lib/submission-service";',
+      "export async function POST() {",
+      "  await persistSubmission();",
+      '  return Response.json({ ok: true });',
+      "}",
+    ].join("\n"),
+    "src/lib/submission-service.ts": [
+      "export async function persistSubmission() {",
+      "  await prisma.submission.create({ data: {} });",
+      "}",
+    ].join("\n"),
+  };
+  const fixture = input(sources);
+  addExactFunctionCall(fixture, "src/app/api/submissions/route.ts", "export async function POST", "POST",
+    "src/lib/submission-service.ts", "export async function persistSubmission", "persistSubmission");
+  const result = extractNext(fixture);
+  const caller = result.nodes.find(node => node.kind === "component" && node.label === "POST API");
+  const service = result.nodes.find(node => node.kind === "component" && node.label === "Persist Submission");
+  const store = result.nodes.find(node => node.kind === "store" && node.label === "Submission");
+  assert.ok(caller, result.nodes.filter(node => node.kind === "component").map(node => node.label).join(", "));
+  assert.ok(service, result.nodes.filter(node => node.kind === "component").map(node => node.label).join(", "));
+  assert.ok(store, result.nodes.filter(node => node.kind === "store").map(node => node.label).join(", "));
+  const invocation = result.edges.find(edge => edge.source === caller.id && edge.target === service.id && edge.label === "memanggil fungsi");
+  assert.ok(invocation);
+  assert.ok(invocation.evidence.some(span => span.filePath === "src/app/api/submissions/route.ts" && span.role === "reference"));
+  assert.ok(invocation.evidence.some(span => span.filePath === "src/lib/submission-service.ts" && span.role === "declaration"));
+  assert.ok(result.edges.some(edge => edge.source === service.id && edge.target === store.id && edge.label === "menyimpan"),
+    "the called helper that performs the ORM call owns the store edge");
+  assert.equal(result.edges.some(edge => edge.source === caller.id && edge.target === store.id && edge.label === "menyimpan"), false,
+    "the route caller is not assigned the helper's write");
+});
+
+test("Next omits uncalled or unreachable cross-file calls and helper writes", () => {
+  const target = "src/lib/submission-service.ts";
+  const helper = [
+    "export async function persistSubmission() {",
+    "  await prisma.submission.create({ data: {} });",
+    "}",
+  ].join("\n");
+  const handlers = [
+    ["callback", [
+      'import { persistSubmission } from "../../../lib/submission-service";',
+      "export async function POST() {",
+      "  const unused = () => persistSubmission();",
+      '  return Response.json({ ok: true });',
+      "}",
+    ].join("\n")],
+    ["false", [
+      'import { persistSubmission } from "../../../lib/submission-service";',
+      "export async function POST() {",
+      "  if (false) await persistSubmission();",
+      '  return Response.json({ ok: true });',
+      "}",
+    ].join("\n")],
+  ] as const;
+  for (const [caseName, route] of handlers) {
+    const fixture = input({ "src/app/api/submissions/route.ts": route, [target]: helper });
+    addExactFunctionCall(fixture, "src/app/api/submissions/route.ts", "export async function POST", "POST",
+      target, "export async function persistSubmission", "persistSubmission");
+    const result = extractNext(fixture);
+    assert.equal(result.nodes.some(node => node.kind === "component" && node.label === "Persist Submission"), false, caseName);
+    assert.equal(result.nodes.some(node => node.kind === "store" && node.label === "Submission"), false, caseName);
+  }
+
+  const deadHelperFixture = input({
+    "src/app/api/submissions/route.ts": [
+      'import { persistSubmission } from "../../../lib/submission-service";',
+      "export async function POST() {",
+      "  await persistSubmission();",
+      '  return Response.json({ ok: true });',
+      "}",
+    ].join("\n"),
+    [target]: [
+      "export async function persistSubmission() {",
+      "  if (true) { return; }",
+      "  await prisma.submission.create({ data: {} });",
+      "}",
+    ].join("\n"),
+  });
+  addExactFunctionCall(deadHelperFixture, "src/app/api/submissions/route.ts", "export async function POST", "POST",
+    target, "export async function persistSubmission", "persistSubmission");
+  const deadHelperResult = extractNext(deadHelperFixture);
+  assert.equal(deadHelperResult.nodes.some(node => node.kind === "store" && node.label === "Submission"), false,
+    "a helper write after a literal unconditional return is unreachable");
+});
+
 test("relative imports cannot escape the source snapshot and resolve a root-level lookalike", () => {
   const result = extractNext(input({
     "src/app/api/books/route.ts": 'import { handlers } from "../../../../../outside"; export const GET = handlers.list;',
@@ -672,7 +778,7 @@ test("semantic model merges extractors deterministically without treating import
   });
   const first = buildSemanticModel(fixture);
   const second = buildSemanticModel(fixture);
-  assert.equal(first.schemaVersion, "sage-semantic-v1");
+  assert.equal(first.schemaVersion, "sage-semantic-v2");
   assert.deepEqual(first, second);
   assert.equal(isSemanticModel(first), true);
   assert.equal(first.nodes.some(node => node.label === "Helper" && node.kind === "step"), false);

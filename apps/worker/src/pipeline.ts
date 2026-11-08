@@ -242,7 +242,7 @@ async function publishFromStages(
       !sameJson(documentArtifact.document, document.value) || !sameJson(documentArtifact.context, documentContext(context))) {
     throw new Error("Trusted architecture-document output does not match its canonical graph.");
   }
-  const semanticModel = buildSemanticModel({ ccm: graph.value.ccm, sourceCkgHash: graph.sha256, sources: bytes });
+  const semanticModel = buildSemanticModel({ ccm: graph.value.ccm, sourceCkgHash: graph.sha256, sources: bytes, documentationSources: bytes, snapshotPaths: Object.keys(bytes) });
   signal.throwIfAborted();
   return publishAnalysisResult(db, {
     claim,

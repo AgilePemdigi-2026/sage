@@ -33,11 +33,11 @@ const graph=canonicalizeCkg(analyzed.ccm,sources,"c".repeat(64));if(!graph.ok)th
 const sourceMs=performance.now()-started;
 const semanticStarted=performance.now();
 console.log(JSON.stringify({phase:"semantic-model",repository:spec.repository}));
-const model=buildSemanticModel({ccm:analyzed.ccm,sourceCkgHash:graph.sha256,sources});
+const model=buildSemanticModel({ccm:analyzed.ccm,sourceCkgHash:graph.sha256,sources,documentationSources:sources,snapshotPaths:Object.keys(sources)});
 const semanticMs=performance.now()-semanticStarted;
 await writeFile(join(output,`${spec.repository.split("/").at(-1)}-candidate.json`),JSON.stringify(model),{mode:0o600});
 if(!isSemanticModel(model,{sourceCkgHash:graph.sha256,snapshot:analyzed.ccm.snapshot,ckgNodeIds:new Set(analyzed.ccm.nodes.map(n=>n.id)),fileHashes:new Map(analyzed.ccm.files.map(f=>[f.path,f.sha256]))}))throw new Error("Semantic model validation failed");
-const replay=buildSemanticModel({ccm:analyzed.ccm,sourceCkgHash:graph.sha256,sources:Object.fromEntries(Object.entries(sources).reverse())});
+const replay=buildSemanticModel({ccm:analyzed.ccm,sourceCkgHash:graph.sha256,sources:Object.fromEntries(Object.entries(sources).reverse()),documentationSources:Object.fromEntries(Object.entries(sources).reverse()),snapshotPaths:Object.keys(sources).reverse()});
 if(semanticModelHash(replay)!==semanticModelHash(model))throw new Error("Semantic extraction is not deterministic");
 // Every emitted evidence span must refer to the actual bytes, not just a valid-looking path.
 for(const span of [...model.nodes.flatMap(n=>n.evidence),...model.edges.flatMap(e=>e.evidence),...model.features.flatMap(f=>f.evidence)]){
@@ -75,7 +75,7 @@ if (process.env.SAGE_SEMANTIC_RENDER === "1") {
 }
 let containerPeak:string|null=null;try{containerPeak=(await readFile("/sys/fs/cgroup/memory.peak","utf8")).trim();}catch{}
 const coverageComplete=matching.every((flow:{expectedPaths:string[];coveredPaths:string[]})=>flow.expectedPaths.length===flow.coveredPaths.length);
-const report={runtime:{node:process.version,platform:process.platform,architecture:process.arch},status:!coverageComplete ? "FAIL_SOURCE_COVERAGE" : exportFailure ? "FAIL_EXPORT" : "PASS",sourceStatus:coverageComplete?"PASS":"FAIL_SOURCE_COVERAGE",exportMetrics,scope:"Pinned source extraction, deterministic replay and byte/hash evidence validation; flow coverage below is not a human semantic correctness signoff",repository:spec.repository,commit:spec.commit,sourceFiles:files.length,sourceBytes:files.reduce((s,f)=>s+f.byteLength,0),sourceMs,semanticMs,processPeakRssBytes:process.resourceUsage().maxRSS*1024,containerPeakChargedBytes:containerPeak?Number(containerPeak):null,semanticBytes:Buffer.byteLength(json),modelHash:semanticModelHash(model),features:model.features.length,nodes:model.nodes.length,edges:model.edges.length,provenEdges:model.edges.filter(e=>e.confidence==="proven").length,indicatedEdges:model.edges.filter(e=>e.confidence==="indicated").length,limitations:model.limitations.length,flowCoverage:matching};
+const report={runtime:{node:process.version,platform:process.platform,architecture:process.arch},status:!coverageComplete ? "FAIL_SOURCE_COVERAGE" : exportFailure ? "FAIL_EXPORT" : "PASS",sourceStatus:coverageComplete?"PASS":"FAIL_SOURCE_COVERAGE",exportMetrics,scope:"Pinned source extraction, deterministic replay and byte/hash evidence validation; flow coverage below is not a human semantic correctness signoff",repository:spec.repository,commit:spec.commit,sourceFiles:files.length,sourceBytes:files.reduce((s,f)=>s+f.byteLength,0),sourceMs,semanticMs,processPeakRssBytes:process.resourceUsage().maxRSS*1024,containerPeakChargedBytes:containerPeak?Number(containerPeak):null,semanticBytes:Buffer.byteLength(json),modelHash:semanticModelHash(model),documentationCoverage:model.documentation?.coverage,documentationReferences:model.documentation?.references.length,features:model.features.length,nodes:model.nodes.length,edges:model.edges.length,provenEdges:model.edges.filter(e=>e.confidence==="proven").length,indicatedEdges:model.edges.filter(e=>e.confidence==="indicated").length,limitations:model.limitations.length,flowCoverage:matching};
 await writeFile(reportPath,JSON.stringify(report,null,2),{flag:"wx"});
 console.log(JSON.stringify(report));
 if(!coverageComplete||exportFailure)process.exitCode=1;
