@@ -7,7 +7,7 @@
 | Area | Result | Evidence and scope |
 | --- | --- | --- |
 | GitHub OAuth | PASS | A fresh local sign-in completed through GitHub and returned to the SAGE workspace as `@iltizamhasan3`; the workspace displayed the expected session expiry. No password or verification code was entered during this run. |
-| Playwright provider routes | PASS | `npm run test:provider:playwright` used Playwright `APIRequestContext` against the running local Next routes and the existing real GitHub authorization. Report: ignored local file `artifacts/gh-02/provider-playwright/report.json`. |
+| Playwright provider routes | PASS | `npm run test:provider:playwright` used Playwright `APIRequestContext` against the running local Next routes and the existing real GitHub authorization. Sanitized run report: [qa-02-provider-playwright-2026-11-08.json](evidence/qa-02-provider-playwright-2026-11-08.json). |
 | Session and account boundary | PASS | The temporary session resolved the authenticated account; own public repository metadata was returned, anonymous access and a mismatched account header were rejected. |
 | Installation access | PASS | GitHub installation list and authorized repository metadata returned through the real provider; unauthenticated installation access was rejected. |
 | Public repository and target | PASS | `octocat/Hello-World` resolved as public. Branch HEAD and an explicit commit prefix resolved to the same full 40-character SHA. Cross-origin, non-GitHub target, and malformed commit were rejected. |
