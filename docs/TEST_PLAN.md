@@ -101,6 +101,10 @@ T-UI-02 memeriksa enam layar pada 360/390/768/1024/1440 px, aset SVG lokal, penc
 
 Rincian hasil terbaru, matriks fitur, batas OAuth/fixture/pipeline dan perintah Docker: [QA-04-S1 checks](QA-04-S1_CHECKS.md). Paket QA-04-S1 tidak menutup QA-03/QA-02 atau T-REL-01 penuh.
 
+### QA-02 fresh OAuth/provider follow-up — 8 November 2026
+
+Login GitHub lokal berhasil dan `npm run test:provider:playwright` lulus terhadap route Next serta provider nyata untuk daftar instalasi, metadata repository, resolusi target public, branch/commit, dan batas request. Private fixture tidak disediakan; run analisis penuh dan release Docker belum dilakukan. [Rincian hasil dan batas](QA-02_CHECKS.md).
+
 ## GH-03-S1 — Daftar public dan pergantian akun
 
 `npm run test:accounts:ui` menggunakan dua identitas disposable untuk memeriksa sesi/identity endpoint nyata, penolakan header akun lama sebelum provider, dan tab terbuka yang cookie-nya berubah. Metadata repository/branch pada browser dikontrol dan diberi label; unit provider memeriksa pemilik/public filtering serta pagination. Target UI memeriksa daftar public tanpa instalasi, muat berikutnya, retry dan pemilihan branch. [Bukti dan batas](GH-03-S1_CHECKS.md).
