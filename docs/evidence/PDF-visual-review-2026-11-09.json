@@ -3,7 +3,7 @@
   "status": "PASS",
   "rendererVersion": "2.4.0",
   "source": {
-    "applicationCommit": "feb42d5f7dab5afe26dc33018af4963d0e6f2e17",
+    "applicationCommit": "7b3fa3d1bc97754cb787a6c90e663f745f7f41ec",
     "repository": "iltizamhasan3/sistem-informasi-perpus",
     "repositoryCommit": "d72c3532a7d59cab242fb705ab201cf99ef35e88",
     "preparedFiles": 89
@@ -13,8 +13,8 @@
     "document": "Architecture Definition Document with Interface Catalog, Software Engineering Diagram, per-flow detail, analysis notes, and UML Class Diagram"
   },
   "pdf": {
-    "sha256": "2fc16afbfe44a8f526e5a971995d86d6f620e9ca491eead6d6b4e3f144e97413",
-    "bytes": 2572091,
+    "sha256": "28da9140a7a3771d86360cedba0035caac910a35cce9ee3e671e06f345b84a1c",
+    "bytes": 2572094,
     "pageCount": 88,
     "pageSize": "A4 landscape"
   },

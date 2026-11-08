@@ -107,15 +107,16 @@
     "typecheck": "PASS",
     "lint": "PASS with 3 existing React Hooks warnings in semantic-workspace.tsx",
     "productionDockerBuild": "PASS; production Next.js build completed on 6174452423da75f8090d98ef63a87bef23f5cb80",
-    "verifiedSourceCommit": "feb42d5f7dab5afe26dc33018af4963d0e6f2e17"
+    "verifiedSourceCommit": "7b3fa3d1bc97754cb787a6c90e663f745f7f41ec",
+    "nodeHttpRegistrationRegression": "PASS; rejects direct, destructuring, cast, and captured-closure rebinding of callback request/response parameters; property mutation remains accepted"
   },
   "finalPdfVisualReview": {
     "status": "PASS",
     "evidence": "docs/evidence/PDF-visual-review-2026-11-09.json",
     "rendererVersion": "2.4.0",
     "presentationOverlay": "default; no sample correction applied",
-    "outputBytes": 2572091,
-    "sha256": "2fc16afbfe44a8f526e5a971995d86d6f620e9ca491eead6d6b4e3f144e97413",
+    "outputBytes": 2572094,
+    "sha256": "28da9140a7a3771d86360cedba0035caac910a35cce9ee3e671e06f345b84a1c",
     "pages": 88,
     "pageSize": "A4 landscape",
     "inspection": "All 88 pages reviewed via contact sheets; pages 1, 5, 7, 53, 72, 87, and 88 inspected at full resolution; no clipping or overlap observed",
