@@ -200,6 +200,34 @@ async function handleRequest(request: Request, response: Response) {
     "a store call after an unconditional return in the helper is unreachable");
 });
 
+test("Node HTTP omits false-loop calls and writes in unreachable for-loop increments", () => {
+  const routePath = ROUTES, servicePath = "src/services/catalog.ts";
+  const source = fixture({
+    [routePath]: `
+function pathParts(request: Request) { return new URL(request.url).pathname.split("/").filter(Boolean); }
+async function handleRequest(request: Request, response: Response) {
+  const method = request.method;
+  const parts = pathParts(request);
+  if (method === "POST" && parts.length === 2 && parts[0] === "api" && parts[1] === "catalog") {
+    while (false) await writeCatalog();
+    await writeCatalog();
+    return response.end();
+  }
+}
+`,
+    [servicePath]: `export async function writeCatalog() {
+  for (; true; await db.catalog.create({})) { return; }
+}`,
+  });
+  addExactCall(source, routePath, "async function handleRequest", "handleRequest", servicePath, "export async function writeCatalog", "writeCatalog", 0);
+  addExactCall(source, routePath, "async function handleRequest", "handleRequest", servicePath, "export async function writeCatalog", "writeCatalog", 1);
+  const result = extractNodeHttp(source);
+  assert.ok(result.nodes.some(node => node.kind === "component" && node.label === "Write Catalog"),
+    "the direct call after the false loop is still followed");
+  assert.equal(result.nodes.some(node => node.kind === "store" && node.label === "Catalog"), false,
+    "the service write in a for-loop increment is unreachable because its body returns");
+});
+
 test("Node HTTP ignores unsupported dynamic dispatch and reports the limitation", () => {
   const input = fixture(`
 function pathParts(request: Request) { return new URL(request.url).pathname.split("/").filter(Boolean); }

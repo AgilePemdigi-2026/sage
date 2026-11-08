@@ -345,6 +345,45 @@ function visitExecutable(root: ts.Node, visit: (node: ts.Node) => void): void {
 function visitHandlerFlow(root: ts.Node, confidence: "proven" | "indicated", visit: (node: ts.Node, confidence: "proven" | "indicated") => void): void {
   const walk = (node: ts.Node, currentConfidence: "proven" | "indicated") => {
     visit(node, currentConfidence);
+    if (ts.isIfStatement(node)) {
+      walk(node.expression, currentConfidence);
+      const condition = literalBoolean(node.expression);
+      if (condition === true) walk(node.thenStatement, currentConfidence);
+      else if (condition === false) { if (node.elseStatement) walk(node.elseStatement, currentConfidence); }
+      else {
+        walk(node.thenStatement, currentConfidence);
+        if (node.elseStatement) walk(node.elseStatement, currentConfidence);
+      }
+      return;
+    }
+    if (ts.isConditionalExpression(node)) {
+      walk(node.condition, currentConfidence);
+      const condition = literalBoolean(node.condition);
+      if (condition === true) walk(node.whenTrue, currentConfidence);
+      else if (condition === false) walk(node.whenFalse, currentConfidence);
+      else { walk(node.whenTrue, currentConfidence); walk(node.whenFalse, currentConfidence); }
+      return;
+    }
+    if (ts.isBinaryExpression(node) && (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken || node.operatorToken.kind === ts.SyntaxKind.BarBarToken)) {
+      walk(node.left, currentConfidence);
+      const left = literalBoolean(node.left);
+      if (!(node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken && left === false ||
+        node.operatorToken.kind === ts.SyntaxKind.BarBarToken && left === true)) walk(node.right, currentConfidence);
+      return;
+    }
+    if (ts.isWhileStatement(node)) {
+      walk(node.expression, currentConfidence);
+      if (literalBoolean(node.expression) !== false) walk(node.statement, currentConfidence);
+      return;
+    }
+    if (ts.isForStatement(node)) {
+      if (node.initializer) walk(node.initializer, currentConfidence);
+      if (node.condition) walk(node.condition, currentConfidence);
+      if (node.condition && literalBoolean(node.condition) === false) return;
+      walk(node.statement, currentConfidence);
+      if (node.incrementor && !statementAlwaysExits(node.statement)) walk(node.incrementor, currentConfidence);
+      return;
+    }
     ts.forEachChild(node, child => {
       if (isCallableBoundary(child)) {
         const passedToCall = (ts.isArrowFunction(child) || ts.isFunctionExpression(child)) && ts.isCallExpression(node) && node.arguments.some(argument => unwrap(argument) === child);
@@ -2155,6 +2194,14 @@ function directReachableCallSites(handler: ts.FunctionLikeDeclaration): ts.CallE
       scan(node.right);
       return;
     }
+    if (ts.isConditionalExpression(node)) {
+      scan(node.condition);
+      const condition = literalBoolean(node.condition);
+      if (condition === true) scan(node.whenTrue);
+      else if (condition === false) scan(node.whenFalse);
+      else { scan(node.whenTrue); scan(node.whenFalse); }
+      return;
+    }
     ts.forEachChild(node, scan);
   };
   const scanStatement = (statement: ts.Statement): boolean => {
@@ -2172,6 +2219,19 @@ function directReachableCallSites(handler: ts.FunctionLikeDeclaration): ts.CallE
       const thenExits = scanStatement(statement.thenStatement);
       const elseExits = statement.elseStatement ? scanStatement(statement.elseStatement) : false;
       return thenExits && elseExits;
+    }
+    if (ts.isWhileStatement(statement)) {
+      scan(statement.expression);
+      if (literalBoolean(statement.expression) !== false) scanStatement(statement.statement);
+      return false;
+    }
+    if (ts.isForStatement(statement)) {
+      if (statement.initializer) scan(statement.initializer);
+      if (statement.condition) scan(statement.condition);
+      if (statement.condition && literalBoolean(statement.condition) === false) return false;
+      const bodyExits = scanStatement(statement.statement);
+      if (statement.incrementor && !bodyExits) scan(statement.incrementor);
+      return false;
     }
     if (ts.isTryStatement(statement)) {
       const tryExits = scanStatement(statement.tryBlock);
@@ -2201,15 +2261,13 @@ function exactCallableNodeForAst(input: SemanticInput, entry: SourceEntry, handl
 
 function astCallableForCcmNode(entry: SourceEntry, target: CcmNode): ts.FunctionLikeDeclaration | null {
   if (!target.location || target.filePath !== entry.path) return null;
-  const start = new TextDecoder().decode(entry.bytes.subarray(0, target.location.startByte)).length;
-  const end = new TextDecoder().decode(entry.bytes.subarray(0, target.location.endByte)).length;
   const matches: ts.FunctionLikeDeclaration[] = [];
   const visit = (node: ts.Node) => {
     if ((ts.isFunctionDeclaration(node) && node.name?.text === target.name) ||
       (ts.isMethodDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === target.name)) {
       const nodeStart = new TextEncoder().encode(entry.text.slice(0, node.getStart(entry.file))).byteLength;
       const nodeEnd = new TextEncoder().encode(entry.text.slice(0, node.end)).byteLength;
-      if (nodeStart <= end && nodeEnd >= start) matches.push(node as ts.FunctionLikeDeclaration);
+      if (nodeStart <= target.location!.endByte && nodeEnd >= target.location!.startByte) matches.push(node as ts.FunctionLikeDeclaration);
     }
     ts.forEachChild(node, visit);
   };

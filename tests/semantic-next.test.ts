@@ -471,6 +471,30 @@ test("Next expands one uniquely exact cross-file call and assigns a helper write
     "the route caller is not assigned the helper's write");
 });
 
+test("Next resolves cross-file targets after Unicode prefixes using UTF-8 source offsets", () => {
+  const routePath = "src/app/api/submissions/route.ts", target = "src/lib/submission-service.ts";
+  const fixture = input({
+    [routePath]: [
+      "export async function POST() {",
+      "  await persistSubmission();",
+      '  return Response.json({ ok: true });',
+      "}",
+    ].join("\n"),
+    [target]: [
+      "//" + "漢".repeat(200),
+      "export async function persistSubmission() {",
+      "  await prisma.submission.create({ data: {} });",
+      "}",
+    ].join("\n"),
+  });
+  addExactFunctionCall(fixture, routePath, "export async function POST", "POST", target, "export async function persistSubmission", "persistSubmission");
+  const result = extractNext(fixture);
+  assert.ok(result.nodes.some(node => node.kind === "component" && node.label === "Persist Submission"),
+    "the CKG byte range still maps to the target function after a multibyte UTF-8 prefix");
+  assert.ok(result.nodes.some(node => node.kind === "store" && node.label === "Submission"),
+    "the resolved target's direct write remains attributed to its helper");
+});
+
 test("Next omits uncalled or unreachable cross-file calls and helper writes", () => {
   const target = "src/lib/submission-service.ts";
   const helper = [
@@ -491,6 +515,26 @@ test("Next omits uncalled or unreachable cross-file calls and helper writes", ()
       "export async function POST() {",
       "  if (false) await persistSubmission();",
       '  return Response.json({ ok: true });',
+      "}",
+    ].join("\n")],
+    ["false ternary", [
+      'import { persistSubmission } from "../../../lib/submission-service";',
+      "export async function POST() {",
+      "  false ? await persistSubmission() : null;",
+      '  return Response.json({ ok: true });',
+      "}",
+    ].join("\n")],
+    ["false loop", [
+      'import { persistSubmission } from "../../../lib/submission-service";',
+      "export async function POST() {",
+      "  while (false) { await persistSubmission(); }",
+      '  return Response.json({ ok: true });',
+      "}",
+    ].join("\n")],
+    ["unreachable for increment", [
+      'import { persistSubmission } from "../../../lib/submission-service";',
+      "export async function POST() {",
+      '  for (; true; await persistSubmission()) { return Response.json({ ok: true }); }',
       "}",
     ].join("\n")],
   ] as const;
@@ -523,6 +567,44 @@ test("Next omits uncalled or unreachable cross-file calls and helper writes", ()
   const deadHelperResult = extractNext(deadHelperFixture);
   assert.equal(deadHelperResult.nodes.some(node => node.kind === "store" && node.label === "Submission"), false,
     "a helper write after a literal unconditional return is unreachable");
+
+  const falseLoopHelperFixture = input({
+    "src/app/api/submissions/route.ts": [
+      "export async function POST() {",
+      "  await persistSubmission();",
+      '  return Response.json({ ok: true });',
+      "}",
+    ].join("\n"),
+    [target]: [
+      "export async function persistSubmission() {",
+      "  while (false) { await prisma.submission.create({ data: {} }); }",
+      "}",
+    ].join("\n"),
+  });
+  addExactFunctionCall(falseLoopHelperFixture, "src/app/api/submissions/route.ts", "export async function POST", "POST",
+    target, "export async function persistSubmission", "persistSubmission");
+  const falseLoopHelperResult = extractNext(falseLoopHelperFixture);
+  assert.equal(falseLoopHelperResult.nodes.some(node => node.kind === "store" && node.label === "Submission"), false,
+    "a cross-file helper write inside a literal false loop is unreachable");
+
+  const unreachableIncrementFixture = input({
+    "src/app/api/submissions/route.ts": [
+      "export async function POST() {",
+      "  await persistSubmission();",
+      '  return Response.json({ ok: true });',
+      "}",
+    ].join("\n"),
+    [target]: [
+      "export async function persistSubmission() {",
+      '  for (; true; await prisma.submission.create({ data: {} })) { return; }',
+      "}",
+    ].join("\n"),
+  });
+  addExactFunctionCall(unreachableIncrementFixture, "src/app/api/submissions/route.ts", "export async function POST", "POST",
+    target, "export async function persistSubmission", "persistSubmission");
+  const unreachableIncrementResult = extractNext(unreachableIncrementFixture);
+  assert.equal(unreachableIncrementResult.nodes.some(node => node.kind === "store" && node.label === "Submission"), false,
+    "a loop increment write is unreachable when every iteration returns from the body");
 });
 
 test("relative imports cannot escape the source snapshot and resolve a root-level lookalike", () => {

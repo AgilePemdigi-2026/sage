@@ -406,6 +406,19 @@ function directReachableCalls(root: ts.Node): ts.CallExpression[] {
       const elseExits = statement.elseStatement ? scanStatement(statement.elseStatement) : false;
       return thenExits && elseExits;
     }
+    if (ts.isWhileStatement(statement)) {
+      scanNode(statement.expression);
+      if (literalBoolean(statement.expression) !== false) scanStatement(statement.statement);
+      return false;
+    }
+    if (ts.isForStatement(statement)) {
+      if (statement.initializer) scanNode(statement.initializer);
+      if (statement.condition) scanNode(statement.condition);
+      if (statement.condition && literalBoolean(statement.condition) === false) return false;
+      const bodyExits = scanStatement(statement.statement);
+      if (statement.incrementor && !bodyExits) scanNode(statement.incrementor);
+      return false;
+    }
     if (ts.isTryStatement(statement)) {
       const tryExits = scanStatement(statement.tryBlock);
       const catchExits = statement.catchClause ? scanStatement(statement.catchClause.block) : false;

@@ -13,7 +13,7 @@
       "command": "npm run check",
       "status": "PASS",
       "main": {
-        "passed": 529,
+        "passed": 532,
         "skipped": 2,
         "failed": 0
       },
@@ -137,5 +137,11 @@
       "documentationReferences": 775,
       "evidenceSpansChecked": 6459
     }
+  ],
+  "reviewRegressions": [
+    "UTF-8 byte offsets for resolved cross-file targets",
+    "Literal false ternaries and loops, including helper effects",
+    "Unreachable for-loop increments after exiting bodies",
+    "Separate Markdown inventory and unavailable manifest coverage"
   ]
 }

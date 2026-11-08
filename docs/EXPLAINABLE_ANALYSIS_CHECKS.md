@@ -6,7 +6,7 @@ Scope: [semantic v2 and static documentation context](EXPLAINABLE_ANALYSIS.md), 
 
 | Check | Actual result |
 | --- | --- |
-| `npm run check` | 529 main tests passed, 2 optional saved-corpus tests skipped, 8 data tests passed; TypeScript passed; lint had no errors and three existing hook warnings |
+| `npm run check` | 532 main tests passed, 2 optional saved-corpus tests skipped, 8 data tests passed; TypeScript passed; lint had no errors and three existing hook warnings |
 | `npm run build` | Production Turbopack build passed after clean native dependency installation |
 | `npm run test:bdd:semantic` | 3 scenarios / 17 steps passed |
 | `npm run test:semantic:storage` | 2 PostgreSQL integration tests passed, preserving v1 and checking v2 provenance/hash/owner/tamper behavior |
@@ -32,5 +32,7 @@ Fresh static source analysis was executed for the pinned corpora, including a fu
 The [machine-readable evidence summary](evidence/semantic/explainable-20261108.json) records final model and CKG hashes. Replay/oracle coverage is bounded static evidence, not proof of runtime behavior or complete semantic correctness. Large-repository PDF capacity, container memory qualification, deployment and team release signoff are outside this run. No target repository was executed.
 
 The documentation regressions cover GFM/reference links, anchors/Unicode, exact path resolution without basename guessing, inert hostile content, file/byte/node/representation limits, encoded unsafe paths, and parser-to-canonical failure isolation. An actual JS resolver-to-semantic regression verifies that a called writer owns its store effect while an unused imported writer contributes no effect.
+
+Independent review found and prompted regressions for UTF-8 cross-file callable offsets, statically unreachable conditional/loop effects (including loop increments after an exiting body), and default inventory of separately supplied or unavailable Markdown. These fixes passed the full check again; frozen replay hashes stayed unchanged.
 
 Raw snapshots, generated reports, exports and screenshots remain in ignored `artifacts/`; no source archive, database credential or private export is committed. The disposable PostgreSQL container was removed after verifying zero analyses, users, repositories, exports and storage objects. Final independent review is recorded on the implementation PR at its reviewed head SHA.

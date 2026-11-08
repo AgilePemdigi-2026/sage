@@ -66,6 +66,17 @@ test('legacy models stay readable without backfilled provenance and keep old Mar
   assert.ok(!renderSemanticMarkdown({model:legacy,overlay:{labels:{},groups:{}},revision:0}).includes('Konteks dokumentasi'));
 });
 
+test('default documentation inventory includes separate sources and unavailable manifest documents', () => {
+  const {ccm,sources,model}=fixture();
+  const codeSources={'app/api/books/route.ts':sources['app/api/books/route.ts']!};
+  const separate=buildSemanticModel({ccm:{...ccm,files:ccm.files.filter(file=>file.path!=='README.md')},sourceCkgHash:model.sourceCkgHash,sources:codeSources,documentationSources:{'README.md':sources['README.md']!}});
+  assert.equal(separate.documentation!.documents.length,1);
+  assert.equal(separate.documentation!.coverage.candidateFileCount,1);
+  const unavailable=buildSemanticModel({ccm,sourceCkgHash:model.sourceCkgHash,sources:codeSources});
+  assert.equal(unavailable.documentation!.coverage.candidateFileCount,1);
+  assert.deepEqual(unavailable.documentation!.coverage.skipped,[{filePath:'README.md',reason:'source-unavailable'}]);
+});
+
 test('CKG explanations distinguish imports, calls, types and unresolved dispatch without runtime certainty', () => {
   const base={id:'e1',sourceId:'a',targetId:'b',evidence:[],resolution:'Exact' as const,unresolvedReason:null};
   const imported=explainCkgEdge({...base,kind:'IMPORTS'} as CcmEdge);

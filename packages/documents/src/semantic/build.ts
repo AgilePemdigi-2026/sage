@@ -31,7 +31,11 @@ export function buildSemanticModel(input: SemanticInput): SemanticModel {
     extractorVersion: "0.4.0",
     sourceCkgHash: input.sourceCkgHash,
     snapshot,
-    documentation: analyzeDocumentation({ sources: input.documentationSources ?? {}, snapshotPaths: input.snapshotPaths ?? Object.keys(input.sources) }),
+    documentation: analyzeDocumentation({ sources: input.documentationSources ?? {}, snapshotPaths: input.snapshotPaths ?? [...new Set([
+      ...input.ccm.files.map(file => file.path),
+      ...Object.keys(input.sources),
+      ...Object.keys(input.documentationSources ?? {}),
+    ])].sort() }),
     nodes,
     edges,
     features,
