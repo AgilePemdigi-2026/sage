@@ -1,0 +1,141 @@
+{
+  "run": "sprint2-live-integration-2026-11-09",
+  "applicationCommitSha": "b0ed42e431169617c134563985bfe84eb2ff8c58",
+  "runtime": {
+    "node": "v24.22.0",
+    "colimaProfile": "sage",
+    "cpu": 2,
+    "memoryGiB": 4,
+    "diskGiB": 30
+  },
+  "authorization": {
+    "githubOAuth": "PASS",
+    "account": "iltizamhasan3",
+    "privateAppScope": "authorized private repository only",
+    "publicRepositoryList": "PASS"
+  },
+  "browserRegression": {
+    "status": "PASS",
+    "suites": [
+      "landing-health",
+      "auth-workspace",
+      "repository-target",
+      "account-isolation"
+    ],
+    "viewportWidths": [
+      360,
+      390,
+      768,
+      1024,
+      1440
+    ],
+    "providerResponses": "controlled; separate from live OAuth and analysis runs",
+    "providerReport": "qa-02-provider-playwright-2026-11-08.json"
+  },
+  "initialAttempt": {
+    "result": "HTTP 401",
+    "createdAnalysis": false,
+    "countedAsPass": false,
+    "note": "Subsequent authenticated UI submissions below succeeded."
+  },
+  "analyses": [
+    {
+      "sample": "private Node.js HTTP repository (identity and source SHA redacted)",
+      "status": "COMPLETED_WITH_LIMITATIONS",
+      "durationSeconds": 54.8,
+      "stages": "9/9",
+      "sourceFiles": 118,
+      "codeKnowledge": {
+        "nodes": 6594,
+        "edges": 8570
+      },
+      "softwareEngineeringDiagram": {
+        "features": 5,
+        "sourceRelationships": 0
+      },
+      "exports": {
+        "markdown": {
+          "status": "READY_AND_DOWNLOADED",
+          "bytes": 30219466,
+          "contentHashMatched": true
+        },
+        "pdf": {
+          "status": "FAILED",
+          "errorCode": "PDF_DOCUMENT_LIMIT_EXCEEDED",
+          "downloadSucceeded": false
+        }
+      }
+    },
+    {
+      "sample": "public iltizamhasan3/emosync-backend",
+      "commitSha": "a22992668658538f6fc10b904d6f7b2ed09124ac",
+      "status": "COMPLETED_WITH_LIMITATIONS",
+      "durationSeconds": 14.7,
+      "stages": "9/9",
+      "sourceFiles": 122,
+      "codeKnowledge": {
+        "nodes": 513,
+        "edges": 1408,
+        "exact": 87,
+        "unresolved": 1321
+      },
+      "softwareEngineeringDiagram": {
+        "features": 14,
+        "sourceRelationships": 149
+      },
+      "exports": {
+        "markdown": {
+          "status": "READY_AND_DOWNLOADED",
+          "bytes": 5125688,
+          "httpStatus": 200,
+          "contentHashMatched": true
+        },
+        "pdf": {
+          "status": "READY_AND_DOWNLOADED",
+          "bytes": 955856,
+          "httpStatus": 200,
+          "contentHashMatched": true,
+          "signatureValid": true
+        }
+      }
+    },
+    {
+      "sample": "public iltizamhasan3/sistem-informasi-perpus",
+      "commitSha": "d72c3532a7d59cab242fb705ab201cf99ef35e88",
+      "branch": "master",
+      "status": "COMPLETED_WITH_LIMITATIONS",
+      "durationSeconds": 21.5,
+      "stages": "9/9",
+      "sourceFiles": 105,
+      "codeKnowledge": {
+        "nodes": 3116,
+        "edges": 3420,
+        "exact": 655,
+        "unresolved": 2765
+      },
+      "softwareEngineeringDiagram": {
+        "features": 17,
+        "displayedConnections": 67,
+        "representedSourceRelationships": 189
+      },
+      "exports": {
+        "markdown": {
+          "status": "READY",
+          "bytes": 13234876,
+          "downloaded": false
+        },
+        "pdf": {
+          "status": "READY",
+          "bytes": 3368578,
+          "downloaded": false
+        }
+      }
+    }
+  ],
+  "limitations": [
+    "The private Node.js HTTP sample has no proven user-flow links; CKG output does not imply semantic-flow support.",
+    "PDF export is blocked by the configured document-size limit on the large private sample.",
+    "Perpus and Emosync retain unresolved references and extraction limitations; source correctness still needs an independent oracle.",
+    "Aggregate browser regression does not use live provider responses; provider tests and OAuth are reported separately."
+  ]
+}
