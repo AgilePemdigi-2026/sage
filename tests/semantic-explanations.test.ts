@@ -109,7 +109,7 @@ test('real JS resolution links a called writer across files without promoting an
   assert.ok(isSemanticModel(model,{fileHashes:new Map(graph.value.ccm.files.map(file=>[file.path,file.sha256])),ckgNodeIds:new Set(graph.value.ccm.nodes.map(node=>node.id))}));
 });
 
-test('v2 Markdown and PDF include relationship explanations and inert documented context', () => {
+test('v2 Markdown keeps full details while PDF uses a compact safe summary', () => {
   const {model}=fixture('# App\n\n<script>alert(1)</script>\n\nDocumented only. [Missing](gone.ts)\n');
   const input={model,overlay:{labels:{},groups:{}},revision:0};
   const markdown=renderSemanticMarkdown(input);
@@ -117,7 +117,8 @@ test('v2 Markdown and PDF include relationship explanations and inert documented
   assert.match(markdown,/Mengapa terhubung/);
   assert.match(markdown,/Documented only/);
   const html=renderSemanticPdfPages(input,{snapshot:model.snapshot} as ArchitectureDocumentV1);
-  assert.match(html,/Mengapa terhubung/);
-  assert.match(html,/Konteks dokumentasi/);
+  assert.match(html,/Analysis notes/);
+  assert.match(html,/full documentation text.*Markdown export/u);
+  assert.doesNotMatch(html,/Mengapa terhubung|Documented only/);
   assert.ok(!html.includes('<script>'));
 });

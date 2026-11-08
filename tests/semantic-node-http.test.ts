@@ -82,7 +82,11 @@ async function handleBackendRequest(request: Request, response: Response) {
   const methodRoutes = new Map(routes.map(node => [node.label, node]));
   assert.equal(methodRoutes.get("GET /api/v1/health")?.confidence, "indicated", "a method/path branch does not establish runtime registration or reachability");
   assert.equal(methodRoutes.get("POST /api/v1/analyses/:param")?.confidence, "indicated");
-  assert.equal(fragment.nodes.some(node => node.kind === "actor"), false, "HTTP route source alone does not identify an actor");
+  const actor = fragment.nodes.find(node => node.kind === "actor");
+  assert.equal(actor?.label, "API client", "an explicit HTTP request handler provides a source-backed client boundary");
+  assert.ok(fragment.edges.some(edge => edge.source === actor?.id && edge.target === methodRoutes.get("GET /api/v1/health")?.id && edge.label === "sends request"));
+  assert.ok(fragment.edges.some(edge => edge.source === methodRoutes.get("GET /api/v1/health")?.id && fragment.nodes.some(node => node.id === edge.target && node.kind === "outcome") && edge.label === "returns"));
+  assert.ok(fragment.edges.filter(edge => edge.source === actor?.id).every(edge => edge.confidence === "indicated"), "route mounting uncertainty stays explicit");
   assert.ok(fragment.nodes.some(node => node.kind === "decision" && node.label === "Request validation"));
   assert.ok(fragment.nodes.some(node => node.kind === "outcome" && node.label === "Request rejected"));
   assert.ok(fragment.edges.length > routes.length);
@@ -94,6 +98,109 @@ async function handleBackendRequest(request: Request, response: Response) {
   const model = { schemaVersion: "sage-semantic-v1", extractorVersion: "test", sourceCkgHash: input.sourceCkgHash, snapshot: input.ccm.snapshot, ...fragment };
   assert.equal(isSemanticModel(model), true);
   assert.deepEqual(extractNodeHttp(input), fragment, "same source produces stable output");
+});
+
+test("Node HTTP links a statically imported handler to its createServer callback without claiming listen reachability", () => {
+  const routes = `
+function pathParts(request: Request) { return new URL(request.url).pathname.split("/").filter(Boolean); }
+export async function handleRequest(request: Request, response: Response) {
+  const method = request.method;
+  const parts = pathParts(request);
+  if (method === "GET" && parts.length === 2 && parts[0] === "api" && parts[1] === "health") return response.end();
+}
+`;
+  const server = `
+import { createServer as makeServer } from "node:http";
+import { handleRequest as dispatch } from "./routes.js";
+export function createApi() { return makeServer((request, response) => { void dispatch(request, response); }); }
+`;
+  const result = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": server }));
+  const actor = result.nodes.find(node => node.kind === "actor");
+  const route = result.nodes.find(node => node.kind === "step" && node.label === "GET /api/health");
+  const boundary = result.edges.find(edge => edge.source === actor?.id && edge.target === route?.id);
+  assert.ok(boundary);
+  assert.ok(boundary.evidence.some(span => span.filePath === "src/http/server.ts"), "the createServer registration is traceable");
+  assert.equal(boundary.confidence, "indicated", "server.listen execution and application reachability remain unverified");
+  assert.match(boundary.reason, /listener execution.*unverified/u);
+  assert.ok(result.limitations.some(item => /server\.listen execution/u.test(item.reason)));
+
+  const propertyMutation = server.replace("dispatch(request, response)", "request.headers.set('x-trace', '1'); dispatch(request, response)");
+  const propertyMutationResult = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": propertyMutation }));
+  const propertyActor = propertyMutationResult.nodes.find(node => node.kind === "actor");
+  const propertyRoute = propertyMutationResult.nodes.find(node => node.kind === "step" && node.label === "GET /api/health");
+  const propertyBoundary = propertyMutationResult.edges.find(edge => edge.source === propertyActor?.id && edge.target === propertyRoute?.id);
+  assert.ok(propertyBoundary?.evidence.some(span => span.filePath === "src/http/server.ts"),
+    "mutating a request property does not rebind it or remove the server registration evidence");
+
+  const wrongParameters = server.replace("dispatch(request, response)", "dispatch(response, request)");
+  const unmatched = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": wrongParameters }));
+  const unmatchedActor = unmatched.nodes.find(node => node.kind === "actor");
+  assert.ok(unmatchedActor?.evidence.every(span => span.filePath !== "src/http/server.ts"),
+    "a mismatched callback argument order is not treated as handler registration evidence");
+});
+
+test("Node HTTP omits registration hints for type-only, shadowed, mutated, or unreachable imported calls", () => {
+  const routes = `
+function pathParts(request: Request) { return new URL(request.url).pathname.split("/").filter(Boolean); }
+export async function handleRequest(request: Request, response: Response) {
+  const method = request.method;
+  const parts = pathParts(request);
+  if (method === "GET" && parts.length === 2 && parts[0] === "api" && parts[1] === "health") return response.end();
+}
+`;
+  const base = (registration: string) => `
+import { createServer as makeServer } from "node:http";
+import { handleRequest as dispatch } from "./routes.js";
+${registration}
+`;
+  const assertNotRegistered = (server: string, reason: string) => {
+    const result = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": server }));
+    const actor = result.nodes.find(node => node.kind === "actor");
+    assert.ok(actor);
+    assert.ok(actor.evidence.every(span => span.filePath !== "src/http/server.ts"), reason);
+  };
+
+  assertNotRegistered(base(`export function createApi(makeServer: typeof import("node:http").createServer) {
+  return makeServer((request, response) => { dispatch(request, response); });
+}`), "a parameter shadowing the imported createServer binding is not registration evidence");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { const dispatch = (_request: Request, _response: Response) => {}; dispatch(request, response); });
+}`), "a callback-local dispatch binding is not the imported route handler");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response, dispatch) => { dispatch(request, response); });
+}`), "a callback parameter shadowing the imported handler is not registration evidence");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { request = {} as Request; dispatch(request, response); });
+}`), "a reassigned callback request parameter is not the original Node HTTP request");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { response = {} as Response; dispatch(request, response); });
+}`), "a reassigned callback response parameter is not the original Node HTTP response");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { (request as any) = getReplacement(); dispatch(request, response); });
+}`), "a type-asserted assignment cannot replace the callback request parameter");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { ({ request, response } = getReplacement()); dispatch(request, response); });
+}`), "destructuring assignment cannot replace the callback request/response pair");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { (() => { request = {} as Request; })(); dispatch(request, response); });
+}`), "a nested closure write may rebind the captured callback request before dispatch");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { return; dispatch(request, response); });
+}`), "a dispatch after an unconditional return is unreachable");
+  assertNotRegistered(base(`export function createApi() {
+  return;
+  return makeServer((request, response) => { dispatch(request, response); });
+}`), "a createServer call after an unconditional return is unreachable");
+  assertNotRegistered(`
+import { type createServer as makeServer } from "node:http";
+import { handleRequest as dispatch } from "./routes.js";
+export function createApi() { return makeServer((request, response) => { dispatch(request, response); }); }
+`, "type-only createServer imports cannot register a runtime callback");
+  assertNotRegistered(`
+import { createServer as makeServer } from "node:http";
+import { type handleRequest as dispatch } from "./routes.js";
+export function createApi() { return makeServer((request, response) => { dispatch(request, response); }); }
+`, "type-only handler imports cannot be dispatched at runtime");
 });
 
 test("Node HTTP composes nested route guards, retains every guard span, and rejects contradicted else paths", () => {
@@ -272,8 +379,12 @@ async function handleRequest(request: Request, response: Response) {
   const fragment = extractNodeHttp(input);
   assert.deepEqual(fragment.nodes.filter(node => node.kind === "step").map(node => node.label).sort(), ["GET /api/safe", "GET /nested"].sort(),
     "a nested method/path guard is recognized when its branch is reachable");
-  assert.equal(fragment.nodes.some(node => node.kind === "decision" || node.kind === "outcome"), false,
-    "unreachable branch details are excluded after an unconditional return");
+  assert.equal(fragment.nodes.some(node => node.kind === "decision"), false,
+    "unreachable branch decisions are excluded after an unconditional return");
+  assert.equal(fragment.nodes.some(node => node.kind === "outcome" && node.label === "Request rejected"), false,
+    "the unreachable rejection branch is not presented as a route outcome");
+  assert.ok(fragment.nodes.some(node => node.kind === "outcome" && node.label === "Response returned"),
+    "a reachable direct response is included in the route flow");
   assert.ok(fragment.nodes.filter(node => node.kind === "step").every(node => node.confidence === "indicated"));
 });
 

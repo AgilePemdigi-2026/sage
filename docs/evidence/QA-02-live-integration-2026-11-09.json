@@ -1,18 +1,86 @@
 {
-  "run": "sprint2-live-integration-2026-11-09",
-  "applicationCommitSha": "b0ed42e431169617c134563985bfe84eb2ff8c58",
+  "run": "sprint2-final-gates-2026-11-09",
+  "status": "LOCAL_SCOPE_PASS_PENDING_INDEPENDENT_REVIEW_AND_MERGE",
+  "applicationCommitSha": "6174452423da75f8090d98ef63a87bef23f5cb80",
   "runtime": {
     "node": "v24.22.0",
     "colimaProfile": "sage",
     "cpu": 2,
     "memoryGiB": 4,
-    "diskGiB": 30
+    "diskGiB": 30,
+    "postgres": "17-bookworm",
+    "composeProject": "sage-cleanqa",
+    "databaseAndStorageVolumes": "fresh isolated volumes created for QA; original sage volumes preserved"
   },
-  "authorization": {
-    "githubOAuth": "PASS",
+  "freshDockerRun": {
+    "databaseAtStart": {
+      "users": 0,
+      "analyses": 0
+    },
+    "migrations": "PASS; migration container exited 0",
+    "services": "PASS; database, web, worker healthy; / and /api/health returned HTTP 200",
+    "githubOAuth": "PASS; interactive authorization completed from the fresh database",
     "account": "iltizamhasan3",
-    "privateAppScope": "authorized private repository only",
-    "publicRepositoryList": "PASS"
+    "repository": "iltizamhasan3/sistem-informasi-perpus",
+    "visibility": "public",
+    "branch": "master",
+    "commitSha": "d72c3532a7d59cab242fb705ab201cf99ef35e88",
+    "submission": "PASS; selected and submitted through the signed-in browser UI",
+    "analysis": {
+      "status": "COMPLETED_WITH_LIMITATIONS",
+      "durationSeconds": 45,
+      "stages": "9/9",
+      "sourceFiles": 105,
+      "codeKnowledge": {
+        "nodes": 3116,
+        "edges": 3420,
+        "exact": 655,
+        "unresolved": 2765
+      },
+      "softwareEngineeringDiagram": {
+        "features": 17,
+        "displayedConnections": 67,
+        "representedSourceRelationships": 189,
+        "displayedRelationshipConfidence": "all indicated"
+      },
+      "resultViewsOpened": [
+        "Code Knowledge",
+        "Software Engineering Diagram",
+        "Architecture Definition Document / Interface Catalog"
+      ]
+    },
+    "exports": {
+      "markdown": {
+        "status": "READY",
+        "storageBytes": 13234876,
+        "storageObjectHashMatchesExportHash": true,
+        "browserDownloadFlow": "PASS; UI fetched bytes, verified SHA-256 against export record, then triggered download"
+      },
+      "pdf": {
+        "status": "READY",
+        "storageBytes": 2268622,
+        "storageObjectHashMatchesExportHash": true,
+        "browserDownloadFlow": "PASS; UI verified PDF content type and SHA-256 against export record, then triggered download",
+        "freshVisualRenderInspection": false
+      }
+    },
+    "historyAndCleanup": {
+      "historyRecordVisible": true,
+      "permanentDelete": "PASS after explicit user approval in the isolated QA database",
+      "cleanupJob": "COMPLETED",
+      "historyAfterDelete": "empty"
+    }
+  },
+  "liveProviderChecks": {
+    "status": "PASS",
+    "checks": [
+      "public repository list",
+      "GitHub App installation",
+      "authorized private repository metadata",
+      "branch and target commit selection"
+    ],
+    "analysisCreated": false,
+    "note": "These checks are separate from the fresh public-repository analysis."
   },
   "browserRegression": {
     "status": "PASS",
@@ -29,45 +97,72 @@
       1024,
       1440
     ],
-    "providerResponses": "controlled; separate from live OAuth and analysis runs",
-    "providerReport": "qa-02-provider-playwright-2026-11-08.json"
+    "providerResponses": "controlled for deterministic regression; not counted as live GitHub checks"
   },
-  "initialAttempt": {
-    "result": "HTTP 401",
-    "createdAnalysis": false,
-    "countedAsPass": false,
-    "note": "Subsequent authenticated UI submissions below succeeded."
+  "finalCodeRegression": {
+    "semanticTests": "105/105 passed",
+    "fullSuite": "538/538 passed with --test-concurrency=1; an initial parallel run had one PHP analyzer status assertion fail, then the isolated PHP suite passed 9/9",
+    "dataTests": "8/8 passed",
+    "semanticCucumberBdd": "3 scenarios, 17 steps passed",
+    "typecheck": "PASS",
+    "lint": "PASS with 3 existing React Hooks warnings in semantic-workspace.tsx",
+    "productionDockerBuild": "PASS; production Next.js build completed on 6174452423da75f8090d98ef63a87bef23f5cb80",
+    "verifiedSourceCommit": "7b3fa3d1bc97754cb787a6c90e663f745f7f41ec",
+    "nodeHttpRegistrationRegression": "PASS; rejects direct, destructuring, cast, and captured-closure rebinding of callback request/response parameters; property mutation remains accepted"
   },
-  "analyses": [
-    {
-      "sample": "private Node.js HTTP repository (identity and source SHA redacted)",
-      "status": "COMPLETED_WITH_LIMITATIONS",
-      "durationSeconds": 54.8,
-      "stages": "9/9",
-      "sourceFiles": 118,
-      "codeKnowledge": {
-        "nodes": 6594,
-        "edges": 8570
-      },
-      "softwareEngineeringDiagram": {
-        "features": 5,
-        "sourceRelationships": 0
-      },
-      "exports": {
-        "markdown": {
-          "status": "READY_AND_DOWNLOADED",
-          "bytes": 30219466,
-          "contentHashMatched": true
-        },
-        "pdf": {
-          "status": "FAILED",
-          "errorCode": "PDF_DOCUMENT_LIMIT_EXCEEDED",
-          "downloadSucceeded": false
-        }
-      }
+  "finalPdfVisualReview": {
+    "status": "PASS",
+    "evidence": "docs/evidence/PDF-visual-review-2026-11-09.json",
+    "rendererVersion": "2.4.0",
+    "presentationOverlay": "default; no sample correction applied",
+    "outputBytes": 2572094,
+    "sha256": "28da9140a7a3771d86360cedba0035caac910a35cce9ee3e671e06f345b84a1c",
+    "pages": 88,
+    "pageSize": "A4 landscape",
+    "inspection": "All 88 pages reviewed via contact sheets; pages 1, 5, 7, 53, 72, 87, and 88 inspected at full resolution; no clipping or overlap observed",
+    "scope": "Offline replay of pinned public source with current local source commit; not byte-identical to the fresh Docker UI export"
+  },
+  "priorPrivateNodeHttpE2E": {
+    "applicationCommitSha": "b29127b32afb8ac4cf427627bc60e983d2d3b230",
+    "repositoryIdentityAndSourceSha": "redacted",
+    "status": "COMPLETED_WITH_LIMITATIONS",
+    "stages": "9/9",
+    "codeKnowledge": {
+      "nodes": 6594,
+      "edges": 8570
     },
+    "softwareEngineeringDiagram": {
+      "features": 5,
+      "routeCandidates": 15,
+      "outcomes": 28,
+      "relationships": 76,
+      "confidence": "all indicated"
+    },
+    "exports": {
+      "markdownBytes": 30282983,
+      "pdfBytes": 431593,
+      "priorRunHashCheck": "PASS"
+    },
+    "finalBuildReplay": "NOT_RUN; the shadowing/unreachable-dispatch correction is covered by final regression tests, but this private archive was not replayed through the final image."
+  },
+  "privateNodeHttpStaticReplay": {
+    "status": "PASS; static replay/resource evidence from the initial extractor implementation",
+    "repositoryIdentityAndSourceSha": "redacted",
+    "sourceFiles": 147,
+    "canonicalAddBytes": 28259410,
+    "markdownBytes": 30290957,
+    "pdfBytes": 730055,
+    "processPeakRssBytes": 638320640,
+    "features": 5,
+    "nodes": 66,
+    "relationships": 76,
+    "confidence": "all indicated",
+    "limitations": 3,
+    "note": "Static replay is not a live app run or human semantic-correctness signoff."
+  },
+  "priorPublicComparisonRuns": [
     {
-      "sample": "public iltizamhasan3/emosync-backend",
+      "sample": "iltizamhasan3/emosync-backend",
       "commitSha": "a22992668658538f6fc10b904d6f7b2ed09124ac",
       "status": "COMPLETED_WITH_LIMITATIONS",
       "durationSeconds": 14.7,
@@ -84,23 +179,14 @@
         "sourceRelationships": 149
       },
       "exports": {
-        "markdown": {
-          "status": "READY_AND_DOWNLOADED",
-          "bytes": 5125688,
-          "httpStatus": 200,
-          "contentHashMatched": true
-        },
-        "pdf": {
-          "status": "READY_AND_DOWNLOADED",
-          "bytes": 955856,
-          "httpStatus": 200,
-          "contentHashMatched": true,
-          "signatureValid": true
-        }
+        "markdownBytes": 5125688,
+        "pdfBytes": 955856,
+        "downloadAndHashMatch": true,
+        "pdfSignatureValid": true
       }
     },
     {
-      "sample": "public iltizamhasan3/sistem-informasi-perpus",
+      "sample": "iltizamhasan3/sistem-informasi-perpus",
       "commitSha": "d72c3532a7d59cab242fb705ab201cf99ef35e88",
       "branch": "master",
       "status": "COMPLETED_WITH_LIMITATIONS",
@@ -119,23 +205,19 @@
         "representedSourceRelationships": 189
       },
       "exports": {
-        "markdown": {
-          "status": "READY",
-          "bytes": 13234876,
-          "downloaded": false
-        },
-        "pdf": {
-          "status": "READY",
-          "bytes": 3368578,
-          "downloaded": false
-        }
-      }
+        "markdownBytes": 13234876,
+        "pdfBytes": 3368578,
+        "downloaded": false
+      },
+      "note": "Historical run; distinct from the fresh-volume run above."
     }
   ],
   "limitations": [
-    "The private Node.js HTTP sample has no proven user-flow links; CKG output does not imply semantic-flow support.",
-    "PDF export is blocked by the configured document-size limit on the large private sample.",
-    "Perpus and Emosync retain unresolved references and extraction limitations; source correctness still needs an independent oracle.",
-    "Aggregate browser regression does not use live provider responses; provider tests and OAuth are reported separately."
+    "Static Node HTTP relationships remain Indikasi; server.listen execution and runtime reachability are not inferred.",
+    "The final private Node HTTP archive has not been replayed through the final Docker image after the shadowing/unreachable-dispatch correction.",
+    "Fresh PDF bytes were hash-verified by the UI but not visually rendered in this fresh-volume run.",
+    "Perpus and Emosync retain unresolved references and extraction limitations.",
+    "This is local Docker evidence, not Coolify deployment, shared-host capacity, backup restore, or multi-group load acceptance.",
+    "Private repository identity and source SHA are intentionally omitted from public evidence."
   ]
 }

@@ -15,6 +15,10 @@ const MAX_DIAGRAM_NODES = 500;
 const MAX_DIAGRAM_EDGES = 500;
 const MAX_SVG_BYTES = 4 * 1024 * 1024;
 const MAX_HTML_BYTES = 12 * 1024 * 1024;
+// Canonical ADD input may be larger than its compact PDF projection. Keep it
+// bounded by the existing PDF artifact budget while retaining the stricter
+// 12 MiB limit for the actual HTML sent to Chromium.
+const MAX_PDF_DOCUMENT_BYTES = 32 * 1024 * 1024;
 const MAX_PDF_BYTES = 32 * 1024 * 1024;
 const RENDER_TIMEOUT_MS = 45_000;
 export type PdfRenderOptions = { signal?: AbortSignal; semantic?: SemanticPresentation };
@@ -192,7 +196,7 @@ function validatePdfDocument(document: ArchitectureDocumentV1): string | null {
     if (hasUnsafeMermaidDirective(diagram.mermaid)) return "PDF_DIAGRAM_SOURCE_INVALID";
   }
   try {
-    if (Buffer.byteLength(stableJson(document), "utf8") > MAX_HTML_BYTES) return "PDF_DOCUMENT_LIMIT_EXCEEDED";
+    if (Buffer.byteLength(stableJson(document), "utf8") > MAX_PDF_DOCUMENT_BYTES) return "PDF_DOCUMENT_LIMIT_EXCEEDED";
   } catch {
     return "PDF_DOCUMENT_INVALID";
   }

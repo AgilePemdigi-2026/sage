@@ -1,4 +1,5 @@
 import ts from "typescript";
+import { posix } from "node:path";
 import type { CcmEdge, CcmNode, EvidenceSpan } from "@sage/contracts";
 import type { SemanticEdge, SemanticFeature, SemanticFragment, SemanticInput, SemanticNode } from "./model.ts";
 import { compactEvidence, emptyFragment, evidenceSpan, humanLabel, semanticEdgeId, semanticId, semanticNode, technicalNodesForSpan } from "./builder.ts";
@@ -311,10 +312,246 @@ function addEdge(fragment: SemanticFragment, feature: SemanticFeature, edge: Sem
   if (!feature.edgeIds.includes(edge.id)) feature.edgeIds.push(edge.id);
 }
 
+function directExits(statement: ts.Statement): Array<ts.ReturnStatement | ts.ThrowStatement> {
+  if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) return [statement];
+  if (!ts.isBlock(statement)) return [];
+  const exits: Array<ts.ReturnStatement | ts.ThrowStatement> = [];
+  for (const child of statement.statements) {
+    if (ts.isReturnStatement(child) || ts.isThrowStatement(child)) {
+      exits.push(child);
+      break;
+    }
+    if (ts.isBlock(child)) exits.push(...directExits(child));
+    if (statementAlwaysExits(child)) break;
+  }
+  return exits;
+}
+
+function responseLabel(exit: ts.ReturnStatement | ts.ThrowStatement): string {
+  if (ts.isThrowStatement(exit)) return "Request rejected";
+  const expression = exit.expression;
+  if (!expression || !ts.isCallExpression(expression)) return "Response returned";
+  const callee = ts.isIdentifier(expression.expression) ? expression.expression.text :
+    ts.isPropertyAccessExpression(expression.expression) ? expression.expression.name.text : "";
+  if (callee === "writeError") return "Error response";
+  if (callee === "writeRedirect") return "Redirect response";
+  if (callee === "writeArtifact") return "File download";
+  return "Response returned";
+}
+
 function callableName(handler: ts.FunctionLikeDeclaration): string | null {
   if (ts.isFunctionDeclaration(handler) && handler.name) return handler.name.text;
   if (ts.isMethodDeclaration(handler) && ts.isIdentifier(handler.name)) return handler.name.text;
   return null;
+}
+
+function resolveRelativeSource(fromPath: string, specifier: string, entriesByPath: ReadonlyMap<string, SourceEntry>): SourceEntry | null {
+  if (!specifier.startsWith(".")) return null;
+  const base = posix.normalize(posix.join(posix.dirname(fromPath), specifier));
+  const extension = posix.extname(base);
+  const candidates = extension
+    ? [base, ...([".js", ".mjs", ".cjs"].includes(extension)
+      ? [".ts", ".tsx", ".mts", ".cts"].map(sourceExtension => `${base.slice(0, -extension.length)}${sourceExtension}`)
+      : [])]
+    : [".ts", ".tsx", ".mts", ".cts", ".js", ".jsx", ".mjs", ".cjs"].map(sourceExtension => `${base}${sourceExtension}`);
+  const matches = [...new Set(candidates)].map(candidate => entriesByPath.get(candidate)).filter((entry): entry is SourceEntry => !!entry);
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+function namedImportLocalName(source: ts.SourceFile, moduleName: string, importedName: string): string | null {
+  const matches: string[] = [];
+  for (const statement of source.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || statement.moduleSpecifier.text !== moduleName ||
+        statement.importClause?.isTypeOnly || !statement.importClause?.namedBindings || !ts.isNamedImports(statement.importClause.namedBindings)) continue;
+    for (const element of statement.importClause.namedBindings.elements) {
+      if (!element.isTypeOnly && (element.propertyName?.text ?? element.name.text) === importedName) matches.push(element.name.text);
+    }
+  }
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+function bindingNameHas(name: ts.BindingName, expected: string): boolean {
+  if (ts.isIdentifier(name)) return name.text === expected;
+  return name.elements.some(element => !ts.isOmittedExpression(element) && bindingNameHas(element.name, expected));
+}
+
+function statementDeclaresName(statement: ts.Statement, expected: string): boolean {
+  if (ts.isVariableStatement(statement)) {
+    return statement.declarationList.declarations.some(declaration => bindingNameHas(declaration.name, expected));
+  }
+  if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement) || ts.isEnumDeclaration(statement) || ts.isModuleDeclaration(statement)) && statement.name) {
+    return ts.isIdentifier(statement.name) && statement.name.text === expected;
+  }
+  return false;
+}
+
+/**
+ * Fail closed when a local binding may shadow an imported identifier. The scan
+ * is deliberately conservative: an unrelated nested declaration can suppress
+ * a registration hint, but cannot turn a different function into source proof.
+ */
+function importedNameMayBeShadowed(reference: ts.Identifier, expected: string): boolean {
+  let current: ts.Node | undefined = reference.parent;
+  while (current) {
+    if (ts.isSourceFile(current)) return current.statements.some(statement =>
+      !ts.isImportDeclaration(statement) && statementDeclaresName(statement, expected));
+    if (ts.isBlock(current)) {
+      if (current.statements.some(statement => statementDeclaresName(statement, expected))) return true;
+    }
+    if (ts.isFunctionLike(current)) {
+      if (current.parameters.some(parameter => bindingNameHas(parameter.name, expected))) return true;
+      if ((ts.isFunctionExpression(current) || ts.isClassExpression(current)) && current.name &&
+          ts.isIdentifier(current.name) && current.name.text === expected) return true;
+      const functionLike = current as ts.FunctionLikeDeclaration & { body?: ts.Node };
+      let shadowed = false;
+      const visit = (node: ts.Node) => {
+        if (shadowed || node !== functionLike.body && ts.isFunctionLike(node)) return;
+        if (ts.isVariableDeclaration(node) && bindingNameHas(node.name, expected)) shadowed = true;
+        else if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name?.text === expected) shadowed = true;
+        if (!shadowed) ts.forEachChild(node, visit);
+      };
+      if (functionLike.body) visit(functionLike.body);
+      if (shadowed) return true;
+    }
+    if (ts.isCatchClause(current) && current.variableDeclaration && bindingNameHas(current.variableDeclaration.name, expected)) return true;
+    if ((ts.isForStatement(current) || ts.isForInStatement(current) || ts.isForOfStatement(current)) && current.initializer &&
+        ts.isVariableDeclarationList(current.initializer) && current.initializer.declarations.some(declaration => bindingNameHas(declaration.name, expected))) return true;
+    current = current.parent;
+  }
+  return false;
+}
+
+function isStaticallyReachableCall(call: ts.CallExpression): boolean {
+  let scope: ts.Node = call.parent;
+  while (!ts.isSourceFile(scope) && !ts.isFunctionLike(scope)) scope = scope.parent;
+  const root = ts.isSourceFile(scope) ? scope : (scope as ts.FunctionLikeDeclaration & { body?: ts.Node }).body;
+  return !!root && directReachableCalls(root).includes(call);
+}
+
+function isAssignmentOperator(kind: ts.SyntaxKind): boolean {
+  return kind === ts.SyntaxKind.EqualsToken ||
+    (kind >= ts.SyntaxKind.FirstCompoundAssignment && kind <= ts.SyntaxKind.LastCompoundAssignment);
+}
+
+/** Match a callback parameter when it is the binding being assigned, not a property on its value. */
+function assignmentTargetHasName(target: ts.Expression, expected: string): boolean {
+  if (ts.isIdentifier(target)) return target.text === expected;
+  if (ts.isParenthesizedExpression(target)) return assignmentTargetHasName(target.expression, expected);
+  if (ts.isAsExpression(target) || ts.isTypeAssertionExpression(target) || ts.isNonNullExpression(target) || ts.isSatisfiesExpression(target)) {
+    return assignmentTargetHasName(target.expression, expected);
+  }
+  if (ts.isArrayLiteralExpression(target)) return target.elements.some(element =>
+    !ts.isOmittedExpression(element) && assignmentTargetHasName(ts.isSpreadElement(element) ? element.expression : element, expected));
+  if (ts.isObjectLiteralExpression(target)) return target.properties.some(property => {
+    if (ts.isShorthandPropertyAssignment(property)) return property.name.text === expected;
+    if (ts.isPropertyAssignment(property)) return assignmentTargetHasName(property.initializer, expected);
+    if (ts.isSpreadAssignment(property)) return assignmentTargetHasName(property.expression, expected);
+    return false;
+  });
+  if (ts.isBinaryExpression(target) && isAssignmentOperator(target.operatorToken.kind)) {
+    return assignmentTargetHasName(target.left, expected);
+  }
+  return false;
+}
+
+function callbackParameterMayBeRebound(reference: ts.Identifier, callback: ts.FunctionLikeDeclaration, expected: string): boolean {
+  let current: ts.Node | undefined = reference.parent;
+  while (current && current !== callback.body && current !== callback) {
+    if (ts.isBlock(current) && current.statements.some(statement => statementDeclaresName(statement, expected))) return true;
+    if ((ts.isForStatement(current) || ts.isForInStatement(current) || ts.isForOfStatement(current)) && current.initializer &&
+        ts.isVariableDeclarationList(current.initializer) && current.initializer.declarations.some(declaration => bindingNameHas(declaration.name, expected))) return true;
+    current = current.parent;
+  }
+  if (current !== callback.body) return true;
+  let shadowed = false;
+  const visit = (node: ts.Node) => {
+    if (shadowed || node !== callback.body && ts.isFunctionLike(node)) return;
+    if (ts.isVariableDeclaration(node) && bindingNameHas(node.name, expected)) shadowed = true;
+    else if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name?.text === expected) shadowed = true;
+    else if (ts.isBinaryExpression(node) && isAssignmentOperator(node.operatorToken.kind) && assignmentTargetHasName(node.left, expected)) shadowed = true;
+    else if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+        [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) &&
+        assignmentTargetHasName(node.operand, expected)) shadowed = true;
+    else if ((ts.isForInStatement(node) || ts.isForOfStatement(node)) && !ts.isVariableDeclarationList(node.initializer) &&
+        assignmentTargetHasName(node.initializer, expected)) shadowed = true;
+    if (!shadowed) ts.forEachChild(node, visit);
+  };
+  if (callback.body) visit(callback.body);
+  if (shadowed) return true;
+
+  // A nested callback can mutate the captured parameter before the dispatch;
+  // conservatively reject such writes even when invocation cannot be proven.
+  let rebound = false;
+  const findWrites = (node: ts.Node) => {
+    if (rebound) return;
+    if (ts.isBinaryExpression(node) && isAssignmentOperator(node.operatorToken.kind) && assignmentTargetHasName(node.left, expected)) rebound = true;
+    else if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+        [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) &&
+        assignmentTargetHasName(node.operand, expected)) rebound = true;
+    else if ((ts.isForInStatement(node) || ts.isForOfStatement(node)) && !ts.isVariableDeclarationList(node.initializer) &&
+        assignmentTargetHasName(node.initializer, expected)) rebound = true;
+    if (!rebound) ts.forEachChild(node, findWrites);
+  };
+  if (callback.body) findWrites(callback.body);
+  return rebound;
+}
+
+/**
+ * Find a narrow Node HTTP registration: an imported named handler is called
+ * with the request/response parameters of a callback passed to node:http's
+ * createServer. This proves registration in source, not that the server listens.
+ */
+function registeredHandlerEvidence(handlerEntry: SourceEntry, handler: ts.FunctionLikeDeclaration,
+  entriesByPath: ReadonlyMap<string, SourceEntry>): EvidenceSpan[] {
+  const name = callableName(handler);
+  if (!name) return [];
+  const registrations: EvidenceSpan[][] = [];
+  for (const serverEntry of entriesByPath.values()) {
+    const createServerBinding = namedImportLocalName(serverEntry.source, "node:http", "createServer") ??
+      namedImportLocalName(serverEntry.source, "http", "createServer");
+    if (!createServerBinding) continue;
+    for (const statement of serverEntry.source.statements) {
+      if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || !statement.importClause?.namedBindings ||
+          !ts.isNamedImports(statement.importClause.namedBindings)) continue;
+      const targetEntry = resolveRelativeSource(serverEntry.path, statement.moduleSpecifier.text, entriesByPath);
+      if (targetEntry?.path !== handlerEntry.path) continue;
+      const importedHandler = statement.importClause.namedBindings.elements.find(element =>
+        !statement.importClause?.isTypeOnly && !element.isTypeOnly && (element.propertyName?.text ?? element.name.text) === name);
+      if (!importedHandler) continue;
+      const localHandlerName = importedHandler.name.text;
+      const walk = (node: ts.Node) => {
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === createServerBinding &&
+            !importedNameMayBeShadowed(node.expression, createServerBinding) && isStaticallyReachableCall(node) && node.arguments[0] &&
+            (ts.isArrowFunction(node.arguments[0]) || ts.isFunctionExpression(node.arguments[0]))) {
+          const callback = node.arguments[0];
+          const [requestParameter, responseParameter] = callback.parameters;
+          if (requestParameter && responseParameter && ts.isIdentifier(requestParameter.name) && ts.isIdentifier(responseParameter.name)) {
+            const callbackBody = callback.body;
+            const requestName = requestParameter.name.text;
+            const responseName = responseParameter.name.text;
+            for (const child of directReachableCalls(callbackBody)) {
+              if (ts.isIdentifier(child.expression) && child.expression.text === localHandlerName &&
+                  !importedNameMayBeShadowed(child.expression, localHandlerName) &&
+                  child.arguments.length >= 2 && ts.isIdentifier(child.arguments[0]!) && child.arguments[0]!.text === requestName &&
+                  ts.isIdentifier(child.arguments[1]!) && child.arguments[1]!.text === responseName &&
+                  !callbackParameterMayBeRebound(child.arguments[0] as ts.Identifier, callback, requestName) &&
+                  !callbackParameterMayBeRebound(child.arguments[1] as ts.Identifier, callback, responseName)) {
+                registrations.push([
+                  nodeEvidence(serverEntry, node, "context"),
+                  nodeEvidence(serverEntry, statement, "reference"),
+                  nodeEvidence(serverEntry, importedHandler, "reference"),
+                  nodeEvidence(serverEntry, child, "reference"),
+                ]);
+              }
+            }
+          }
+        }
+        ts.forEachChild(node, walk);
+      };
+      walk(serverEntry.source);
+    }
+  }
+  return registrations.length === 1 ? compactEvidence(registrations[0]!) : [];
 }
 
 function exactCallableNode(input: SemanticInput, entry: SourceEntry, handler: ts.FunctionLikeDeclaration): CcmNode | null {
@@ -566,7 +803,10 @@ export function extractNodeHttp(input: SemanticInput): SemanticFragment {
         fragment.limitations.push({ filePath: path, reason: "Node HTTP handler detected, but no static method and path guard was recognized; dynamic dispatch is not inferred." });
         continue;
       }
-      fragment.limitations.push({ filePath: path, reason: "Method/path guard chains in the named HTTP handler are extracted; runtime mounting and framework-level reachability are not verified." });
+      const registrationEvidence = registeredHandlerEvidence(entry, handler, entriesByPath);
+      fragment.limitations.push({ filePath: path, reason: registrationEvidence.length
+        ? "The named handler is called from a node:http createServer callback in the supplied source; server.listen execution and application runtime reachability are not verified."
+        : "Method/path guard chains in the named HTTP handler are extracted; runtime mounting and framework-level reachability are not verified." });
       for (const route of routes) {
         const routeKey = `${path}\0${route.method}\0${route.path}\0${route.evidenceNode.getStart(source)}`;
         if (seenRouteKeys.has(routeKey)) continue;
@@ -599,6 +839,56 @@ export function extractNodeHttp(input: SemanticInput): SemanticFragment {
         const featureEdge = { id: semanticEdgeId(path, routeSpan.startByte, `node-http:feature:${featureModel.id}:${routeId}`), source: featureModel.nodeIds.find(id => nodeMap.get(id)?.kind === "feature")!, target: routeId,
           label: "includes endpoint", confidence: "indicated", reason: "Endpoint dikelompokkan berdasarkan literal route path.", evidence: routeEvidence } satisfies SemanticEdge;
         addEdge(fragment, featureModel, featureEdge);
+
+        // Keep an explicit external request boundary in the overview. Without
+        // this source-backed actor edge, every Node HTTP relationship stays
+        // inside one feature frame and the overview collapses it to no lines.
+        const requestParameter = handler.parameters[0];
+        const actorId = semanticId("actor", "node-http", 0, "node-http:api-client");
+        const actorEvidence = requestParameter ? nodeEvidence(entry, requestParameter) : routeSpan;
+        const actorEvidenceSpans = compactEvidence([actorEvidence, ...registrationEvidence]);
+        const actorReason = registrationEvidence.length
+          ? "A named Node HTTP handler parses method and path guards and is imported into a node:http createServer callback with the same request/response parameters; server.listen reachability is not inferred."
+          : "A named request handler reads an HTTP method and URL path; caller identity and runtime mounting are not inferred.";
+        let actor = nodeMap.get(actorId);
+        if (!actor) {
+          actor = semanticNode({ kind: "actor", filePath: path, startByte: actorEvidence.startByte, key: "node-http:api-client",
+            label: "API client", featureId: null, confidence: "indicated",
+            reason: actorReason,
+            evidence: actorEvidenceSpans, technicalNodeIds: [] });
+          actor.id = actorId;
+          nodeMap.set(actorId, actor);
+        } else {
+          actor.evidence = compactEvidence([...actor.evidence, ...actorEvidenceSpans]);
+          if (registrationEvidence.length) actor.reason = actorReason;
+        }
+        if (!featureModel.nodeIds.includes(actorId)) featureModel.nodeIds.push(actorId);
+        const actorEdge = { id: semanticEdgeId(path, routeSpan.startByte, `node-http:client-route:${actorId}:${routeId}`), source: actorId, target: routeId,
+          label: "sends request", confidence: "indicated", reason: registrationEvidence.length
+            ? "The request/response pair is forwarded by an imported handler inside a node:http createServer callback; listener execution and client identity remain unverified."
+            : "The HTTP request parameter and literal method/path guard are present in source; runtime mounting remains unverified.",
+          evidence: compactEvidence([actorEvidence, ...registrationEvidence, ...routeEvidence]) } satisfies SemanticEdge;
+        addEdge(fragment, featureModel, actorEdge);
+
+        for (const exit of directExits(route.body)) {
+          const exitSpan = nodeEvidence(entry, exit);
+          const outcomeLabel = responseLabel(exit);
+          const outcomeId = semanticId("outcome", path, exitSpan.startByte, `node-http:response:${routeId}:${outcomeLabel}`);
+          if (!nodeMap.has(outcomeId)) {
+            const outcome = semanticNode({ kind: "outcome", filePath: path, startByte: exitSpan.startByte,
+              key: `node-http:response:${routeId}:${outcomeLabel}`, label: outcomeLabel, featureId: featureModel.id,
+              confidence: "indicated", reason: "A direct return or throw is present in this candidate route branch; runtime execution is unverified.",
+              evidence: [exitSpan], technicalNodeIds: technicalNodesForSpan(input.ccm.nodes, path, exitSpan.startByte, exitSpan.endByte) });
+            outcome.id = outcomeId;
+            nodeMap.set(outcomeId, outcome);
+            featureModel.nodeIds.push(outcomeId);
+          }
+          const outcomeEdge = { id: semanticEdgeId(path, exitSpan.startByte, `node-http:route-response:${routeId}:${outcomeId}`),
+            source: routeId, target: outcomeId, label: "returns", confidence: "indicated",
+            reason: "The direct response return or rejection belongs to the candidate method/path branch; runtime mounting remains unverified.",
+            evidence: compactEvidence([...routeEvidence, exitSpan]) } satisfies SemanticEdge;
+          addEdge(fragment, featureModel, outcomeEdge);
+        }
         addExactCrossFileEffects(fragment, input, entriesByPath, entry, handler, route, routeId, routeEvidence, featureModel, nodeMap);
 
         const body = route.body;

@@ -1,33 +1,39 @@
 # QA-02 — Integrasi dan release evidence
 
-**Status: partial; keep #24 and REL-01 #26 open.** Fresh local runs on 9 November 2026 used application commit `b0ed42e431169617c134563985bfe84eb2ff8c58`, Docker images `sage-web:local` / `sage-worker:local`, Node.js 24.22.0, and the active GitHub account `iltizamhasan3`. No private source or credential is committed here.
+**Hasil verifikasi lokal: lulus dengan batasan yang dicatat.** Issue [#24](https://github.com/AgilePemdigi-2026/sage/issues/24) tetap terbuka sampai PR ini mendapat independent review dan merge. Run bersih dilakukan pada 9 November 2026 dengan image Docker yang dibangun dari source commit `6174452423da75f8090d98ef63a87bef23f5cb80`. Bukti terstruktur yang aman untuk repository publik ada di [laporan live integration](evidence/QA-02-live-integration-2026-11-09.json).
 
-The redacted machine-readable summary is [QA-02-live-integration-2026-11-09.json](evidence/QA-02-live-integration-2026-11-09.json).
+## Fresh Docker-to-demo run
 
-## Fresh end-to-end runs
+Compose project `sage-cleanqa` menggunakan volume database dan storage baru. Sebelum login, database tidak berisi user atau analysis. Migrasi selesai; database, web, dan worker sehat; halaman aplikasi serta `/api/health` merespons HTTP 200. Volume stack lokal lama tidak disentuh.
 
-All three submissions traversed the live repository selector, target validation, actual worker pipeline, result pages, and history. Each reached `COMPLETED_WITH_LIMITATIONS` after all nine stages completed. The CKG counts below are separate from Software Engineering Diagram relationship counts.
+Login GitHub berhasil melalui browser pada akun `iltizamhasan3`. Daftar repository publik tampil dan repository `iltizamhasan3/sistem-informasi-perpus` dipilih pada branch `master`, commit [`d72c3532a7d59cab242fb705ab201cf99ef35e88`](https://github.com/iltizamhasan3/sistem-informasi-perpus/commit/d72c3532a7d59cab242fb705ab201cf99ef35e88). Analysis dimulai dari UI dan selesai dalam 45 detik.
 
-| Public/private source and pinned commit | Pipeline | Code Knowledge | Software Engineering Diagram | Export result |
-| --- | --- | --- | --- | --- |
-| `iltizamhasan3/sistem-informasi-perpus`, `master`, [`d72c3532a7d59cab242fb705ab201cf99ef35e88`](https://github.com/iltizamhasan3/sistem-informasi-perpus/commit/d72c3532a7d59cab242fb705ab201cf99ef35e88) | 21.5 s; 9/9 stages; 105 source files | 3,116 nodes / 3,420 edges | 17/17 features; 67 displayed connections and 189 represented source relationships | Markdown READY (13,234,876 bytes); PDF READY (3,368,578 bytes). UI exposed both downloads as ready; a separate byte-for-byte download check was not recorded for this sample. |
-| `iltizamhasan3/emosync-backend`, `main`, [`a22992668658538f6fc10b904d6f7b2ed09124ac`](https://github.com/iltizamhasan3/emosync-backend/commit/a22992668658538f6fc10b904d6f7b2ed09124ac) | 14.7 s; 9/9 stages; 122 source files | 513 nodes / 1,408 edges; 87 Exact / 1,321 Unresolved | 14/14 features; 149 source relationships | Markdown READY and downloaded (5,125,688 bytes); PDF READY and downloaded (955,856 bytes). Both owner-scoped downloads returned HTTP 200 and matched the stored content hash; PDF signature was valid. |
-| Private Node.js HTTP sample; repository and commit intentionally redacted | 54.8 s; 9/9 stages; 118 source files | 6,594 nodes / 8,570 edges | 5 features; **0 source relationships** represented | Markdown READY and downloaded (30,219,466 bytes; stored hash matched). PDF failed with `PDF_DOCUMENT_LIMIT_EXCEEDED`; the UI showed an export failure instead of a successful download. |
+| Check | Actual result |
+| --- | --- |
+| Pipeline | `COMPLETED_WITH_LIMITATIONS`; 9/9 stages |
+| Code Knowledge | 105 source files; 3,116 nodes / 3,420 edges; 655 Exact / 2,765 Unresolved |
+| Software Engineering Diagram | 17 features; 67 displayed connections; 189 source relationships represented; displayed links are marked **Indikasi** |
+| Architecture Definition Document | Opened; Interface Catalog evidence links target the pinned GitHub commit and source line ranges |
+| Markdown | `READY`; 13,234,876 bytes in storage; UI fetched the file and passed its SHA-256 check against the export record before starting the download |
+| PDF | `READY`; 2,268,622 bytes in storage; UI verified PDF content type and SHA-256 against the export record before starting the download |
+| History and delete | The analysis appeared in history, was permanently deleted after explicit approval, cleanup completed, and history returned to its empty state |
 
-The private sample's failed PDF is a real size limitation, not a skipped check. Its static graph and Markdown completed, but its user-flow diagram has no proven links. The Laravel and Next.js samples do show source relationships, so those results do not justify claiming every JavaScript/PHP structure is supported.
+The export hashes in the database matched the corresponding storage-object hashes. That browser run verified download integrity, not visual layout. A separate offline replay of the pinned Perpus snapshot with the default presentation and PDF renderer 2.4.0 generated an 88-page A4 landscape PDF; all pages were checked in contact sheets, and pages 1, 5, 7, 53, 72, 87, and 88 were inspected at full resolution. No clipping or overlap was observed. This renderer review is not a claim that the offline PDF bytes are identical to the Docker UI download. The render hash, source commit, and scope are in [PDF visual review evidence](evidence/PDF-visual-review-2026-11-09.json).
 
-## GitHub and browser evidence
+## Automated regression and provider checks
 
-- Fresh interactive OAuth returned to SAGE as `@iltizamhasan3`. The installed App exposed the authorized private repository, while the public-account repository list also exposed Perpus, Emosync, and other public repositories.
-- The provider route Playwright report remains at [qa-02-provider-playwright-2026-11-08.json](evidence/qa-02-provider-playwright-2026-11-08.json). It checks real installation/repository metadata and denied or malformed targets; it does not create an analysis by itself.
-- The separate four-suite browser regression passed landing/health, auth/workspace, repository-target, and account-isolation checks on 360, 390, 768, 1024, and 1440 px. Its controlled provider responses are not described as live GitHub requests. Login denial, invalid callback, expired session, account mismatch, repository/branch errors, and retry behavior were covered in those suites.
-- One initial direct submission attempt returned HTTP 401 and created no job. It is excluded from passing counts; subsequent submissions through the signed-in UI completed successfully.
+- Latest code regression at `7b3fa3d1bc97754cb787a6c90e663f745f7f41ec`: `npm test -- --test-concurrency=1` passed 538/538; `npm run test:data` passed 8/8; `npm run test:semantic` passed 105/105; semantic Cucumber BDD passed 3 scenarios / 17 steps. The initial parallel full-suite attempt had one PHP analyzer test return `failed` instead of `partial`; the isolated PHP suite then passed 9/9 and the serialized full suite passed. Lint and both TypeScript checks passed.
+- Typecheck and production Docker build passed. Lint passed with three existing React Hooks warnings in `semantic-workspace.tsx`.
+- Browser regression covers landing/health, auth/workspace, repository target and account isolation at 360, 390, 768, 1024, and 1440 px. Those deterministic cases use controlled provider responses and are not counted as live GitHub checks.
+- Separate live provider checks used GitHub to read public repositories, installations, an authorized private repository, branch metadata, and the target commit without creating an analysis. The fresh clean-volume analysis above used a public repository.
+- The fresh run showed `COMPLETED_WITH_LIMITATIONS`; successful completion does not imply all Code Knowledge references were resolved or every source behavior was recovered.
 
-## Remaining acceptance gaps
+## Additional source coverage and limits
 
-- The private Node.js HTTP sample produced zero Software Engineering Diagram relationships. Source-backed user-flow coverage needs further analyzer work and an independent expected-versus-actual source oracle; feature counts alone do not prove each relationship is correct.
-- PDF export is unavailable for the large private sample under the current document-size limit. The limit is visible and handled, but full PDF coverage across large repositories is not met.
-- Emosync and Perpus both retain substantial unresolved references and extraction limitations. Their successful pipeline and export status do not mean all source facts or business behavior were recovered.
-- This run is local release evidence, not a Coolify deployment or a shared-host capacity test. Detailed clean-start, resource, and disk limits are in [REL-01 checks](REL-01_CHECKS.md).
+- An earlier private Node.js HTTP end-to-end run used app build `b29127b32afb8ac4cf427627bc60e983d2d3b230` and is recorded without private repository identity or source SHA. It produced 9/9 stages and 76 indicated semantic relationships. Independent review found false-positive registration cases; final code commit `7b3fa3d` rejects shadowed, unreachable, direct/destructuring/cast/captured-closure rebound dispatch and regression tests pass. The private repository has not been replayed through the final Docker image.
+- The final source replay benchmark for that private sample recorded 147 files, 28,259,410 canonical ADD bytes, 30,290,957 Markdown bytes, 730,055 PDF bytes, 638,320,640 bytes process peak RSS, 5 features, and 76 indicated relationships. This is a static replay/resource check, not a second live app run or human semantic-correctness signoff.
+- Earlier public Perpus and Emosync runs are historical comparisons; their results and unresolved references remain in the linked report. They are not substitutes for the fresh clean-volume run.
+- Node HTTP relationships are static **Indikasi**: the extractor does not claim that `server.listen` executed or that a route is runtime-reachable. Dynamic registration remains unsupported. The reviewed Perpus PDF is 88 pages because the source snapshot exposes many endpoint and related-action flows; it is A4 and readable per flow, while Markdown carries the complete technical detail.
+- No Coolify deployment, shared-host capacity test, backup restore, or multi-group load test was run. Private source identity and SHA are intentionally omitted from public evidence.
 
-Provider-boundary and older history evidence remains in [GH-02](GH-02_CHECKS.md) and [HIST-01](HIST-01_CHECKS.md). Do not close #24 until the analyzer gaps and large-document PDF behavior have an accepted resolution or an explicitly narrowed product contract.
+Provider and history component coverage remains documented in [GH-02](GH-02_CHECKS.md) and [HIST-01](HIST-01_CHECKS.md). Close #24 only after this implementation PR is independently reviewed and merged.
