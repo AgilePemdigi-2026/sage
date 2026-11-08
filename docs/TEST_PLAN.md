@@ -60,7 +60,7 @@ ID di bawah adalah kontrak acceptance alur produk lengkap. Check per issue dapat
 | T-EXP-01 | Ekspor dan buka Markdown pada viewer bersih | Markdown mandiri: tiga artefak, diagram source, evidence/context/limitation; unduhan nyata dan viewer offline, lihat EXP-01_CHECKS |
 | T-EXP-02 | Ekspor dan buka PDF, ekstrak teks, render seluruh halaman | File valid, teks sesuai, diagram terbaca, tidak terpotong, font dan evidence sesuai; teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
 | T-EXP-03 | Gagalkan ekspor, double submit, retry, download bukan pemilik | Markdown: dedup, hash graph/ADD/analysis tetap, retry dokumen sama dan akses privat; PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
-| T-HIST-01 | Empty history, list berbagai status, query nama/SHA, buka record | Query/status/cursor, detail sembilan stage dan isolasi owner diuji pada unit + PostgreSQL; browser/HTTP fresh-run masih pending ([HIST-01_CHECKS](HIST-01_CHECKS.md)) |
+| T-HIST-01 | Empty history, list berbagai status, query nama/SHA, buka record | Unit 23/23, PostgreSQL 5/5, HTTP 5 checks, dan Chromium smoke 6 checks lulus; coverage tersisa ada di [HIST-01_CHECKS](HIST-01_CHECKS.md) |
 | T-DATA-01 | Migrasi bersih, restart Docker, dua user mengakses ID yang sama | Persistensi utuh, credential/session aman, user lain ditolak pada graph/source/doc/export/job |
 | T-DATA-02 | Delete terminal/active/export aktif; simulasikan cleanup gagal | Active ditolak; akses hilang saat cleanup; file dan record turunan hilang sebelum selesai; cleanup idempotent |
 | T-UI-01 | Periksa viewport 360/390/768/1024/1440, keyboard, status/error | UI Indonesia, context terbaca, canvas/source terkontrol, fokus/label/warna diperiksa |

@@ -55,5 +55,28 @@
     "tests/fixtures/manifest.json": "41697b000ef84741303d82828740fcfb6cd0c0a52355dfd2b742bf94c3a54148",
     "tests/fixtures/resolver/resolver-oracle-v1.json": "5906d49bb123c69c957ea579d20b5c1273f64b302d05f0be1f1a4f7b3214058c",
     "tests/repository-benchmark.test.ts": "4358c64ae60222cfcff8eef7566b351bcb08e4867bdd30afbe320caedaff6ed5"
+  },
+  "teamSignoff": {
+    "date": "2026-11-08",
+    "reviewedBy": "iltizamhasan3",
+    "status": "ACCEPTED",
+    "scope": "Source accuracy and evidence for 12 seed facts and 33 resolver facts, canary behavior and recorded two-corpus benchmark. Does not claim complete adapter semantic acceptance or near-ceiling capacity.",
+    "manifestSha256": {
+      "tests/fixtures/manifest.json": "f24c85cc2b800158c9374e57abadc89a21126560d8e2acc9fdf12e7e3b1484a2",
+      "tests/fixtures/resolver/resolver-oracle-v1.json": "0b595e0773e8f2a2d1021b483f77b99c51891c1dfe23f6cbf82e0e78fef43c67"
+    },
+    "verifierSemanticAcceptance": "NOT_RUN",
+    "postSignoffVerification": {
+      "runtime": "Node 24.11.0",
+      "fixtureVerifier": "PASS; 15 files / 12 oracles",
+      "resolverVerifier": "PASS; 18 files / 35 expected edges",
+      "fixtureAndResolverTests": {
+        "passed": 13,
+        "failed": 0
+      },
+      "typecheck": "PASS",
+      "eslintChangedFiles": "PASS",
+      "verifierSemanticAcceptance": "NOT_RUN"
+    }
   }
 }

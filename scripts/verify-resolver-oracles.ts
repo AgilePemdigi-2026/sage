@@ -39,8 +39,8 @@ export type ResolverLanguageCoverage = {
 };
 export type ResolverOracleManifest = {
   schemaVersion: 1;
-  reviewStatus: "DRAFT_AWAITING_TEAM_REVIEW";
-  reviewedBy: null;
+  reviewStatus: "DRAFT_AWAITING_TEAM_REVIEW" | "TEAM_REVIEWED";
+  reviewedBy: string | null;
   scope: string;
   files: ResolverFixtureFile[];
   expectedEdges: ResolverOracleEdge[];
@@ -114,8 +114,12 @@ function positionAt(bytes: Buffer, offset: number): { line: number; column: numb
 }
 
 function validateManifest(value: unknown): ResolverOracleManifest {
-  if (!isRecord(value) || value.schemaVersion !== 1 || value.reviewStatus !== "DRAFT_AWAITING_TEAM_REVIEW" ||
-    value.reviewedBy !== null || !isNonEmptyString(value.scope)) fail("RESOLVER_ORACLE_MANIFEST_INVALID");
+  if (!isRecord(value) || value.schemaVersion !== 1 || !isNonEmptyString(value.scope)) fail("RESOLVER_ORACLE_MANIFEST_INVALID");
+  const draft = value.reviewStatus === "DRAFT_AWAITING_TEAM_REVIEW";
+  if (!draft && value.reviewStatus !== "TEAM_REVIEWED") fail("RESOLVER_ORACLE_MANIFEST_INVALID");
+  if (draft ? value.reviewedBy !== null : !isNonEmptyString(value.reviewedBy)) {
+    fail("RESOLVER_ORACLE_MANIFEST_INVALID");
+  }
   if (!Array.isArray(value.files) || value.files.length === 0 || !Array.isArray(value.expectedEdges) || value.expectedEdges.length === 0 ||
     !Array.isArray(value.languageCoverage)) fail("RESOLVER_ORACLE_MANIFEST_INVALID");
 

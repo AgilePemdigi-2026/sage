@@ -79,3 +79,9 @@ Source canary JS/TS memuat `writeFileSync`, sedangkan PHP memuat `file_put_conte
 Source target tidak dijalankan untuk menguji canary. Environment marker diteruskan ke subprocess PHP. Kasus ini menguji parse-only dan efek samping file; bukan sandbox universal atau pengujian semua bentuk network/exec. Archive traversal/symlink, ekspansi ukuran, binary/UTF-8, dan interruption mengikuti suite snapshot/source/stage yang terpisah.
 
 Audit tidak menyatakan seluruh edge yang mungkin ada sudah terdaftar. Manifest yang direview harus tetap cocok dengan fingerprint di atas; perubahan berikutnya membutuhkan review ulang.
+
+## Signoff tim — 8 November 2026
+
+Iltizam (`iltizamhasan3`) menyetujui review source dan evidence oracle QA-01 berdasarkan tabel fakta seed/resolver, canary, fingerprint, dan hasil benchmark pada dokumen ini dan [pemeriksaan QA-01](QA-01_CHECKS.md). Signoff menerima cakupan fakta yang tercantum dan batasnya; bukan penerimaan seluruh edge repository atau klaim kapasitas dekat ceiling.
+
+Metadata kedua manifest kini `TEAM_REVIEWED` dengan `reviewedBy: iltizamhasan3`. Hash manifest setelah signoff: seed `f24c85cc2b800158c9374e57abadc89a21126560d8e2acc9fdf12e7e3b1484a2`; resolver `0b595e0773e8f2a2d1021b483f77b99c51891c1dfe23f6cbf82e0e78fef43c67`. Perubahan metadata tidak mengubah byte source fixture maupun agregat file source. `semanticAcceptance: NOT_RUN` tetap status verifier integritas; hasil adapter yang tercakup berasal dari suite semantik serta benchmark terpisah.

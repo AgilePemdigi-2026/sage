@@ -37,8 +37,8 @@ test("manifest memuat oracle declaration/reference minimum dan limitations untuk
         oracle.role === "reference" && oracle.resolution === "unresolved" && oracle.reason === limitation.reason));
     }
   }
-  assert.equal(manifest.reviewStatus, "DRAFT_AWAITING_TEAM_REVIEW");
-  assert.equal(manifest.reviewedBy, null);
+  assert.equal(manifest.reviewStatus, "TEAM_REVIEWED");
+  assert.equal(manifest.reviewedBy, "iltizamhasan3");
 });
 
 test("manifest fixture dan evidence Unicode/CRLF cocok dengan source asli", async () => {
@@ -156,6 +156,6 @@ test("verifier menolak metadata oracle dan bahasa yang tidak memenuhi kontrak", 
   await rejectsWith(insufficientReferences, "FIXTURE_LANGUAGE_ORACLE_MINIMUM_MISSING");
 
   const falseReview = await mutableManifest();
-  falseReview.reviewedBy = "Ilzam";
+  falseReview.reviewedBy = null;
   await rejectsWith(falseReview, "FIXTURE_REVIEW_METADATA_INVALID");
 });

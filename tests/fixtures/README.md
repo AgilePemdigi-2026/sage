@@ -8,6 +8,6 @@ Jalankan `npm run fixtures:verify` untuk memeriksa struktur manifest, path aman,
 
 File mengandung `throw`, konfigurasi executable, dan script Composer sebagai canary. Seluruh source diperlakukan sebagai data; jangan menjalankan file atau package manager dari folder fixture. Composer hanya dipakai untuk dependency adapter tepercaya pada `packages/analyzer-php/`.
 
-Review tim belum dilakukan (`DRAFT_AWAITING_TEAM_REVIEW`, `reviewedBy: null`). QA-01 tetap terbuka sampai oracle deklarasi/relasi lebih lengkap, capability matrix, fixture berbahaya tambahan, dan benchmark representatif selesai. Angka waktu pada seed kecil bukan estimasi performa repository nyata.
+Review source tim dicatat pada 8 November 2026 (`TEAM_REVIEWED`, `reviewedBy: iltizamhasan3`) berdasarkan [review oracle QA-01](../../docs/QA-01_ORACLE_REVIEW.md). Ini menerima akurasi oracle source dan evidence yang tercakup; bukan klaim seluruh semantik adapter diterima. Verifier integritas tetap melaporkan `semanticAcceptance: NOT_RUN`. Batas kapasitas dekat ceiling dan pengujian OOM tetap belum tercakup.
 
 Bukti paket minimum dan batas review tersedia pada [pemeriksaan QA-01-S1](../../docs/QA-01-S1_CHECKS.md).

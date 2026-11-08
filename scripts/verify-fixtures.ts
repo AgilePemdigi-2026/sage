@@ -16,8 +16,8 @@ export type LanguageCoverage = {
 };
 export type FixtureManifest = {
   schemaVersion: number;
-  reviewStatus: string;
-  reviewedBy?: string | null;
+  reviewStatus: "DRAFT_AWAITING_TEAM_REVIEW" | "TEAM_REVIEWED";
+  reviewedBy: string | null;
   scope?: string;
   files: FixtureFile[];
   oracles: Oracle[];
@@ -78,8 +78,10 @@ function validateManifest(value: unknown): FixtureManifest {
   if (!isRecord(value) || value.schemaVersion !== 1 || !isNonEmptyString(value.reviewStatus) || !isNonEmptyString(value.scope)) {
     fail("FIXTURE_MANIFEST_INVALID");
   }
-  if (value.reviewedBy !== null && !isNonEmptyString(value.reviewedBy)) fail("FIXTURE_REVIEW_METADATA_INVALID");
-  if (value.reviewStatus === "DRAFT_AWAITING_TEAM_REVIEW" && value.reviewedBy !== null) fail("FIXTURE_REVIEW_METADATA_INVALID");
+  if (value.reviewStatus !== "DRAFT_AWAITING_TEAM_REVIEW" && value.reviewStatus !== "TEAM_REVIEWED") fail("FIXTURE_REVIEW_METADATA_INVALID");
+  if (value.reviewStatus === "DRAFT_AWAITING_TEAM_REVIEW" ? value.reviewedBy !== null : !isNonEmptyString(value.reviewedBy)) {
+    fail("FIXTURE_REVIEW_METADATA_INVALID");
+  }
   if (!Array.isArray(value.files) || value.files.length === 0 || !Array.isArray(value.oracles)) fail("FIXTURE_MANIFEST_INVALID");
   if (value.pendingCoverage !== undefined && (!Array.isArray(value.pendingCoverage) || !value.pendingCoverage.every(isNonEmptyString))) {
     fail("FIXTURE_MANIFEST_INVALID");

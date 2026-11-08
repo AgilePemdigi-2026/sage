@@ -79,3 +79,6 @@ Issue #11 tetap terbuka untuk gate QA-01: manifest oracle masih `DRAFT_AWAITING_
 ## Pembaruan dependency QA-01 — 21 Oktober 2026
 
 QA-01 kini menyediakan 33 fakta resolver source-backed, canary processed tanpa efek samping, review teknis independen serta enam run benchmark dua corpus repository nyata; lihat [hasil QA-01](QA-01_CHECKS.md). Gate yang tersisa adalah signoff formal tim pada manifest; tidak lagi menyatakan benchmark dua corpus belum dijalankan. Pengukuran tersebut tetap bukan bukti kapasitas dekat ceiling atau pipeline E2E. Penerimaan parent tidak ditutup otomatis.
+## Pembaruan acceptance QA-01 — 8 November 2026
+
+Signoff tim atas source facts/evidence QA-01 dicatat pada [review oracle](QA-01_ORACLE_REVIEW.md) dan [hasil QA-01](QA-01_CHECKS.md). Scope serta batas klaim tidak berubah: `semanticAcceptance: NOT_RUN` pada verifier integritas bukan status penerimaan suite semantik. Dengan review ini dan bukti hardening/kompatibilitas yang tercatat di atas, acceptance ANA-05 dapat ditutup.
