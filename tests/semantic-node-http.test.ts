@@ -82,7 +82,11 @@ async function handleBackendRequest(request: Request, response: Response) {
   const methodRoutes = new Map(routes.map(node => [node.label, node]));
   assert.equal(methodRoutes.get("GET /api/v1/health")?.confidence, "indicated", "a method/path branch does not establish runtime registration or reachability");
   assert.equal(methodRoutes.get("POST /api/v1/analyses/:param")?.confidence, "indicated");
-  assert.equal(fragment.nodes.some(node => node.kind === "actor"), false, "HTTP route source alone does not identify an actor");
+  const actor = fragment.nodes.find(node => node.kind === "actor");
+  assert.equal(actor?.label, "API client", "an explicit HTTP request handler provides a source-backed client boundary");
+  assert.ok(fragment.edges.some(edge => edge.source === actor?.id && edge.target === methodRoutes.get("GET /api/v1/health")?.id && edge.label === "sends request"));
+  assert.ok(fragment.edges.some(edge => edge.source === methodRoutes.get("GET /api/v1/health")?.id && fragment.nodes.some(node => node.id === edge.target && node.kind === "outcome") && edge.label === "returns"));
+  assert.ok(fragment.edges.filter(edge => edge.source === actor?.id).every(edge => edge.confidence === "indicated"), "route mounting uncertainty stays explicit");
   assert.ok(fragment.nodes.some(node => node.kind === "decision" && node.label === "Request validation"));
   assert.ok(fragment.nodes.some(node => node.kind === "outcome" && node.label === "Request rejected"));
   assert.ok(fragment.edges.length > routes.length);
@@ -94,6 +98,37 @@ async function handleBackendRequest(request: Request, response: Response) {
   const model = { schemaVersion: "sage-semantic-v1", extractorVersion: "test", sourceCkgHash: input.sourceCkgHash, snapshot: input.ccm.snapshot, ...fragment };
   assert.equal(isSemanticModel(model), true);
   assert.deepEqual(extractNodeHttp(input), fragment, "same source produces stable output");
+});
+
+test("Node HTTP links a statically imported handler to its createServer callback without claiming listen reachability", () => {
+  const routes = `
+function pathParts(request: Request) { return new URL(request.url).pathname.split("/").filter(Boolean); }
+export async function handleRequest(request: Request, response: Response) {
+  const method = request.method;
+  const parts = pathParts(request);
+  if (method === "GET" && parts.length === 2 && parts[0] === "api" && parts[1] === "health") return response.end();
+}
+`;
+  const server = `
+import { createServer as makeServer } from "node:http";
+import { handleRequest as dispatch } from "./routes.js";
+export function createApi() { return makeServer((request, response) => { void dispatch(request, response); }); }
+`;
+  const result = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": server }));
+  const actor = result.nodes.find(node => node.kind === "actor");
+  const route = result.nodes.find(node => node.kind === "step" && node.label === "GET /api/health");
+  const boundary = result.edges.find(edge => edge.source === actor?.id && edge.target === route?.id);
+  assert.ok(boundary);
+  assert.ok(boundary.evidence.some(span => span.filePath === "src/http/server.ts"), "the createServer registration is traceable");
+  assert.equal(boundary.confidence, "indicated", "server.listen execution and application reachability remain unverified");
+  assert.match(boundary.reason, /listener execution.*unverified/u);
+  assert.ok(result.limitations.some(item => /server\.listen execution/u.test(item.reason)));
+
+  const wrongParameters = server.replace("dispatch(request, response)", "dispatch(response, request)");
+  const unmatched = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": wrongParameters }));
+  const unmatchedActor = unmatched.nodes.find(node => node.kind === "actor");
+  assert.ok(unmatchedActor?.evidence.every(span => span.filePath !== "src/http/server.ts"),
+    "a mismatched callback argument order is not treated as handler registration evidence");
 });
 
 test("Node HTTP composes nested route guards, retains every guard span, and rejects contradicted else paths", () => {
@@ -272,8 +307,12 @@ async function handleRequest(request: Request, response: Response) {
   const fragment = extractNodeHttp(input);
   assert.deepEqual(fragment.nodes.filter(node => node.kind === "step").map(node => node.label).sort(), ["GET /api/safe", "GET /nested"].sort(),
     "a nested method/path guard is recognized when its branch is reachable");
-  assert.equal(fragment.nodes.some(node => node.kind === "decision" || node.kind === "outcome"), false,
-    "unreachable branch details are excluded after an unconditional return");
+  assert.equal(fragment.nodes.some(node => node.kind === "decision"), false,
+    "unreachable branch decisions are excluded after an unconditional return");
+  assert.equal(fragment.nodes.some(node => node.kind === "outcome" && node.label === "Request rejected"), false,
+    "the unreachable rejection branch is not presented as a route outcome");
+  assert.ok(fragment.nodes.some(node => node.kind === "outcome" && node.label === "Response returned"),
+    "a reachable direct response is included in the route flow");
   assert.ok(fragment.nodes.filter(node => node.kind === "step").every(node => node.confidence === "indicated"));
 });
 

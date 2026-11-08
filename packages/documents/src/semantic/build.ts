@@ -28,7 +28,7 @@ export function buildSemanticModel(input: SemanticInput): SemanticModel {
   const snapshot = JSON.parse(JSON.stringify(input.ccm.snapshot)) as SemanticModel["snapshot"];
   const value: SemanticModel = {
     schemaVersion: "sage-semantic-v2",
-    extractorVersion: "0.4.0",
+    extractorVersion: "0.4.1",
     sourceCkgHash: input.sourceCkgHash,
     snapshot,
     documentation: analyzeDocumentation({ sources: input.documentationSources ?? {}, snapshotPaths: input.snapshotPaths ?? [...new Set([

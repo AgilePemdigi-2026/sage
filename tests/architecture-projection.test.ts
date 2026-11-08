@@ -57,6 +57,28 @@ test("initial overview draws only source-backed actor, route, controller, and st
   assert.deepEqual(fixture, before, "projection does not mutate the canonical model");
 });
 
+test("Node HTTP request boundaries remain connected to feature cards in the overview", () => {
+  const feature = { ...sourceNode("feature:http", "feature", "Analyses", "feature:http"), confidence: "indicated" as const };
+  const actor = { ...sourceNode("actor:api-client", "actor", "API client", null), confidence: "indicated" as const };
+  const route = { ...sourceNode("step:analyses", "step", "POST /api/v1/analyses", "feature:http"), confidence: "indicated" as const };
+  const response = { ...sourceNode("outcome:accepted", "outcome", "Analysis accepted", "feature:http"), confidence: "indicated" as const };
+  const edges = [
+    sourceEdge("e:feature-route", feature.id, route.id, "includes endpoint", "indicated"),
+    sourceEdge("e:client-route", actor.id, route.id, "sends request", "indicated"),
+    sourceEdge("e:route-response", route.id, response.id, "returns", "indicated"),
+  ];
+  const model: SemanticModel = {
+    ...fixture,
+    nodes: [feature, actor, route, response],
+    edges,
+    features: [{ id: feature.id, label: feature.label, nodeIds: [feature.id, actor.id, route.id, response.id], entryNodeIds: [route.id], edgeIds: edges.map(edge => edge.id), evidence: [evidence] }],
+  };
+  const result = buildArchitectureProjection(payload(model));
+  assert.ok(result.edges.some(edge => edge.source === actor.id && edge.target === feature.id && edge.sourceEdgeIds.includes("e:client-route")),
+    "the source-backed request edge collapses to an actor-to-feature line instead of disappearing inside its feature frame");
+  assert.ok(result.nodes.find(node => node.id === feature.id)?.routeLabels.includes(route.label));
+});
+
 test("overlay groups and labels drive the architecture summary and indication filter", () => {
   const result = buildArchitectureProjection(payload(fixture, {
     labels: { "feature:checkin": "Daily mood", "route:post": "POST /mood" },
