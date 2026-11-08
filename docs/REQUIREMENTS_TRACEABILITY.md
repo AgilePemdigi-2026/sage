@@ -155,3 +155,7 @@ PERF-01 #96 merupakan paket teknis lokal pendukung persistensi dan efisiensi; ti
 ## Bukti operasional OPS-01 — 2 November 2026
 
 OPS-01 #104 menambah T-OPS-01 untuk diagnostik aman dan retry service terbatas, serta mengulang T-ANA-01/T-ANA-06 untuk owner/lease/attempt fencing, shutdown, recovery `WORKER_INTERRUPTED` dan publikasi setelah retry eksplisit. [OPS-01_CHECKS](OPS-01_CHECKS.md) memisahkan unit, PostgreSQL/proses nyata dan provider fixture; batas worker tetap 2 GiB/1,5 CPU. Ini mendukung FIN-01/QA-02/REL-01 tanpa menerima seluruh gate release atau kapasitas server bersama.
+
+## Explainable analysis extension
+
+Source-backed reconstruction and source traceability are extended with semantic v2 relationship explanations and static documentation context. Acceptance and compatibility are specified in [EXPLAINABLE_ANALYSIS.md](EXPLAINABLE_ANALYSIS.md); verification scenarios are in [TEST_PLAN.md](TEST_PLAN.md). Documentation context does not expand the CKG resolution taxonomy or claim universal framework/runtime support.

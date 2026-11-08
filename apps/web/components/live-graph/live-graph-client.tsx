@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { NODE_KINDS } from "@sage/contracts";
+import { NODE_KINDS } from "@sage/contracts/registries";
 import type { NodeKind } from "@sage/contracts";
 import type { GraphPayload } from "../../lib/graphs/types.ts";
 import { GraphCanvas } from "../graph-foundation/knowledge-graph.tsx";

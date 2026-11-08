@@ -13,6 +13,9 @@ import {
   SemanticPresentationConflictError,
 } from "../packages/database/src/index.ts";
 import { semanticRendererVersion } from "../packages/documents/src/semantic/export-pin.ts";
+import { buildSemanticModel } from "../packages/documents/src/semantic/build.ts";
+import { analyzeReferences } from "@sage/analyzer-js";
+import { canonicalizeCkg } from "@sage/contracts";
 import type { SemanticModel } from "../packages/documents/src/semantic/model.ts";
 
 const hash = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
@@ -40,8 +43,8 @@ function assertIsolatedSemanticDatabase(): void {
   let databaseName: string;
   try { databaseName = decodeURIComponent(new URL(rawUrl).pathname.slice(1)); }
   catch { throw new Error("DATABASE_URL is invalid; it was not logged."); }
-  if (databaseName !== "sage_semantic_storage_20261030") {
-    throw new Error("Semantic-storage integration tests only allow the isolated sage_semantic_storage_20261030 database.");
+  if (databaseName !== "sage_semantic_export_20261030") {
+    throw new Error("Semantic-storage integration tests only allow the isolated sage_semantic_export_20261030 database.");
   }
 }
 
@@ -313,6 +316,149 @@ test("semantic DB revisions serialize edits and exports without lock-order deadl
     }
     if (ownerId) await db.user.deleteMany({ where: { id: ownerId } });
     if (repositoryId) await db.repository.deleteMany({ where: { id: repositoryId } });
+    await disconnectDatabase();
+  }
+});
+
+test("semantic v2 publication persists Markdown context and rejects documentation evidence tampering", { skip: !enabled }, async () => {
+  assertIsolatedSemanticDatabase();
+  const db = database();
+  const suffix = randomUUID().replaceAll("-", "");
+  let ownerId = "";
+  let otherId = "";
+  let repositoryId = "";
+  let analysisId = "";
+  try {
+    const user = await db.user.create({
+      data: { githubUserId: `semantic-v2-${suffix}`, login: `semantic-v2-${suffix}` },
+      select: { id: true },
+    });
+    ownerId = user.id;
+    const other = await db.user.create({
+      data: { githubUserId: `semantic-v2-other-${suffix}`, login: `semantic-v2-other-${suffix}` },
+      select: { id: true },
+    });
+    otherId = other.id;
+    const repository = await db.repository.create({
+      data: {
+        githubRepositoryId: `semantic-v2-repository-${suffix}`,
+        ownerLogin: `semantic-v2-${suffix}`,
+        name: "fixture",
+        fullName: `semantic-v2-${suffix}/fixture`,
+        visibility: "PRIVATE",
+      },
+      select: { id: true },
+    });
+    repositoryId = repository.id;
+
+    const snapshot = { repository: `semantic-v2-${suffix}/fixture`, branch: "main", commitSha: "c".repeat(40) };
+    const source: Record<string, Uint8Array> = {
+      "src/app/api/items/route.ts": new TextEncoder().encode("export async function GET() { return Response.json({ items: [] }); }\n"),
+      "README.md": new TextEncoder().encode("# Semantic fixture\n\nThe API route is documented for maintainers.\n\n[Items handler](src/app/api/items/route.ts)\n"),
+    };
+    const configurationHash = hash(`semantic v2 integration ${suffix}`);
+    const analysisResult = analyzeReferences({ snapshot, sources: source });
+    assert.ok(analysisResult.ccm, "static fixture source should produce a CCM snapshot");
+    const canonical = canonicalizeCkg(analysisResult.ccm, source, configurationHash);
+    assert.ok(canonical.ok, "source and excluded README should canonicalize into the pinned CKG");
+    const ccm = canonical.value.ccm;
+    const readme = ccm.files.find(file => file.path === "README.md");
+    assert.ok(readme);
+    assert.equal(readme.status, "excluded", "Markdown remains excluded from code analysis while its snapshot hash is retained");
+    const model = buildSemanticModel({
+      ccm,
+      sourceCkgHash: canonical.sha256,
+      sources: source,
+      documentationSources: source,
+      snapshotPaths: Object.keys(source),
+    });
+    assert.equal(model.schemaVersion, "sage-semantic-v2");
+    assert.ok(model.edges.length > 0, "the semantic model should contain source-derived relationships");
+    assert.ok(model.edges.every(edge => !!edge.explanation), "every v2 relationship should carry its structured explanation");
+    const documentation = model.documentation!.documents.find(document => document.filePath === "README.md");
+    assert.ok(documentation, "the v2 publication should include the parsed Markdown file");
+    assert.equal(documentation.fileSha256, readme.sha256, "documentation is bound to the excluded snapshot file hash");
+    const reference = model.documentation!.references.find(item => item.sourcePath === "README.md");
+    assert.ok(reference);
+    assert.equal(reference.evidence.fileSha256, readme.sha256, "the documentation link evidence uses the same snapshot hash");
+    assert.equal(reference.targetPath, "src/app/api/items/route.ts");
+
+    const analysis = await db.analysis.create({
+      data: {
+        ownerUserId: ownerId,
+        repositoryId,
+        repositoryFullNameSnapshot: snapshot.repository,
+        branchName: snapshot.branch,
+        commitSha: snapshot.commitSha,
+        configuration: { sourcePolicyVersion: "semantic-v2-integration" },
+        configurationHash,
+        analyzerVersion: "semantic-v2-storage-integration",
+        schemaVersion: "1",
+        status: "COMPLETED",
+        resultHash: canonical.sha256,
+        completedAt: new Date(),
+      },
+      select: { id: true },
+    });
+    analysisId = analysis.id;
+    await db.graphBundle.create({
+      data: {
+        ownerUserId: ownerId,
+        analysisId,
+        schemaVersion: canonical.value.schemaVersion,
+        configurationHash,
+        storageLayoutVersion: 2,
+        canonicalContent: canonical.json,
+        nodeCount: canonical.value.counts.nodes,
+        edgeCount: canonical.value.counts.edges,
+        contentHash: canonical.sha256,
+      },
+    });
+    const documentHash = hash("semantic v2 integration architecture document");
+    await db.architectureDocument.create({
+      data: {
+        ownerUserId: ownerId,
+        analysisId,
+        title: "Semantic v2 integration fixture",
+        documentModelVersion: "integration-v1",
+        storageLayoutVersion: 2,
+        canonicalContent: "{}",
+        contentHash: documentHash,
+      },
+    });
+
+    const persisted = await db.$transaction(tx => persistAnalysisSemantic(tx, {
+      ownerUserId: ownerId, analysisId, sourceCkgHash: canonical.sha256, ccm, model,
+    }));
+    const published = await readSemanticForUser(db, ownerId, analysisId);
+    assert.ok(published);
+    assert.equal(published.modelHash, persisted.modelHash);
+    assert.deepEqual(published.model, model, "a stored v2 publication round-trips documentation and explanations without rewriting");
+    assert.equal(await readSemanticForUser(db, other.id, analysisId), null, "the v2 publication remains owner scoped");
+
+    const invalidModel = structuredClone(model);
+    invalidModel.documentation!.documents[0]!.fileSha256 = "f".repeat(64);
+    await assert.rejects(db.$transaction(tx => persistAnalysisSemantic(tx, {
+      ownerUserId: ownerId, analysisId, sourceCkgHash: canonical.sha256, ccm, model: invalidModel,
+    })), SemanticModelIntegrityError, "publication must reject documentation bytes that do not match the snapshot file hash");
+
+    const tampered = structuredClone(model);
+    tampered.documentation!.documents[0]!.fileSha256 = "f".repeat(64);
+    await db.semanticModel.update({
+      where: { analysisId_ownerUserId: { analysisId, ownerUserId: ownerId } },
+      data: { canonicalContent: JSON.stringify(tampered) },
+    });
+    await assert.rejects(readSemanticForUser(db, ownerId, analysisId), SemanticModelIntegrityError,
+      "reads must reject stored documentation whose evidence hash no longer matches the pinned CKG");
+  } finally {
+    if (ownerId && analysisId) {
+      await db.job.deleteMany({ where: { ownerUserId: ownerId, analysisId } }).catch(() => undefined);
+      await db.export.deleteMany({ where: { ownerUserId: ownerId, analysisId } }).catch(() => undefined);
+      await db.analysis.deleteMany({ where: { ownerUserId: ownerId, id: analysisId } }).catch(() => undefined);
+    }
+    if (otherId) await db.user.deleteMany({ where: { id: otherId } }).catch(() => undefined);
+    if (ownerId) await db.user.deleteMany({ where: { id: ownerId } }).catch(() => undefined);
+    if (repositoryId) await db.repository.deleteMany({ where: { id: repositoryId } }).catch(() => undefined);
     await disconnectDatabase();
   }
 });

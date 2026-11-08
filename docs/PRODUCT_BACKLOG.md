@@ -146,3 +146,7 @@ Tinjau bobot, dependensi, waktu review, serta bukti perubahan/tes/review yang su
 Definisi selesai mengikuti [Definition of Done](DEFINITION_OF_DONE.md). Seluruh 17 paket awal Sprint 1 sudah ditutup sesuai bukti pada issue. UI-02/UI-03 menambahkan pekerjaan frontend pada 20 Oktober; keduanya terverifikasi sebagai fase frontend fixture, terpisah dari acceptance fitur penuh Sprint 2. QA-01 mempunyai 33 fakta resolver teruji, review teknis independen, canary dan benchmark dua corpus repository; signoff formal tim masih pending; acceptance produk mengikuti [test plan](TEST_PLAN.md).
 
 Penyempurnaan UI-05 #105 menyatukan workspace nyata dan menghapus route pratinjau, memperbaiki graph jaringan, navigasi target, waktu progres, serta penyajian evidence/dokumen bertahap. Catatan UI-02/UI-03 tetap merupakan bukti historis; bukti workspace terbaru mengikuti [UI-05_CHECKS](UI-05_CHECKS.md), tanpa menutup acceptance parent QA/FIN secara otomatis.
+
+## Explainable analysis extension (8 November 2026)
+
+Implementation package: semantic v2 explanation/provenance, bounded README/docs/ADR context, conservative entrypoint traces, accessible relationship inspection and export parity. Status and actual verification are recorded in the implementation PR. See [acceptance contract](EXPLAINABLE_ANALYSIS.md); this package does not close unrelated parent acceptance gates.

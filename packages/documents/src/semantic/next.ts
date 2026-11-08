@@ -345,6 +345,45 @@ function visitExecutable(root: ts.Node, visit: (node: ts.Node) => void): void {
 function visitHandlerFlow(root: ts.Node, confidence: "proven" | "indicated", visit: (node: ts.Node, confidence: "proven" | "indicated") => void): void {
   const walk = (node: ts.Node, currentConfidence: "proven" | "indicated") => {
     visit(node, currentConfidence);
+    if (ts.isIfStatement(node)) {
+      walk(node.expression, currentConfidence);
+      const condition = literalBoolean(node.expression);
+      if (condition === true) walk(node.thenStatement, currentConfidence);
+      else if (condition === false) { if (node.elseStatement) walk(node.elseStatement, currentConfidence); }
+      else {
+        walk(node.thenStatement, currentConfidence);
+        if (node.elseStatement) walk(node.elseStatement, currentConfidence);
+      }
+      return;
+    }
+    if (ts.isConditionalExpression(node)) {
+      walk(node.condition, currentConfidence);
+      const condition = literalBoolean(node.condition);
+      if (condition === true) walk(node.whenTrue, currentConfidence);
+      else if (condition === false) walk(node.whenFalse, currentConfidence);
+      else { walk(node.whenTrue, currentConfidence); walk(node.whenFalse, currentConfidence); }
+      return;
+    }
+    if (ts.isBinaryExpression(node) && (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken || node.operatorToken.kind === ts.SyntaxKind.BarBarToken)) {
+      walk(node.left, currentConfidence);
+      const left = literalBoolean(node.left);
+      if (!(node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken && left === false ||
+        node.operatorToken.kind === ts.SyntaxKind.BarBarToken && left === true)) walk(node.right, currentConfidence);
+      return;
+    }
+    if (ts.isWhileStatement(node)) {
+      walk(node.expression, currentConfidence);
+      if (literalBoolean(node.expression) !== false) walk(node.statement, currentConfidence);
+      return;
+    }
+    if (ts.isForStatement(node)) {
+      if (node.initializer) walk(node.initializer, currentConfidence);
+      if (node.condition) walk(node.condition, currentConfidence);
+      if (node.condition && literalBoolean(node.condition) === false) return;
+      walk(node.statement, currentConfidence);
+      if (node.incrementor && !statementAlwaysExits(node.statement)) walk(node.incrementor, currentConfidence);
+      return;
+    }
     ts.forEachChild(node, child => {
       if (isCallableBoundary(child)) {
         const passedToCall = (ts.isArrowFunction(child) || ts.isFunctionExpression(child)) && ts.isCallExpression(node) && node.arguments.some(argument => unwrap(argument) === child);
@@ -1360,6 +1399,7 @@ export function extractNext(input: SemanticInput): SemanticFragment {
         if (injectedCalls.length) fragment.limitations.push({ filePath: handlerEntry.path, reason: `Handler memanggil dependency injeksi (${injectedCalls.join(", ")}); implementasi callback yang dipasok factory belum ditautkan ke alur ini.` });
         addGuards(fragment, input, handlerEntry, handler, apiStep.id, family.id, nodeIds, edgeIds, handlerConfidence);
         addStores(fragment, input, handlerEntry, handler, component.id, family.id, nodeIds, edgeIds, handlerConfidence);
+        addExactCrossFileCallEffects(fragment, input, entriesByPath, handlerEntry, handler, component.id, family.id, nodeIds, edgeIds, handlerConfidence);
         addResponseOutcome(fragment, handlerEntry, handler, apiStep.id, family.id, nodeIds, edgeIds, handlerConfidence);
       } else fragment.limitations.push({ filePath: entry.path, reason: `Endpoint ${exported.method} ${app.route} mendelegasikan handler ke ${exported.handlerLabel}; implementasi handler tidak tersedia pada deklarasi route.` });
     }
@@ -2072,6 +2112,221 @@ function addStores(fragment: SemanticFragment, input: SemanticInput, entry: Sour
       }
     }
   });
+}
+
+function statementAlwaysExits(statement: ts.Statement): boolean {
+  if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) return true;
+  if (ts.isBlock(statement)) {
+    for (const child of statement.statements) if (statementAlwaysExits(child)) return true;
+    return false;
+  }
+  if (ts.isIfStatement(statement)) {
+    const condition = literalBoolean(statement.expression);
+    if (condition === true) return statementAlwaysExits(statement.thenStatement);
+    if (condition === false) return statement.elseStatement ? statementAlwaysExits(statement.elseStatement) : false;
+    return !!statement.elseStatement && statementAlwaysExits(statement.thenStatement) && statementAlwaysExits(statement.elseStatement);
+  }
+  return false;
+}
+
+function literalBoolean(expression: ts.Expression): boolean | null {
+  const value = unwrap(expression);
+  if (value.kind === ts.SyntaxKind.TrueKeyword) return true;
+  if (value.kind === ts.SyntaxKind.FalseKeyword) return false;
+  if (ts.isPrefixUnaryExpression(value) && value.operator === ts.SyntaxKind.ExclamationToken) {
+    const nested = literalBoolean(value.operand);
+    return nested === null ? null : !nested;
+  }
+  return null;
+}
+
+function hasUnreachableTopLevelTail(block: ts.Block): boolean {
+  for (let index = 0; index < block.statements.length; index += 1) {
+    const statement = block.statements[index]!;
+    if ((ts.isReturnStatement(statement) || ts.isThrowStatement(statement) || statementAlwaysExits(statement)) && index < block.statements.length - 1) return true;
+    let nested = false;
+    const inspect = (node: ts.Node) => {
+      if (nested || node !== statement && isCallableBoundary(node)) return;
+      if (ts.isBlock(node) && node !== block && hasUnreachableTopLevelTail(node)) nested = true;
+      ts.forEachChild(node, inspect);
+    };
+    inspect(statement);
+    if (nested) return true;
+  }
+  return false;
+}
+
+function hasLiteralUnreachableCall(node: ts.Node): boolean {
+  let found = false;
+  const hasCall = (child: ts.Node): boolean => {
+    if (isCallableBoundary(child)) return false;
+    if (ts.isCallExpression(child)) return true;
+    return ts.forEachChild(child, hasCall) ?? false;
+  };
+  const visit = (child: ts.Node) => {
+    if (found || child !== node && isCallableBoundary(child)) return;
+    if (ts.isIfStatement(child)) {
+      const condition = literalBoolean(child.expression);
+      const unreachable = condition === true ? child.elseStatement : condition === false ? child.thenStatement : undefined;
+      if (unreachable && hasCall(unreachable)) found = true;
+    }
+    if (ts.isConditionalExpression(child)) {
+      const condition = literalBoolean(child.condition);
+      const unreachable = condition === true ? child.whenFalse : condition === false ? child.whenTrue : undefined;
+      if (unreachable && hasCall(unreachable)) found = true;
+    }
+    ts.forEachChild(child, visit);
+  };
+  visit(node);
+  return found;
+}
+
+function directReachableCallSites(handler: ts.FunctionLikeDeclaration): ts.CallExpression[] {
+  if (!handler.body || !ts.isBlock(handler.body)) return [];
+  const output: ts.CallExpression[] = [];
+  const scan = (node: ts.Node) => {
+    if (node !== handler.body && isCallableBoundary(node)) return;
+    if (ts.isCallExpression(node)) output.push(node);
+    if (ts.isBinaryExpression(node) && [ts.SyntaxKind.AmpersandAmpersandToken, ts.SyntaxKind.BarBarToken].includes(node.operatorToken.kind)) {
+      scan(node.left);
+      const left = literalBoolean(node.left);
+      if (node.operatorToken.kind === ts.SyntaxKind.AmpersandAmpersandToken && left === false || node.operatorToken.kind === ts.SyntaxKind.BarBarToken && left === true) return;
+      scan(node.right);
+      return;
+    }
+    if (ts.isConditionalExpression(node)) {
+      scan(node.condition);
+      const condition = literalBoolean(node.condition);
+      if (condition === true) scan(node.whenTrue);
+      else if (condition === false) scan(node.whenFalse);
+      else { scan(node.whenTrue); scan(node.whenFalse); }
+      return;
+    }
+    ts.forEachChild(node, scan);
+  };
+  const scanStatement = (statement: ts.Statement): boolean => {
+    if (isCallableBoundary(statement)) return false;
+    if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) {
+      if (statement.expression) scan(statement.expression);
+      return true;
+    }
+    if (ts.isBlock(statement)) return scanStatements(statement.statements);
+    if (ts.isIfStatement(statement)) {
+      const condition = literalBoolean(statement.expression);
+      if (condition === true) return scanStatement(statement.thenStatement);
+      if (condition === false) return statement.elseStatement ? scanStatement(statement.elseStatement) : false;
+      scan(statement.expression);
+      const thenExits = scanStatement(statement.thenStatement);
+      const elseExits = statement.elseStatement ? scanStatement(statement.elseStatement) : false;
+      return thenExits && elseExits;
+    }
+    if (ts.isWhileStatement(statement)) {
+      scan(statement.expression);
+      if (literalBoolean(statement.expression) !== false) scanStatement(statement.statement);
+      return false;
+    }
+    if (ts.isForStatement(statement)) {
+      if (statement.initializer) scan(statement.initializer);
+      if (statement.condition) scan(statement.condition);
+      if (statement.condition && literalBoolean(statement.condition) === false) return false;
+      const bodyExits = scanStatement(statement.statement);
+      if (statement.incrementor && !bodyExits) scan(statement.incrementor);
+      return false;
+    }
+    if (ts.isTryStatement(statement)) {
+      const tryExits = scanStatement(statement.tryBlock);
+      const catchExits = statement.catchClause ? scanStatement(statement.catchClause.block) : false;
+      const finallyExits = statement.finallyBlock ? scanStatement(statement.finallyBlock) : false;
+      return finallyExits || tryExits && catchExits;
+    }
+    scan(statement);
+    return false;
+  };
+  const scanStatements = (statements: readonly ts.Statement[]): boolean => {
+    for (const statement of statements) if (scanStatement(statement)) return true;
+    return false;
+  };
+  scanStatements(handler.body.statements);
+  return [...new Set(output)];
+}
+
+function exactCallableNodeForAst(input: SemanticInput, entry: SourceEntry, handler: ts.FunctionLikeDeclaration): CcmNode | null {
+  const span = nodeRange(entry, handler, "declaration");
+  const handlerName = "name" in handler && handler.name && ts.isIdentifier(handler.name) ? handler.name.text : null;
+  if (!handlerName) return null;
+  const matches = input.ccm.nodes.filter(node => node.filePath === entry.path && ["Function", "Method"].includes(node.kind) && node.name === handlerName && node.location !== null &&
+    node.location.startByte <= span.endByte && node.location.endByte >= span.startByte);
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+function astCallableForCcmNode(entry: SourceEntry, target: CcmNode): ts.FunctionLikeDeclaration | null {
+  if (!target.location || target.filePath !== entry.path) return null;
+  const matches: ts.FunctionLikeDeclaration[] = [];
+  const visit = (node: ts.Node) => {
+    if ((ts.isFunctionDeclaration(node) && node.name?.text === target.name) ||
+      (ts.isMethodDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === target.name)) {
+      const nodeStart = new TextEncoder().encode(entry.text.slice(0, node.getStart(entry.file))).byteLength;
+      const nodeEnd = new TextEncoder().encode(entry.text.slice(0, node.end)).byteLength;
+      if (nodeStart <= target.location!.endByte && nodeEnd >= target.location!.startByte) matches.push(node as ts.FunctionLikeDeclaration);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(entry.file);
+  return matches.length === 1 ? matches[0]! : null;
+}
+
+function addExactCrossFileCallEffects(fragment: SemanticFragment, input: SemanticInput, entriesByPath: ReadonlyMap<string, SourceEntry>,
+  entry: SourceEntry, handler: ts.FunctionLikeDeclaration, callerId: string, featureId: string, nodeIds: string[], edgeIds: string[], confidence: "proven" | "indicated"): void {
+  const sourceNode = exactCallableNodeForAst(input, entry, handler);
+  if (!sourceNode) return;
+  for (const call of directReachableCallSites(handler)) {
+    const callSpan = nodeRange(entry, call, "reference");
+    const matchingEdges = input.ccm.edges.filter(edge => edge.kind === "CALLS" && edge.resolution === "Exact" && edge.sourceId === sourceNode.id &&
+      edge.evidence.some(span => span.filePath === entry.path && span.startByte >= callSpan.startByte && span.endByte <= callSpan.endByte));
+    if (matchingEdges.length !== 1) continue;
+    const callEdge = matchingEdges[0]!;
+    const target = input.ccm.nodes.find(node => node.id === callEdge.targetId);
+    if (!target || !target.filePath || target.filePath === entry.path || !["Function", "Method"].includes(target.kind)) continue;
+    const targetEntry = entriesByPath.get(target.filePath);
+    const targetHandler = targetEntry && astCallableForCcmNode(targetEntry, target);
+    if (!targetEntry || !targetHandler || !targetHandler.body || !ts.isBlock(targetHandler.body)) continue;
+    const targetBody = targetHandler.body;
+    const targetSpan = nodeRange(targetEntry, targetHandler, "declaration");
+    const serviceId = semanticId("component", targetEntry.path, targetSpan.startByte, `called-function:${target.qualifiedName}`);
+    const serviceEvidence = [targetSpan, ...callEdge.evidence];
+    if (!fragment.nodes.some(node => node.id === serviceId)) fragment.nodes.push(semanticNode({ kind: "component", filePath: targetEntry.path, startByte: targetSpan.startByte,
+      key: `called-function:${target.qualifiedName}`, label: humanLabel(target.name), featureId, confidence,
+      reason: "Pemanggilan lintas file cocok dengan satu edge CALLS exact dan satu deklarasi fungsi source.", evidence: [targetSpan], technicalNodeIds: [target.id] }));
+    const conditions: EvidenceSpan[] = [];
+    let parent: ts.Node | undefined = call.parent;
+    while (parent && parent !== handler) {
+      if (ts.isIfStatement(parent)) conditions.push(nodeRange(entry, parent.expression, "context"));
+      parent = parent.parent;
+    }
+    const callRelation = makeEdge("exact-cross-file-call", callerId, serviceId, "memanggil fungsi", confidence,
+      "Call site source terhubung ke satu deklarasi lintas file melalui edge CKG CALLS exact.", callSpan);
+    callRelation.evidence = [...callRelation.evidence, ...callEdge.evidence, ...conditions, targetSpan]
+      .filter((span, index, spans) => spans.findIndex(other => other.filePath === span.filePath && other.startByte === span.startByte && other.endByte === span.endByte) === index)
+      .sort((left, right) => left.filePath.localeCompare(right.filePath) || left.startByte - right.startByte || left.endByte - right.endByte);
+    fragment.edges.push(callRelation);
+    nodeIds.push(serviceId); edgeIds.push(callRelation.id);
+    addFeatureMembers(fragment, featureId, [serviceId], [callRelation.id], serviceEvidence);
+    let hasNestedCallable = false;
+    const inspectCallables = (node: ts.Node) => {
+      if (hasNestedCallable || node !== targetBody && isCallableBoundary(node)) { hasNestedCallable = true; return; }
+      ts.forEachChild(node, inspectCallables);
+    };
+    inspectCallables(targetBody);
+    if (hasNestedCallable) {
+      fragment.limitations.push({ filePath: targetEntry.path, reason: "Cross-file helper has a nested callable; its store effects are not expanded because callback execution is unverified." });
+      continue;
+    }
+    if (hasUnreachableTopLevelTail(targetBody) || hasLiteralUnreachableCall(targetBody)) {
+      fragment.limitations.push({ filePath: targetEntry.path, reason: "Cross-file helper contains a statically unreachable branch or statement tail; its store effects are not expanded." });
+      continue;
+    }
+    addStores(fragment, input, targetEntry, targetHandler, serviceId, featureId, nodeIds, edgeIds, confidence);
+  }
 }
 
 function supabaseTerminalOperation(fromCall: ts.CallExpression): string | null {

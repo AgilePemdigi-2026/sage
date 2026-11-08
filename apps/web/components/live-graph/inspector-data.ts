@@ -6,7 +6,7 @@ import {
   NODE_KINDS,
   NODE_ORIGINS,
   UNRESOLVED_REASONS,
-} from "@sage/contracts";
+} from "@sage/contracts/registries";
 import type { CcmSnapshot, EvidenceSpan } from "@sage/contracts";
 import type {
   NodeInspectorFile,

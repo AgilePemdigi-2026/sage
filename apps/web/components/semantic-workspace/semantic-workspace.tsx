@@ -3,9 +3,13 @@
 import type { CSSProperties, FormEvent, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PresentationOverlay, SemanticEdge, SemanticFeature, SemanticModel, SemanticNode, SemanticPayload } from "@sage/documents/semantic/model";
+import { isPresentationOverlay, isSemanticModel } from "@sage/documents/semantic/validation";
 import { EvidenceLink } from "../live-document/evidence-links.tsx";
 import styles from "./semantic-workspace.module.css";
 import { ArchitectureOverview } from "./architecture-overview.tsx";
+import { DocumentationContextPanel } from "./documentation-context.tsx";
+import { ExplanationOriginControl, matchesExplanationOrigin, RelationshipExplanationPanel } from "./relationship-explanation.tsx";
+import type { ExplanationOriginFilter } from "./architecture-projection.ts";
 
 type Mode = "flow" | "graph";
 type Props = { analysisId: string; accountKey: string; repository: string; commitSha: string; mode: Mode; legacyFallback?: ReactNode; onLegacyFallback?: () => void; onRevision?: (detail: { revision: number; modelHash: string }) => void };
@@ -17,56 +21,12 @@ const EMPTY_FEATURES: SemanticFeature[] = [];
 
 function isRecord(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }
 function safeString(value: unknown, max = 1000): value is string { return typeof value === "string" && value.length <= max; }
-function isEvidence(value: unknown): value is SemanticNode["evidence"][number] {
-  return isRecord(value) && safeString(value.filePath, 2000) && value.filePath.length > 0 &&
-    Number.isSafeInteger(value.startLine) && Number(value.startLine) > 0 && Number.isSafeInteger(value.endLine) && Number(value.endLine) >= Number(value.startLine) &&
-    ["declaration", "reference", "context"].includes(String(value.role));
-}
-function validOverlay(value: unknown, model: SemanticModel): value is PresentationOverlay {
-  if (!isRecord(value) || !isRecord(value.labels) || !isRecord(value.groups)) return false;
-  const ids = new Set(model.nodes.map(node => node.id));
-  const featureIds = new Set(model.features.map(feature => feature.id));
-  return Object.entries(value.labels).every(([id, label]) => ids.has(id) && safeString(label, 160) && label.trim().length > 0) &&
-    Object.entries(value.groups).every(([id, featureId]) => ids.has(id) && safeString(featureId, 256) && featureIds.has(featureId));
-}
 function parsePayload(value: unknown, analysisId: string, accountKey: string): SemanticPayload {
   if (!isRecord(value) || value.analysisId !== analysisId || value.accountKey !== accountKey ||
       !Number.isSafeInteger(value.revision) || Number(value.revision) < 0 || typeof value.modelHash !== "string" || !/^[a-f0-9]{64}$/u.test(value.modelHash) ||
-      !isRecord(value.model) || value.model.schemaVersion !== "sage-semantic-v1" || !safeString(value.model.sourceCkgHash, 64) || !/^[a-f0-9]{64}$/u.test(String(value.model.sourceCkgHash)) ||
-      !isRecord(value.model.snapshot) || !safeString(value.model.snapshot.repository, 300) || !safeString(value.model.snapshot.commitSha, 100) ||
-      !(value.model.snapshot.branch === null || safeString(value.model.snapshot.branch, 300)) ||
-      !Array.isArray(value.model.nodes) || value.model.nodes.length > 30_000 || !Array.isArray(value.model.edges) || value.model.edges.length > 100_000 ||
-      !Array.isArray(value.model.features) || value.model.features.length > 10_000 || !Array.isArray(value.model.frameworks) || value.model.frameworks.length > 500 ||
-      !Array.isArray(value.model.limitations) || value.model.limitations.length > 30_000) throw new Error("Model semantik tidak sesuai dengan analisis aktif.");
-  const model = value.model as unknown as SemanticModel;
-  const nodeIds = new Set<string>();
-  for (const node of model.nodes) {
-    if (!isRecord(node) || !safeString(node.id, 256) || nodeIds.has(node.id) || !safeString(node.label, 1000) ||
-        !["actor", "feature", "concept", "component", "store", "step", "decision", "outcome"].includes(String(node.kind)) ||
-        !(node.featureId === null || safeString(node.featureId, 256)) || !["proven", "indicated"].includes(String(node.confidence)) || !safeString(node.reason, 1000) ||
-        !Array.isArray(node.evidence) || node.evidence.length > 2_000 || node.evidence.some(item => !isEvidence(item)) ||
-        !Array.isArray(node.technicalNodeIds) || node.technicalNodeIds.length > 30_000 || node.technicalNodeIds.some(id => !safeString(id, 256))) throw new Error("Model node tidak valid.");
-    nodeIds.add(node.id);
-  }
-  const featureIds = new Set<string>();
-  for (const feature of model.features) {
-    if (!isRecord(feature) || !safeString(feature.id, 256) || featureIds.has(feature.id) || !safeString(feature.label, 1000) ||
-        !Array.isArray(feature.nodeIds) || feature.nodeIds.length > 30_000 || feature.nodeIds.some(id => !safeString(id, 256) || !nodeIds.has(id)) ||
-        !Array.isArray(feature.edgeIds) || feature.edgeIds.length > 100_000 || feature.edgeIds.some(id => !safeString(id, 256)) ||
-        !Array.isArray(feature.entryNodeIds) || feature.entryNodeIds.length > 30_000 || feature.entryNodeIds.some(id => !safeString(id, 256) || !nodeIds.has(id)) ||
-        !Array.isArray(feature.evidence) || feature.evidence.length > 2_000 || feature.evidence.some(item => !isEvidence(item))) throw new Error("Model fitur tidak valid.");
-    featureIds.add(feature.id);
-  }
-  for (const node of model.nodes) if (node.featureId !== null && !featureIds.has(node.featureId)) throw new Error("Kelompok fitur pada node tidak valid.");
-  const edgeIds = new Set<string>();
-  for (const edge of model.edges) {
-    if (!isRecord(edge) || !safeString(edge.id, 256) || edgeIds.has(edge.id) || !safeString(edge.source, 256) || !nodeIds.has(edge.source) || !safeString(edge.target, 256) || !nodeIds.has(edge.target) ||
-        !safeString(edge.label, 240) || !["proven", "indicated"].includes(String(edge.confidence)) || !safeString(edge.reason, 1000) || !Array.isArray(edge.evidence) || edge.evidence.length > 2_000 || edge.evidence.some(item => !isEvidence(item))) throw new Error("Model relasi tidak valid.");
-    edgeIds.add(edge.id);
-  }
-  for (const feature of model.features) if (feature.edgeIds.some(id => !edgeIds.has(id))) throw new Error("Daftar relasi fitur tidak valid.");
-  if (model.frameworks.some(item => !safeString(item, 100)) || model.limitations.some(item => !isRecord(item) || !safeString(item.filePath, 2000) || !safeString(item.reason, 1000))) throw new Error("Metadata model tidak valid.");
-  if (!validOverlay(value.overlay, model)) throw new Error("Koreksi tampilan tidak valid.");
+      !isSemanticModel(value.model)) throw new Error("Model semantik tidak sesuai dengan analisis aktif.");
+  const model = value.model;
+  if (!isPresentationOverlay(value.overlay, model)) throw new Error("Koreksi tampilan tidak valid.");
   return value as unknown as SemanticPayload;
 }
 function statusMessage(value: unknown): string | null {
@@ -297,7 +257,7 @@ function flowLayout(nodes: SemanticNode[], edges: SemanticEdge[]) {
   return { positions, width, height: Math.max(260, yOffset + 24) };
 }
 
-function flowEdgeGeometry(source: SemanticNode, target: SemanticNode, from: { x: number; y: number }, to: { x: number; y: number }, routeIndex: number) {
+function flowEdgeGeometry(source: SemanticNode, target: SemanticNode, from: { x: number; y: number }, to: { x: number; y: number }, routeIndex: number, parallelIndex: number) {
   const sourceHeight = source.kind === "decision" ? 54 : 42;
   const targetHeight = target.kind === "decision" ? 54 : 42;
   const sourceWidth = source.kind === "decision" ? 78 : 100;
@@ -307,36 +267,38 @@ function flowEdgeGeometry(source: SemanticNode, target: SemanticNode, from: { x:
     const endY = to.y - targetHeight;
     const span = endY - startY;
     if (span > 330) {
-      const gutterX = 8 + (routeIndex % 4) * 5;
+      const gutterX = 8 + (routeIndex % 4) * 5 + parallelIndex * 22;
       const bend = Math.min(34, Math.max(16, span * 0.12));
       return { path: `M ${from.x} ${startY} C ${from.x} ${startY + bend}, ${gutterX} ${startY + bend}, ${gutterX} ${startY + bend * 2} L ${gutterX} ${endY - bend * 2} C ${gutterX} ${endY - bend}, ${to.x} ${endY - bend}, ${to.x} ${endY}`, labelX: from.x, labelY: startY + 24 + (routeIndex % 4) * 14, sourcePortOffset: sourceHeight, targetPortOffset: targetHeight };
     }
     const bend = Math.min(90, Math.max(22, span * 0.45));
-    return { path: `M ${from.x} ${startY} C ${from.x} ${startY + bend}, ${to.x} ${endY - bend}, ${to.x} ${endY}`, labelX: (from.x + to.x) / 2, labelY: (startY + endY) / 2 - 6, sourcePortOffset: sourceHeight, targetPortOffset: targetHeight };
+    const offset = parallelIndex * 24 * (to.x >= from.x ? 1 : -1);
+    return { path: `M ${from.x} ${startY} C ${from.x + offset} ${startY + bend}, ${to.x + offset} ${endY - bend}, ${to.x} ${endY}`, labelX: (from.x + to.x) / 2 + offset, labelY: (startY + endY) / 2 - 6, sourcePortOffset: sourceHeight, targetPortOffset: targetHeight };
   }
   if (to.y < from.y - 8) {
     const startY = from.y - sourceHeight;
     const endY = to.y + targetHeight;
-    const laneY = Math.min(startY, endY) - 78 - (routeIndex % 4) * 12;
+    const laneY = Math.min(startY, endY) - 78 - (routeIndex % 4) * 12 - parallelIndex * 22;
     return { path: `M ${from.x} ${startY} C ${from.x} ${laneY}, ${to.x} ${laneY}, ${to.x} ${endY}`, labelX: (from.x + to.x) / 2, labelY: laneY - 6, sourcePortOffset: sourceHeight, targetPortOffset: targetHeight };
   }
   const direction = to.x >= from.x ? 1 : -1;
   const startX = from.x + sourceWidth * direction;
   const endX = to.x - targetWidth * direction;
-  const laneY = Math.min(from.y, to.y) - 78 - (routeIndex % 4) * 12;
+  const laneY = Math.min(from.y, to.y) - 78 - (routeIndex % 4) * 12 - parallelIndex * 22;
   return { path: `M ${startX} ${from.y} C ${startX} ${laneY}, ${endX} ${laneY}, ${endX} ${to.y}`, labelX: (startX + endX) / 2, labelY: laneY - 6, sourcePortOffset: sourceWidth, targetPortOffset: targetWidth };
 }
 
-function FlowEdge({ edge, source, target, from, to, inlineLabel, markerId, labelForNode, routeIndex }: {
+function FlowEdge({ edge, source, target, from, to, inlineLabel, markerId, labelForNode, routeIndex, parallelIndex, selected, onSelect }: {
   edge: SemanticEdge; source: SemanticNode; target: SemanticNode;
   from: { x: number; y: number }; to: { x: number; y: number };
-  inlineLabel: boolean; markerId: string; labelForNode: (node: SemanticNode) => string; routeIndex: number;
+  inlineLabel: boolean; markerId: string; labelForNode: (node: SemanticNode) => string; routeIndex: number; parallelIndex: number;
+  selected: boolean; onSelect: (edge: SemanticEdge) => void;
 }) {
-  const geometry = flowEdgeGeometry(source, target, from, to, routeIndex);
+  const geometry = flowEdgeGeometry(source, target, from, to, routeIndex, parallelIndex);
   const confidence = edge.confidence === "proven" ? "Proven" : "Indicated";
   const description = `${labelForNode(source)} — ${edge.label} → ${labelForNode(target)} · ${confidence} · ${edge.reason}`;
-  return <g data-edge-id={edge.id} data-source-id={edge.source} data-target-id={edge.target} data-source-kind={source.kind} data-target-kind={target.kind} data-source-port-offset={geometry.sourcePortOffset} data-target-port-offset={geometry.targetPortOffset} data-inline-label={inlineLabel} role="img" aria-label={description} className={`${styles.flowEdge} ${edge.confidence === "indicated" ? styles.indicatedEdge : ""}`}>
-    <title>{description}</title>
+  return <g data-edge-id={edge.id} data-source-id={edge.source} data-target-id={edge.target} data-source-kind={source.kind} data-target-kind={target.kind} data-source-port-offset={geometry.sourcePortOffset} data-target-port-offset={geometry.targetPortOffset} data-inline-label={inlineLabel} role="button" tabIndex={0} aria-label={`${description}; select to open relationship explanation`} aria-pressed={selected} onClick={() => onSelect(edge)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onSelect(edge); } }} className={`${styles.flowEdge} ${edge.confidence === "indicated" ? styles.indicatedEdge : ""} ${selected ? styles.selectedFlowEdge : ""}`}>
+    <title>{description}</title><path className={styles.relationshipHitbox} d={geometry.path} />
     <path d={geometry.path} markerEnd={`url(#${markerId})`} />
     {inlineLabel ? <text x={geometry.labelX} y={geometry.labelY}>{edge.label}</text> : null}
   </g>;
@@ -413,6 +375,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
   const [state, setState] = useState<State>({ status: "loading" });
   const [legacyOpen, setLegacyOpen] = useState(false);
   const [showIndications, setShowIndications] = useState(true);
+  const [originFilter, setOriginFilter] = useState<ExplanationOriginFilter>("all");
   const [query, setQuery] = useState("");
   const [flowEntrySelection, setFlowEntrySelection] = useState<{ featureId: string; nodeId: string } | null>(null);
   const [expandedFeatures, setExpandedFeatures] = useState<string[]>([]);
@@ -421,6 +384,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
   const [flowZoom, setFlowZoom] = useState(100);
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedRelationshipEdgeIds, setSelectedRelationshipEdgeIds] = useState<string[]>([]);
   const [editorValues, setEditorValues] = useState<{ key: string; label: string; group: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
@@ -461,7 +425,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     controllerRef.current = controller;
     const combinedSignal = signal ?? controller.signal;
     setState({ status: "loading" }); setSaveError(""); setSaveMessage(""); setLegacyOpen(false);
-    setExpandedFeatures([]); setFocusedFeatureId(null); setGraphZoom(100); setFlowZoom(100); setSelectedFeatureId(null); setFlowEntrySelection(null); setSelectedNodeId(null); setShowIndications(true); setQuery("");
+    setExpandedFeatures([]); setFocusedFeatureId(null); setGraphZoom(100); setFlowZoom(100); setSelectedFeatureId(null); setFlowEntrySelection(null); setSelectedNodeId(null); setSelectedRelationshipEdgeIds([]); setOriginFilter("all"); setShowIndications(true); setQuery("");
     try {
       await verifySession(combinedSignal);
       const response = await fetch(`/api/analyses/${encodeURIComponent(analysisId)}/semantic`, {
@@ -528,6 +492,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     });
   }, [features, membersByFeature, payload, query]);
   const selectedFeature = features.find(feature => feature.id === selectedFeatureId) ?? null;
+  const selectedExplanationEdges = payload ? payload.model.edges.filter(edge => selectedRelationshipEdgeIds.includes(edge.id)) : [];
   const selectedNode = payload?.model.nodes.find(node => node.id === selectedNodeId) ?? null;
   const editorKey = payload && selectedNode ? `${analysisId}:${accountKey}:${selectedNode.id}:${payload.revision}` : null;
   const editedLabel = editorKey && editorValues?.key === editorKey ? editorValues.label : payload && selectedNode ? labelFor(selectedNode, payload) : "";
@@ -558,7 +523,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
   }) : [];
   const selectedFlowNodeIds = new Set(selectedFlowNodes.map(node => node.id));
   // Include only real edges stored for this feature. No layout edges become semantic edges.
-  const selectedFlowEdges = selectedFeature && payload ? payload.model.edges.filter(edge => selectedFeatureEdgeIds.has(edge.id) && selectedFlowNodeIds.has(edge.source) && selectedFlowNodeIds.has(edge.target) && (showIndications || edge.confidence === "proven")) : [];
+  const selectedFlowEdges = selectedFeature && payload ? payload.model.edges.filter(edge => selectedFeatureEdgeIds.has(edge.id) && selectedFlowNodeIds.has(edge.source) && selectedFlowNodeIds.has(edge.target) && (showIndications || edge.confidence === "proven") && matchesExplanationOrigin(edge, originFilter)) : [];
   const availableFlowEntries = selectedFeature ? flowEntryOptions(selectedFeature, selectedFlowNodes, selectedFlowEdges) : [];
   const savedFlowEntryId = flowEntrySelection && flowEntrySelection.featureId === selectedFeature?.id ? flowEntrySelection.nodeId : null;
   const selectedFlowEntryId = savedFlowEntryId === ALL_FEATURE_FACTS || availableFlowEntries.some(entry => entry.node.id === savedFlowEntryId)
@@ -569,7 +534,7 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
   const scopedFlowNodes = flowScopeData.nodes;
   const scopedFlowEdges = flowScopeData.edges;
   const flowNeedle = query.trim().toLocaleLowerCase();
-  const matchingRelationNodeIds = new Set(scopedFlowEdges.filter(edge => [edge.label, edge.reason, ...edge.evidence.map(item => item.filePath)].join(" ").toLocaleLowerCase().includes(flowNeedle)).flatMap(edge => [edge.source, edge.target]));
+  const matchingRelationNodeIds = new Set(scopedFlowEdges.filter(edge => [edge.label, edge.reason, edge.explanation?.summary ?? "", ...(edge.explanation?.limitations ?? []), ...edge.evidence.map(item => item.filePath)].join(" ").toLocaleLowerCase().includes(flowNeedle)).flatMap(edge => [edge.source, edge.target]));
   const visibleFlowNodes = scopedFlowNodes.filter(node => (showIndications || node.confidence === "proven") &&
     (!flowNeedle || matchingRelationNodeIds.has(node.id) || [nodeLabel(node), node.reason, node.kind, ...node.evidence.map(item => item.filePath)].join(" ").toLocaleLowerCase().includes(flowNeedle)) &&
     (node.kind !== "actor" || scopedFlowEdges.some(edge => edge.source === node.id || edge.target === node.id)));
@@ -581,6 +546,14 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
   const pageFlowNodes = visibleFlowNodes;
   const pageFlowEdges = visibleFlowEdges;
   const pageNodeById = new Map(pageFlowNodes.map(node => [node.id, node]));
+  const parallelCounts = new Map<string, number>();
+  const parallelIndexByEdgeId = new Map<string, number>();
+  for (const edge of pageFlowEdges) {
+    const key = JSON.stringify([edge.source, edge.target]);
+    const index = parallelCounts.get(key) ?? 0;
+    parallelCounts.set(key, index + 1);
+    parallelIndexByEdgeId.set(edge.id, index);
+  }
   const edgeDegrees = new Map<string, { incoming: number; outgoing: number }>();
   for (const edge of pageFlowEdges) {
     const sourceDegree = edgeDegrees.get(edge.source) ?? { incoming: 0, outgoing: 0 };
@@ -671,7 +644,6 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
     {state.status === "error" ? <div className={styles.errorBox} role="alert"><p>{state.message}</p><button type="button" onClick={() => void reload()}>Coba lagi</button>{legacyFallback ? <button type="button" onClick={() => { setLegacyOpen(true); onLegacyFallback?.(); }}>Buka graph teknis</button> : null}</div> : null}
 
     {fallbackSection && legacyFallback ? <div className={styles.legacyFallback}>{legacyFallback}</div> : null}
-    {payload ? <AnalysisLimitations items={payload.model.limitations} /> : null}
     {payload && features.length === 0 ? <div className={styles.legacyNotice} role="status" data-testid="semantic-unavailable">
       <h3>No supported user flow detected</h3>
       <p>Snapshot ini belum menghasilkan model alur aplikasi. Extractor mendukung pola tertentu pada Next.js dan Laravel, serta kandidat route Node.js HTTP yang terbatas. Pola lain belum tentu didukung. Ini berbeda dari Code Knowledge, yang membaca komponen dan dependency dari source code.</p>
@@ -682,10 +654,10 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
       {selectedFeature ? <div className={styles.legend} aria-label="Flow diagram legend"><span data-kind="actor">Actor</span><span data-kind="step">Action</span><span data-kind="decision">Decision</span><span data-kind="component">Service/API</span><span data-kind="store">Data store</span><span data-kind="outcome">Outcome</span><span><i className={styles.dashedLegend} />Indicated relationship</span></div> : null}
       {!selectedFeature ? <>
         <div className={styles.controls}><label>Search features<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Feature, concept, or source path" /></label><p aria-live="polite">{visibleFeatures.length} of {features.length} features detected.</p></div>
-        <ArchitectureOverview payload={payload} featureIds={overviewFeatureIds} showIndications={showIndications} onShowIndications={setShowIndications} onOpenFeature={setSelectedFeatureId} onInspectNode={setSelectedNodeId} />
+        <ArchitectureOverview payload={payload} featureIds={overviewFeatureIds} showIndications={showIndications} originFilter={originFilter} onOriginFilter={setOriginFilter} onShowIndications={setShowIndications} onOpenFeature={id => { setSelectedRelationshipEdgeIds([]); setSelectedFeatureId(id); }} onInspectNode={setSelectedNodeId} />
       </> : <>
         <div className={styles.controls}><label>Search steps or evidence<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Action, decision, source path…" /></label><p aria-live="polite">{visibleFlowNodes.length} of {scopedFlowNodes.length} nodes match.</p></div>
-        <div className={styles.flowBreadcrumb}><button type="button" onClick={() => setSelectedFeatureId(null)}>All features</button><span aria-hidden="true">/</span><strong>{payload.overlay.labels[selectedFeature.id] ?? selectedFeature.label}</strong><label><input type="checkbox" checked={showIndications} onChange={event => setShowIndications(event.currentTarget.checked)} />Show indicated relationships</label></div>
+        <div className={styles.flowBreadcrumb}><button type="button" onClick={() => { setSelectedFeatureId(null); setSelectedRelationshipEdgeIds([]); }}>All features</button><span aria-hidden="true">/</span><strong>{payload.overlay.labels[selectedFeature.id] ?? selectedFeature.label}</strong><label><input type="checkbox" checked={showIndications} onChange={event => setShowIndications(event.currentTarget.checked)} />Show indicated relationships</label><ExplanationOriginControl value={originFilter} onChange={value => { setOriginFilter(value); setSelectedRelationshipEdgeIds([]); }} label="Relationship origin" /></div>
         <div className={styles.flowEntryTools}>
           <label>Entry point<select aria-label="Start flow from" value={selectedFlowEntryId} onChange={event => { setFlowEntrySelection({ featureId: selectedFeature.id, nodeId: event.currentTarget.value }); setSelectedNodeId(null); }}>
             <option value={ALL_FEATURE_FACTS}>All feature facts ({selectedFlowNodes.length})</option>
@@ -705,13 +677,14 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
               if (!source || !target || !from || !to) return null;
               const sourceDegree = edgeDegrees.get(edge.source), targetDegree = edgeDegrees.get(edge.target);
               const inlineLabel = edge.label.length > 0 && (source.kind === "decision" || (sourceDegree?.outgoing === 1 && targetDegree?.incoming === 1));
-              return <FlowEdge key={edge.id} edge={edge} source={source} target={target} from={from} to={to} inlineLabel={inlineLabel} markerId={`arrow-${analysisId.replace(/[^a-z0-9]/giu, "")}`} labelForNode={nodeLabel} routeIndex={routeIndex} />;
+              return <FlowEdge key={edge.id} edge={edge} source={source} target={target} from={from} to={to} inlineLabel={inlineLabel} markerId={`arrow-${analysisId.replace(/[^a-z0-9]/giu, "")}`} labelForNode={nodeLabel} routeIndex={routeIndex} parallelIndex={parallelIndexByEdgeId.get(edge.id) ?? 0} selected={selectedRelationshipEdgeIds.includes(edge.id)} onSelect={selected => { setSelectedNodeId(null); setSelectedRelationshipEdgeIds([selected.id]); }} />;
             })}
-            {pageFlowNodes.map(node => { const point = layout.positions.get(node.id); if (!point) return null; const lines = splitLabel(nodeLabel(node)); return <g key={node.id} data-node-id={node.id} className={`${styles.flowNode} ${styles[`kind_${node.kind}`]} ${node.confidence === "indicated" ? styles.indicatedNode : ""}`} role="button" tabIndex={0} aria-label={`${node.kind}: ${nodeLabel(node)}; ${node.confidence === "proven" ? "Proven" : "Indicated"}`} onClick={() => setSelectedNodeId(node.id)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedNodeId(node.id); } }}><title>{nodeLabel(node)}</title>{node.kind === "decision" ? <polygon points={`${point.x},${point.y - 54} ${point.x + 78},${point.y} ${point.x},${point.y + 54} ${point.x - 78},${point.y}`} /> : <rect x={point.x - 100} y={point.y - 42} width="200" height="84" rx="14" />}<text x={point.x} y={point.y - (lines.length - 1) * 8}>{lines.map((line, index) => <tspan key={index} x={point.x} dy={index ? 19 : 0}>{line}</tspan>)}</text><text className={styles.nodeKindLabel} x={point.x} y={point.y + 30}>{node.kind}</text></g>; })}
+            {pageFlowNodes.map(node => { const point = layout.positions.get(node.id); if (!point) return null; const lines = splitLabel(nodeLabel(node)); return <g key={node.id} data-node-id={node.id} className={`${styles.flowNode} ${styles[`kind_${node.kind}`]} ${node.confidence === "indicated" ? styles.indicatedNode : ""}`} role="button" tabIndex={0} aria-label={`${node.kind}: ${nodeLabel(node)}; ${node.confidence === "proven" ? "Proven" : "Indicated"}`} onClick={() => { setSelectedNodeId(node.id); setSelectedRelationshipEdgeIds([]); }} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedNodeId(node.id); setSelectedRelationshipEdgeIds([]); } }}><title>{nodeLabel(node)}</title>{node.kind === "decision" ? <polygon points={`${point.x},${point.y - 54} ${point.x + 78},${point.y} ${point.x},${point.y + 54} ${point.x - 78},${point.y}`} /> : <rect x={point.x - 100} y={point.y - 42} width="200" height="84" rx="14" />}<text x={point.x} y={point.y - (lines.length - 1) * 8}>{lines.map((line, index) => <tspan key={index} x={point.x} dy={index ? 19 : 0}>{line}</tspan>)}</text><text className={styles.nodeKindLabel} x={point.x} y={point.y + 30}>{node.kind}</text></g>; })}
           </svg>
         </div>
         <FlowStepEvidence key={flowKey} nodes={pageFlowNodes} repository={evidenceRepository} commitSha={evidenceCommitSha} labelForNode={nodeLabel} selectedNodeId={selectedNodeId} selectNode={setSelectedNodeId} />
         <RelationshipEvidence edges={visibleFlowEdges} nodes={payload.model.nodes} repository={evidenceRepository} commitSha={evidenceCommitSha} labelForNode={nodeLabel} />
+        {selectedExplanationEdges.length ? <RelationshipExplanationPanel edges={selectedExplanationEdges} nodes={payload.model.nodes} repository={evidenceRepository} commitSha={evidenceCommitSha} onClose={() => setSelectedRelationshipEdgeIds([])} /> : null}
       </>}
       {selectedNode && payload ? <NodeCorrection key={`${accountKey}:${selectedNode.id}`} node={selectedNode} payload={payload} editedLabel={editedLabel} editedGroup={editedGroup} setEditedLabel={setEditedLabel} setEditedGroup={setEditedGroup} submit={submitCorrection} saving={saving} message={saveMessage} error={saveError} reload={() => void reload()} features={features} onReset={node => {
         const labels = { ...payload.overlay.labels }; delete labels[node.id]; const groups = { ...payload.overlay.groups }; delete groups[node.id]; void saveOverlay({ labels, groups });
@@ -720,9 +693,11 @@ export function SemanticWorkspace({ analysisId, accountKey, repository, commitSh
 
     {payload && features.length > 0 && mode === "graph" && !selectedFeature ? <>
       <div className={styles.controls}><label>Search features<input type="search" value={query} onChange={event => updateSearch(event.currentTarget.value)} placeholder="Feature, concept, or source path" /></label><p aria-live="polite">{visibleFeatures.length} of {features.length} features detected.</p></div>
-      <ArchitectureOverview payload={payload} featureIds={overviewFeatureIds} showIndications={showIndications} onShowIndications={setShowIndications} onOpenFeature={setSelectedFeatureId} onInspectNode={setSelectedNodeId} />
-      <details className={styles.featureBrowser}><summary>Explore individual concepts and components</summary><ClusteredKnowledgeGraph payload={payload} expandedFeatures={expandedFeatures} toggleExpanded={toggleExpanded} selectedNodeId={selectedNodeId} selectNode={setSelectedNodeId} search={query} setSearch={updateSearch} features={visibleFeatures} featureLabel={featureLabel} nodeLabel={nodeLabel} nodesForFeature={renderedFeatureNodes} groupFor={groupFor} showIndications={showIndications} setShowIndications={setShowIndications} focusedFeatureId={focusedFeatureId} setFocusedFeatureId={setFocusedFeatureId} zoom={graphZoom} setZoom={setGraphZoom} reset={() => { setExpandedFeatures([]); setFocusedFeatureId(null); setGraphZoom(100); setSelectedNodeId(null); setShowIndications(true); setQuery(""); }} /></details></> : null}
+      <ArchitectureOverview payload={payload} featureIds={overviewFeatureIds} showIndications={showIndications} originFilter={originFilter} onOriginFilter={setOriginFilter} onShowIndications={setShowIndications} onOpenFeature={id => { setSelectedRelationshipEdgeIds([]); setSelectedFeatureId(id); }} onInspectNode={setSelectedNodeId} />
+      <details className={styles.featureBrowser}><summary>Explore individual concepts and components</summary><ClusteredKnowledgeGraph payload={payload} expandedFeatures={expandedFeatures} toggleExpanded={toggleExpanded} selectedNodeId={selectedNodeId} selectNode={setSelectedNodeId} search={query} setSearch={updateSearch} features={visibleFeatures} featureLabel={featureLabel} nodeLabel={nodeLabel} nodesForFeature={renderedFeatureNodes} groupFor={groupFor} showIndications={showIndications} setShowIndications={setShowIndications} originFilter={originFilter} setOriginFilter={setOriginFilter} focusedFeatureId={focusedFeatureId} setFocusedFeatureId={setFocusedFeatureId} zoom={graphZoom} setZoom={setGraphZoom} reset={() => { setExpandedFeatures([]); setFocusedFeatureId(null); setGraphZoom(100); setSelectedNodeId(null); setSelectedRelationshipEdgeIds([]); setShowIndications(true); setOriginFilter("all"); setQuery(""); }} /></details></> : null}
     {selectedNode && payload && mode === "graph" && !selectedFeature ? <NodeCorrection key={`${accountKey}:${selectedNode.id}`} node={selectedNode} payload={payload} editedLabel={editedLabel} editedGroup={editedGroup} setEditedLabel={setEditedLabel} setEditedGroup={setEditedGroup} submit={submitCorrection} saving={saving} message={saveMessage} error={saveError} reload={() => void reload()} features={features} onReset={node => { const labels = { ...payload.overlay.labels }; delete labels[node.id]; const groups = { ...payload.overlay.groups }; delete groups[node.id]; void saveOverlay({ labels, groups }); }} repository={evidenceRepository} commitSha={evidenceCommitSha} /> : null}
+    {payload ? <AnalysisLimitations items={payload.model.limitations} /> : null}
+    {payload ? <DocumentationContextPanel model={payload.model} repository={payload.model.snapshot.repository} commitSha={payload.model.snapshot.commitSha} /> : null}
   </section>;
 }
 
@@ -867,13 +842,13 @@ function routeChildRelation(from: { x: number; y: number }, to: { x: number; y: 
   return { path: `M ${start} ${from.y} H ${lane} V ${to.y} H ${end}`, labelX: lane, labelY: (from.y + to.y) / 2 - 8 };
 }
 
-function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, selectedNodeId, selectNode, search, setSearch, features, featureLabel, nodeLabel, nodesForFeature, groupFor, showIndications, setShowIndications, focusedFeatureId, setFocusedFeatureId, zoom, setZoom, reset }: {
+function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, selectedNodeId, selectNode, search, setSearch, features, featureLabel, nodeLabel, nodesForFeature, groupFor, showIndications, setShowIndications, originFilter, setOriginFilter, focusedFeatureId, setFocusedFeatureId, zoom, setZoom, reset }: {
   payload: SemanticPayload; expandedFeatures: string[]; toggleExpanded: (id: string) => void;
   selectedNodeId: string | null; selectNode: (id: string) => void; search: string; setSearch: (value: string) => void;
   features: SemanticFeature[]; featureLabel: (feature: SemanticFeature) => string; nodeLabel: (node: SemanticNode) => string;
   nodesForFeature: (feature: SemanticFeature) => SemanticNode[];
   groupFor: (node: SemanticNode, payload: SemanticPayload) => string | null;
-  showIndications: boolean; setShowIndications: (value: boolean) => void; focusedFeatureId: string | null; setFocusedFeatureId: (value: string | null) => void;
+  showIndications: boolean; setShowIndications: (value: boolean) => void; originFilter: ExplanationOriginFilter; setOriginFilter: (value: ExplanationOriginFilter) => void; focusedFeatureId: string | null; setFocusedFeatureId: (value: string | null) => void;
   zoom: number; setZoom: (value: number) => void; reset: () => void;
 }) {
   const graphViewportRef = useRef<HTMLDivElement>(null);
@@ -882,13 +857,14 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
   const listLimit = listLimitState.search === search ? listLimitState.limit : 50;
   const [graphNodeLimits, setGraphNodeLimits] = useState<Record<string, number>>({});
   const [focusedGraphNodeId, setFocusedGraphNodeId] = useState<string | null>(null);
+  const [selectedGraphEdges, setSelectedGraphEdges] = useState<SemanticEdge[]>([]);
   const [fitRequest, setFitRequest] = useState(0);
   const appliedFitRequestRef = useRef(fitRequest);
   const graphNodePageSize = 12;
   const allFeatureIds = new Set(payload.model.features.map(feature => feature.id));
   const degree = new Map<string, number>();
   const relationsByFeature = new Map<string, number>();
-  const relationRows = payload.model.edges.filter(edge => showIndications || edge.confidence === "proven");
+  const relationRows = payload.model.edges.filter(edge => (showIndications || edge.confidence === "proven") && matchesExplanationOrigin(edge, originFilter));
   const groupedEdges: Array<{ source: string; target: string; confidence: "proven" | "indicated"; count: number; evidence: SemanticEdge[] }> = [];
   const aggregateEdges = new Map<string, { source: string; target: string; confidence: "proven" | "indicated"; count: number; evidence: SemanticEdge[] }>();
   const modelNodeById = new Map(payload.model.nodes.map(node => [node.id, node]));
@@ -1061,6 +1037,7 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
     <div className={styles.controls}><label>Search features, concepts, or components<input type="search" value={search} onChange={event => { setSearch(event.currentTarget.value); setFocusedFeatureId(null); }} placeholder="Search all features and evidence" /></label><p aria-live="polite">{features.length} of {payload.model.features.length} features · {payload.model.nodes.length} semantic nodes.</p></div>
     <div className={styles.graphTools} role="group" aria-label="Knowledge graph controls">
       <label><input type="checkbox" checked={showIndications} onChange={event => setShowIndications(event.currentTarget.checked)} />Show indicated relationships</label>
+      <ExplanationOriginControl value={originFilter} onChange={value => { setOriginFilter(value); setSelectedGraphEdges([]); }} />
       <div className={styles.zoomControls}><button type="button" onClick={() => setZoom(Math.max(30, zoom - 10))} disabled={zoom <= 30} aria-label="Zoom out knowledge graph">−</button><span aria-live="polite">Zoom {zoom}%</span><button type="button" onClick={() => setZoom(Math.min(150, zoom + 10))} disabled={zoom >= 150} aria-label="Zoom in knowledge graph">+</button></div>
       <button type="button" onClick={() => { const viewport = graphViewportRef.current; if (!viewport) return; const minZoom = viewport.clientWidth < 640 ? 85 : 75; const nextZoom = Math.max(minZoom, Math.min(100, Math.floor((viewport.clientWidth - 32) / width * 100))); setZoom(nextZoom); if (graphAnchorFeatureId) requestAnimationFrame(() => focusGraphViewport(viewport, graphAnchorFeatureId, positions, featureBounds, width, height, nextZoom)); }}>Fit graph</button>
       <button type="button" onClick={() => { setGraphNodeLimits({}); setFocusedGraphNodeId(null); setFitRequest(value => value + 1); reset(); }}>Reset graph</button>
@@ -1084,8 +1061,10 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
           const targetLabel = payload.overlay.labels[edge.target] ?? payload.model.features.find(feature => feature.id === edge.target)?.label ?? edge.target;
           const inlineLabel = displayEdges.length === 1;
           const description = `${sourceLabel} → ${targetLabel} · ${edge.count} source relationships · ${edge.confidence === "proven" ? "Proven" : "Indicated"}`;
-          return <g key={`${edge.source}:${edge.target}`} data-source-id={edge.source} data-target-id={edge.target} data-inline-label={inlineLabel} role="img" aria-label={description} className={edge.confidence === "indicated" ? styles.indicatedEdge : styles.flowEdge}>
+          const selected = edge.evidence.length > 0 && edge.evidence.every(item => selectedGraphEdges.some(selectedEdge => selectedEdge.id === item.id));
+          return <g key={`${edge.source}:${edge.target}`} data-source-id={edge.source} data-target-id={edge.target} data-source-edge-ids={edge.evidence.map(item => item.id).join(" ")} data-inline-label={inlineLabel} role="button" tabIndex={0} aria-pressed={selected} aria-label={`${description}; select to open relationship explanation`} onClick={() => setSelectedGraphEdges(edge.evidence)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedGraphEdges(edge.evidence); } }} className={`${edge.confidence === "indicated" ? styles.indicatedEdge : styles.flowEdge} ${styles.selectableRelationship} ${selected ? styles.selectedFlowEdge : ""}`}>
             <title>{description}. Expand a feature to inspect relationship evidence and source lines.</title>
+            <path className={styles.relationshipHitbox} d={`M ${clipped.from.x} ${clipped.from.y} Q ${(clipped.from.x + clipped.to.x) / 2} ${Math.min(clipped.from.y, clipped.to.y) - 85 - (index % 3) * 18} ${clipped.to.x} ${clipped.to.y}`} />
             <path d={`M ${clipped.from.x} ${clipped.from.y} Q ${(clipped.from.x + clipped.to.x) / 2} ${Math.min(clipped.from.y, clipped.to.y) - 85 - (index % 3) * 18} ${clipped.to.x} ${clipped.to.y}`} markerEnd={`url(#semantic-arrow-${analysisIdSafe(payload.analysisId)})`} />
             {inlineLabel ? <text x={(clipped.from.x + clipped.to.x) / 2} y={Math.min(clipped.from.y, clipped.to.y) - 43 - (index % 3) * 9}>{edge.count} cross-feature relationships</text> : null}
           </g>;
@@ -1098,8 +1077,9 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
             const from = nodePositions.get(`${feature.id}\0${edge.source}`), to = nodePositions.get(`${feature.id}\0${edge.target}`);
             if (!from || !to) return null;
             const route = routeChildRelation(from, to, positions.get(feature.id)!.x, nodeCardWidth, index);
-            return <g key={`source:${feature.id}:${edge.id}`} data-edge-id={edge.id} data-source-id={edge.source} data-target-id={edge.target} data-scope-feature-id={feature.id} className={edge.confidence === "indicated" ? styles.indicatedEdge : styles.flowEdge}>
+            return <g key={`source:${feature.id}:${edge.id}`} data-edge-id={edge.id} data-source-id={edge.source} data-target-id={edge.target} data-scope-feature-id={feature.id} role="button" tabIndex={0} aria-pressed={selectedGraphEdges.some(selectedEdge => selectedEdge.id === edge.id)} aria-label={`${nodeLabel(nodeById.get(edge.source)!)} — ${edge.label} → ${nodeLabel(nodeById.get(edge.target)!)}; ${edge.confidence === "proven" ? "Proven" : "Indicated"}; select to open relationship explanation`} onClick={() => setSelectedGraphEdges([edge])} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); setSelectedGraphEdges([edge]); } }} className={`${edge.confidence === "indicated" ? styles.indicatedEdge : styles.flowEdge} ${styles.selectableRelationship} ${selectedGraphEdges.some(selectedEdge => selectedEdge.id === edge.id) ? styles.selectedFlowEdge : ""}`}>
               <title>{`${nodeLabel(nodeById.get(edge.source)!)} ${edge.label} ${nodeLabel(nodeById.get(edge.target)!)} · ${edge.confidence === "proven" ? "Proven" : `Indicated: ${edge.reason}`}`}</title>
+              <path className={styles.relationshipHitbox} d={route.path} />
               <path d={route.path} markerEnd={`url(#semantic-arrow-${analysisIdSafe(payload.analysisId)})`} />
               {sourceRelations.length === 1 ? <text x={route.labelX} y={route.labelY}>{edge.label}</text> : null}
             </g>;
@@ -1130,6 +1110,7 @@ function ClusteredKnowledgeGraph({ payload, expandedFeatures, toggleExpanded, se
     </div>
     <p className={styles.flowCoverage}>Color groups each feature or domain. Feature cards group related responsibilities; expand a card to inspect its main concepts, components, and data stores. Files, methods, properties, helpers, and small details stay in evidence.</p>
     <p className={styles.flowCoverage} aria-live="polite">Showing {displayedFeatures.length} clusters · {features.length} of {payload.model.features.length} matching features · {hiddenGraphNodes} concepts/components hidden from the canvas · {graphRelationsNotOnCanvas} source relationships not drawn here (expand a cluster or inspect evidence).{graphRelationsOutsideProjection ? ` ${graphRelationsOutsideProjection} connect activities or details outside the primary graph.` : ""}{!showIndications ? ` ${payload.model.nodes.filter(node => node.confidence === "indicated" && ["concept", "component", "store"].includes(node.kind)).length} indicated nodes hidden by the filter.` : ""} {focusedNode ? `Focused node: ${nodeLabel(focusedNode)}` : ""}</p>
+    {selectedGraphEdges.length ? <RelationshipExplanationPanel edges={selectedGraphEdges} nodes={payload.model.nodes} repository={payload.model.snapshot.repository} commitSha={payload.model.snapshot.commitSha} onClose={() => setSelectedGraphEdges([])} /> : null}
     <details className={styles.featureBrowser} data-testid="semantic-feature-browser">
       <summary>Browse features and evidence ({displayedFeatures.length})</summary>
       <div className={styles.clusterList} aria-label="All feature clusters">{listedFeatures.map(feature => { const expanded = expandedFeatures.includes(feature.id); const allNodes = allNodesForFeature(feature); const nodes = nodesVisibleInCluster(feature); const featureEdges = edgesByFeature.get(feature.id) ?? []; const hiddenCount = Math.max(0, allNodes.length - nodes.length); const colors = featureColors(feature.id); return <section id={`semantic-cluster-${encodeURIComponent(feature.id)}`} key={feature.id} className={styles.clusterCard} style={{ borderLeft: `3px solid ${colors.border}` }}>

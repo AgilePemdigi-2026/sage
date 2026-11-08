@@ -1,4 +1,14 @@
 import type { CcmV1, CcmSnapshot, EvidenceSpan } from "@sage/contracts";
+import type { DocumentationContext } from "./documentation.ts";
+
+export interface RelationshipExplanation {
+  kind: string;
+  origin: "code" | "documentation" | "mixed";
+  rule: string;
+  summary: string;
+  limitations: string[];
+  sourceEdgeIds: string[];
+}
 
 export type SemanticConfidence = "proven" | "indicated";
 export type SemanticKind = "actor" | "feature" | "concept" | "component" | "store" | "step" | "decision" | "outcome";
@@ -9,6 +19,7 @@ export interface SemanticNode {
 export interface SemanticEdge {
   id: string; source: string; target: string; label: string;
   confidence: SemanticConfidence; reason: string; evidence: EvidenceSpan[];
+  explanation?: RelationshipExplanation;
 }
 export interface SemanticFeature {
   id: string; label: string; entryNodeIds: string[]; nodeIds: string[]; edgeIds: string[]; evidence: EvidenceSpan[];
@@ -18,10 +29,13 @@ export interface SemanticFragment {
   frameworks: string[]; limitations: Array<{ filePath: string; reason: string }>;
 }
 export interface SemanticModel extends SemanticFragment {
-  schemaVersion: "sage-semantic-v1"; extractorVersion: string; sourceCkgHash: string; snapshot: CcmSnapshot;
+  schemaVersion: "sage-semantic-v1" | "sage-semantic-v2"; extractorVersion: string; sourceCkgHash: string; snapshot: CcmSnapshot;
+  documentation?: DocumentationContext;
 }
 export interface SemanticInput {
   ccm: CcmV1; sourceCkgHash: string; sources: Readonly<Record<string, Uint8Array>>;
+  documentationSources?: Readonly<Record<string, Uint8Array>>;
+  snapshotPaths?: readonly string[];
 }
 export interface PresentationOverlay {
   labels: Record<string, string>;

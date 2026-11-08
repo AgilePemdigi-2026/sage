@@ -4,12 +4,21 @@ import { extractLaravel } from "./laravel.ts";
 import { extractNext } from "./next.ts";
 import { extractNodeHttp } from "./node-http.ts";
 import { compactEvidence } from "./builder.ts";
+import { analyzeDocumentation } from "./documentation.ts";
+import { explainExtractedEdge } from "./explanations.ts";
 
 /** Build deterministic source-grounded semantics; there are no model/network calls. */
 export function buildSemanticModel(input: SemanticInput): SemanticModel {
   const fragments = [extractNext(input), extractLaravel(input), extractNodeHttp(input)];
+  fragments.forEach((fragment, index) => {
+    const extractor = ["next", "laravel", "node-http"][index]!;
+    fragment.edges = fragment.edges.map(edge => {
+      const explanation = edge.explanation ?? explainExtractedEdge(edge);
+      return { ...edge, explanation: { ...explanation, rule: `${extractor}:${explanation.kind}` } };
+    });
+  });
   const nodes = uniqueById(fragments.flatMap(fragment => fragment.nodes));
-  const edges = uniqueById(fragments.flatMap(fragment => fragment.edges));
+  const edges = uniqueById(fragments.flatMap(fragment => fragment.edges)).map(edge => ({ ...edge, explanation: edge.explanation ?? explainExtractedEdge(edge) }));
   const features = mergeFeatures(fragments.flatMap(fragment => fragment.features));
   // An empty model is not evidence that an application has no flows.
   if (features.length === 0) {
@@ -18,10 +27,15 @@ export function buildSemanticModel(input: SemanticInput): SemanticModel {
   }
   const snapshot = JSON.parse(JSON.stringify(input.ccm.snapshot)) as SemanticModel["snapshot"];
   const value: SemanticModel = {
-    schemaVersion: "sage-semantic-v1",
-    extractorVersion: "0.3.0",
+    schemaVersion: "sage-semantic-v2",
+    extractorVersion: "0.4.0",
     sourceCkgHash: input.sourceCkgHash,
     snapshot,
+    documentation: analyzeDocumentation({ sources: input.documentationSources ?? {}, snapshotPaths: input.snapshotPaths ?? [...new Set([
+      ...input.ccm.files.map(file => file.path),
+      ...Object.keys(input.sources),
+      ...Object.keys(input.documentationSources ?? {}),
+    ])].sort() }),
     nodes,
     edges,
     features,

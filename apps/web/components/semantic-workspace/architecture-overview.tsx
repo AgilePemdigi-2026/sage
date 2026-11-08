@@ -4,12 +4,15 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { SemanticPayload } from "@sage/documents/semantic/model";
 import { EvidenceLink } from "../live-document/evidence-links.tsx";
 import { aggregateArchitectureReferences, buildArchitectureProjection } from "./architecture-projection.ts";
+import { ExplanationOriginControl, RelationshipExplanationPanel, type ExplanationOriginFilter } from "./relationship-explanation.tsx";
 import styles from "./architecture-overview.module.css";
 
 type Props = {
   payload: SemanticPayload;
   featureIds: string[];
   showIndications: boolean;
+  originFilter: ExplanationOriginFilter;
+  onOriginFilter: (value: ExplanationOriginFilter) => void;
   onShowIndications: (value: boolean) => void;
   onOpenFeature: (id: string) => void;
   onInspectNode: (id: string) => void;
@@ -17,8 +20,8 @@ type Props = {
 type Box = { x: number; y: number; width: number; height: number };
 
 /** Responsibility frames aggregate source endpoints; arrows retain their original edge IDs. */
-export function ArchitectureOverview({ payload, featureIds, showIndications, onShowIndications, onOpenFeature, onInspectNode }: Props) {
-  const diagram = useMemo(() => aggregateArchitectureReferences(buildArchitectureProjection(payload, { featureIds, showIndications })), [payload, featureIds, showIndications]);
+export function ArchitectureOverview({ payload, featureIds, showIndications, originFilter, onOriginFilter, onShowIndications, onOpenFeature, onInspectNode }: Props) {
+  const diagram = useMemo(() => aggregateArchitectureReferences(buildArchitectureProjection(payload, { featureIds, showIndications, origin: originFilter })), [payload, featureIds, showIndications, originFilter]);
   const [zoom, setZoom] = useState(100);
   const [surfaceWidth, setSurfaceWidth] = useState(1184);
   const compact = surfaceWidth < 960;
@@ -113,6 +116,7 @@ export function ArchitectureOverview({ payload, featureIds, showIndications, onS
     <div className={styles.intro}><div><h3>Connected architecture</h3><p>Ikuti aktor, endpoint/controller, dan data yang dipakai. Pilih koneksi untuk melihat source evidence.</p></div><span className={styles.sourceCount}>{featureNodes.length} features · {diagram.edges.length} connections</span></div>
     <div className={styles.toolbar}>
       <label><input type="checkbox" checked={showIndications} onChange={event => onShowIndications(event.currentTarget.checked)} />Show indicated relationships</label>
+      <ExplanationOriginControl value={originFilter} onChange={onOriginFilter} />
       <div><button type="button" aria-label="Zoom out architecture" disabled={zoom <= 50} onClick={() => setZoom(value => Math.max(50, value - 10))}>−</button><output aria-live="polite">{zoom}%</output><button type="button" aria-label="Zoom in architecture" disabled={zoom >= 150} onClick={() => setZoom(value => Math.min(150, value + 10))}>+</button><button type="button" onClick={fitWidth}>Fit width</button><button type="button" onClick={() => { setZoom(compact ? 100 : Math.min(100, Math.floor(surfaceWidth / 1184 * 100))); setSelected(null); viewport.current?.scrollTo({ left: 0, top: 0 }); }}>Reset</button></div>
     </div>
     <div className={styles.legend}><span><i />Source relationship</span><span><i className={styles.dashed} />Indicated</span><span>Feature frames group endpoint/controller source facts</span></div>
@@ -151,8 +155,7 @@ export function ArchitectureOverview({ payload, featureIds, showIndications, onS
     <p className={styles.coverage}>{diagram.representedEdgeIds.length} source relationships represented · {diagram.hiddenEdgeCount} internal/filtered relationships in detailed flows · {diagram.hiddenNodeCount} internal/filtered facts outside this overview. Shared data connects features to a store; it does not imply a call between features.</p>
     {!diagram.edges.length ? <p className={styles.empty}>Tidak ada hubungan yang didukung source pada filter ini. Fitur tetap ditampilkan; koneksi tidak dibuat berdasarkan nama atau posisi.</p> : null}
     {selectedNode || selectedEdge ? <aside className={styles.inspector} aria-label="Architecture source detail"><div className={styles.inspectorHeading}><h4>{selectedNode?.label ?? `${nodeById.get(selectedEdge!.source)?.label} → ${nodeById.get(selectedEdge!.target)?.label}`}</h4><button type="button" onClick={() => setSelected(null)}>Close detail</button></div>
-      {selectedNode ? <><p>{selectedNode.kind === "feature" ? "Frame ini merangkum endpoint/controller. Panah merepresentasikan hubungan source ke/dari anggotanya, bukan node aktivitas baru." : selectedNode.reason}</p>{selectedNode.routeLabels.length ? <div className={styles.detailLabels}>{selectedNode.routeLabels.map(label => <code key={label}>{label}</code>)}</div> : null}{selectedNode.componentLabels.length ? <div className={styles.detailLabels}>{selectedNode.componentLabels.map(label => <code key={label}>{label}</code>)}</div> : null}<button type="button" onClick={() => selectedNode.kind === "feature" ? onOpenFeature(selectedNode.id) : onInspectNode(selectedNode.sourceNodeIds[0] ?? selectedNode.id)}>{selectedNode.kind === "feature" ? "Open detailed flow" : selectedNode.isReferenceGroup ? "Inspect first source reference" : "Inspect source node"}</button></> : <><p>{selectedEdge!.labels.join(" · ")} · {selectedEdge!.confidence === "proven" ? "Proven" : "Indicated"}</p><p>{selectedEdge!.sourceEdgeIds.length} actual source relationships. Endpoint/controller details remain linked to the original nodes.</p><ul className={styles.endpointList}>{selectedEdge!.originalEndpoints.map((pair, index) => <li key={`${pair.source}:${pair.target}:${index}`}>{payload.overlay.labels[pair.source] ?? payload.model.nodes.find(node => node.id === pair.source)?.label} → {payload.overlay.labels[pair.target] ?? payload.model.nodes.find(node => node.id === pair.target)?.label}</li>)}</ul></>}
-      <div className={styles.evidence}>{(selectedNode?.evidence ?? selectedEdge?.evidence ?? []).slice(0, 12).map((evidence, index) => <EvidenceLink key={`${evidence.filePath}:${evidence.startLine}:${index}`} repository={payload.model.snapshot.repository} commitSha={payload.model.snapshot.commitSha} evidence={evidence} />)}</div>
+      {selectedNode ? <><p>{selectedNode.kind === "feature" ? "Frame ini merangkum endpoint/controller. Panah merepresentasikan hubungan source ke/dari anggotanya, bukan node aktivitas baru." : selectedNode.reason}</p>{selectedNode.routeLabels.length ? <div className={styles.detailLabels}>{selectedNode.routeLabels.map(label => <code key={label}>{label}</code>)}</div> : null}{selectedNode.componentLabels.length ? <div className={styles.detailLabels}>{selectedNode.componentLabels.map(label => <code key={label}>{label}</code>)}</div> : null}<button type="button" onClick={() => selectedNode.kind === "feature" ? onOpenFeature(selectedNode.id) : onInspectNode(selectedNode.sourceNodeIds[0] ?? selectedNode.id)}>{selectedNode.kind === "feature" ? "Open detailed flow" : selectedNode.isReferenceGroup ? "Inspect first source reference" : "Inspect source node"}</button><div className={styles.evidence}>{selectedNode.evidence.map((evidence, index) => <EvidenceLink key={`${evidence.filePath}:${evidence.startLine}:${index}`} repository={payload.model.snapshot.repository} commitSha={payload.model.snapshot.commitSha} evidence={evidence} />)}</div></> : <RelationshipExplanationPanel edges={selectedEdge!.sourceEdgeIds.map(id => payload.model.edges.find(edge => edge.id === id)).filter((edge): edge is NonNullable<typeof edge> => Boolean(edge))} nodes={payload.model.nodes} repository={payload.model.snapshot.repository} commitSha={payload.model.snapshot.commitSha} onClose={() => setSelected(null)} />}
     </aside> : null}
   </section>;
 }

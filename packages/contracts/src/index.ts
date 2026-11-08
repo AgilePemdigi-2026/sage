@@ -1,18 +1,7 @@
 import { createHash } from "node:crypto";
 
-export const SCHEMA_VERSION = 1 as const;
-export const LANGUAGES = ["javascript", "typescript", "php"] as const;
-export const NODE_KINDS = ["Module", "Class", "Interface", "Function", "Method", "Property", "UnresolvedReference"] as const;
-export const EDGE_KINDS = [
-  "CONTAINS", "IMPORTS", "EXPORTS", "EXTENDS", "IMPLEMENTS", "TYPE_REFERENCES", "CALLS",
-  "INSTANTIATES", "READS", "WRITES", "THROWS", "INCLUDES",
-] as const;
-export const NODE_ORIGINS = ["source", "stdlib", "external", "unresolved"] as const;
-export const EDGE_RESOLUTIONS = ["Exact", "Unresolved"] as const;
-export const UNRESOLVED_REASONS = [
-  "DYNAMIC_LOAD", "UNKNOWN_RECEIVER", "EXTERNAL_DEPENDENCY", "UNSUPPORTED_CONSTRUCT", "AMBIGUOUS_SYMBOL",
-] as const;
-export const EVIDENCE_ROLES = ["declaration", "reference", "context"] as const;
+import { SCHEMA_VERSION, LANGUAGES, NODE_KINDS, EDGE_KINDS, NODE_ORIGINS, EDGE_RESOLUTIONS, UNRESOLVED_REASONS, EVIDENCE_ROLES } from "./registries.ts";
+export { SCHEMA_VERSION, LANGUAGES, NODE_KINDS, EDGE_KINDS, NODE_ORIGINS, EDGE_RESOLUTIONS, UNRESOLVED_REASONS, EVIDENCE_ROLES } from "./registries.ts";
 
 export type Language = (typeof LANGUAGES)[number];
 export type NodeKind = (typeof NODE_KINDS)[number];

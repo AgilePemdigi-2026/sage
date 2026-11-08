@@ -1,3 +1,4 @@
+import type { CcmEdge, CcmNode } from "@sage/contracts";
 import { compactEvidence, ensureFeatureNode, evidenceSpan, emptyFragment, humanLabel, semanticEdgeId, semanticId } from "./builder.ts";
 import type { SemanticEdge, SemanticFragment, SemanticInput, SemanticNode } from "./model.ts";
 
@@ -11,6 +12,7 @@ type ServiceClass = { filePath: string; bytes: Uint8Array; source: string; class
 type PhpClassSource = { filePath: string; bytes: Uint8Array; source: string; classInfo: PhpClass };
 type MiddlewareAlias = { classRef: string | null; filePath: string; start: number; end: number };
 type ServiceCall = { start: number; end: number; target: ServiceClass; method: PhpMethod; bindingEvidence: Array<{ start: number; end: number }> };
+type ModelInfo = { path: string; name: string; namespace: string; fullName: string; start: number; end: number; eloquent: boolean };
 type TokenRange = { start: number; end: number };
 const AUTH_MIDDLEWARE = /^(?:auth(?::|$)|auth\.basic)/;
 
@@ -520,6 +522,27 @@ function serviceClassFor(reference: string, services: ServiceClass[]): ServiceCl
 function serviceLike(reference: string): boolean {
   return /(?:^|\\)(?:[\w]+Service|[\w]+ServiceInterface|[\w]+Manager|[\w]+Processor|[\w]+Gateway)$/iu.test(reference) || /(?:^|\\)Services?\\/iu.test(reference);
 }
+function ccmMethodNode(nodes: readonly CcmNode[], filePath: string, source: string, method: HandlerInfo, methodName: string): CcmNode | null {
+  const startByte = Buffer.byteLength(source.slice(0, method.start), "utf8"), endByte = Buffer.byteLength(source.slice(0, method.end), "utf8");
+  const matches = nodes.filter(node => node.kind === "Method" && node.filePath === filePath && node.name.toLowerCase() === methodName.toLowerCase() &&
+    node.location !== null && node.location.startByte <= startByte && node.location.endByte >= endByte);
+  return matches.length === 1 ? matches[0]! : null;
+}
+function exactCcmMethodCall(ccm: SemanticInput["ccm"], sourceNode: CcmNode | null, targetNode: CcmNode | null,
+  callFilePath: string, callSource: string, callStart: number, callEnd: number): CcmEdge | null {
+  if (!sourceNode || !targetNode) return null;
+  const startByte = Buffer.byteLength(callSource.slice(0, callStart), "utf8"), endByte = Buffer.byteLength(callSource.slice(0, callEnd), "utf8");
+  const matches = ccm.edges.filter(edge => edge.kind === "CALLS" && edge.resolution === "Exact" && edge.sourceId === sourceNode.id && edge.targetId === targetNode.id &&
+    edge.evidence.some(span => span.filePath === callFilePath && span.startByte >= startByte && span.endByte <= endByte));
+  return matches.length === 1 ? matches[0]! : null;
+}
+function modelIndex(paths: string[], sources: Readonly<Record<string, Uint8Array>>): ModelInfo[] {
+  return paths.filter(path => applicationPhpSource(path) && /(?:^|\/)Models?\//u.test(path)).flatMap(path => {
+    const sourceBytes = sources[path]!, source = new TextDecoder().decode(sourceBytes), declaration = phpClasses(source)[0], eloquent = eloquentClass(source);
+    return declaration ? [{ path, name: declaration.name, namespace: declaration.namespace, fullName: declaration.namespace ? `${declaration.namespace}\\${declaration.name}` : declaration.name,
+      start: declaration.start, end: declaration.end, eloquent: eloquent?.proven === true }] : [];
+  });
+}
 function controllerServiceBindings(tokens: Token[], handler: HandlerInfo, source: string): { owner: PhpClass | null; bindings: Map<string, { reference: string; evidence: Array<{ start: number; end: number }> }>; parameters: Map<string, string> } {
   const owner = phpClasses(source).find(item => handler.start >= item.start && handler.start < item.end) ?? null;
   const bindings = new Map<string, { reference: string; evidence: Array<{ start: number; end: number }> }>(), parameters = new Map<string, string>();
@@ -998,30 +1021,80 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
             feature.edgeIds.push(edgeId);
           }
         };
+        const models = modelIndex(paths, input.sources);
+        const knownOperations = ["create", "insert", "upsert", "save", "update", "updateOrCreate", "firstOrCreate", "delete", "destroy", "first", "find", "findOrFail", "firstOrFail", "get", "all", "where", "whereDate", "whereHas", "with", "count", "exists", "query", "pluck", "value", "sum", "paginate", "orderBy"];
+        const controllerClassInfo = phpClasses(handlerSource).find(item => handler.start >= item.start && handler.start < item.end);
+        const controllerNamespace = controllerClassInfo?.namespace ?? "";
+        const controllerImports = routeClassImports(handlerSource);
+        const controllerMethodNode = ccmMethodNode(ccmNodes, handlerPath, handlerSource, handler, route.action);
         const serviceResolution = findServiceCalls(handlerTokens, handler, handlerSource, services);
         for (const reason of serviceResolution.limitations) fragment.limitations.push({ filePath: handlerPath, reason });
+        const exactServiceCalls = new Map<ServiceCall, CcmEdge>();
+        const serviceNodeIds = new Map<ServiceCall, string>();
         for (const call of serviceResolution.calls) {
           const serviceName = call.target.classInfo.name;
           const serviceId = semanticId("component", call.target.filePath, Buffer.byteLength(call.target.source.slice(0, call.method.start), "utf8"), `service:${call.target.classInfo.namespace}:${serviceName}@${call.method.name}`);
+          serviceNodeIds.set(call, serviceId);
           const methodStartByte = Buffer.byteLength(call.target.source.slice(0, call.method.start), "utf8"), methodEndByte = Buffer.byteLength(call.target.source.slice(0, call.method.end), "utf8");
           const technicalNodeIds = ccmNodes.filter(node => node.filePath === call.target.filePath && (node.name === serviceName || (node.location !== null && node.location.startByte >= methodStartByte && node.location.endByte <= methodEndByte))).map(node => node.id);
           const declarationEvidence = evidenceSpan(call.target.filePath, call.target.bytes, call.method.nameStart, call.method.nameEnd, "declaration");
           addNode({ id: serviceId, kind: "component", label: `${serviceName}@${call.method.name}`, featureId, confidence: "proven", reason: "Pemanggilan pada dependency controller statis cocok dengan satu method service yang dapat diakses.", evidence: [declarationEvidence], technicalNodeIds });
           const callSiteEvidence = evidenceSpan(handlerPath, handlerBytes, call.start, call.end, "reference");
           const dependencyEvidence = call.bindingEvidence.map(span => evidenceSpan(handlerPath, handlerBytes, span.start, span.end, "reference"));
+          const targetMethodNode = ccmMethodNode(ccmNodes, call.target.filePath, call.target.source, call.method, call.method.name);
+          const exactCall = exactCcmMethodCall(input.ccm, controllerMethodNode, targetMethodNode, handlerPath, handlerSource, call.start, call.end);
+          if (exactCall) exactServiceCalls.set(call, exactCall);
           const edgeId = semanticEdgeId(handlerPath, Buffer.byteLength(handlerSource.slice(0, call.start), "utf8"), `controller-service:${controllerId}:${serviceId}:${call.method.name}`);
-          addEdge({ id: edgeId, source: controllerId, target: serviceId, label: "memanggil layanan", confidence: "proven", reason: "Constructor injection atau constructor local dan pemanggilan method service terhubung secara statis.", evidence: [callSiteEvidence, ...dependencyEvidence, declarationEvidence] });
+          addEdge({ id: edgeId, source: controllerId, target: serviceId, label: "memanggil layanan", confidence: "proven", reason: "Constructor injection atau constructor local dan pemanggilan method service terhubung secara statis.", evidence: [callSiteEvidence, ...dependencyEvidence, declarationEvidence, ...(exactCall?.evidence ?? [])] });
           feature.nodeIds.push(serviceId); feature.edgeIds.push(edgeId);
           linkBranchUse(serviceId, call.start, call.end, "service call");
         }
-        const controllerClassInfo = phpClasses(handlerSource).find(item => handler.start >= item.start && handler.start < item.end);
-        const controllerNamespace = controllerClassInfo?.namespace ?? "";
-        const controllerImports = routeClassImports(handlerSource);
-        const models = paths.filter(path => applicationPhpSource(path) && /(?:^|\/)Models?\//u.test(path)).flatMap(path => {
-          const sourceBytes = input.sources[path]!, source = new TextDecoder().decode(sourceBytes), declaration = phpClasses(source)[0], eloquent = eloquentClass(source);
-          return declaration ? [{ path, name: declaration.name, namespace: declaration.namespace, fullName: declaration.namespace ? `${declaration.namespace}\\${declaration.name}` : declaration.name, start: declaration.start, end: declaration.end, eloquent: eloquent?.proven === true }] : [];
-        });
-        const knownOperations = ["create", "insert", "upsert", "save", "update", "updateOrCreate", "firstOrCreate", "delete", "destroy", "first", "find", "findOrFail", "firstOrFail", "get", "all", "where", "whereDate", "whereHas", "with", "count", "exists", "query", "pluck", "value", "sum", "paginate", "orderBy"];
+        for (const [call, exactCall] of exactServiceCalls) {
+          const serviceId = serviceNodeIds.get(call)!;
+          const serviceTokens = lex(call.target.source), serviceImports = routeClassImports(call.target.source), deferredRanges = deferredCallableRanges(serviceTokens, call.method.bodyStart, call.method.bodyEnd);
+          const terminalReturnEnd = directMethodReturnEnd(serviceTokens, call.method);
+          const declarationEvidence = evidenceSpan(call.target.filePath, call.target.bytes, call.method.start, call.method.end, "declaration");
+          for (let tokenIndex = call.method.bodyStart; tokenIndex < call.method.bodyEnd; tokenIndex += 1) {
+            if (terminalReturnEnd >= 0 && tokenIndex > terminalReturnEnd) break;
+            const deferred = rangeAt(deferredRanges, tokenIndex);
+            if (deferred) { tokenIndex = deferred.end; continue; }
+            const token = serviceTokens[tokenIndex]!;
+            if (token.kind !== "identifier" || !knownOperations.includes(token.value) || serviceTokens[tokenIndex + 1]?.value !== "(") continue;
+            if (!["::", "->"].includes(serviceTokens[tokenIndex - 1]?.value ?? "")) continue;
+            const statementStart = Math.max(call.method.bodyStart, serviceTokens.slice(call.method.bodyStart, tokenIndex).map(item => item.value).lastIndexOf(";") + call.method.bodyStart + 1);
+            const modelMatches: ModelInfo[] = [];
+            let mismatchedModel: ModelInfo | null = null;
+            for (let cursor = tokenIndex - 1; cursor >= statementStart + 1; cursor -= 1) {
+              const rawCandidate = serviceTokens[cursor - 1]?.value;
+              if (serviceTokens[cursor]?.value !== "::" || !rawCandidate) continue;
+              const resolved = resolvePhpClassRef(rawCandidate, call.target.classInfo.namespace, serviceImports);
+              modelMatches.push(...models.filter(model => model.fullName.toLowerCase() === resolved.toLowerCase()));
+              mismatchedModel ??= models.find(model => model.name.toLowerCase() === rawCandidate.replace(/^\\/u, "").split("\\").at(-1)?.toLowerCase()) ?? null;
+              if (modelMatches.length) break;
+            }
+            const uniqueModels = [...new Map(modelMatches.map(model => [model.path, model])).values()];
+            if (uniqueModels.length !== 1) {
+              if (!uniqueModels.length && mismatchedModel) fragment.limitations.push({ filePath: call.target.filePath, reason: `Service model reference resolves differently from ${mismatchedModel.fullName}; its store effect is omitted.` });
+              continue;
+            }
+            const model = uniqueModels[0]!, modelBytes = input.sources[model.path]!;
+            const storeId = semanticId("store", model.path, 0, `eloquent:${model.name}`);
+            const storeConfidence = model.eloquent ? "proven" : "indicated";
+            addNode({ id: storeId, kind: "store", label: humanLabel(model.name), featureId, confidence: storeConfidence,
+              reason: model.eloquent ? "Service method memanggil operasi Eloquent statis pada model yang dideklarasikan." : "Service method memanggil operasi pada model statis, tetapi inheritance Eloquent tidak terbukti langsung.",
+              evidence: [evidenceSpan(call.target.filePath, call.target.bytes, token.start, serviceTokens[tokenIndex + 1]!.end, "reference"), evidenceSpan(model.path, modelBytes, model.start, model.end, "declaration")],
+              technicalNodeIds: ccmNodes.filter(node => node.kind === "Class" && node.name === model.name && node.filePath === model.path).map(node => node.id) });
+            const operation = token.value;
+            const label = ["create", "insert", "upsert", "save", "update", "updateOrCreate", "firstOrCreate", "delete", "destroy"].includes(operation)
+              ? ["delete", "destroy"].includes(operation) ? "menghapus" : "menyimpan" : "membaca";
+            const operationEvidence = evidenceSpan(call.target.filePath, call.target.bytes, token.start, serviceTokens[tokenIndex + 1]!.end, "reference");
+            const edgeId = semanticEdgeId(call.target.filePath, Buffer.byteLength(call.target.source.slice(0, token.start), "utf8"), `store:${serviceId}:${storeId}:${operation}`);
+            addEdge({ id: edgeId, source: serviceId, target: storeId, label, confidence: storeConfidence,
+              reason: "Method service yang dipanggil controller menjalankan operasi model Eloquent pada store ini.",
+              evidence: [declarationEvidence, operationEvidence, ...exactCall.evidence] });
+            feature.nodeIds.push(serviceId, storeId); feature.edgeIds.push(edgeId);
+          }
+        }
         const terminalReturnEnd = directMethodReturnEnd(handlerTokens, handler);
         for (let tokenIndex = handler.bodyStart; tokenIndex < handler.bodyEnd; tokenIndex += 1) {
           if (terminalReturnEnd >= 0 && tokenIndex > terminalReturnEnd) {
