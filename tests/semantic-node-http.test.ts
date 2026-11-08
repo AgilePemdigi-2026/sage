@@ -126,9 +126,11 @@ export function createApi() { return makeServer((request, response) => { void di
 
   const propertyMutation = server.replace("dispatch(request, response)", "request.headers.set('x-trace', '1'); dispatch(request, response)");
   const propertyMutationResult = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": propertyMutation }));
-  assert.ok(propertyMutationResult.edges.some(edge => edge.source === propertyMutationResult.nodes.find(node => node.kind === "actor")?.id &&
-    edge.target === propertyMutationResult.nodes.find(node => node.kind === "step" && node.label === "GET /api/health")?.id),
-  "mutating a request property does not rebind the callback request parameter");
+  const propertyActor = propertyMutationResult.nodes.find(node => node.kind === "actor");
+  const propertyRoute = propertyMutationResult.nodes.find(node => node.kind === "step" && node.label === "GET /api/health");
+  const propertyBoundary = propertyMutationResult.edges.find(edge => edge.source === propertyActor?.id && edge.target === propertyRoute?.id);
+  assert.ok(propertyBoundary?.evidence.some(span => span.filePath === "src/http/server.ts"),
+    "mutating a request property does not rebind it or remove the server registration evidence");
 
   const wrongParameters = server.replace("dispatch(request, response)", "dispatch(response, request)");
   const unmatched = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": wrongParameters }));

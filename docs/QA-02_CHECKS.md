@@ -22,7 +22,7 @@ The export hashes in the database matched the corresponding storage-object hashe
 
 ## Automated regression and provider checks
 
-- Latest code regression at `feb42d5f7dab5afe26dc33018af4963d0e6f2e17`: `npm test -- --test-concurrency=1` passed 538/538; `npm run test:data` passed 8/8; `npm run test:semantic` passed 105/105; semantic Cucumber BDD passed 3 scenarios / 17 steps. The initial parallel full-suite attempt had one PHP analyzer test return `failed` instead of `partial`; the isolated PHP suite then passed 9/9 and the serialized full suite passed. Lint and both TypeScript checks passed.
+- Latest code regression at `7b3fa3d1bc97754cb787a6c90e663f745f7f41ec`: `npm test -- --test-concurrency=1` passed 538/538; `npm run test:data` passed 8/8; `npm run test:semantic` passed 105/105; semantic Cucumber BDD passed 3 scenarios / 17 steps. The initial parallel full-suite attempt had one PHP analyzer test return `failed` instead of `partial`; the isolated PHP suite then passed 9/9 and the serialized full suite passed. Lint and both TypeScript checks passed.
 - Typecheck and production Docker build passed. Lint passed with three existing React Hooks warnings in `semantic-workspace.tsx`.
 - Browser regression covers landing/health, auth/workspace, repository target and account isolation at 360, 390, 768, 1024, and 1440 px. Those deterministic cases use controlled provider responses and are not counted as live GitHub checks.
 - Separate live provider checks used GitHub to read public repositories, installations, an authorized private repository, branch metadata, and the target commit without creating an analysis. The fresh clean-volume analysis above used a public repository.
