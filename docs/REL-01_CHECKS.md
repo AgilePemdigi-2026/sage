@@ -1,22 +1,24 @@
 # REL-01 — Local Docker release verification
 
-**Status: not ready to close #26.** The local stack runs and serves real analysis, but the remaining QA-02 analyzer/PDF gaps and low free disk prevent a clean release signoff. This is local Docker evidence only; no Coolify deployment was performed.
+**Local release gate: passed for the MVP; issue #26 remains open until this PR is independently reviewed and merged.** This is a Docker-local result only. No Coolify deployment or shared-host capacity test was performed.
 
 ## Verified run
 
-- Application source: `b0ed42e431169617c134563985bfe84eb2ff8c58`; local images `sage-web:local` and `sage-worker:local`; PostgreSQL `17-bookworm`.
-- Colima profile `sage`: 2 vCPU, 4 GiB RAM, 30 GiB disk; app and worker ran Node.js 24.22.0.
-- Web, worker, and database containers reported healthy. `http://localhost:3000/` and `/api/health` both returned HTTP 200.
-- A `docker compose stop` → `docker compose start` cycle using the original ignored `.env` succeeded without deleting volumes. All services returned healthy; the Perpus history record still had 9/9 completed stages and both exports READY after restart.
-- Three fresh live analysis runs completed all nine stages; their results and export outcomes are listed in [QA-02 checks](QA-02_CHECKS.md).
-- At one `docker stats` sample: web 343 MiB / 768 MiB, worker 367 MiB / 2 GiB, database 72 MiB / 1 GiB. These are point-in-time values, not peak-memory benchmarks.
-- After the user-approved removal of old SAGE rollback image tags, the Colima disk still showed 26 GiB used of 30 GiB (93%), with about 2.2 GiB free. No database or storage volume was removed.
+- Built the production `sage-web:local` and `sage-worker:local` images from this branch. The Docker build completed lint, package checks, typecheck, production Next.js build, and the test suites recorded in [QA-02](QA-02_CHECKS.md).
+- Started the rebuilt app and worker against the existing local Postgres and storage volumes. All three services reported healthy; `/` and `/api/health` returned HTTP 200.
+- Fresh UI-submitted analysis completed 9/9 worker stages. Code Knowledge, Software Engineering Diagram, and documentation opened without browser page errors. Markdown and PDF exports downloaded and matched their stored content hashes; full result is in [the QA-02 report](evidence/QA-02-live-integration-2026-11-09.json).
+- The analysis record and generated export records were removed after the end-to-end check completed.
+- A prior Compose stop/start cycle retained the Perpus history record and both READY exports. Database and storage volumes were not deleted or recreated.
+- At a prior `docker stats` sample, web used 343 MiB / 768 MiB, worker 367 MiB / 2 GiB, and database 72 MiB / 1 GiB. These are point-in-time observations, not peak-memory benchmarks.
 
-## Remaining release gate
+## Environment and limits
 
-- Free disk is low for repeated rebuilds, exports, and other teams on this shared Docker host. Do not raise container memory limits to hide disk pressure.
-- This test used the already-configured local Docker stack and its existing volume. It does not prove recovery from a brand-new empty volume or a Coolify deployment/backup restore.
-- #24 remains partial because one real Node.js HTTP sample generated zero user-flow relationships and its PDF exceeded the configured document limit. #25's browser report also notes that SVG/canvas stroke contrast was not pixel-audited.
-- Keep database and storage volumes. After QA, Compose services and the Colima `sage` profile were stopped to reduce laptop load; starting requires the original ignored `.env` and the `colima-sage` Docker context. This QA worktree used the `.env` in the main checkout via `--env-file`; no credentials were copied into the worktree.
+- Colima profile `sage`: 2 vCPU, 4 GiB RAM, 30 GiB disk; app and worker use Node.js 24.22.0; PostgreSQL is `17-bookworm`.
+- The Docker disk reached approximately 96% usage during the image rebuild. The user approved removing old SAGE rollback image tags; database/storage volumes and unrelated images were preserved. Do not treat this as a capacity test for the shared class server.
+- This fresh start reused the configured local environment and existing volumes. It verifies rebuilding and starting the app without destroying user data, but does not prove recovery from an empty volume or a backup restore.
+- No Coolify configuration, deployment, TLS, external domain, backup/restore, or multi-group load test was attempted.
+- PDF contains compact overview/flow pages; full evidence is available in Markdown. Node HTTP route registration is source-indicated; listener execution is not claimed.
 
-The image cleanup removed only the approved old SAGE rollback tags; it did not prune unrelated images or volumes. Issue #26 stays open until the analyzer and export gaps are accepted and a clean, repeatable local start has been verified with adequate disk headroom.
+After QA, stop the Compose stack and Colima `sage` profile to reduce laptop load. Starting again uses the original ignored `.env` and the `colima-sage` Docker context. This worktree read that `.env` from the main checkout via `--env-file`; no credentials were copied into Git.
+
+The gate is limited to the local MVP path that was exercised. Do not describe it as a Coolify-ready production release or an empty-volume recovery test.
