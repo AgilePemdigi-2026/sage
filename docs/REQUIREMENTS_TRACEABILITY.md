@@ -69,17 +69,17 @@ Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Ri
 | SAGE-FR-EXP-08 | Export File Availability | 38 | Dokumen / Ekspor | EXP-01, EXP-02 | T-EXP-01, T-EXP-02, T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
 | SAGE-FR-EXP-09 | Export Failure Notification | 38 | Dokumen / Ekspor gagal | EXP-01, EXP-02 | T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
 | SAGE-FR-EXP-10 | Export Retry | 38 | Dokumen / Ekspor gagal | EXP-01, EXP-02 | T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
-| SAGE-FR-HIST-01 | Analysis History Display | 39 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
-| SAGE-FR-HIST-02 | Analysis History Information | 39 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
-| SAGE-FR-HIST-03 | Repository Search | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
-| SAGE-FR-HIST-04 | Commit SHA Search | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
-| SAGE-FR-HIST-05 | History Filtering | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
-| SAGE-FR-HIST-06 | Analysis History Selection | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
-| SAGE-FR-HIST-07 | Completed Analysis Navigation | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
-| SAGE-FR-HIST-08 | Ongoing Analysis Navigation | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
-| SAGE-FR-HIST-09 | Empty History State | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
-| SAGE-FR-HIST-10 | New Analysis Action | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
-| SAGE-FR-HIST-11 | New Analysis Navigation | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Planned |
+| SAGE-FR-HIST-01 | Analysis History Display | 39 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Implemented; query/owner integration lulus, fresh browser QA pending (HIST-01_CHECKS) |
+| SAGE-FR-HIST-02 | Analysis History Information | 39 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Implemented; query/owner integration lulus, fresh browser QA pending (HIST-01_CHECKS) |
+| SAGE-FR-HIST-03 | Repository Search | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Implemented; repository/branch search lulus pada PostgreSQL (HIST-01_CHECKS) |
+| SAGE-FR-HIST-04 | Commit SHA Search | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Implemented; SHA search lulus pada PostgreSQL (HIST-01_CHECKS) |
+| SAGE-FR-HIST-05 | History Filtering | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Implemented; status/query/cursor lulus pada PostgreSQL (HIST-01_CHECKS) |
+| SAGE-FR-HIST-06 | Analysis History Selection | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Implemented; API detail/owner lulus, browser fresh-run pending (HIST-01_CHECKS) |
+| SAGE-FR-HIST-07 | Completed Analysis Navigation | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Canonical graph link tersedia; navigasi browser perlu QA (HIST-01_CHECKS) |
+| SAGE-FR-HIST-08 | Ongoing Analysis Navigation | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Detail progress/polling tersedia; navigasi browser perlu QA (HIST-01_CHECKS) |
+| SAGE-FR-HIST-09 | Empty History State | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | State kosong/no-match ada; browser fresh-run pending (HIST-01_CHECKS) |
+| SAGE-FR-HIST-10 | New Analysis Action | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Aksi submission tercantum; fresh browser acceptance pending (HIST-01_CHECKS) |
+| SAGE-FR-HIST-11 | New Analysis Navigation | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Navigasi submission tersedia; fresh browser acceptance pending (HIST-01_CHECKS) |
 
 ## Requirement lokal hasil keputusan
 
