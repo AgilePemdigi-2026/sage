@@ -60,7 +60,7 @@ ID di bawah adalah kontrak acceptance alur produk lengkap. Check per issue dapat
 | T-EXP-01 | Ekspor dan buka Markdown pada viewer bersih | Markdown mandiri: tiga artefak, diagram source, evidence/context/limitation; unduhan nyata dan viewer offline, lihat EXP-01_CHECKS |
 | T-EXP-02 | Ekspor dan buka PDF, ekstrak teks, render seluruh halaman | File valid, teks sesuai, diagram terbaca, tidak terpotong, font dan evidence sesuai; teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
 | T-EXP-03 | Gagalkan ekspor, double submit, retry, download bukan pemilik | Markdown: dedup, hash graph/ADD/analysis tetap, retry dokumen sama dan akses privat; PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
-| T-HIST-01 | Empty history, list berbagai status, query nama/SHA, buka record | Hanya milik user; query/reset benar; terminal sukses ke graph, queued/running/failed ke progress |
+| T-HIST-01 | Empty history, list berbagai status, query nama/SHA, buka record | Unit 23/23, PostgreSQL 5/5, HTTP 5 checks, dan Chromium smoke 6 checks lulus; coverage tersisa ada di [HIST-01_CHECKS](HIST-01_CHECKS.md) |
 | T-DATA-01 | Migrasi bersih, restart Docker, dua user mengakses ID yang sama | Persistensi utuh, credential/session aman, user lain ditolak pada graph/source/doc/export/job |
 | T-DATA-02 | Delete terminal/active/export aktif; simulasikan cleanup gagal | Active ditolak; akses hilang saat cleanup; file dan record turunan hilang sebelum selesai; cleanup idempotent |
 | T-UI-01 | Periksa viewport 360/390/768/1024/1440, keyboard, status/error | UI Indonesia, context terbaca, canvas/source terkontrol, fokus/label/warna diperiksa |
@@ -100,6 +100,10 @@ T-UI-02 memeriksa enam layar pada 360/390/768/1024/1440 px, aset SVG lokal, penc
 `npm run test:browser` menjalankan empat suite secara berurutan: landing/health, auth/workspace, repository target, isolasi akun dan route pratinjau yang dihapus (404). Graph/dokumen nyata diuji melalui suite live. Runner memberi setiap run folder terpisah, tanggal, hash script/lockfile, base commit, hasil suite dan lokasi screenshot. `npm run test:provider:playwright` memeriksa API Next serta GitHub nyata secara terpisah memakai otorisasi existing dan sesi sementara. Origin browser auth tetap tepercaya walaupun transport pengujian melewati jaringan Compose.
 
 Rincian hasil terbaru, matriks fitur, batas OAuth/fixture/pipeline dan perintah Docker: [QA-04-S1 checks](QA-04-S1_CHECKS.md). Paket QA-04-S1 tidak menutup QA-03/QA-02 atau T-REL-01 penuh.
+
+### QA-02 fresh OAuth/provider follow-up — 8 November 2026
+
+Login GitHub lokal berhasil dan `npm run test:provider:playwright` lulus terhadap route Next serta provider nyata untuk daftar instalasi, metadata repository, resolusi target public, branch/commit, dan batas request. Private fixture tidak disediakan; run analisis penuh dan release Docker belum dilakukan. [Rincian hasil dan batas](QA-02_CHECKS.md).
 
 ## GH-03-S1 — Daftar public dan pergantian akun
 

@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "reviewStatus": "DRAFT_AWAITING_TEAM_REVIEW",
-  "reviewedBy": null,
-  "scope": "Hand-authored static resolver expectations for small cross-file JavaScript, TypeScript, and PHP source fixtures, including aliased CommonJS bindings, class-member access on stable local instances, conservative UNKNOWN_RECEIVER and external-dependency cases, ambiguous extensionless modules, and parse-only execution canaries. Expected semantics and evidence are specified from source; this manifest remains a draft oracle, not semantic acceptance.",
+  "reviewStatus": "TEAM_REVIEWED",
+  "reviewedBy": "iltizamhasan3",
+  "scope": "Hand-authored static resolver expectations for small cross-file JavaScript, TypeScript, and PHP source fixtures, including aliased CommonJS bindings, class-member access on stable local instances, conservative UNKNOWN_RECEIVER and external-dependency cases, ambiguous extensionless modules, and parse-only execution canaries. Source facts were reviewed by the team on 2026-11-08; this does not claim complete semantic acceptance of the adapters.",
   "files": [
     {
       "path": "tests/fixtures/resolver/javascript/src/app.js",

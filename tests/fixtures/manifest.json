@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "reviewStatus": "DRAFT_AWAITING_TEAM_REVIEW",
-  "reviewedBy": null,
+  "reviewStatus": "TEAM_REVIEWED",
+  "reviewedBy": "iltizamhasan3",
   "scope": "Seed fixture/oracle QA-01; evidence integrity and parser syntax probes only. Semantic CCM/edge acceptance remains NOT_RUN.",
   "files": [
     {

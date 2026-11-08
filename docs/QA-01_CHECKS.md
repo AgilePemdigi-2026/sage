@@ -56,3 +56,9 @@ Gunakan 1 CPU/2 GiB sebagai profil reproduksi lokal yang sudah diuji pada dua co
 Belum diuji: repository mendekati ceiling, cold filesystem cache terkontrol, tekanan memory sengaja hingga OOM, dan pipeline produk penuh. Build web, PostgreSQL integration, dan browser E2E tidak dijalankan ulang pada paket QA ini. Layanan aplikasi/database tidak dinyalakan; seluruh container pengukuran/verifikasi telah berhenti.
 
 Manifest tetap draft sampai signoff tim; laporan review otomatis tidak diatribusikan sebagai review manusia. Issue #4 tetap terbuka untuk gate tersebut. #11 dan #14 tidak otomatis ditutup hanya karena benchmark selesai. Source/code fixture tetap data, bukan instruksi untuk dieksekusi.
+
+## Pembaruan signoff tim — 8 November 2026
+
+Iltizam (`iltizamhasan3`) menerima review source dan evidence manifest berdasarkan pemeriksaan 12 fakta seed dan 33 fakta resolver, canary processed tanpa efek samping, serta enam benchmark dua corpus yang tercatat di atas. `tests/fixtures/manifest.json` dan `tests/fixtures/resolver/resolver-oracle-v1.json` kini berstatus `TEAM_REVIEWED`. Persetujuan ini terbatas pada source facts/evidence yang tercantum dan batas pengukuran; verifier integritas tetap melaporkan `semanticAcceptance: NOT_RUN`, kapasitas dekat ceiling dan fault injection OOM tetap belum diuji.
+
+Setelah metadata review diperbarui, pemeriksaan ulang pada Node 24 lulus: `npm run fixtures:verify` (15 file/12 oracle), `npm run fixtures:verify:resolvers` (18 file/35 edge), 13 tes `fixtures.test.ts` + `resolver-oracles.test.ts`, `npm run typecheck`, dan ESLint pada verifier/tes yang berubah. Run ini memvalidasi status signoff dan integritas manifest terkini; tidak mengulang seluruh suite atau benchmark historis.

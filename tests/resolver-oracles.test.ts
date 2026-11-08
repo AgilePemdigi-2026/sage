@@ -26,8 +26,8 @@ test("oracle manifest integrity covers JS, TS, PHP, unresolved cases, and draft 
   assert.ok(manifest.files.length > 0);
   assert.ok(manifest.expectedEdges.length > 0);
   assert.deepEqual(manifest.languageCoverage.map((item) => item.language), ["javascript", "typescript", "php"]);
-  assert.equal(manifest.reviewStatus, "DRAFT_AWAITING_TEAM_REVIEW");
-  assert.equal(manifest.reviewedBy, null);
+  assert.equal(manifest.reviewStatus, "TEAM_REVIEWED");
+  assert.equal(manifest.reviewedBy, "iltizamhasan3");
   for (const coverage of manifest.languageCoverage) {
     const paths = new Set(manifest.files.filter((file) => file.language === coverage.language).map((file) => file.path));
     const edges = manifest.expectedEdges.filter((edge) => paths.has(edge.source.path));

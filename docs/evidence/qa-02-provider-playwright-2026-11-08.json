@@ -1,0 +1,18 @@
+{
+  "checkedAt": "2026-11-08T16:12:56.374Z",
+  "status": "PASS",
+  "checks": [
+    "Playwright request: real session identity and own public list; owner/public-only metadata; stale account header rejected",
+    "Playwright request: real installation and authorized repository metadata; anonymous request rejected",
+    "Playwright request: third-party public repository resolves; cross-origin and non-GitHub input rejected",
+    "Playwright request: public real branches, HEAD and prefix resolve full SHA; invalid commit rejected",
+    "Read/validation probes do not create analysis jobs"
+  ],
+  "failedPhase": null,
+  "privateFixtureRequested": false,
+  "scope": "Playwright APIRequestContext against real Next routes and GitHub provider, temporary session for existing authorization; not a fresh OAuth browser login.",
+  "limitations": [
+    "Private denial for another authenticated user is a controlled boundary test, not exercised as live GitHub here.",
+    "No submission/pipeline/results acceptance."
+  ]
+}
