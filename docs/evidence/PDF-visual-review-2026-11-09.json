@@ -1,0 +1,37 @@
+{
+  "date": "2026-11-09",
+  "status": "PASS",
+  "rendererVersion": "2.4.0",
+  "source": {
+    "applicationCommit": "feb42d5f7dab5afe26dc33018af4963d0e6f2e17",
+    "repository": "iltizamhasan3/sistem-informasi-perpus",
+    "repositoryCommit": "d72c3532a7d59cab242fb705ab201cf99ef35e88",
+    "preparedFiles": 89
+  },
+  "presentation": {
+    "overlay": "default; no sample correction applied",
+    "document": "Architecture Definition Document with Interface Catalog, Software Engineering Diagram, per-flow detail, analysis notes, and UML Class Diagram"
+  },
+  "pdf": {
+    "sha256": "2fc16afbfe44a8f526e5a971995d86d6f620e9ca491eead6d6b4e3f144e97413",
+    "bytes": 2572091,
+    "pageCount": 88,
+    "pageSize": "A4 landscape"
+  },
+  "visualInspection": {
+    "allPagesRendered": true,
+    "contactSheets": [
+      { "pages": "1-24", "reviewed": true },
+      { "pages": "25-48", "reviewed": true },
+      { "pages": "49-72", "reviewed": true },
+      { "pages": "73-88", "reviewed": true }
+    ],
+    "fullResolutionPages": [1, 5, 7, 53, 72, 87, 88],
+    "observations": [
+      "No clipped content or overlapping elements were observed.",
+      "The feature overview, flow decisions, evidence links, analysis notes, and class diagram remain within page bounds.",
+      "The dashed relationships are visible in the inspected flows and remain distinguishable from solid source relationships."
+    ]
+  },
+  "scope": "Offline replay of the pinned public source using the checked-out SAGE renderer. This PDF is not byte-compared with the PDF downloaded by the separate fresh Docker UI run."
+}
