@@ -1,6 +1,6 @@
 # QA-03 — Responsive UI, keyboard, errors, and contrast
 
-**Result: PASS for the measured UI scope; reviewer signoff is still needed before closing #25.** Current application commit: `b0ed42e431169617c134563985bfe84eb2ff8c58`. The evidence is a combination of a fresh live result run and the four-suite browser regression. The historical [QA-03-S1 fixture report](QA-03-S1_CHECKS.md) is not counted as live product coverage.
+**Result: PASS within the measured UI scope.** Current application commit: `b0ed42e431169617c134563985bfe84eb2ff8c58`. The evidence is a combination of a fresh live result run and the four-suite browser regression. The historical [QA-03-S1 fixture report](QA-03-S1_CHECKS.md) is not counted as live product coverage.
 
 ## Fresh live result run — 9 November 2026
 
