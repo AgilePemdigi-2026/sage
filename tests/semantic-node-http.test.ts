@@ -174,8 +174,14 @@ ${registration}
   return makeServer((request, response) => { response = {} as Response; dispatch(request, response); });
 }`), "a reassigned callback response parameter is not the original Node HTTP response");
   assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { (request as any) = getReplacement(); dispatch(request, response); });
+}`), "a type-asserted assignment cannot replace the callback request parameter");
+  assertNotRegistered(base(`export function createApi() {
   return makeServer((request, response) => { ({ request, response } = getReplacement()); dispatch(request, response); });
 }`), "destructuring assignment cannot replace the callback request/response pair");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { (() => { request = {} as Request; })(); dispatch(request, response); });
+}`), "a nested closure write may rebind the captured callback request before dispatch");
   assertNotRegistered(base(`export function createApi() {
   return makeServer((request, response) => { return; dispatch(request, response); });
 }`), "a dispatch after an unconditional return is unreachable");

@@ -437,6 +437,9 @@ function isAssignmentOperator(kind: ts.SyntaxKind): boolean {
 function assignmentTargetHasName(target: ts.Expression, expected: string): boolean {
   if (ts.isIdentifier(target)) return target.text === expected;
   if (ts.isParenthesizedExpression(target)) return assignmentTargetHasName(target.expression, expected);
+  if (ts.isAsExpression(target) || ts.isTypeAssertionExpression(target) || ts.isNonNullExpression(target) || ts.isSatisfiesExpression(target)) {
+    return assignmentTargetHasName(target.expression, expected);
+  }
   if (ts.isArrayLiteralExpression(target)) return target.elements.some(element =>
     !ts.isOmittedExpression(element) && assignmentTargetHasName(ts.isSpreadElement(element) ? element.expression : element, expected));
   if (ts.isObjectLiteralExpression(target)) return target.properties.some(property => {
@@ -474,7 +477,23 @@ function callbackParameterMayBeRebound(reference: ts.Identifier, callback: ts.Fu
     if (!shadowed) ts.forEachChild(node, visit);
   };
   if (callback.body) visit(callback.body);
-  return shadowed;
+  if (shadowed) return true;
+
+  // A nested callback can mutate the captured parameter before the dispatch;
+  // conservatively reject such writes even when invocation cannot be proven.
+  let rebound = false;
+  const findWrites = (node: ts.Node) => {
+    if (rebound) return;
+    if (ts.isBinaryExpression(node) && isAssignmentOperator(node.operatorToken.kind) && assignmentTargetHasName(node.left, expected)) rebound = true;
+    else if ((ts.isPrefixUnaryExpression(node) || ts.isPostfixUnaryExpression(node)) &&
+        [ts.SyntaxKind.PlusPlusToken, ts.SyntaxKind.MinusMinusToken].includes(node.operator) &&
+        assignmentTargetHasName(node.operand, expected)) rebound = true;
+    else if ((ts.isForInStatement(node) || ts.isForOfStatement(node)) && !ts.isVariableDeclarationList(node.initializer) &&
+        assignmentTargetHasName(node.initializer, expected)) rebound = true;
+    if (!rebound) ts.forEachChild(node, findWrites);
+  };
+  if (callback.body) findWrites(callback.body);
+  return rebound;
 }
 
 /**
