@@ -362,12 +362,90 @@ function namedImportLocalName(source: ts.SourceFile, moduleName: string, importe
   const matches: string[] = [];
   for (const statement of source.statements) {
     if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || statement.moduleSpecifier.text !== moduleName ||
-        !statement.importClause?.namedBindings || !ts.isNamedImports(statement.importClause.namedBindings)) continue;
+        statement.importClause?.isTypeOnly || !statement.importClause?.namedBindings || !ts.isNamedImports(statement.importClause.namedBindings)) continue;
     for (const element of statement.importClause.namedBindings.elements) {
-      if ((element.propertyName?.text ?? element.name.text) === importedName) matches.push(element.name.text);
+      if (!element.isTypeOnly && (element.propertyName?.text ?? element.name.text) === importedName) matches.push(element.name.text);
     }
   }
   return matches.length === 1 ? matches[0]! : null;
+}
+
+function bindingNameHas(name: ts.BindingName, expected: string): boolean {
+  if (ts.isIdentifier(name)) return name.text === expected;
+  return name.elements.some(element => !ts.isOmittedExpression(element) && bindingNameHas(element.name, expected));
+}
+
+function statementDeclaresName(statement: ts.Statement, expected: string): boolean {
+  if (ts.isVariableStatement(statement)) {
+    return statement.declarationList.declarations.some(declaration => bindingNameHas(declaration.name, expected));
+  }
+  if ((ts.isFunctionDeclaration(statement) || ts.isClassDeclaration(statement) || ts.isEnumDeclaration(statement) || ts.isModuleDeclaration(statement)) && statement.name) {
+    return ts.isIdentifier(statement.name) && statement.name.text === expected;
+  }
+  return false;
+}
+
+/**
+ * Fail closed when a local binding may shadow an imported identifier. The scan
+ * is deliberately conservative: an unrelated nested declaration can suppress
+ * a registration hint, but cannot turn a different function into source proof.
+ */
+function importedNameMayBeShadowed(reference: ts.Identifier, expected: string): boolean {
+  let current: ts.Node | undefined = reference.parent;
+  while (current) {
+    if (ts.isSourceFile(current)) return current.statements.some(statement =>
+      !ts.isImportDeclaration(statement) && statementDeclaresName(statement, expected));
+    if (ts.isBlock(current)) {
+      if (current.statements.some(statement => statementDeclaresName(statement, expected))) return true;
+    }
+    if (ts.isFunctionLike(current)) {
+      if (current.parameters.some(parameter => bindingNameHas(parameter.name, expected))) return true;
+      if ((ts.isFunctionExpression(current) || ts.isClassExpression(current)) && current.name &&
+          ts.isIdentifier(current.name) && current.name.text === expected) return true;
+      const functionLike = current as ts.FunctionLikeDeclaration & { body?: ts.Node };
+      let shadowed = false;
+      const visit = (node: ts.Node) => {
+        if (shadowed || node !== functionLike.body && ts.isFunctionLike(node)) return;
+        if (ts.isVariableDeclaration(node) && bindingNameHas(node.name, expected)) shadowed = true;
+        else if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name?.text === expected) shadowed = true;
+        if (!shadowed) ts.forEachChild(node, visit);
+      };
+      if (functionLike.body) visit(functionLike.body);
+      if (shadowed) return true;
+    }
+    if (ts.isCatchClause(current) && current.variableDeclaration && bindingNameHas(current.variableDeclaration.name, expected)) return true;
+    if ((ts.isForStatement(current) || ts.isForInStatement(current) || ts.isForOfStatement(current)) && current.initializer &&
+        ts.isVariableDeclarationList(current.initializer) && current.initializer.declarations.some(declaration => bindingNameHas(declaration.name, expected))) return true;
+    current = current.parent;
+  }
+  return false;
+}
+
+function isStaticallyReachableCall(call: ts.CallExpression): boolean {
+  let scope: ts.Node = call.parent;
+  while (!ts.isSourceFile(scope) && !ts.isFunctionLike(scope)) scope = scope.parent;
+  const root = ts.isSourceFile(scope) ? scope : (scope as ts.FunctionLikeDeclaration & { body?: ts.Node }).body;
+  return !!root && directReachableCalls(root).includes(call);
+}
+
+function callbackParameterMayBeShadowed(reference: ts.Identifier, callback: ts.FunctionLikeDeclaration, expected: string): boolean {
+  let current: ts.Node | undefined = reference.parent;
+  while (current && current !== callback.body && current !== callback) {
+    if (ts.isBlock(current) && current.statements.some(statement => statementDeclaresName(statement, expected))) return true;
+    if ((ts.isForStatement(current) || ts.isForInStatement(current) || ts.isForOfStatement(current)) && current.initializer &&
+        ts.isVariableDeclarationList(current.initializer) && current.initializer.declarations.some(declaration => bindingNameHas(declaration.name, expected))) return true;
+    current = current.parent;
+  }
+  if (current !== callback.body) return true;
+  let shadowed = false;
+  const visit = (node: ts.Node) => {
+    if (shadowed || node !== callback.body && ts.isFunctionLike(node)) return;
+    if (ts.isVariableDeclaration(node) && bindingNameHas(node.name, expected)) shadowed = true;
+    else if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) && node.name?.text === expected) shadowed = true;
+    if (!shadowed) ts.forEachChild(node, visit);
+  };
+  if (callback.body) visit(callback.body);
+  return shadowed;
 }
 
 /**
@@ -381,20 +459,21 @@ function registeredHandlerEvidence(handlerEntry: SourceEntry, handler: ts.Functi
   if (!name) return [];
   const registrations: EvidenceSpan[][] = [];
   for (const serverEntry of entriesByPath.values()) {
-    const createServerName = namedImportLocalName(serverEntry.source, "node:http", "createServer") ??
+    const createServerBinding = namedImportLocalName(serverEntry.source, "node:http", "createServer") ??
       namedImportLocalName(serverEntry.source, "http", "createServer");
-    if (!createServerName) continue;
+    if (!createServerBinding) continue;
     for (const statement of serverEntry.source.statements) {
       if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || !statement.importClause?.namedBindings ||
           !ts.isNamedImports(statement.importClause.namedBindings)) continue;
       const targetEntry = resolveRelativeSource(serverEntry.path, statement.moduleSpecifier.text, entriesByPath);
       if (targetEntry?.path !== handlerEntry.path) continue;
       const importedHandler = statement.importClause.namedBindings.elements.find(element =>
-        (element.propertyName?.text ?? element.name.text) === name);
+        !statement.importClause?.isTypeOnly && !element.isTypeOnly && (element.propertyName?.text ?? element.name.text) === name);
       if (!importedHandler) continue;
       const localHandlerName = importedHandler.name.text;
       const walk = (node: ts.Node) => {
-        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === createServerName && node.arguments[0] &&
+        if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === createServerBinding &&
+            !importedNameMayBeShadowed(node.expression, createServerBinding) && isStaticallyReachableCall(node) && node.arguments[0] &&
             (ts.isArrowFunction(node.arguments[0]) || ts.isFunctionExpression(node.arguments[0]))) {
           const callback = node.arguments[0];
           const [requestParameter, responseParameter] = callback.parameters;
@@ -402,22 +481,21 @@ function registeredHandlerEvidence(handlerEntry: SourceEntry, handler: ts.Functi
             const callbackBody = callback.body;
             const requestName = requestParameter.name.text;
             const responseName = responseParameter.name.text;
-            const findDispatch = (child: ts.Node) => {
-              if (child !== callbackBody && ts.isFunctionLike(child)) return;
-              if (ts.isCallExpression(child) && ts.isIdentifier(child.expression) && child.expression.text === localHandlerName &&
+            for (const child of directReachableCalls(callbackBody)) {
+              if (ts.isIdentifier(child.expression) && child.expression.text === localHandlerName &&
+                  !importedNameMayBeShadowed(child.expression, localHandlerName) &&
                   child.arguments.length >= 2 && ts.isIdentifier(child.arguments[0]!) && child.arguments[0]!.text === requestName &&
-                  ts.isIdentifier(child.arguments[1]!) && child.arguments[1]!.text === responseName) {
+                  ts.isIdentifier(child.arguments[1]!) && child.arguments[1]!.text === responseName &&
+                  !callbackParameterMayBeShadowed(child.arguments[0] as ts.Identifier, callback, requestName) &&
+                  !callbackParameterMayBeShadowed(child.arguments[1] as ts.Identifier, callback, responseName)) {
                 registrations.push([
                   nodeEvidence(serverEntry, node, "context"),
                   nodeEvidence(serverEntry, statement, "reference"),
                   nodeEvidence(serverEntry, importedHandler, "reference"),
                   nodeEvidence(serverEntry, child, "reference"),
                 ]);
-                return;
               }
-              ts.forEachChild(child, findDispatch);
-            };
-            findDispatch(callbackBody);
+            }
           }
         }
         ts.forEachChild(node, walk);

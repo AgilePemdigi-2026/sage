@@ -131,6 +131,55 @@ export function createApi() { return makeServer((request, response) => { void di
     "a mismatched callback argument order is not treated as handler registration evidence");
 });
 
+test("Node HTTP omits registration hints for type-only, shadowed, or unreachable imported calls", () => {
+  const routes = `
+function pathParts(request: Request) { return new URL(request.url).pathname.split("/").filter(Boolean); }
+export async function handleRequest(request: Request, response: Response) {
+  const method = request.method;
+  const parts = pathParts(request);
+  if (method === "GET" && parts.length === 2 && parts[0] === "api" && parts[1] === "health") return response.end();
+}
+`;
+  const base = (registration: string) => `
+import { createServer as makeServer } from "node:http";
+import { handleRequest as dispatch } from "./routes.js";
+${registration}
+`;
+  const assertNotRegistered = (server: string, reason: string) => {
+    const result = extractNodeHttp(fixture({ [ROUTES]: routes, "src/http/server.ts": server }));
+    const actor = result.nodes.find(node => node.kind === "actor");
+    assert.ok(actor);
+    assert.ok(actor.evidence.every(span => span.filePath !== "src/http/server.ts"), reason);
+  };
+
+  assertNotRegistered(base(`export function createApi(makeServer: typeof import("node:http").createServer) {
+  return makeServer((request, response) => { dispatch(request, response); });
+}`), "a parameter shadowing the imported createServer binding is not registration evidence");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { const dispatch = (_request: Request, _response: Response) => {}; dispatch(request, response); });
+}`), "a callback-local dispatch binding is not the imported route handler");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response, dispatch) => { dispatch(request, response); });
+}`), "a callback parameter shadowing the imported handler is not registration evidence");
+  assertNotRegistered(base(`export function createApi() {
+  return makeServer((request, response) => { return; dispatch(request, response); });
+}`), "a dispatch after an unconditional return is unreachable");
+  assertNotRegistered(base(`export function createApi() {
+  return;
+  return makeServer((request, response) => { dispatch(request, response); });
+}`), "a createServer call after an unconditional return is unreachable");
+  assertNotRegistered(`
+import { type createServer as makeServer } from "node:http";
+import { handleRequest as dispatch } from "./routes.js";
+export function createApi() { return makeServer((request, response) => { dispatch(request, response); }); }
+`, "type-only createServer imports cannot register a runtime callback");
+  assertNotRegistered(`
+import { createServer as makeServer } from "node:http";
+import { type handleRequest as dispatch } from "./routes.js";
+export function createApi() { return makeServer((request, response) => { dispatch(request, response); }); }
+`, "type-only handler imports cannot be dispatched at runtime");
+});
+
 test("Node HTTP composes nested route guards, retains every guard span, and rejects contradicted else paths", () => {
   const source = `
 function pathParts(request: Request) { return new URL(request.url).pathname.split("/").filter(Boolean); }

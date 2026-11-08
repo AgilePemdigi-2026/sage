@@ -60,7 +60,7 @@ test("semantic Markdown keeps source markup and unusual filenames inert inside l
 
 test("semantic PDF stays compact while Markdown retains full source details",()=>{
  const largeDocumentation="documentation detail ".repeat(30_000);
- const large:SemanticModel={...model,schemaVersion:"sage-semantic-v2",extractorVersion:"0.4.1",documentation:{coverage:{snapshotPathCount:1,candidateFileCount:1,documentCount:1,documentByteCount:largeDocumentation.length,skipped:[]},references:[],documents:[{filePath:"README.md",kind:"root-readme",fileSha256:"d".repeat(64),byteLength:largeDocumentation.length,title:"README",sections:[{heading:"Details",depth:1,evidence,inlineCode:[],blocks:[{kind:"paragraph",text:largeDocumentation,evidence,inlineCode:[]}]}]}]}};
+ const large:SemanticModel={...model,schemaVersion:"sage-semantic-v2",extractorVersion:"0.4.2",documentation:{coverage:{snapshotPathCount:1,candidateFileCount:1,documentCount:1,documentByteCount:largeDocumentation.length,skipped:[]},references:[],documents:[{filePath:"README.md",kind:"root-readme",fileSha256:"d".repeat(64),byteLength:largeDocumentation.length,title:"README",sections:[{heading:"Details",depth:1,evidence,inlineCode:[],blocks:[{kind:"paragraph",text:largeDocumentation,evidence,inlineCode:[]}]}]}]}};
  const markdown=renderSemanticMarkdown({model:large,overlay:{labels:{},groups:{}},revision:4});
  const html=renderSemanticPdfPages({model:large,overlay:{labels:{},groups:{}},revision:4},{snapshot:{repository:"fixture/app"}} as never);
  assert.ok(markdown.includes(largeDocumentation),"Markdown retains complete documentation text");
