@@ -32,4 +32,4 @@ Then("no frontend screen is invented for the backend fixture",function(this:Stat
 When("I rename the first feature to {string}",function(this:State,label:string){const feature=this.model.features[0];assert.ok(feature);this.projected=applyPresentation(this.model,{labels:{[feature.id]:label},groups:{}});});
 Then("the projected feature is named {string}",function(this:State,label:string){assert.equal(this.projected.features[0]!.label,label);});
 Then("the source evidence and relationships remain unchanged",function(this:State){assert.equal(JSON.stringify(this.model),this.before);assert.deepEqual(this.projected.edges,this.model.edges);});
-Then("the export cache separates revision {string} from revision {string}",function(this:State,a:string,b:string){assert.notEqual(semanticRendererVersion('2.3.0','a'.repeat(64),Number(a)),semanticRendererVersion('2.3.0','a'.repeat(64),Number(b)));});
+Then("the export cache separates revision {string} from revision {string}",function(this:State,a:string,b:string){assert.notEqual(semanticRendererVersion('2.4.0','a'.repeat(64),Number(a)),semanticRendererVersion('2.4.0','a'.repeat(64),Number(b)));});

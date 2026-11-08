@@ -41,7 +41,7 @@ function emptyDocument(): ArchitectureDocumentV1 {
 }
 
 test("PDF renderer version is stable and HTML escaping keeps source labels inert", () => {
-  assert.equal(PDF_RENDERER_VERSION, "2.3.0");
+  assert.equal(PDF_RENDERER_VERSION, "2.4.0");
   assert.equal(escapePdfHtml(`</td><script>alert('x')</script>&`), "&lt;/td&gt;&lt;script&gt;alert(&#39;x&#39;)&lt;/script&gt;&amp;");
   assert.equal(escapePdfHtml("nul\u0000name"), "nul\\u0000name");
   assert.equal(pdfRendererInternals.errorCode(new Error("page.evaluate: Error: PDF_DIAGRAM_FILTER_REJECTED\n    at eval")), "PDF_DIAGRAM_FILTER_REJECTED");
@@ -97,6 +97,16 @@ test("PDF source restores projection underscores while preserving literal #95; l
 test("PDF preflight leaves renderer caps for the bounded projection and rejects unsafe or incomplete data", async () => {
   const document = emptyDocument();
   assert.equal(pdfRendererInternals.validatePdfDocument(document), null);
+
+  const largeCanonicalDocument = structuredClone(document);
+  largeCanonicalDocument.files = [{ path: "x".repeat(13 * 1024 * 1024) }] as never;
+  assert.equal(pdfRendererInternals.validatePdfDocument(largeCanonicalDocument), null,
+    "a canonical source catalog larger than the compact HTML budget can still produce a small bounded PDF");
+
+  const overDocumentBudget = structuredClone(document);
+  overDocumentBudget.files = [{ path: "x".repeat(33 * 1024 * 1024) }] as never;
+  assert.equal(pdfRendererInternals.validatePdfDocument(overDocumentBudget), "PDF_DOCUMENT_LIMIT_EXCEEDED",
+    "the larger canonical input still has a fixed 32 MiB ceiling");
 
   const oversized = structuredClone(document);
   oversized.softwareEngineeringDiagram.mermaid = `flowchart LR\n${"x".repeat(50_000)}`;

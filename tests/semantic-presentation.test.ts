@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { applyPresentation } from "../packages/documents/src/semantic/presentation.ts";
 import { semanticRendererVersion } from "../packages/documents/src/semantic/export-pin.ts";
-import { renderSemanticFlowSvg, renderSemanticMarkdown, semanticFlowPages } from "../packages/documents/src/semantic/render.ts";
+import { renderSemanticFlowSvg, renderSemanticMarkdown, renderSemanticPdfPages, semanticFlowPages } from "../packages/documents/src/semantic/render.ts";
 import type { SemanticModel } from "../packages/documents/src/semantic/model.ts";
 
 const evidence = {filePath:"app/api/checkin/route.ts",fileSha256:"a".repeat(64),startByte:0,endByte:1,startLine:1,endLine:1,startColumn:1,endColumn:2,role:"reference" as const};
@@ -17,10 +17,10 @@ test("presentation overlay changes names/groups without rewriting facts and orig
 });
 
 test("semantic export cache identity separates immutable revision and model snapshots",()=>{
- const version=semanticRendererVersion("2.3.0","a".repeat(64),0);
- assert.notEqual(version,semanticRendererVersion("2.3.0","a".repeat(64),1));
- assert.notEqual(version,semanticRendererVersion("2.3.0","b".repeat(64),0));
- assert.equal(version,semanticRendererVersion("2.3.0","a".repeat(64),0));
+ const version=semanticRendererVersion("2.4.0","a".repeat(64),0);
+ assert.notEqual(version,semanticRendererVersion("2.4.0","a".repeat(64),1));
+ assert.notEqual(version,semanticRendererVersion("2.4.0","b".repeat(64),0));
+ assert.equal(version,semanticRendererVersion("2.4.0","a".repeat(64),0));
  assert.match(version,/^[A-Za-z0-9._-]{1,64}$/);assert.throws(()=>semanticRendererVersion("2.3.0","x",0));
 });
 
@@ -56,6 +56,18 @@ test("semantic Markdown keeps source markup and unusual filenames inert inside l
  assert.ok(!output.includes("source\n\n<img"));
  assert.ok(output.includes("source\\n\\n<img"));
  assert.ok(output.includes("[` "),"linked path is an inert code span");
+});
+
+test("semantic PDF stays compact while Markdown retains full source details",()=>{
+ const largeDocumentation="documentation detail ".repeat(30_000);
+ const large:SemanticModel={...model,schemaVersion:"sage-semantic-v2",extractorVersion:"0.4.1",documentation:{coverage:{snapshotPathCount:1,candidateFileCount:1,documentCount:1,documentByteCount:largeDocumentation.length,skipped:[]},references:[],documents:[{filePath:"README.md",kind:"root-readme",fileSha256:"d".repeat(64),byteLength:largeDocumentation.length,title:"README",sections:[{heading:"Details",depth:1,evidence,inlineCode:[],blocks:[{kind:"paragraph",text:largeDocumentation,evidence,inlineCode:[]}]}]}]}};
+ const markdown=renderSemanticMarkdown({model:large,overlay:{labels:{},groups:{}},revision:4});
+ const html=renderSemanticPdfPages({model:large,overlay:{labels:{},groups:{}},revision:4},{snapshot:{repository:"fixture/app"}} as never);
+ assert.ok(markdown.includes(largeDocumentation),"Markdown retains complete documentation text");
+ assert.ok(!html.includes(largeDocumentation),"PDF does not duplicate full documentation content");
+ assert.ok(html.length<100_000,"PDF semantic appendix remains compact for a large documentation model");
+ assert.match(html,/full documentation text.*Markdown export/u);
+ assert.match(html,/Analysis notes/u);
 });
 
 test("PDF reuses a shared endpoint flow instead of repeating its entire subtree for every UI action",()=>{

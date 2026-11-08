@@ -181,23 +181,21 @@ export function renderSemanticPdfPages(input: SemanticPresentation, document: Ar
     pages.push(`<section class="semantic-page"><p class="eyebrow">SAGE / USER FLOW</p><h1>${e(feature.label)} · ${e(flow.label)}</h1><p>${flow.nodes.length} konsep/langkah dan ${flow.edges.length} hubungan pada halaman ini. ${flow.omittedRelations} hubungan melintasi bagian alur lain; seluruh relasi tersedia pada Markdown.</p><div class="semantic-figure">${renderSemanticFlowSvg(flow.nodes,flow.edges)}</div>${legend}<p class="caption">Evidence utama: ${url ? `<a href="${e(url)}">${e(evidence)}</a>` : e(evidence)}. Setiap langkah sumber tercantum pada halaman alur atau konsep terkait; tidak ada panah pengganti untuk hubungan antarhalaman.</p></section>`);
   }
   if (model.schemaVersion === "sage-semantic-v2") {
-    const nodeLabels = new Map(model.nodes.map(node => [node.id, node.label]));
-    const evidenceHtml = (spans: EvidenceSpan[]) => spans.map(span => {
-      const url = evidenceUrl(model, span), label = `${span.filePath}:${span.startLine}–${span.endLine}`;
-      return `<p>${url ? `<a href="${e(url)}">${e(label)}</a>` : e(label)} · SHA-256 ${e(span.fileSha256)} · bytes ${span.startByte}–${span.endByte}</p>`;
-    }).join("");
-    for (const edge of model.edges) {
-      const explanation = relationshipExplanation(edge);
-      if (explanation) pages.push(`<section class="semantic-detail"><h2>Mengapa terhubung?</h2><h2>${e(nodeLabels.get(edge.source) ?? edge.source)} → ${e(nodeLabels.get(edge.target) ?? edge.target)}</h2><p>${e(edge.label)} · ${edge.confidence === "proven" ? "Terbukti dalam batas aturan statis" : "Indikasi"}</p><p>ID: ${e(edge.id)}</p><p>${e(explanation.origin)} · ${e(explanation.kind)} · ${e(explanation.rule)}</p><p>${e(explanation.summary)}</p>${explanation.limitations.map(limit => `<p>Batasan: ${e(limit)}</p>`).join("")}<p>Hubungan asal: ${explanation.sourceEdgeIds.map(e).join(", ")}</p>${evidenceHtml(edge.evidence)}</section>`);
+    const provenEdges = model.edges.filter(edge => edge.confidence === "proven").length;
+    const indicatedEdges = model.edges.length - provenEdges;
+    const sectionCount = model.documentation?.documents.reduce((total, doc) => total + doc.sections.length, 0) ?? 0;
+    const limitationGroups = new Map<string, Set<string>>();
+    for (const limitation of model.limitations) {
+      const paths = limitationGroups.get(limitation.reason) ?? new Set<string>();
+      paths.add(limitation.filePath);
+      limitationGroups.set(limitation.reason, paths);
     }
-    if (model.documentation) {
-      pages.push(`<section class="semantic-documentation-start semantic-detail"><h1>Konteks dokumentasi</h1><p>Pernyataan dokumentasi dan referensi file; bukan bukti pemanggilan atau eksekusi runtime.</p><p>${e(JSON.stringify(model.documentation.coverage))}</p></section>`);
-      for (const doc of model.documentation.documents) for (const section of doc.sections) {
-        // Small chunks may flow over physical pages, without hiding or truncating source text.
-        pages.push(`<section class="semantic-detail"><h2>${e(doc.filePath)} · ${e(section.heading ?? doc.title ?? "Dokumentasi")}</h2><p>SHA-256 ${e(doc.fileSha256)}</p>${evidenceHtml(section.evidence ? [section.evidence] : [])}${section.blocks.map(block => `<article>${documentationBlockLines(block).map(line => `<p>${e(line)}</p>`).join("")}${evidenceHtml([block.evidence])}</article>`).join("")}</section>`);
-      }
-      for (const reference of model.documentation.references) pages.push(`<section class="semantic-detail"><p>${e(reference.sourcePath)} mendokumentasikan/merujuk ${e(reference.targetPath ?? reference.target)} · ${e(reference.resolution)}${reference.resolution === "missing" || reference.resolution === "unsafe" ? " · Perlu ditinjau" : ""}</p>${evidenceHtml([reference.evidence])}</section>`);
-    }
+    const limitationRows = [...limitationGroups.entries()].sort(([left], [right]) => left.localeCompare(right)).slice(0, 12)
+      .map(([reason, paths]) => `<li>${e([...paths].sort().slice(0, 2).join(", "))}: ${e(reason)}${paths.size > 2 ? ` (+${paths.size - 2} files)` : ""}</li>`).join("");
+    const documentationSummary = model.documentation
+      ? `${model.documentation.documents.length} documents, ${sectionCount} sections, ${model.documentation.references.length} references`
+      : "No documentation context was extracted";
+    pages.push(`<section class="semantic-page"><p class="eyebrow">SAGE / EVIDENCE SUMMARY</p><h1>Analysis notes</h1><p>${e(model.snapshot.repository)} · extractor ${e(model.extractorVersion)} · presentation revision ${input.revision}</p><div class="semantic-summary"><article><strong>${model.features.length}</strong><span>features</span></article><article><strong>${model.nodes.length}</strong><span>semantic nodes</span></article><article><strong>${provenEdges}</strong><span>proven relationships</span></article><article><strong>${indicatedEdges}</strong><span>indicated relationships</span></article></div><p>Documentation context: ${e(documentationSummary)}. Detailed relationship reasons, line-level evidence, full documentation text, and technical registers are available in the Markdown export.</p><h2>Source limitations (${limitationGroups.size})</h2><ul>${limitationRows || "<li>No extractor limitations were recorded.</li>"}</ul></section>`);
   }
-  return `<style>.semantic-detail{font-size:10px;overflow-wrap:anywhere}.semantic-detail p{white-space:pre-wrap;line-height:1.45}.semantic-detail h2{font-size:13px;break-after:avoid}.semantic-documentation-start{break-before:page}.semantic-documentation-start h1{font-size:23px;margin:4px 0 8px}.semantic-page{break-before:page;page-break-before:always;break-inside:avoid;min-height:175mm}.semantic-page h1{font-size:23px;margin:4px 0 8px}.semantic-page>p{font-size:10px}.semantic-figure{height:125mm;display:flex;align-items:center;justify-content:center}.semantic-figure svg{width:100%;height:100%;object-fit:contain}.semantic-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.semantic-overview article{border:1px solid #d1d9e0;border-left:3px solid #8250df;border-radius:6px;padding:8px;background:#f6f8fa;min-width:0}.semantic-overview h2{font-size:12px;overflow-wrap:anywhere;margin:0}.semantic-overview p{font-size:9px;margin:5px 0 0}</style>${pages.join("")}`;
+  return `<style>.semantic-page{break-before:page;page-break-before:always;break-inside:avoid;min-height:175mm}.semantic-page h1{font-size:23px;margin:4px 0 8px}.semantic-page>p{font-size:10px}.semantic-figure{height:125mm;display:flex;align-items:center;justify-content:center}.semantic-figure svg{width:100%;height:100%;object-fit:contain}.semantic-overview{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}.semantic-overview article{border:1px solid #d1d9e0;border-left:3px solid #8250df;border-radius:6px;padding:8px;background:#f6f8fa;min-width:0}.semantic-overview h2{font-size:12px;overflow-wrap:anywhere;margin:0}.semantic-overview p{font-size:9px;margin:5px 0 0}.semantic-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:14px 0}.semantic-summary article{display:flex;flex-direction:column;border:1px solid #d1d9e0;border-radius:6px;padding:10px;background:#f6f8fa}.semantic-summary strong{font-size:20px}.semantic-summary span{font-size:9px;color:#506783} .semantic-page ul{font-size:9px;padding-left:20px}</style>${pages.join("")}`;
 }
