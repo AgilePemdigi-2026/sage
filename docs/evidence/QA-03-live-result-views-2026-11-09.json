@@ -1,0 +1,555 @@
+{
+  "run": "qa-03-live-result-views-2026-11-09",
+  "widths": [
+    360,
+    390,
+    768,
+    1024,
+    1440
+  ],
+  "pages": [
+    {
+      "surface": "history",
+      "width": 360,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 360,
+        "scrollWidth": 360,
+        "bodyWidth": 360,
+        "title": "Riwayat — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 151,
+        "failures": [],
+        "minimum": {
+          "text": "Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaru",
+          "ratio": 4.534890463323272,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "progress",
+      "width": 360,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 360,
+        "scrollWidth": 360,
+        "bodyWidth": 360,
+        "title": "Progres analisis — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 53,
+        "failures": [],
+        "minimum": {
+          "text": "Riwayat",
+          "ratio": 4.534890463323272,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "graph",
+      "width": 360,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 360,
+        "scrollWidth": 360,
+        "bodyWidth": 360,
+        "title": "Code Knowledge — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 49,
+        "failures": [],
+        "minimum": {
+          "text": "01",
+          "ratio": 5.743198270382528,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "document",
+      "width": 360,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 360,
+        "scrollWidth": 360,
+        "bodyWidth": 360,
+        "title": "Architecture Definition Document — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 80,
+        "failures": [],
+        "minimum": {
+          "text": "Ekspor Markdown",
+          "ratio": 4.518743665758454,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "software-flow",
+      "width": 360,
+      "sourceRelationships": 149,
+      "overflow": 0
+    },
+    {
+      "surface": "keyboard-focus",
+      "width": 360,
+      "focus": {
+        "tag": "BUTTON",
+        "label": "UML Class Diagram",
+        "outlineStyle": "solid",
+        "outlineWidth": "2px",
+        "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "visible": true
+      }
+    },
+    {
+      "surface": "history",
+      "width": 390,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "bodyWidth": 390,
+        "title": "Riwayat — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 151,
+        "failures": [],
+        "minimum": {
+          "text": "Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaru",
+          "ratio": 4.534890463323272,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "progress",
+      "width": 390,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "bodyWidth": 390,
+        "title": "Progres analisis — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 53,
+        "failures": [],
+        "minimum": {
+          "text": "Riwayat",
+          "ratio": 4.534890463323272,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "graph",
+      "width": 390,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "bodyWidth": 390,
+        "title": "Code Knowledge — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 49,
+        "failures": [],
+        "minimum": {
+          "text": "01",
+          "ratio": 5.743198270382528,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "document",
+      "width": 390,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 390,
+        "scrollWidth": 390,
+        "bodyWidth": 390,
+        "title": "Architecture Definition Document — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 80,
+        "failures": [],
+        "minimum": {
+          "text": "Ekspor Markdown",
+          "ratio": 4.518743665758454,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "software-flow",
+      "width": 390,
+      "sourceRelationships": 149,
+      "overflow": 0
+    },
+    {
+      "surface": "keyboard-focus",
+      "width": 390,
+      "focus": {
+        "tag": "BUTTON",
+        "label": "UML Class Diagram",
+        "outlineStyle": "solid",
+        "outlineWidth": "2px",
+        "boxShadow": "rgba(9, 105, 218, 0.02) 0px 0px 0px 0.503293px",
+        "visible": true
+      }
+    },
+    {
+      "surface": "history",
+      "width": 768,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "title": "Riwayat — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 155,
+        "failures": [],
+        "minimum": {
+          "text": "Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaru",
+          "ratio": 4.534890463323272,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "progress",
+      "width": 768,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "title": "Progres analisis — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 53,
+        "failures": [],
+        "minimum": {
+          "text": "Riwayat",
+          "ratio": 4.534890463323272,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "graph",
+      "width": 768,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "title": "Code Knowledge — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 49,
+        "failures": [],
+        "minimum": {
+          "text": "01",
+          "ratio": 5.743198270382528,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "document",
+      "width": 768,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 768,
+        "scrollWidth": 768,
+        "bodyWidth": 768,
+        "title": "Architecture Definition Document — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 7,
+        "failures": [],
+        "minimum": {
+          "text": "Pelajari kontrak dan struktur kode dari snapshot analisis. PDF menyajikan ringka",
+          "ratio": 5.743198270382528,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "software-flow",
+      "width": 768,
+      "sourceRelationships": 149,
+      "overflow": 0
+    },
+    {
+      "surface": "keyboard-focus",
+      "width": 768,
+      "focus": {
+        "tag": "BUTTON",
+        "label": "UML Class Diagram",
+        "outlineStyle": "solid",
+        "outlineWidth": "2px",
+        "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "visible": true
+      }
+    },
+    {
+      "surface": "history",
+      "width": 1024,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 1024,
+        "scrollWidth": 1024,
+        "bodyWidth": 1024,
+        "title": "Riwayat — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 155,
+        "failures": [],
+        "minimum": {
+          "text": "Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaru",
+          "ratio": 4.534890463323272,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "progress",
+      "width": 1024,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 1024,
+        "scrollWidth": 1024,
+        "bodyWidth": 1024,
+        "title": "Progres analisis — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 53,
+        "failures": [],
+        "minimum": {
+          "text": "Riwayat",
+          "ratio": 4.534890463323272,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "graph",
+      "width": 1024,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 1024,
+        "scrollWidth": 1024,
+        "bodyWidth": 1024,
+        "title": "Code Knowledge — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 49,
+        "failures": [],
+        "minimum": {
+          "text": "01",
+          "ratio": 5.743198270382528,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "document",
+      "width": 1024,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 1024,
+        "scrollWidth": 1024,
+        "bodyWidth": 1024,
+        "title": "Architecture Definition Document — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 80,
+        "failures": [],
+        "minimum": {
+          "text": "Ekspor Markdown",
+          "ratio": 4.518743665758454,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "software-flow",
+      "width": 1024,
+      "sourceRelationships": 149,
+      "overflow": 0
+    },
+    {
+      "surface": "keyboard-focus",
+      "width": 1024,
+      "focus": {
+        "tag": "BUTTON",
+        "label": "UML Class Diagram",
+        "outlineStyle": "solid",
+        "outlineWidth": "2px",
+        "boxShadow": "rgba(9, 105, 218, 0.02) 0px 0px 0px 0.5049px",
+        "visible": true
+      }
+    },
+    {
+      "surface": "history",
+      "width": 1440,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 1440,
+        "scrollWidth": 1440,
+        "bodyWidth": 1440,
+        "title": "Riwayat — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 155,
+        "failures": [],
+        "minimum": {
+          "text": "Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaru",
+          "ratio": 4.534890463323272,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "progress",
+      "width": 1440,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 1440,
+        "scrollWidth": 1440,
+        "bodyWidth": 1440,
+        "title": "Progres analisis — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 53,
+        "failures": [],
+        "minimum": {
+          "text": "Riwayat",
+          "ratio": 4.534890463323272,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "graph",
+      "width": 1440,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 1440,
+        "scrollWidth": 1440,
+        "bodyWidth": 1440,
+        "title": "Code Knowledge — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 49,
+        "failures": [],
+        "minimum": {
+          "text": "01",
+          "ratio": 5.743198270382528,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "document",
+      "width": 1440,
+      "status": 200,
+      "overflow": 0,
+      "metrics": {
+        "viewport": 1440,
+        "scrollWidth": 1440,
+        "bodyWidth": 1440,
+        "title": "Architecture Definition Document — SAGE"
+      },
+      "contrast": {
+        "visibleTextNodes": 80,
+        "failures": [],
+        "minimum": {
+          "text": "Ekspor Markdown",
+          "ratio": 4.518743665758454,
+          "threshold": 4.5,
+          "pass": true
+        }
+      }
+    },
+    {
+      "surface": "software-flow",
+      "width": 1440,
+      "sourceRelationships": 149,
+      "overflow": 0
+    },
+    {
+      "surface": "keyboard-focus",
+      "width": 1440,
+      "focus": {
+        "tag": "BUTTON",
+        "label": "UML Class Diagram",
+        "outlineStyle": "solid",
+        "outlineWidth": "2px",
+        "boxShadow": "rgba(0, 0, 0, 0) 0px 0px 0px 0px",
+        "visible": true
+      }
+    }
+  ],
+  "errors": [],
+  "limitations": [
+    "This run covers real history/progress/graph/document surfaces; the separate four-suite browser regression covers login and repository selection.",
+    "Contrast checks visible text nodes at 4.5:1 or 3:1 for large text; disabled controls and decorative breadcrumb separators are excluded. It does not measure every SVG edge or canvas pixel."
+  ],
+  "status": "PASS_WITH_SCOPE_LIMITS",
+  "applicationCommitSha": "b0ed42e431169617c134563985bfe84eb2ff8c58",
+  "runtime": {
+    "node": "v24.22.0",
+    "platform": "linux",
+    "architecture": "arm64",
+    "browser": "Playwright Chromium in Docker worker"
+  }
+}
