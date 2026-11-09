@@ -61,7 +61,7 @@ test("list maps rows and closes pagination after pageSize items", async () => {
   assert.deepEqual(result.items[0], {
     id: "hist-row-0000-0001", repositoryFullName: "acme/report-service", branchName: "main", commitSha: "a".repeat(40),
     status: "COMPLETED", errorCode: null, queuedAt: row().queuedAt, startedAt: row().startedAt,
-    completedAt: row().completedAt, retryOfAnalysisId: null,
+    completedAt: row().completedAt, retryOfAnalysisId: null, languages: [],
   });
 });
 

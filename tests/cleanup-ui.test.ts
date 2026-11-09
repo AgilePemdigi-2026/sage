@@ -92,7 +92,7 @@ test("history presenter only adds a deletion field when cleanup metadata exists"
   assert.deepEqual(presentHistoryList(legacyResult).analyses[0], {
     id: base.id, repository: { fullName: "acme/demo" }, branch: "main", commitSha: "abcdef123",
     status: "COMPLETED", errorCode: null, queuedAt: "2026-10-20T00:00:00.000Z", startedAt: null,
-    completedAt: "2026-10-20T00:01:00.000Z", retryOfAnalysisId: null,
+    completedAt: "2026-10-20T00:01:00.000Z", retryOfAnalysisId: null, languages: [],
   });
   assert.deepEqual(presentHistoryList(currentResult).analyses[0]?.deletion, cleanup);
 });

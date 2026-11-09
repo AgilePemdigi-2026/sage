@@ -95,6 +95,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
     return <div className={styles.historyRow} key={item.id}>
       <div><strong>{item.repository.fullName}</strong><span className={styles.shaShort}>{item.commitSha.slice(0, 7)}</span><small>Diantrekan {formatDateTime(item.queuedAt)}{item.completedAt ? ` · Selesai ${formatDateTime(item.completedAt)}` : ""}</small></div>
       <code>{item.branch || "—"}</code>
+      <span className={styles.historyLanguages}>{item.languages?.length ? item.languages.join(", ") : "Belum terdeteksi"}</span>
       <Badge tone={statusTone(item.status) ?? "neutral"}>{statusLabel(item.status) ?? item.status}</Badge>
       <div className={deletionStyles.rowActions}>
         {!item.deletion ? <Link href={`/analyses/${item.id}`}>Buka</Link> : null}
@@ -144,7 +145,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
       </div> : null}
       {visibleLoaded && !visibleError && visibleItems?.length === 0 && !trimmed && !status ? <div className={styles.historyMessage}>
         <AssetIcon group="history-empty" name="imgIcon1" />
-        <div><strong>Belum ada analisis</strong><p>Pilih repository untuk memulai analisis pertama.</p></div>
+        <div><strong>Belum ada riwayat analisis</strong><p>Pilih repository untuk memulai analisis pertama.</p></div>
         <Link className={styles.secondaryAction} href="/workspace/repositories">Pilih repository</Link>
       </div> : null}
       {visibleLoaded && !visibleError && visibleItems?.length === 0 && (trimmed || status) ? <div className={styles.historyMessage}>
@@ -153,7 +154,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
         <button type="button" className={styles.textAction} onClick={() => { setQuery(""); setStatus(""); }}>Hapus filter</button>
       </div> : null}
       {visibleLoaded && visibleItems && visibleItems.length > 0 ? <>
-        <div className={styles.historyColumns} aria-hidden="true"><span>Repository dan commit</span><span>Branch</span><span>Status</span><span>Aksi</span></div>
+        <div className={styles.historyColumns} aria-hidden="true"><span>Repository dan commit</span><span>Branch</span><span>Bahasa</span><span>Status</span><span>Aksi</span></div>
         {visibleItems.map(renderRow)}
         {load ? <button type="button" className={styles.textAction} onClick={() => load()}>Muat lebih banyak</button> : null}
       </> : null}

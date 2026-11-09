@@ -13,6 +13,7 @@ export function presentHistoryList(result: HistoryListResult) {
         repository: { fullName: item.repositoryFullName },
         branch: item.branchName,
         commitSha: item.commitSha,
+        languages: item.languages ?? [],
         status: item.status,
         errorCode: item.errorCode,
         queuedAt: item.queuedAt.toISOString(),
