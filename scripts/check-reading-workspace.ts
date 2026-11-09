@@ -47,7 +47,7 @@ export async function checkReadingWorkspace(page: Page, base: string, analysisId
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), "reading workspace must not overflow");
   await page.screenshot({ path: join(output, `reading-isolated-uml-${width}.png`), fullPage: true });
   await writeFile(join(output, `reading-structure-${width}.svg`), overviewSvg);
-  await nav.getByRole("link", { name: "Knowledge graph", exact: false }).click();
+  await nav.getByRole("link", { name: "Code Knowledge", exact: false }).click();
   await page.getByRole("region", { name: "Kanvas knowledge graph", exact: true }).waitFor();
   assert.equal(new URL(page.url()).pathname, `/analyses/${analysisId}/graph`);
 }

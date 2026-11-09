@@ -64,7 +64,7 @@ const viewports = [360, 390, 768, 1024, 1440] as const;
 const nodeKinds = ["Module", "Class", "Interface", "Function", "Method", "Property", "UnresolvedReference"] as const;
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureDir = new URL("../tests/fixtures/resolver/typescript/", import.meta.url);
-const resultDir = resolve(projectRoot, "artifacts/document-15");
+const resultDir = resolve(process.env.SAGE_DOCUMENT_ARTIFACT_DIR ?? resolve(projectRoot, "artifacts/document-15"));
 const fixtureRepository = "AgilePemdigi-2026/sage";
 const fixtureBranch = "codex/12-js-ts-resolver";
 const fixtureCommit = "e".repeat(40);
@@ -337,6 +337,7 @@ async function assertSafeRenderedSvg(
   viewportWidth: number,
   svgArtifacts: string[],
   expectHtmlPathAsText = false,
+  expectUnicodeLabel = true,
 ): Promise<void> {
   const image = page.getByRole("img", { name: alt, exact: true });
   await image.waitFor({ state: "visible" });
@@ -387,7 +388,7 @@ async function assertSafeRenderedSvg(
       rootName: svg.localName,
       forbidden,
       external,
-      hasUnicodeLabel: (svg.textContent ?? "").includes("CaféService"),
+      hasUnicodeLabel: /CaféService|café-service\.ts/u.test(svg.textContent ?? ""),
       hasHtmlPathAsText: (svg.textContent ?? "").includes("<script>"),
       hasUrlCanary: markup.includes("DOC15_URL_CANARY"),
       svgBytes: new TextEncoder().encode(markup).byteLength,
@@ -395,9 +396,9 @@ async function assertSafeRenderedSvg(
     };
   });
   const diagramName = alt === "Software Engineering Diagram" ? "software-engineering-diagram" : "uml-class-diagram";
-  const artifactPath = `artifacts/document-15/svg/document-${viewportWidth}-${diagramName}.svg`;
-  await mkdir(dirname(join(projectRoot, artifactPath)), { recursive: true });
-  await writeFile(join(projectRoot, artifactPath), result.markup, { mode: 0o600 });
+  const artifactPath = join(resultDir, "svg", `document-${viewportWidth}-${diagramName}${expectUnicodeLabel ? "" : "-overview"}.svg`);
+  await mkdir(dirname(artifactPath), { recursive: true });
+  await writeFile(artifactPath, result.markup, { mode: 0o600 });
   svgArtifacts.push(artifactPath);
   assert.equal(result.sourceProtocol, "blob:", `${alt} must be served as a local blob-backed SVG image`);
   assert.match(result.contentType, /image\/svg\+xml/i);
@@ -405,7 +406,7 @@ async function assertSafeRenderedSvg(
   assert.equal(result.rootName, "svg");
   assert.deepEqual(result.forbidden, [], `${alt} SVG must have inert labels and elements`);
   assert.deepEqual(result.external, [], `${alt} SVG must have no external resource references`);
-  assert.equal(result.hasUnicodeLabel, true, `${alt} SVG must retain the Unicode declaration label`);
+  assert.equal(result.hasUnicodeLabel, expectUnicodeLabel, `${alt} SVG must retain the Unicode source label`);
   assert.equal(result.hasHtmlPathAsText, expectHtmlPathAsText, `${alt} SVG must handle the HTML-like source path as plain text when it is part of a label`);
   assert.equal(result.hasUrlCanary, false, `${alt} SVG must not contain an untrusted URL source literal`);
   assert.ok(result.svgBytes <= 4 * 1024 * 1024, `${alt} SVG must remain within the renderer size limit`);
@@ -748,17 +749,19 @@ async function runLiveDocumentRegression(): Promise<void> {
       await page.goto(documentPageUrl(base, ready.analysisId), { waitUntil: "networkidle" });
       await page.getByRole("heading", { name: "Architecture Definition Document", exact: true }).waitFor();
       await page.getByRole("button", { name: /^Interface Catalog/ }).waitFor();
-      for (const label of ["Repository", "Branch", "Commit snapshot", "Hash CKG", "Hash dokumen", "Konfigurasi", "Analyzer", "Schema", "File sumber", "Node / relasi kanonik", "Batasan analisis"]) {
+      for (const label of ["Repository", "Branch", "Cakupan", "Hasil", "Batasan analisis"]) {
         await page.getByText(label, { exact: false }).first().waitFor();
       }
       const intro = await page.locator("body").innerText();
-      assert.ok(intro.includes(ready.document.ckgSha256), `${width}px page must display the canonical CKG hash`);
-      assert.ok(intro.includes(ready.documentSha256), `${width}px page must display the canonical document hash`);
+      assert.ok(!intro.includes(ready.document.ckgSha256), `${width}px human document keeps canonical hashes in the API rather than visual metadata`);
+      assert.ok(!intro.includes(ready.documentSha256), `${width}px human document keeps its content hash in the API`);
       assert.ok(intro.includes(String(ready.counts.nodes)), `${width}px page must expose canonical node counts`);
-      assert.ok(intro.includes(String(ready.counts.edges)), `${width}px page must expose canonical edge counts`);
+      assert.ok(intro.includes(String(ready.document.canonicalCounts.exactEdges)), `${width}px page exposes Exact relationship count`);
       assert.ok(intro.includes("Exact") && intro.includes("Unresolved"), `${width}px page must expose relation resolution states`);
-      assert.ok(intro.includes("CaféService"), `${width}px page must display the Unicode catalog declaration`);
-      assert.ok(intro.includes("<script>"), `${width}px page must keep the HTML-like path visible as text`);
+      await page.getByLabel("Cari simbol", { exact: true }).fill("CaféService");
+      const catalogText = await page.locator("#document-content").innerText();
+      assert.ok(catalogText.includes("CaféService"), `${width}px page must display the Unicode catalog declaration`);
+      assert.ok(catalogText.includes("<script>"), `${width}px page must keep the HTML-like path visible as text`);
       assert.equal(await page.locator("#document-content script, #document-content iframe, #document-content object").count(), 0,
         `${width}px HTML-like source path must not create active document elements`);
       assert.ok(!intro.includes("DOC15_RAW_SOURCE_CANARY"));
@@ -805,12 +808,21 @@ async function runLiveDocumentRegression(): Promise<void> {
         has: page.getByRole("columnheader", { name: "Symbol", exact: true }),
       });
       await catalogTable.getByRole("columnheader", { name: "Symbol", exact: true }).waitFor();
-      await catalogTable.getByRole("columnheader", { name: "Kind / contract", exact: true }).waitFor();
+      await catalogTable.getByRole("columnheader", { name: "Contract", exact: true }).waitFor();
       await catalogTable.getByRole("columnheader", { name: "Evidence", exact: true }).waitFor();
-      await page.getByText("Unresolved", { exact: true }).first().waitFor();
       const unresolvedReason = ready.document.interfaceCatalog.relations.find(edge => edge.resolution === "Unresolved")?.unresolvedReason;
       assert.ok(unresolvedReason, "canonical fixture must preserve an unresolved reason");
-      await page.getByText(unresolvedReason, { exact: true }).first().waitFor();
+      await page.locator('#catalog-relations-title').click();
+      const relations = page.locator('#catalog-relations-title').locator('..');
+      await relations.getByRole('columnheader', { name: 'Status / alasan', exact: true }).waitFor();
+      for (let pageNumber = 0; pageNumber < 100 && !await relations.getByText(unresolvedReason, { exact: true }).first().isVisible(); pageNumber++) {
+        const next = relations.getByRole('button', { name: 'Berikutnya', exact: true });
+        assert.ok(await next.count() && await next.isEnabled(), 'Unresolved reason must be discoverable through relation pagination');
+        const previousRows = await relations.locator('tbody').textContent();
+        await next.click();
+        await page.waitForFunction(previous => document.querySelector('#catalog-relations-title')?.parentElement?.querySelector('tbody')?.textContent !== previous, previousRows);
+      }
+      await relations.getByText(unresolvedReason, { exact: true }).first().waitFor();
       await page.getByText(specialSourcePath, { exact: false }).first().waitFor();
       await saveScreenshot(page, `document-${width}-catalog.png`);
 
@@ -820,7 +832,13 @@ async function runLiveDocumentRegression(): Promise<void> {
       await page.waitForFunction(() => document.getElementById("document-tab-structure")?.getAttribute("aria-pressed") === "true");
       assert.equal(await softwareButton.getAttribute("aria-pressed"), "true", `${width}px software section must be keyboard-selected`);
       await page.getByRole("heading", { name: "Software Engineering Diagram", exact: true }).waitFor();
-      await assertSafeRenderedSvg(page, "Software Engineering Diagram", width, svgArtifacts, true);
+      await assertSafeRenderedSvg(page, 'Software Engineering Diagram', width, svgArtifacts, true, false);
+      const architectureArea = page.getByLabel('Area arsitektur', { exact: true });
+      const unicodeArea = await architectureArea.locator('option').evaluateAll(options => options.find(option => option.textContent?.includes('<script>'))?.getAttribute('value'));
+      assert.ok(unicodeArea, 'Source area must remain discoverable in the directory overview');
+      await architectureArea.selectOption(unicodeArea);
+      await page.getByTestId('software-overview-summary').getByText('File dan area terkait', { exact: true }).waitFor();
+      await assertSafeRenderedSvg(page, "Software Engineering Diagram", width, svgArtifacts, false);
       await assertDiagramZoom(
         page,
         "Software Engineering Diagram",
@@ -828,8 +846,8 @@ async function runLiveDocumentRegression(): Promise<void> {
         zoomArtifacts,
         width === 1440,
       );
-      await page.getByRole("heading", { name: "Bukti node pada diagram", exact: true }).waitFor();
-      await page.getByRole("columnheader", { name: "Evidence source", exact: true }).first().waitFor();
+      await page.locator("#diagram-evidence-title").click();
+      await page.getByRole("columnheader", { name: "Evidence", exact: true }).first().waitFor();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `${width}px software diagram must not overflow horizontally`);
       await saveScreenshot(page, `document-${width}-software-diagram.png`);
 
@@ -840,10 +858,10 @@ async function runLiveDocumentRegression(): Promise<void> {
       assert.equal(await umlButton.getAttribute("aria-pressed"), "true", `${width}px UML section must be keyboard-selected`);
       await page.getByRole("heading", { name: "UML Class Diagram", exact: true }).waitFor();
       assert.ok(ready.document.umlClassDiagram.nodes.some(node => node.qualifiedName.includes("<script>")), "UML fixture qualified names contain the HTML-like path as text");
-      await assertSafeRenderedSvg(page, "UML Class Diagram", width, svgArtifacts, true);
+      await assertSafeRenderedSvg(page, "UML Class Diagram", width, svgArtifacts, false);
       await assertDiagramZoom(page, "UML Class Diagram", width, zoomArtifacts);
-      await page.getByRole("heading", { name: "Bukti node pada diagram", exact: true }).waitFor();
-      await page.getByRole("columnheader", { name: "Evidence source", exact: true }).first().waitFor();
+      await page.locator("#diagram-evidence-title").click();
+      await page.getByRole("columnheader", { name: "Evidence", exact: true }).first().waitFor();
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), true, `${width}px UML diagram must not overflow horizontally`);
       await saveScreenshot(page, `document-${width}-uml-diagram.png`);
       await context.close();

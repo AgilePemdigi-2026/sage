@@ -27,7 +27,7 @@ COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/analyzer-php/package.json packages/analyzer-php/package.json
 COPY packages/documents/package.json packages/documents/package.json
 RUN npm ci --cache /tmp/npm-cache && rm -rf /tmp/npm-cache /root/.npm
-COPY tsconfig.json eslint.config.mjs cucumber.mjs cucumber-semantic.mjs ./
+COPY tsconfig.json eslint.config.mjs cucumber.mjs cucumber-semantic.mjs cucumber-sprint2.mjs ./
 COPY apps ./apps
 COPY packages ./packages
 COPY scripts ./scripts
