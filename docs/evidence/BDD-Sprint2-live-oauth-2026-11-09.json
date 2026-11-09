@@ -1,0 +1,42 @@
+{
+  "recordedAt": "2026-11-09T00:21:54.720867+00:00",
+  "status": "PASS",
+  "oauthLogin": "iltizamhasan3",
+  "sourceBaseCommit": "c6cac9cb2e02751acbc3339e60ada71917be5598",
+  "applicationScope": "Fresh supplementary public-repository run. OAuth completed through the existing browser, then Playwright used a test session issued for the same actual OAuth user. This run preceded the final history language/empty-state changes, which are verified separately by the final BDD production browser run.",
+  "providerBoundary": "Real GitHub OAuth and public repository metadata/archive; no provider mocks.",
+  "repository": "iltizamhasan3/sistem-informasi-perpus",
+  "branch": "master",
+  "commitSha": "d72c3532a7d59cab242fb705ab201cf99ef35e88",
+  "checks": [
+    "Real OAuth connection lists owner public repositories",
+    "UI repository selection and real provider target validation enqueue the analysis and show elapsed time",
+    "Actual GitHub archive is analyzed through all nine worker stages",
+    "SRS B7.4 graph opens from completed progress with snapshot context",
+    "SRS B7.5 Architecture Definition Document opens from the same snapshot",
+    "SRS B7.5 Markdown real worker export and browser download match stored SHA256",
+    "SRS B7.5 PDF real worker export and browser download match stored SHA256",
+    "SRS B7.6 owner history search and completed detail navigation use persisted analysis"
+  ],
+  "analysisStatus": "COMPLETED_WITH_LIMITATIONS",
+  "stages": 9,
+  "exports": [
+    {
+      "format": "MARKDOWN",
+      "bytes": 13234876,
+      "sha256": "f1e4dab4e2b0e96b935a6e476dd50743edbba458bca360b4ce2734f729090a95"
+    },
+    {
+      "format": "PDF",
+      "bytes": 2572044,
+      "sha256": "bbf3dc919507567a5b328f66b1cf4ec00aeecbfca6c3e4072afdc4b45acf3928"
+    }
+  ],
+  "browserErrors": [],
+  "isolation": "Dedicated disposable PostgreSQL database and temporary storage; original Compose database/storage volumes were not used. Owned services and test database were removed after the run.",
+  "limits": [
+    "This report does not prove private repository access through the GitHub App.",
+    "The PDF download was verified by content type/signature and SHA-256, not a fresh all-page visual audit.",
+    "No final-commit Docker image rebuild or Coolify deployment was performed in this supplementary run."
+  ]
+}

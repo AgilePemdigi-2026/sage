@@ -48,6 +48,12 @@ if (!allowedOptIn) {
         select: { id: true },
       });
       analysisIds.push(analysis.id);
+      if (index === 0) {
+        await db.sourceFile.createMany({ data: ["one.ts", "two.ts"].map(path => ({
+          ownerUserId: ownerA.id, analysisId: analysis.id, path, language: "TypeScript",
+          byteLength: 1n, sha256: "c".repeat(64), processingStatus: "ANALYZED",
+        })) });
+      }
     }
     const foreign = await db.analysis.create({
       data: {
@@ -76,6 +82,7 @@ if (!allowedOptIn) {
     assert.ok(searched.items.length > 0);
     const branchSearch = await listAnalysesForUser(db, ownerA, { query: "feature/x" });
     assert.equal(branchSearch.items.length, 1);
+    assert.deepEqual(branchSearch.items[0].languages, ["TypeScript"], "history deduplicates actual detected source languages");
     const shaSearch = await listAnalysesForUser(db, ownerA, { query: "a".repeat(40) });
     assert.equal(shaSearch.items.length, 20);
   });

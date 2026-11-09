@@ -21,7 +21,7 @@ import type { PresentationOverlay, SemanticEdge, SemanticFeature, SemanticModel,
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const sourceAppRoot = resolve(projectRoot, "apps/web");
-const artifactDirectory = resolve(projectRoot, "artifacts/semantic-workspace/explainable-20261108");
+const artifactDirectory = resolve(process.env.SAGE_SEMANTIC_REPORT_DIR ?? resolve(projectRoot, "artifacts/semantic-workspace/explainable-20261108"));
 const accountKey = "qa-semantic-account";
 const analysisId = "qa-semantic-analysis";
 const repository = "AgilePemdigi-2026/sage";
@@ -807,10 +807,11 @@ async function verifyConnectedArchitecture(page: Page, payload: SemanticPayload,
 
 async function verifyActualEmosyncArchitecture(page: Page, payload: SemanticPayload, setPayload: (next: SemanticPayload) => void): Promise<void> {
   assert.equal(payload.model.snapshot.repository, "iltizamhasan3/emosync-backend");
-  await verifyConnectedArchitecture(page, payload, setPayload, { width: 1440, height: 1000 }, "flow");
-  await verifyConnectedArchitecture(page, payload, setPayload, { width: 1440, height: 1000 }, "graph");
-  await verifyConnectedArchitecture(page, payload, setPayload, { width: 390, height: 844 }, "flow");
-  await verifyConnectedArchitecture(page, payload, setPayload, { width: 390, height: 844 }, "graph");
+  for (const width of [360, 390, 768, 1024, 1440]) {
+    for (const mode of ["flow", "graph"] as const) {
+      await verifyConnectedArchitecture(page, payload, setPayload, { width, height: width < 640 ? 844 : 1000 }, mode);
+    }
+  }
 }
 
 async function verifyStoredCorpusMobileOverview(page: Page, payload: SemanticPayload, setPayload: (next: SemanticPayload) => void, name: "perpus" | "sage", mode: "flow" | "graph"): Promise<void> {

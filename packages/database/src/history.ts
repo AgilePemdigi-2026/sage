@@ -53,6 +53,7 @@ export interface HistoryListItem {
   id: string; repositoryFullName: string; branchName: string; commitSha: string;
   status: string; errorCode: string | null; queuedAt: Date; startedAt: Date | null;
   completedAt: Date | null; retryOfAnalysisId: string | null;
+  languages?: string[];
   deletion?: CleanupSnapshot | null;
 }
 export interface HistoryListResult {
@@ -99,6 +100,7 @@ export async function listAnalysesForUser(db: PrismaClient, userId: string, opti
       queuedAt: true, startedAt: true, completedAt: true, retryParentId: true, createdAt: true,
       deletionRequestedAt: true,
       repository: { select: { fullName: true } },
+      sourceFiles: { where: { language: { not: null } }, select: { language: true }, distinct: ["language"] },
     },
   });
   const hasMore = rows.length > PAGE_SIZE;
@@ -118,6 +120,7 @@ export async function listAnalysesForUser(db: PrismaClient, userId: string, opti
     repositoryFullName: pageRow.repository.fullName,
     branchName: pageRow.branchName,
     commitSha: pageRow.commitSha,
+    languages: (pageRow.sourceFiles ?? []).flatMap(file => file.language ? [file.language] : []).sort(),
     status: pageRow.status,
     errorCode: pageRow.errorCode,
     queuedAt: pageRow.queuedAt,

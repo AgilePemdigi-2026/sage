@@ -7,6 +7,7 @@ export type HistoryItem = {
   repository: { fullName: string };
   branch: string;
   commitSha: string;
+  languages?: string[];
   status: string;
   errorCode: string | null;
   queuedAt: string;

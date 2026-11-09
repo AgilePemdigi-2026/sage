@@ -106,7 +106,7 @@ const viewports = [360, 390, 768, 1024, 1440] as const;
 const nodeKinds = ["Module", "Class", "Interface", "Function", "Method", "Property", "UnresolvedReference"] as const;
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const fixtureDir = new URL("../tests/fixtures/resolver/typescript/", import.meta.url);
-const resultDir = resolve(projectRoot, "artifacts/graph-17");
+const resultDir = resolve(process.env.SAGE_GRAPH_ARTIFACT_DIR ?? resolve(projectRoot, "artifacts/graph-17"));
 const fixtureRepository = "AgilePemdigi-2026/sage";
 const fixtureBranch = "codex/12-js-ts-resolver";
 const fixtureCommit = "d".repeat(40);
@@ -1018,7 +1018,7 @@ async function runLiveGraphRegression(): Promise<void> {
       const canvas = page.getByRole("region", { name: "Kanvas knowledge graph", exact: true });
       if (firstGraphResponse.status() === 503) {
         assert.equal(width, 360, "only the first viewport uses the explicitly controlled 503 retry case");
-        const alert = page.getByRole("alert").filter({ hasText: "Graph sementara tidak dapat dibaca." });
+        const alert = page.getByRole("alert").filter({ hasText: "Code Knowledge sementara tidak tersedia." });
         await alert.waitFor();
         assert.match(await alert.innerText(), /Graph belum dapat dibaca/);
         const retryResponse = page.waitForResponse(response => {
@@ -1060,9 +1060,13 @@ async function runLiveGraphRegression(): Promise<void> {
         .map(option => (option as HTMLOptionElement).value).filter(Boolean));
       assert.ok(selectableValues.length >= 2, "focus picker exposes at least two fixture nodes");
       await picker.selectOption(selectableValues[0]!);
-      await picker.focus();
-      await page.keyboard.press("ArrowDown");
-      await page.keyboard.press("Enter");
+      await page.waitForFunction(id => document.querySelector('[data-testid="node-inspector"]')?.getAttribute('data-node-id') === id, selectableValues[0]);
+      // Native select type-ahead works across Linux and macOS headless Chromium;
+      // ArrowDown does not advance a native select on macOS headless.
+      const firstLabel = await picker.locator(`option[value="${selectableValues[0]}"]`).textContent();
+      const keyboardLabel = await picker.locator('option').evaluateAll((options, initial) => options.map(option => option.textContent ?? '').find(label => /^[A-Za-z]/u.test(label) && label[0]?.toLowerCase() !== initial?.[0]?.toLowerCase()), firstLabel);
+      assert.ok(keyboardLabel, 'Fixture needs a distinct keyboard type-ahead prefix');
+      await picker.press(keyboardLabel[0]!);
       assert.notEqual(await picker.inputValue(), selectableValues[0], "keyboard navigation selects a different graph node");
       const keyboardSelectedId = await picker.inputValue();
       await page.waitForFunction(id => document.querySelector('[data-testid="node-inspector"]')?.getAttribute("data-node-id") === id, keyboardSelectedId);
@@ -1604,7 +1608,7 @@ async function runLiveGraphRegression(): Promise<void> {
     await errorRacePage.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
     assert.equal(await errorRacePage.getByTestId("canonical-counts").count(), 1, "an aborted stale error body must not clear the newer graph");
     assert.equal(await errorRacePage.getByRole("region", { name: "Kanvas knowledge graph", exact: true }).count(), 1);
-    assert.equal(await errorRacePage.getByRole("alert").filter({ hasText: "Graph sementara tidak dapat dibaca." }).count(), 0);
+    assert.equal(await errorRacePage.getByRole("alert").filter({ hasText: "Code Knowledge sementara tidak tersedia." }).count(), 0);
     await errorRaceContext.close();
     checks.push("controlled delayed error body: superseded 503 body abort cannot clear the replacement graph or publish an obsolete error");
 

@@ -84,7 +84,8 @@
     "test:bdd:semantic": "node --import tsx node_modules/@cucumber/cucumber/bin/cucumber.js --config cucumber-semantic.mjs",
     "test:semantic:storage": "tsx --test --test-concurrency=1 tests/semantic-storage.integration.ts",
     "test:semantic:export": "tsx --test --test-concurrency=1 tests/semantic-export.integration.ts",
-    "test:semantic:ui": "tsx scripts/test-semantic-workspace.ts"
+    "test:semantic:ui": "tsx scripts/test-semantic-workspace.ts",
+    "test:bdd:sprint2": "node --import tsx scripts/run-bdd-sprint2.ts"
   },
   "devDependencies": {
     "@cucumber/cucumber": "13.3.0",

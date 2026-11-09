@@ -1,0 +1,93 @@
+{
+  "status": "PASS",
+  "date": "2026-11-09",
+  "baseCommit": "c6cac9cb2e02751acbc3339e60ada71917be5598",
+  "sourceCodeSha256": "ba255c85c6e4e6f6d958a0436f49291f736bd26ddb8bdf45158730fb958ef89e",
+  "lockfileSha256": "e00dcdd45ec7b4b48a0fb49356004d328064d9a761bd023aa8b72b8071bd26ca",
+  "runtime": "v24.22.0",
+  "githubCliAccount": "rizqy-fadhil",
+  "bdd": {
+    "scenarios": 52,
+    "steps": 154,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 242.76,
+    "sourceSrsScenarios": 14,
+    "supportingContractScenarios": 24,
+    "databaseScenarios": 10,
+    "githubCliProbes": 2,
+    "controlledSemanticWorkspaceScenarios": 1,
+    "productionPipelineScenarios": 1
+  },
+  "productionBrowserSuites": {
+    "live-document": {
+      "status": "PASS",
+      "checks": 14
+    },
+    "live-graph": {
+      "status": "PASS",
+      "checks": 25
+    },
+    "live-history": {
+      "status": "PASS",
+      "checks": 6
+    },
+    "live-markdown": {
+      "status": "PASS",
+      "checks": 20
+    },
+    "live-pdf": {
+      "status": "PASS",
+      "checks": 19
+    },
+    "live-pipeline": {
+      "status": "PASS",
+      "checks": 14
+    }
+  },
+  "viewportWidths": [
+    360,
+    390,
+    768,
+    1024,
+    1440
+  ],
+  "additionalVerification": {
+    "unitTests": 538,
+    "unitFailures": 0,
+    "lintErrors": 0,
+    "existingHookWarnings": 3,
+    "typecheck": "PASS",
+    "productionBuild": "PASS"
+  },
+  "liveOAuthEvidence": "BDD-Sprint2-live-oauth-2026-11-09.json",
+  "fixes": [
+    "History displays deduplicated detected source languages.",
+    "Empty history uses the SRS message.",
+    "Browser regressions follow current navigation, disclosure, pagination, and human metadata.",
+    "Keyboard selection uses Chromium-supported native type-ahead."
+  ],
+  "limitations": [
+    "CLI identity does not prove SAGE OAuth as this account.",
+    "Controlled provider fixtures do not prove live GitHub authorization.",
+    "Browser suites share synthetic sessions and source fixtures; related SRS checkpoints share a suite run.",
+    "Full PDF visual acceptance, process restart recovery and fresh Docker-to-demo acceptance require separate runs.",
+    "No Coolify deployment or new final Docker image demo acceptance in this run.",
+    "Live Iltizam OAuth and real GitHub pipeline ran separately before the final history presentation fix; see linked evidence."
+  ],
+  "reviewFollowup": {
+    "finding": "Subset-run scope metadata incorrectly described full coverage.",
+    "fix": "Explicit mode/browserCase and subset-specific scope; no application behavior changed.",
+    "fourModeMetadataCheck": "PASS: full, contracts-only, browser-only, single browser case",
+    "freshSubsetRun": {
+      "status": "PASS",
+      "mode": "browser-only",
+      "browserCase": "document",
+      "scenarios": 1,
+      "steps": 3,
+      "codeSha256": "9d50fa2c36d2a6c3783fa78f1d3e26c23089fa313a6974caddaddc5ea7b445fb",
+      "scope": "disposable PostgreSQL and production Next/worker Playwright (document); no contract or live GitHub CLI regression"
+    },
+    "provenance": "The full 52-scenario run predates this runner metadata-only fix; the document subset was rerun afterward."
+  }
+}

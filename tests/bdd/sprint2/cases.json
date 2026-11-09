@@ -1,0 +1,265 @@
+{
+  "T-GH-01": {
+    "title": "GitHub session and logout remain owner scoped",
+    "boundary": "contract",
+    "files": [
+      "tests/github-auth.test.ts",
+      "tests/oauth-database.test.ts",
+      "tests/github-repositories.test.ts"
+    ]
+  },
+  "T-GH-02": {
+    "title": "Rejected callbacks and replayed state fail safely",
+    "boundary": "contract",
+    "files": ["tests/github-auth.test.ts"]
+  },
+  "T-GH-03": {
+    "title": "Repository permissions and provider failures are enforced",
+    "boundary": "contract",
+    "files": [
+      "tests/github-repositories.test.ts",
+      "tests/repository-handlers.test.ts"
+    ]
+  },
+  "T-REP-01": {
+    "title": "Repository search and branch selection preserve valid targets",
+    "boundary": "contract",
+    "files": [
+      "tests/repository-target.test.ts",
+      "tests/target-handlers.test.ts"
+    ]
+  },
+  "T-REP-02": {
+    "title": "Submission freezes a full commit and rejects invalid targets",
+    "boundary": "contract",
+    "files": [
+      "tests/submission-handlers.test.ts",
+      "tests/snapshot-provider.test.ts"
+    ]
+  },
+  "T-ANA-01": {
+    "title": "Queue ownership prevents duplicate concurrent claims",
+    "boundary": "contract",
+    "files": ["tests/queue.test.ts"]
+  },
+  "T-ANA-02": {
+    "title": "Nine stages stop on failure and publish complete results only",
+    "boundary": "contract",
+    "files": [
+      "tests/stage-runner.test.ts",
+      "tests/ckg-handlers.test.ts",
+      "tests/document-handlers.test.ts"
+    ]
+  },
+  "T-ANA-03": {
+    "title": "PHP JavaScript and TypeScript declarations match source oracles",
+    "boundary": "contract",
+    "files": [
+      "tests/analyzer-js.test.ts",
+      "tests/analyzer-php.test.ts",
+      "tests/resolver-integration.test.ts"
+    ]
+  },
+  "T-ANA-04": {
+    "title": "Canonical graphs retain deterministic Unicode evidence",
+    "boundary": "contract",
+    "files": ["tests/contracts.test.ts", "tests/ckg.test.ts"]
+  },
+  "T-ANA-05": {
+    "title": "Mixed source and parse failures retain explicit limitations",
+    "boundary": "contract",
+    "files": ["tests/source-analysis.test.ts"]
+  },
+  "T-ANA-06": {
+    "title": "Worker recovery preserves leases and fails ambiguous claims safely",
+    "boundary": "contract",
+    "files": [
+      "tests/worker-runtime.test.ts",
+      "tests/worker-diagnostics.test.ts",
+      "tests/retry-handlers.test.ts"
+    ]
+  },
+  "T-GRAPH-01": {
+    "title": "Graph modes retain canonical counts and unresolved references",
+    "boundary": "contract",
+    "files": [
+      "tests/graph-modes.test.ts",
+      "tests/graph-data.test.ts",
+      "tests/graph-reader.test.ts"
+    ]
+  },
+  "T-GRAPH-02": {
+    "title": "Combined search filters include only matching endpoints",
+    "boundary": "contract",
+    "files": ["tests/graph-filters.test.ts"]
+  },
+  "T-GRAPH-03": {
+    "title": "Node inspection rejects corrupt source and foreign owners",
+    "boundary": "contract",
+    "files": [
+      "tests/node-inspector-reader.test.ts",
+      "tests/node-inspector-handlers.test.ts",
+      "tests/inspector-data.test.ts"
+    ]
+  },
+  "T-DOC-01": {
+    "title": "Three document projections preserve source facts",
+    "boundary": "contract",
+    "files": [
+      "tests/architecture-document.test.ts",
+      "tests/document-api.test.ts",
+      "tests/document-data.test.ts",
+      "tests/human-diagrams.test.ts"
+    ]
+  },
+  "T-EXP-01": {
+    "title": "Standalone Markdown preserves evidence and safe source text",
+    "boundary": "contract",
+    "files": ["tests/markdown-export.test.ts", "tests/markdown-bounds.test.ts"]
+  },
+  "T-EXP-02": {
+    "title": "PDF projection validates bounds and compact diagram content",
+    "boundary": "contract",
+    "files": [
+      "tests/pdf-export.test.ts",
+      "tests/pdf-projection.test.ts",
+      "tests/semantic-presentation.test.ts"
+    ]
+  },
+  "T-EXP-03": {
+    "title": "Export retries and deduplication retain immutable ownership",
+    "boundary": "contract",
+    "files": ["tests/exports.test.ts", "tests/export-data.test.ts"]
+  },
+  "T-HIST-01": {
+    "title": "History handles empty search status and owned navigation",
+    "boundary": "contract",
+    "files": [
+      "tests/history.test.ts",
+      "tests/history-handlers.test.ts",
+      "tests/history-ui.test.ts"
+    ]
+  },
+  "T-DATA-01": {
+    "title": "Session credentials and readers enforce account isolation",
+    "boundary": "contract",
+    "files": [
+      "tests/database.test.ts",
+      "tests/graph-handlers.test.ts",
+      "tests/document-handlers.test.ts"
+    ]
+  },
+  "T-DATA-02": {
+    "title": "Deletion rejects active work and cleans storage idempotently",
+    "boundary": "contract",
+    "files": [
+      "tests/cleanup-database.test.ts",
+      "tests/cleanup-handlers.test.ts",
+      "tests/cleanup-readers.test.ts",
+      "tests/cleanup-storage.test.ts"
+    ]
+  },
+  "T-UI-01": {
+    "title": "UI contracts retain accessible progress and readable result data",
+    "boundary": "contract",
+    "files": [
+      "tests/ui-foundation.test.ts",
+      "tests/cleanup-ui.test.ts",
+      "tests/graph-foundation.test.ts"
+    ]
+  },
+  "T-SEC-01": {
+    "title": "Unsafe archives and source code cannot execute or escape storage",
+    "boundary": "contract",
+    "files": [
+      "tests/analysis-safety.test.ts",
+      "tests/snapshot-archive.test.ts",
+      "tests/document-diagrams.test.ts"
+    ]
+  },
+  "T-REL-01": {
+    "title": "Deployment configuration enforces health migrations and resource bounds",
+    "boundary": "contract",
+    "files": [
+      "tests/deployment-config.test.ts",
+      "tests/resource-benchmark.test.ts"
+    ]
+  },
+  "DB-OAUTH": {
+    "title": "OAuth persistence and revoked sessions",
+    "boundary": "database",
+    "database": "sage_oauth05",
+    "flag": "SAGE_OAUTH_TESTS",
+    "files": ["tests/oauth-database.integration.ts"]
+  },
+  "DB-QUEUE": {
+    "title": "Concurrent queue and lease persistence",
+    "boundary": "database",
+    "database": "sage_queue01",
+    "flag": "SAGE_QUEUE_TESTS",
+    "files": [
+      "tests/queue.integration.ts",
+      "tests/stage-runner.integration.ts",
+      "tests/stage-runner-lifecycle.integration.ts"
+    ]
+  },
+  "DB-CKG": {
+    "title": "Canonical graph ownership and stage publication",
+    "boundary": "database",
+    "database": "sage_ckg14",
+    "flag": "SAGE_CKG_TESTS",
+    "files": ["tests/ckg.integration.ts", "tests/ckg-stages.integration.ts"]
+  },
+  "DB-DOC": {
+    "title": "Document integrity and publication fencing",
+    "boundary": "database",
+    "database": "sage_document15",
+    "flag": "SAGE_DOCUMENT_TESTS",
+    "files": [
+      "tests/document.integration.ts",
+      "tests/document-stages.integration.ts"
+    ]
+  },
+  "DB-PIPELINE": {
+    "title": "Real nine-stage pipeline with controlled archive provider",
+    "boundary": "database",
+    "database": "sage_pipeline16",
+    "flag": "SAGE_PIPELINE_TESTS",
+    "files": ["tests/analysis-pipeline.integration.ts"]
+  },
+  "DB-MARKDOWN": {
+    "title": "Markdown worker storage and retries",
+    "boundary": "database",
+    "database": "sage_export20",
+    "flag": "SAGE_EXPORT_TESTS",
+    "files": ["tests/exports.integration.ts"]
+  },
+  "DB-PDF": {
+    "title": "PDF worker integrity and ownership",
+    "boundary": "database",
+    "database": "sage_pdf21",
+    "flag": "SAGE_PDF_TESTS",
+    "files": ["tests/pdf-exports.integration.ts"]
+  },
+  "DB-HISTORY": {
+    "title": "History database search and account isolation",
+    "boundary": "database",
+    "database": "sage_hist01_fresh",
+    "flag": "SAGE_HISTORY_TESTS",
+    "files": ["tests/history.integration.ts"]
+  },
+  "DB-CLEANUP": {
+    "title": "Deletion and failed cleanup recovery",
+    "boundary": "database",
+    "database": "sage_cleanup23",
+    "flag": "SAGE_CLEANUP_TESTS",
+    "files": ["tests/cleanup-database.integration.ts"]
+  },
+  "DB-DATA": {
+    "title": "Credential storage and cross-account isolation",
+    "boundary": "database",
+    "database": "sage_data01_fresh",
+    "flag": "SAGE_DATABASE_TESTS",
+    "files": ["tests/database.integration.ts"]
+  }
+}

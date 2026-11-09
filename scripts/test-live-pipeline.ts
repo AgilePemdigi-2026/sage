@@ -43,7 +43,7 @@ type QueuedResponse = { analysisId: string; jobId: string; configurationHash: st
 
 const enabled = process.env.SAGE_PIPELINE_TESTS === "1";
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const resultDir = resolve(projectRoot, "artifacts/pipeline-16");
+const resultDir = resolve(process.env.SAGE_PIPELINE_ARTIFACT_DIR ?? resolve(projectRoot, "artifacts/pipeline-16"));
 const fixtureOwner = "sage-pipeline16-fixture";
 const fixtureRepository = "private-sample";
 const fixtureFullName = `${fixtureOwner}/${fixtureRepository}`;
