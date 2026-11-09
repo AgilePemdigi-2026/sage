@@ -59,10 +59,9 @@
     "independentReview": "no remaining material findings"
   },
   "pending": [
-    "Production credential entry by owner",
-    "Coolify service start",
-    "Production OAuth and end-to-end analysis/export",
-    "Actual server backup transfer and isolated restore"
+    "Cloudflare operator diagnosis and HTTPS origin routing fix",
+    "Production OAuth and end-to-end analysis/export after routing fix",
+    "Storage archive transfer to laptop and full application restore drill with populated data"
   ],
   "localServices": "remain stopped",
   "serverImageVerification": {
@@ -71,5 +70,61 @@
     "architecture": "amd64",
     "bothSourceRevision": "d7787ff8a27ce1462666039c08d6b4154f9c55ee",
     "method": "Coolify server terminal; docker pull by digest followed by image label inspection; no app start"
+  },
+  "productionDeployment": {
+    "id": "glulyqq81cisnukle3goepoh",
+    "composeCommit": "56acd0d754f35853bb5b929ff31ae15c82b7f218",
+    "credentialEntry": "saved by owner",
+    "status": "success",
+    "durationSeconds": 29,
+    "web": "healthy",
+    "worker": "healthy",
+    "database": "healthy",
+    "migrationExitCode": 0,
+    "directOriginHttps": {
+      "certificateValidation": true,
+      "healthHttpStatus": 200,
+      "body": {
+        "status": "ok",
+        "service": "web",
+        "database": "ok"
+      }
+    },
+    "publicDomain": {
+      "status": "redirect loop",
+      "observedHttpStatus": 307,
+      "location": "https://sage.caiis.ai.id/api/health",
+      "browserError": "ERR_TOO_MANY_REDIRECTS",
+      "suspectedCause": "Cloudflare HTTP origin forwarding or redirect rule; dashboard setting not inspected",
+      "operator": "lecturer",
+      "changedSharedProxyOrCloudflare": false
+    }
+  },
+  "initialBackup": {
+    "scope": "fresh database before first OAuth; not a populated-data or full application restore signoff",
+    "writerPause": "web and worker stopped during paired pg_dump and storage copy; both restarted and healthy",
+    "serverDirectory": "/tmp/sage-initial-backup-20261110",
+    "databaseDump": {
+      "bytes": 70329,
+      "sha256": "9caafe7d6dd21c5feb3ae28fef503649b91500ae24669d2bac267f3184031800",
+      "localCopy": "downloaded to ignored private backups/server-initial-2026-11-10/database.dump; checksum matches server"
+    },
+    "storageArchive": {
+      "sha256": "80894cd165c36c7f791f3355e1bd46a47f43ff32e3bab5f07a708b8fa9c6415c",
+      "serverCopy": "created",
+      "localCopy": "blocked by Brave ERR_BLOCKED_BY_CLIENT; not bypassed"
+    },
+    "databaseRestore": {
+      "status": "pg_restore --exit-on-error passed",
+      "target": "sage_restorecheck_20261110",
+      "isolation": "separate database in same PostgreSQL instance; production database untouched",
+      "productionAndRestoredCounts": {
+        "users": 0,
+        "analyses": 0,
+        "migrations": 13
+      },
+      "cleanup": "test database retained; no production data deleted"
+    },
+    "fullApplicationRestore": "pending"
   }
 }
