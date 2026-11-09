@@ -1,0 +1,75 @@
+{
+  "date": "2026-11-10",
+  "sourceCommit": "d7787ff8a27ce1462666039c08d6b4154f9c55ee",
+  "builderRepository": "iltizamhasan3/sage-release-images",
+  "workflowRun": "https://github.com/iltizamhasan3/sage-release-images/actions/runs/42663739278",
+  "workflowConclusion": "success",
+  "release": {
+    "commit": "d7787ff8a27ce1462666039c08d6b4154f9c55ee",
+    "platform": "linux/amd64",
+    "web": "ghcr.io/iltizamhasan3/sage-web@sha256:607bb8dd8d09a0111e5aae5d0d3c94dffdfc646d3d2222ec85e2bd33c5556894",
+    "worker": "ghcr.io/iltizamhasan3/sage-worker@sha256:6aabf9e71c52d5bb5b67fd6df5b3aabb041f45866a6cc3f31ef5b2a8e44c2cb0",
+    "smoke": "passed"
+  },
+  "anonymousRegistryManifestChecks": {
+    "web": {
+      "status": 200,
+      "digest": "sha256:607bb8dd8d09a0111e5aae5d0d3c94dffdfc646d3d2222ec85e2bd33c5556894",
+      "platforms": [
+        {
+          "architecture": "amd64",
+          "os": "linux"
+        },
+        {
+          "architecture": "unknown",
+          "os": "unknown"
+        }
+      ]
+    },
+    "worker": {
+      "status": 200,
+      "digest": "sha256:6aabf9e71c52d5bb5b67fd6df5b3aabb041f45866a6cc3f31ef5b2a8e44c2cb0",
+      "platforms": [
+        {
+          "architecture": "amd64",
+          "os": "linux"
+        },
+        {
+          "architecture": "unknown",
+          "os": "unknown"
+        }
+      ]
+    }
+  },
+  "serverObservation": {
+    "availableMemoryMiB": 10720,
+    "rootDiskAvailable": "269G",
+    "scope": "point-in-time read-only; not load-tested or reserved quota"
+  },
+  "configured": {
+    "compose": "/compose.coolify.yaml",
+    "origin": "https://sage.caiis.ai.id",
+    "webInternalPort": 3000,
+    "githubProductionCallback": "https://sage.caiis.ai.id/auth/github/callback",
+    "wildcardCallback": false
+  },
+  "checks": {
+    "deploymentAndBackupControlledTests": 19,
+    "backupTestsRepeatedOnNode24": 10,
+    "independentReview": "no remaining material findings"
+  },
+  "pending": [
+    "Production credential entry by owner",
+    "Coolify service start",
+    "Production OAuth and end-to-end analysis/export",
+    "Actual server backup transfer and isolated restore"
+  ],
+  "localServices": "remain stopped",
+  "serverImageVerification": {
+    "webPull": "passed",
+    "workerPull": "passed",
+    "architecture": "amd64",
+    "bothSourceRevision": "d7787ff8a27ce1462666039c08d6b4154f9c55ee",
+    "method": "Coolify server terminal; docker pull by digest followed by image label inspection; no app start"
+  }
+}

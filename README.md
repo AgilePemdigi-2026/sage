@@ -221,7 +221,7 @@ Logo disimpan lokal; sumber dan lisensinya tersedia di [aset teknologi](docs/ass
 - **Akses sesuai pemilik:** login diperlukan untuk analisis, history, hasil, dan penghapusan; akses private mengikuti izin GitHub.
 - **Retensi jelas:** hasil disimpan sampai pemilik menghapusnya; kredensial tetap mengikuti masa berlaku dan pencabutan akses.
 - **UI Indonesia:** pendekatan mobile first dengan pengalaman desktop yang lengkap.
-- **Lokal lebih dahulu:** MVP diterima melalui Docker; deployment dan anggaran produksi menunggu keputusan dosen.
+- **Lokal dan server:** alur Docker lokal sudah diverifikasi; rollout Coolify disiapkan terpisah dengan batas resource untuk server bersama.
 - **MVP sebelum eksperimen:** seluruh fitur wajib ditargetkan selesai Sprint 2; LLM opsional setelah MVP freeze.
 
 ## Dokumentasi proyek
@@ -276,6 +276,8 @@ Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Con
 `npm test` mencakup unit cleanup. `npm run test:cleanup:integration` dan `npm run test:cleanup:live` bersifat destruktif dan hanya menerima database disposable bernama `sage_cleanup23` dengan `SAGE_CLEANUP_TESTS=1`. Jangan arahkan ke database aplikasi. Tes browser memerlukan build Next, worker, session fixture, serta storage sementara yang sama; lihat [DATA-02 checks](docs/DATA-02_CHECKS.md).
 
 ### Persiapan Coolify
+
+Image release `linux/amd64` dibangun di [repository build khusus](https://github.com/iltizamhasan3/sage-release-images), sehingga laptop dan server bersama tidak perlu menjalankan build. [Build dan smoke release 10 November 2026](https://github.com/iltizamhasan3/sage-release-images/actions/runs/42663739278) lulus; kedua image GHCR dapat diakses publik berdasarkan digest. Domain target adalah `https://sage.caiis.ai.id`. **Deployment server dan pengujian OAuth produksi belum selesai**; [catatan kesiapan](docs/evidence/deployment-readiness-2026-11-10.json) memisahkan hasil CI, konfigurasi tersimpan, dan langkah yang masih tertunda.
 
 Gunakan file **compose.coolify.yaml** terpisah untuk server bersama: image prebuilt ber-digest, migrasi, health check, batas resource dan volume privat. Domain diarahkan hanya ke web port internal 3000. `npm run deployment:check -- --env-file /path/private.env` memvalidasi tanpa start; `npm run deployment:smoke -- --project <project> --compose <file>` memeriksa stack yang disebutkan secara read-only. [Panduan Coolify](docs/COOLIFY.md) menjelaskan environment, image x86_64, backup dan rollback; [bukti DEP-01](docs/DEP-01_CHECKS.md) membedakan uji lokal dari deployment yang belum dilakukan. Perintah Docker lokal tetap memakai compose.yaml.
 
