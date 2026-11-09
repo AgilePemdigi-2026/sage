@@ -17,7 +17,7 @@ colima stop --profile sage
 
 Fixture private tersebut sudah diizinkan untuk project ini. Untuk penggunaan lain, isi variabel hanya dengan repository private yang memang diizinkan dan dapat dibaca akun penguji. Jangan memasukkan token ke command atau laporan. Langkah OAuth live tidak dijalankan otomatis oleh command BDD ini: runner memakai session sintetis untuk tes deterministik dan tidak menyalin credential aplikasi.
 
-Runner membuat container PostgreSQL miliknya sendiri dengan port loopback acak, menjalankan migrasi pada database disposable, membangun aplikasi production dari source saat ini, menyiapkan tiga corpus pada commit beku, lalu menjalankan Cucumber. Masing-masing suite browser memakai server Next, database, dan storage sementara yang sesuai. Suite ekspor/pipeline menggunakan worker sebenarnya. Container dan storage milik run dibersihkan setelah selesai; database aplikasi dan volume Compose tidak dipakai.
+Runner membuat container PostgreSQL miliknya sendiri dengan port loopback acak, menjalankan migrasi pada database disposable, membangun aplikasi production dari source saat ini, menyiapkan tiga corpus pada commit beku, lalu menjalankan Cucumber. Ke-14 skenario SRS memakai server Next, worker, database, dan storage sementara bersama, dengan akun, analisis, serta browser context tersendiri per skenario. Suite browser pendukung memakai server/database/storage sementara masing-masing. Suite ekspor/pipeline menggunakan worker sebenarnya. Container dan storage milik run dibersihkan setelah selesai; database aplikasi dan volume Compose tidak dipakai.
 
 Laporan unik tersedia di `artifacts/bdd/sprint2-<timestamp>/`: `cucumber.html`, `cucumber.json`, TAP, laporan browser, screenshot, dan manifest runtime/hash. Run gagal tetap menyimpan bukti kegagalan. Untuk pemeriksaan kontrak saja:
 
@@ -28,6 +28,19 @@ npm run test:bdd:sprint2 -- --contracts-only
 Mode tersebut menguji 24 kasus pendukung dan **bukan** acceptance semua skenario SRS.
 
 Untuk mengulang seluruh workflow browser (15 skenario), gunakan `npm run test:bdd:sprint2 -- --browser-only`. Untuk satu kelompok yang sedang diperbaiki, misalnya dokumen, gunakan `npm run test:bdd:sprint2 -- --browser-case=document`. Pilihan lain: `graph`, `markdown`, `pdf`, `history`, dan `pipeline`. Hasil subset tetap dicatat sebagai subset, bukan full run.
+
+## Contoh penulisan seperti Sprint 1
+
+```gherkin
+Scenario: [SRS B.7.4.2] Search nodes in Knowledge Graph
+  Given I am signed in as a synthetic owner with a completed analysis
+  And I am viewing the completed analysis on "Code Knowledge"
+  When I press the button "Detail AST"
+  And I fill in "Cari node" with "Endpoint"
+  Then the available focus nodes should match "Endpoint"
+```
+
+`Background` di file feature menyiapkan akun/snapshot untuk setiap skenario, bukan sekali untuk seluruh feature. Semua judul membawa referensi SRS; teks UI tetap mengikuti label aplikasi yang aktual. Pada skenario export error, worker tes dijeda saat POST enqueue, checksum archive disposable diubah, lalu worker dilanjutkan agar kegagalan berasal dari consumer sebenarnya. Checksum dipulihkan sebelum pengguna menekan retry.
 
 ## Pemetaan skenario sumber
 
@@ -48,7 +61,9 @@ Untuk mengulang seluruh workflow browser (15 skenario), gunakan `npm run test:bd
 | B.7.6.4 | Analysis history not found | Search tanpa hasil menghilangkan record lama dan memberi feedback |
 | B.7.6.5 | No saved analysis history | History kosong milik user baru; tindakan membuka pemilihan repository |
 
-`srs.feature` memuat 14 nama di atas. `srs-cases.json` menghubungkan tiap skenario ke checkpoint browser yang wajib hadir dalam laporan PASS. Skenario terkait berbagi satu eksekusi suite agar pengujian ekspor/worker yang mahal tidak diulang; ini bukan 14 lingkungan browser independen. Suite yang gagal menyebabkan seluruh skenario yang bergantung padanya gagal, tanpa retry otomatis atau skip. Pemeriksaan kontrak, database, live CLI, semantic workspace, dan pipeline tambahan ada di `acceptance.feature`.
+`graph.feature`, `document.feature`, dan `history.feature` memuat 14 skenario SRS dengan judul `[SRS B.7.x.y]`, langkah pengguna berbahasa Inggris, serta nilai UI aktual berpetik dua. `Given` menyiapkan pemilik sintetis dan snapshot canonical, `When` menjalankan aksi Playwright langsung, dan `Then` memeriksa UI/hasil aktual. Setiap skenario memiliki pemilik, analisis, dan browser context sendiri; server Next, database disposable, dan worker dipakai bersama dalam run. Tidak ada cache hasil suite untuk meluluskan langkah SRS. Screenshot tiap skenario dilampirkan dalam laporan Cucumber.
+
+`srs-cases.json` hanya mengindeks judul dan kelompok untuk menghitung subset. Pemeriksaan kontrak, database, live CLI, semantic workspace, pipeline dan lima regresi browser yang lebih luas tetap ada di `acceptance.feature` sebagai supporting checks. Supporting checks tersebut dapat berbagi eksekusi regresi, tetapi tidak digunakan sebagai pengganti langkah SRS.
 
 ## Penyesuaian terhadap contoh SRS
 
@@ -58,9 +73,19 @@ Untuk mengulang seluruh workflow browser (15 skenario), gunakan `npm run test:bd
 - Hash canonical diverifikasi melalui API dan file; UI manusia menampilkan metadata ringkas serta evidence GitHub pada commit/rentang baris yang tepat.
 - Pengujian error terkontrol ditandai jelas. Fault ekspor melewati worker sebenarnya; tes error UI tertentu mengintersep satu respons 503, kemudian retry kembali ke API sebenarnya.
 
-## Hasil dan batas bukti
+## Hasil revisi Gherkin
 
-Run final 9 November 2026: **52/52 skenario, 154/154 langkah, tanpa skip**. Termasuk 14 skenario SRS, 24 kontrak, 10 integrasi PostgreSQL, dua probe CLI GitHub, satu semantic workspace, dan satu pipeline browser. Enam suite production browser berbagi eksekusi untuk checkpoint SRS terkait. [Manifest hasil final](evidence/BDD-Sprint2-2026-11-09.json) mencatat hash source yang diuji; base commit bukan klaim bahwa perubahan belum di-commit sudah berada di commit tersebut.
+Run lengkap pada source commit `490d77d`: **57/57 skenario, 220/220 langkah, tanpa skip**. Di dalamnya ada **14 skenario SRS / 98 langkah**, serta 43 supporting checks. Lima supporting regression browser ditambahkan agar coverage luas sebelumnya tetap berjalan setelah skenario SRS beralih ke interaksi langsung. Typecheck dan production build lulus; lint tanpa error dengan tiga warning React Hooks yang sudah ada. [Manifest revisi](evidence/BDD-Sprint2-Gherkin-2026-11-09.json) mencatat hash dan cakupannya.
+
+Laporan full run tersimpan di `artifacts/bdd/sprint2-2026-11-09T03-17-09-036Z/cucumber.html`. Laporan `cucumber-srs.html` pada direktori yang sama hanya menampilkan tiga feature / 14 skenario SRS dari eksekusi tersebut; hasil dan screenshot dipertahankan. Dalam laporan lengkap, filter tag `@srs` untuk menyembunyikan supporting checks. Ini bukan pengujian OAuth live baru.
+
+Review independen menemukan cleanup yang dapat terlewati saat proses dihentikan. Handler idempoten sekarang menutup Chromium, melanjutkan worker yang sedang dijeda sebelum terminasi, menunggu proses selesai, serta menghapus storage sementara. Tes lifecycle dengan Next/worker/PostgreSQL nyata lulus untuk **SIGTERM normal** dan **SIGINT saat worker berstatus stopped**; kedua kasus memastikan PID service sudah hilang dan folder sementara sudah dihapus. Command: `node --import tsx scripts/test-bdd-fixture-lifecycle.ts` (Node 24, Docker, production build tersedia; macOS/Linux). Full run 57 skenario di atas diulang setelah fix tersebut.
+
+Run awal untuk step baru menemukan kontrak lokasi archive fixture, heading aktual, tab dokumen yang perlu dibuka, dan penempatan fault yang harus sesudah enqueue. Semuanya diperbaiki; run lengkap di atas mengulang source yang sudah stabil. Laporan run gagal tetap tersedia lokal.
+
+## Hasil sebelumnya dan batas bukti
+
+Run sebelum revisi penulisan 9 November 2026: **52/52 skenario, 154/154 langkah, tanpa skip**. Termasuk 14 skenario SRS, 24 kontrak, 10 integrasi PostgreSQL, dua probe CLI GitHub, satu semantic workspace, dan satu pipeline browser. Enam suite production browser berbagi eksekusi untuk checkpoint SRS terkait. [Manifest hasil final](evidence/BDD-Sprint2-2026-11-09.json) mencatat hash source yang diuji; base commit bukan klaim bahwa perubahan belum di-commit sudah berada di commit tersebut.
 
 Verifikasi tambahan: **538 tes unit lulus**, typecheck dan production build lulus; lint tanpa error, dengan tiga warning React Hooks yang sudah ada. Perbaikan produk menambahkan bahasa source pada history dan pesan empty state sesuai SRS. Kegagalan awal pada skrip browser diperbaiki untuk mengikuti disclosure, pagination, metadata manusia, serta keyboard native Chromium; run final mengulang seluruh suite setelah perbaikan.
 

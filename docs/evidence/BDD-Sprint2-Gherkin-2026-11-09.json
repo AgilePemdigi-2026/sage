@@ -1,0 +1,84 @@
+{
+  "status": "PASS",
+  "date": "2026-11-09",
+  "testedCodeCommit": "490d77d0653565026fbb05aa6a9ab63c9800acb0",
+  "sourceBaseCommit": "490d77d0653565026fbb05aa6a9ab63c9800acb0",
+  "sourceCodeSha256": "5407f38c307ae9ce1874a997f84144391682c9cf743062c4a7b576b1a97c780b",
+  "lockfileSha256": "e00dcdd45ec7b4b48a0fb49356004d328064d9a761bd023aa8b72b8071bd26ca",
+  "runtime": "v24.22.0",
+  "githubCliAccount": "rizqy-fadhil",
+  "fullRun": {
+    "scenarios": 57,
+    "steps": 220,
+    "failed": 0,
+    "skipped": 0,
+    "durationSeconds": 261.676
+  },
+  "sourceSrs": {
+    "scenarios": 14,
+    "steps": 98,
+    "features": [
+      "graph.feature",
+      "document.feature",
+      "history.feature"
+    ],
+    "execution": "Each Given/When/Then uses Playwright, fixture setup or outcome assertions directly; independent synthetic owner, analysis and browser context per scenario.",
+    "reports": "cucumber-srs.html and cucumber-srs.json are filtered views of the same full run, without rerunning scenarios or changing results."
+  },
+  "supportingScenarios": 43,
+  "productionApplicationChanges": false,
+  "typecheck": "PASS",
+  "lint": {
+    "errors": 0,
+    "existingWarnings": 3
+  },
+  "productionBuild": "PASS",
+  "testSources": {
+    "tests/bdd/sprint2/acceptance.feature": "e5fec50e4e823e2b281d4804ccde5c7477d5335230057de82cc2975344cb96f5",
+    "tests/bdd/sprint2/graph.feature": "ea318883787761d368d94a17b0291f58be9c4b6ff5818804d8c217e6e53787af",
+    "tests/bdd/sprint2/document.feature": "1fbda637ec98116b75f294e04989fa497e5560ef1b4185844a52c6599b90283d",
+    "tests/bdd/sprint2/history.feature": "d18c307328c79c72dc80c388f7ef1ba6d45cb8c8c179d4c160de24ff3db7a9a3",
+    "tests/bdd/sprint2/browser.steps.ts": "3823ed4a5306e7173f14b6626b09eb6e24fdc0bca9e38fe3735699d6462d9b37",
+    "tests/bdd/sprint2/browser-fixture.ts": "3b4f57701d49e32fb731e5b8f1a26f8d0c4025075dcd21c7fce4ccdd0eebcb91",
+    "tests/bdd/sprint2/srs-cases.json": "a428ec4e78ee24d0b0ac972f14fda94ab076f9571a9c31d49c016ffc5293921a",
+    "tests/bdd/sprint2/steps.ts": "375ad5452d6364446e341dcbd7a57714c597c692f93a09a947bb79a41fbd0f13",
+    "tests/bdd/sprint2/cases.json": "a2e270c81dd81dd6209b8b73c06e6805d40cf23864e8e6f683b278b96bec97c6",
+    "scripts/run-bdd-sprint2.ts": "2ece0efacac96089c51856007a7f42bb13f2cdb7976d1e7c7def16008e016ea7",
+    "scripts/run-sprint2-browser-case.ts": "c3ed939f576c79db8121b59374627f441412b3a2aaaf9c8fc151856cd419ee33"
+  },
+  "limitations": [
+    "CLI identity does not prove SAGE OAuth as this account.",
+    "Controlled provider fixtures do not prove live GitHub authorization.",
+    "Each SRS scenario uses its own synthetic owner, analysis and browser context; the disposable server/database/worker are shared. Supporting regression suites may reuse a suite run.",
+    "Full PDF visual acceptance, process restart recovery and fresh Docker-to-demo acceptance require separate runs."
+  ],
+  "priorEvidence": "BDD-Sprint2-2026-11-09.json",
+  "failureInjection": "Pause the owned disposable worker, enqueue via actual UI/POST, corrupt only the owned fixture archive checksum, resume the real worker; restore checksum before real retry.",
+  "lifecycleVerification": {
+    "status": "PASS",
+    "checks": [
+      {
+        "paused": false,
+        "signal": "SIGTERM",
+        "exitCode": 143,
+        "servicesStopped": true,
+        "storageRemoved": true
+      },
+      {
+        "paused": true,
+        "signal": "SIGINT",
+        "exitCode": 130,
+        "servicesStopped": true,
+        "storageRemoved": true
+      }
+    ],
+    "sourceSha256": "d71964b9ec86db28a3df4c99dc9c61e8e65da0e680b821e6febd8e0889469df2",
+    "command": "node --import tsx scripts/test-bdd-fixture-lifecycle.ts",
+    "scope": "Actual production Next/worker interruption on disposable PostgreSQL; no OAuth or real user data"
+  },
+  "independentReview": {
+    "status": "No remaining material findings",
+    "resolvedFinding": "Interrupted Cucumber runs must stop owned Next/worker/Chromium and remove test storage, including a SIGSTOP worker.",
+    "fix": "Idempotent signal cleanup; resume before termination; reap/escalate services; disable competing Chromium SIGINT/SIGTERM exit handlers."
+  }
+}

@@ -1,75 +1,58 @@
 {
   "B7.4.1": {
     "title": "Display Code Knowledge Graph",
-    "suite": "graph",
-    "checkpoints": ["real owner graph, modes and count semantics"]
+    "suite": "graph"
   },
   "B7.4.2": {
     "title": "Search nodes in Knowledge Graph",
-    "suite": "graph",
-    "checkpoints": ["keyboard query AND AST kind filter"]
+    "suite": "graph"
   },
   "B7.4.3": {
     "title": "Filter nodes by AST category",
-    "suite": "graph",
-    "checkpoints": ["keyboard query AND AST kind filter"]
+    "suite": "graph"
   },
   "B7.4.4": {
     "title": "View node details",
-    "suite": "graph",
-    "checkpoints": ["focus-picker node selection opens canonical inspector"]
+    "suite": "graph"
   },
   "B7.4.5": {
     "title": "Node not found",
-    "suite": "graph",
-    "checkpoints": ["no-result and reset"]
+    "suite": "graph"
   },
   "B7.5.1": {
     "title": "Open Architecture Definition Document",
-    "suite": "document",
-    "checkpoints": ["browser: catalog/source evidence"]
+    "suite": "document"
   },
   "B7.5.2": {
     "title": "Successfully export documentation to PDF",
-    "suite": "pdf",
-    "checkpoints": ["browser created PDF through real POST"]
+    "suite": "pdf"
   },
   "B7.5.3": {
     "title": "Successfully export documentation to Markdown",
-    "suite": "markdown",
-    "checkpoints": ["browser download: real attachment bytes"]
+    "suite": "markdown"
   },
   "B7.5.4": {
     "title": "Document generation fails and is retried",
-    "suite": "pdf",
-    "checkpoints": [
-      "actual source archive checksum fault",
-      "downloads a valid PDF"
-    ]
+    "suite": "pdf"
   },
   "B7.6.1": {
     "title": "Display analysis history",
-    "suite": "history",
-    "checkpoints": ["B7.6.1:"]
+    "suite": "history"
   },
   "B7.6.2": {
     "title": "Search analysis history",
-    "suite": "history",
-    "checkpoints": ["B7.6.2:"]
+    "suite": "history"
   },
   "B7.6.3": {
     "title": "Open completed analysis details",
-    "suite": "history",
-    "checkpoints": ["B7.6.3:"]
+    "suite": "history"
   },
   "B7.6.4": {
     "title": "Analysis history not found",
-    "suite": "history",
-    "checkpoints": ["B7.6.4:"]
+    "suite": "history"
   },
   "B7.6.5": {
     "title": "No saved analysis history",
-    "suite": "history",
-    "checkpoints": ["B7.6.5:"]
+    "suite": "history"
   }
 }
