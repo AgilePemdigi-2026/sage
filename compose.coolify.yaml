@@ -1,3 +1,9 @@
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 x-common: &common
   init: true
   restart: unless-stopped
@@ -6,12 +12,14 @@ x-common: &common
   cap_drop:
     - ALL
   pids_limit: 256
+  logging: *logging
 
 x-database-environment: &database-environment
   DATABASE_URL: postgresql://sage:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the operator environment or private env file}@db:5432/sage
 
 services:
   db:
+    logging: *logging
     image: postgres:17-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
     environment:
       POSTGRES_USER: sage
@@ -32,6 +40,7 @@ services:
     restart: unless-stopped
 
   migrate:
+    logging: *logging
     image: ${SAGE_WORKER_IMAGE:?Set SAGE_WORKER_IMAGE to an immutable worker image digest}
     environment: *database-environment
     command: ["npm", "run", "db:migrate"]

@@ -81,3 +81,22 @@ Hasil pengujian Compose, smoke, persistence dan restore tercatat pada [DEP-01_CH
 - [Coolify Compose build](https://coolify.io/docs/applications/builds/docker-compose), [registry](https://coolify.io/docs/applications/builds/docker-registries), [resource limits](https://coolify.io/docs/applications/configuration/resource-limits).
 - [Persistent storage](https://coolify.io/docs/services/configuration/persistent-storage), [database backups](https://coolify.io/docs/databases/backups).
 - [Docker Compose services](https://docs.docker.com/reference/compose-file/services/), [GitHub App callback](https://docs.github.com/en/apps/creating-github-apps/registering-a-github-app/about-the-user-authorization-callback-url).
+
+## Release images otomatis
+
+Workflow `.github/workflows/release-images.yml` dapat dijalankan melalui Actions → Release images → Run workflow pada commit yang sudah direview, atau tag `v*`. GitHub runner membangun target web dan worker untuk `linux/amd64`, termasuk pemeriksaan yang diwajibkan Dockerfile. Kredensial aplikasi tidak diberikan ke build; publikasi GHCR memakai token job sementara dengan `packages: write`.
+
+Setelah kedua image dipublish, runner menarik ulang image berdasarkan digest, memeriksa arsitektur dan label commit, menjalankan migrasi serta health/storage smoke dengan Compose produksi pada database disposable. Artifact `sage-release-<commit>` hanya diterbitkan setelah smoke lulus, berisi `images.env` (dua digest) dan `manifest.json` (commit/platform/status). Kredensial smoke bersifat synthetic dan tidak masuk artifact. Ini belum menguji domain atau OAuth produksi.
+
+Paket GHCR baru dapat bersifat private. Pastikan host Coolify memiliki akses pull; jangan mengubah visibility atau membuat token baru tanpa memeriksa akses organisasi. Jangan salin token GitHub pribadi ke repository. Jika salah satu build/smoke gagal, jangan menggunakan manifest dari run atau commit lain sebagai penggantinya.
+
+Konfigurasi produksi membatasi log Docker menjadi tiga file masing-masing 10 MB per service. Batas ini hanya untuk log, bukan kuota database/storage; hasil analisis tetap disimpan sampai pengguna menghapusnya.
+
+## Target rollout 10 November 2026
+
+- Resource SAGE yang tersedia: `y4etaf74uwe8blj5b5ekmb6o`, project `PPL PRAK I2`, environment `production`.
+- Domain yang diberikan: `https://sage.caiis.ai.id`; gunakan origin tersebut tanpa trailing slash pada `AUTH_BASE_URL`, dan `https://sage.caiis.ai.id/auth/github/callback` sebagai callback tambahan GitHub App.
+- Sebelum perubahan, resource berstatus Exited, memakai `/compose.yaml`, dan belum mempunyai domain. Ganti ke `/compose.coolify.yaml` setelah image dan environment siap.
+- Batas resource awal memakai ceiling di atas; belum merupakan persetujuan quota resmi dari dosen.
+- Lokasi backup di luar server belum diberikan. Sebelum menyimpan data penting, operator perlu menyediakan tujuan backup dan menjalankan restore drill dengan pasangan database/storage yang konsisten.
+- Status build/pull/TLS/OAuth aktual harus dicatat setelah dieksekusi; persiapan workflow tidak berarti deployment berhasil.
