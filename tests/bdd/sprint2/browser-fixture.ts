@@ -20,8 +20,17 @@ let browser: Browser;
 let base: string;
 let db: ReturnType<typeof database>;
 let initialized: Promise<void> | undefined;
+let stopping = false;
+let cleanup: Promise<void> | undefined;
+const requireRunning = () => assert.ok(!stopping, "Fixture shutdown requested");
+const onTerm = () => { void stopFixtureServer().finally(() => process.exit(143)); };
+const onInterrupt = () => { void stopFixtureServer().finally(() => process.exit(130)); };
 
 export function startFixtureServer() {
+  requireRunning();
+  if (initialized) return initialized;
+  process.once("SIGTERM", onTerm);
+  process.once("SIGINT", onInterrupt);
   return initialized ??= (async () => {
     assert.equal(process.env.SAGE_BDD_DATABASES, "1", "Use the isolated Sprint 2 runner");
     const url = new URL(process.env.SAGE_BDD_DATABASE_URL!);
@@ -30,6 +39,7 @@ export function startFixtureServer() {
     process.env.DATABASE_URL = url.toString();
     db = database();
     storage = await mkdtemp(resolve(tmpdir(), "sage-srs-bdd-"));
+    requireRunning();
     const probe = createServer();
     await new Promise<void>(done => probe.listen(0, "127.0.0.1", done));
     const address = probe.address();
@@ -44,6 +54,7 @@ export function startFixtureServer() {
       ["web", [resolve("node_modules/next/dist/bin/next"), "start", "--hostname", "127.0.0.1", "--port", String(port)], resolve("apps/web")],
       ["worker", ["--import", "tsx", "apps/worker/src/index.ts"], process.cwd()],
     ] as const) {
+      requireRunning();
       logs[label] = "";
       const child = spawn(process.execPath, [...args], { env, cwd, stdio: ["ignore", "pipe", "pipe"] });
       child.stdout!.on("data", data => { logs[label] += String(data); });
@@ -52,6 +63,7 @@ export function startFixtureServer() {
     }
     let healthy = false;
     for (let i = 0; i < 100; i++) {
+      requireRunning();
       assert.ok(services.every(child => child.exitCode === null), "Owned test service exited");
       try { healthy = (await fetch(`${base}/api/health`, { signal: AbortSignal.timeout(500) })).ok; } catch { /* startup */ }
       if (healthy && logs.worker?.includes('"worker_ready"')) break;
@@ -59,19 +71,38 @@ export function startFixtureServer() {
       await new Promise(done => setTimeout(done, 200));
     }
     assert.ok(healthy, "Owned test services did not become ready");
-    browser = await chromium.launch({ headless: true });
+    requireRunning();
+    browser = await chromium.launch({ headless: true, handleSIGINT: false, handleSIGTERM: false });
   })();
 }
-export async function stopFixtureServer() {
-  await browser?.close();
-  for (const child of services) { child.kill("SIGCONT"); child.kill("SIGTERM"); }
-  await Promise.all(services.map(async child => {
-    if (child.exitCode !== null || child.signalCode !== null) return;
-    await Promise.race([new Promise(done => child.once("close", done)), new Promise(done => setTimeout(done, 2000))]);
-    if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
-  }));
-  await db?.$disconnect();
-  if (storage) await rm(storage, { recursive: true, force: true });
+export function stopFixtureServer(): Promise<void> {
+  if (cleanup) return cleanup;
+  stopping = true;
+  cleanup = (async () => {
+    // Resume a fault-injection pause before termination so the worker can exit.
+    for (const child of services) { child.kill("SIGCONT"); child.kill("SIGTERM"); }
+    await initialized?.catch(() => {});
+    const failures: unknown[] = [];
+    try { await browser?.close(); } catch (error) { failures.push(error); }
+    await Promise.all(services.map(async child => {
+      if (child.exitCode !== null || child.signalCode !== null) return;
+      const closed = new Promise<void>(done => child.once("close", () => done()));
+      await Promise.race([closed, new Promise(done => setTimeout(done, 2000))]);
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill("SIGKILL");
+        await closed;
+      }
+    }));
+    try { await db?.$disconnect(); } catch (error) { failures.push(error); }
+    try { if (storage) await rm(storage, { recursive: true, force: true }); } catch (error) { failures.push(error); }
+    process.off("SIGTERM", onTerm);
+    process.off("SIGINT", onInterrupt);
+    if (failures.length) throw new AggregateError(failures, "Fixture cleanup failed");
+  })();
+  return cleanup;
+}
+export function fixtureResourceSnapshot() {
+  return { servicePids: services.map(child => child.pid), storage };
 }
 export interface ScenarioFixture {
   page: Page;
