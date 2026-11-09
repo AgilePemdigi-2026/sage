@@ -60,9 +60,16 @@
   },
   "pending": [
     "Production credential entry by owner",
-    "Coolify image pull and service start",
+    "Coolify service start",
     "Production OAuth and end-to-end analysis/export",
     "Actual server backup transfer and isolated restore"
   ],
-  "localServices": "remain stopped"
+  "localServices": "remain stopped",
+  "serverImageVerification": {
+    "webPull": "passed",
+    "workerPull": "passed",
+    "architecture": "amd64",
+    "bothSourceRevision": "d7787ff8a27ce1462666039c08d6b4154f9c55ee",
+    "method": "Coolify server terminal; docker pull by digest followed by image label inspection; no app start"
+  }
 }
