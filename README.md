@@ -196,7 +196,7 @@ Feature, scenario, dan step Cucumber menggunakan Gherkin berbahasa Inggris denga
 
 ## Acceptance Cucumber BDD Sprint 2
 
-`npm run test:bdd:sprint2` menjalankan skenario SRS B.7.4–B.7.6, regresi kontrak/database, serta browser Next.js dan worker pada PostgreSQL disposable. Gunakan Node 24, PHP, Docker/Colima, Chromium Playwright, dan akun GitHub CLI penguji; fixture private memerlukan `SAGE_BDD_PRIVATE_REPOSITORY` yang diizinkan. Runner membersihkan resource milik tes dan menyimpan laporan Cucumber per run. OAuth live dicatat terpisah dari session sintetis. Lihat [panduan, pemetaan SRS, dan batas bukti BDD Sprint 2](docs/BDD_SPRINT2.md).
+`npm run test:bdd:sprint2` menjalankan 14 skenario SRS B.7.4–B.7.6 dengan langkah interaksi pengguna yang eksplisit (seperti Sprint 1), regresi kontrak/database, serta browser Next.js dan worker pada PostgreSQL disposable. Gunakan Node 24, PHP, Docker/Colima, Chromium Playwright, dan akun GitHub CLI penguji; fixture private memerlukan `SAGE_BDD_PRIVATE_REPOSITORY` yang diizinkan. Runner membersihkan resource milik tes dan menyimpan laporan Cucumber per run. OAuth live dicatat terpisah dari session sintetis. Lihat [panduan, pemetaan SRS, dan batas bukti BDD Sprint 2](docs/BDD_SPRINT2.md).
 
 ## Stack teknologi
 
