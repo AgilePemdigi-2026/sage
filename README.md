@@ -194,6 +194,10 @@ Pengujian fixture UI tidak membuktikan alur produk. Bukti pipeline, ekspor PDF, 
 
 Feature, scenario, dan step Cucumber menggunakan Gherkin berbahasa Inggris dengan parameter URL, label, pesan, dan input dalam petik dua sesuai gaya SRS. Suite ini berisi 10 skenario browser dengan API terkendali dan 10 pemeriksaan pendukung domain untuk source, antrean, serta runner. `npm run test:bdd:dry` memvalidasi sintaks dan resolusi step tanpa menjalankan assertion perilaku; run langsung perlu Node 24, database PostgreSQL disposable, dan server lokal. Untuk run terisolasi dengan Docker gunakan `npm run test:bdd:docker`. Laporan per run disimpan di `artifacts/bdd/`. [BDD Sprint 1](docs/BDD_SPRINT1.md) memetakan setiap tes aktual ke katalog sepuluh skenario sumber SRS B.7.1–B.7.3, termasuk batas cakupan dan pemeriksaan lokal yang bukan skenario SRS. Browser terkendali tidak membuktikan GitHub live atau penerimaan pipeline produk penuh.
 
+## Acceptance Cucumber BDD Sprint 2
+
+`npm run test:bdd:sprint2` menjalankan skenario SRS B.7.4–B.7.6, regresi kontrak/database, serta browser Next.js dan worker pada PostgreSQL disposable. Gunakan Node 24, PHP, Docker/Colima, Chromium Playwright, dan akun GitHub CLI penguji; fixture private memerlukan `SAGE_BDD_PRIVATE_REPOSITORY` yang diizinkan. Runner membersihkan resource milik tes dan menyimpan laporan Cucumber per run. OAuth live dicatat terpisah dari session sintetis. Lihat [panduan, pemetaan SRS, dan batas bukti BDD Sprint 2](docs/BDD_SPRINT2.md).
+
 ## Stack teknologi
 
 | Area | Teknologi |
@@ -237,6 +241,7 @@ Logo disimpan lokal; sumber dan lisensinya tersedia di [aset teknologi](docs/ass
 | [Definition of Done](docs/DEFINITION_OF_DONE.md) | Syarat deliverable dan MVP dinyatakan selesai |
 | [Test plan](docs/TEST_PLAN.md) | Fixture, integrasi GitHub, dan verifikasi ekspor |
 | [BDD Sprint 1](docs/BDD_SPRINT1.md) | Skenario Cucumber, batas pengujian, dan pemetaan ke user story/requirement/issue |
+| [BDD Sprint 2](docs/BDD_SPRINT2.md) | Skenario SRS graph, dokumen/ekspor, history, dan pemeriksaan pendukung terisolasi |
 | [Keputusan dan risiko](docs/DECISIONS.md) | Keputusan, rancangan awal, TBD, dan risiko |
 | [Sumber](docs/SOURCES.md) | PDF, Figma, referensi teknis, dan urutan acuan |
 | [Kontribusi](CONTRIBUTING.md) | Pembagian modul, issue, branch, PR, commit, dan alur merge |

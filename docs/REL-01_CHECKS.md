@@ -1,6 +1,6 @@
 # REL-01 — Local Docker release verification
 
-**Local Docker-to-demo gate: passed for the exercised scope, with limitations recorded.** Issue [#26](https://github.com/AgilePemdigi-2026/sage/issues/26) remains open pending independent review and merge of this PR. This is local verification, not a Coolify production release.
+**Local Docker-to-demo gate: passed for the exercised scope, with limitations recorded.** Issue [#26](https://github.com/AgilePemdigi-2026/sage/issues/26) was closed after independent review and merge of [PR #127](https://github.com/AgilePemdigi-2026/sage/pull/127). This is local verification, not a Coolify production release.
 
 ## Verified run
 

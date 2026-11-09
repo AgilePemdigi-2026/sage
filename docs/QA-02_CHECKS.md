@@ -1,6 +1,6 @@
 # QA-02 — Integrasi dan release evidence
 
-**Hasil verifikasi lokal: lulus dengan batasan yang dicatat.** Issue [#24](https://github.com/AgilePemdigi-2026/sage/issues/24) tetap terbuka sampai PR ini mendapat independent review dan merge. Run bersih dilakukan pada 9 November 2026 dengan image Docker yang dibangun dari source commit `6174452423da75f8090d98ef63a87bef23f5cb80`. Bukti terstruktur yang aman untuk repository publik ada di [laporan live integration](evidence/QA-02-live-integration-2026-11-09.json).
+**Hasil verifikasi lokal: lulus dengan batasan yang dicatat.** Issue [#24](https://github.com/AgilePemdigi-2026/sage/issues/24) ditutup setelah independent review dan merge [PR #127](https://github.com/AgilePemdigi-2026/sage/pull/127). Run bersih dilakukan pada 9 November 2026 dengan image Docker yang dibangun dari source commit `6174452423da75f8090d98ef63a87bef23f5cb80`. Bukti terstruktur yang aman untuk repository publik ada di [laporan live integration](evidence/QA-02-live-integration-2026-11-09.json).
 
 ## Fresh Docker-to-demo run
 
@@ -36,4 +36,4 @@ The export hashes in the database matched the corresponding storage-object hashe
 - Node HTTP relationships are static **Indikasi**: the extractor does not claim that `server.listen` executed or that a route is runtime-reachable. Dynamic registration remains unsupported. The reviewed Perpus PDF is 88 pages because the source snapshot exposes many endpoint and related-action flows; it is A4 and readable per flow, while Markdown carries the complete technical detail.
 - No Coolify deployment, shared-host capacity test, backup restore, or multi-group load test was run. Private source identity and SHA are intentionally omitted from public evidence.
 
-Provider and history component coverage remains documented in [GH-02](GH-02_CHECKS.md) and [HIST-01](HIST-01_CHECKS.md). Close #24 only after this implementation PR is independently reviewed and merged.
+Provider and history component coverage remains documented in [GH-02](GH-02_CHECKS.md) and [HIST-01](HIST-01_CHECKS.md). PR #127 telah direview dan di-merge; #24 sudah ditutup. Regresi BDD lanjutan dan batas buktinya dicatat di [BDD Sprint 2](BDD_SPRINT2.md).
