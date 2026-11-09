@@ -306,9 +306,13 @@ try {
         sourceCommit: source,
         codeSha256,
         account,
+        mode: contractsOnly ? "contracts-only" : browserOnly ? "browser-only" : "full",
+        browserCase: browserCase ?? null,
         scope: contractsOnly
           ? "contract regression"
-          : "contract, disposable PostgreSQL, production Next/worker Playwright, and live GitHub CLI regression",
+          : browserOnly
+            ? `disposable PostgreSQL and production Next/worker Playwright (${browserCase ?? "all application browser suites"}); no contract or live GitHub CLI regression`
+            : "contract, disposable PostgreSQL, production Next/worker Playwright, and live GitHub CLI regression",
         scenarios: scenarios.length,
         node: process.version,
         lockfileSha256: createHash("sha256")

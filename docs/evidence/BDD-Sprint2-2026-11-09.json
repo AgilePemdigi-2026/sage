@@ -74,5 +74,20 @@
     "Full PDF visual acceptance, process restart recovery and fresh Docker-to-demo acceptance require separate runs.",
     "No Coolify deployment or new final Docker image demo acceptance in this run.",
     "Live Iltizam OAuth and real GitHub pipeline ran separately before the final history presentation fix; see linked evidence."
-  ]
+  ],
+  "reviewFollowup": {
+    "finding": "Subset-run scope metadata incorrectly described full coverage.",
+    "fix": "Explicit mode/browserCase and subset-specific scope; no application behavior changed.",
+    "fourModeMetadataCheck": "PASS: full, contracts-only, browser-only, single browser case",
+    "freshSubsetRun": {
+      "status": "PASS",
+      "mode": "browser-only",
+      "browserCase": "document",
+      "scenarios": 1,
+      "steps": 3,
+      "codeSha256": "9d50fa2c36d2a6c3783fa78f1d3e26c23089fa313a6974caddaddc5ea7b445fb",
+      "scope": "disposable PostgreSQL and production Next/worker Playwright (document); no contract or live GitHub CLI regression"
+    },
+    "provenance": "The full 52-scenario run predates this runner metadata-only fix; the document subset was rerun afterward."
+  }
 }

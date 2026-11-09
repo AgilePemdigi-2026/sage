@@ -66,4 +66,6 @@ Verifikasi tambahan: **538 tes unit lulus**, typecheck dan production build lulu
 
 [Pemeriksaan OAuth live terpisah](evidence/BDD-Sprint2-live-oauth-2026-11-09.json) memakai Iltizam, GitHub asli, worker, serta unduhan PDF/Markdown. Delapan checkpoint lulus; run tersebut mendahului perbaikan tampilan history terakhir. Laporan browser terkontrol tidak diperlakukan sebagai bukti OAuth nyata. Keberhasilan pipeline dengan status `COMPLETED_WITH_LIMITATIONS` tidak menyatakan semua referensi dapat di-resolve atau semua perilaku aplikasi dikenali.
 
+Review independen menemukan label cakupan subset yang terlalu luas pada manifest runner. Label tersebut sudah diperbaiki dengan `mode`, `browserCase`, dan scope sesuai pilihan run; keempat kombinasi metadata diperiksa. Setelah perubahan metadata saja ini, subset dokumen diulang: **1/1 skenario, 3/3 langkah lulus**. Full run 52 skenario di atas mendahului koreksi metadata runner tersebut.
+
 Suite ini tidak membuktikan deployment Coolify, backup restore, beban server bersama, atau login OAuth sebagai Rizqy. Credential GitHub tidak masuk Git. CLI Rizqy digunakan untuk commit/push; login aplikasi pada pemeriksaan live menggunakan Iltizam sesuai arahan pengguna.
