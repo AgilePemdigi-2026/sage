@@ -1,12 +1,12 @@
 # Deployment Coolify
 
-Paket DEP-01 [#99](https://github.com/AgilePemdigi-2026/sage/issues/99), penanggung jawab Rizqy. Status: persiapan lokal; belum melakukan deployment, publish image, perubahan GitHub App atau konfigurasi server dosen. Server 16 CPU/14 GB dipakai bersama; angka itu bukan quota SAGE.
+Paket DEP-01 [#99](https://github.com/AgilePemdigi-2026/sage/issues/99), penanggung jawab Rizqy. Status 10 November 2026: release image publik dan pull pada host dosen sudah terverifikasi; domain/callback produksi sudah dikonfigurasi. Pengisian credential produksi, start service, OAuth E2E dan backup server aktual masih tertunda. Server 16 CPU/14 GB dipakai bersama; angka itu bukan quota SAGE.
 
 ## Bentuk deployment
 
 Gunakan **compose.coolify.yaml** sebagai file Compose tersendiri, bukan override compose.yaml lokal. Empat service: PostgreSQL `db`, migrasi one-shot, Next `web`, dan `worker` (Node/PHP/Chromium). Migrasi menunggu database healthy; aplikasi menunggu migrasi exit 0. Tidak ada port host yang dipublish. Hubungkan domain HTTPS hanya ke komponen web pada port internal 3000. Database/worker tetap melalui network stack; jangan mengaktifkan public port database.
 
-Image web dan worker harus berasal dari commit release yang sama, dibangun untuk **linux/amd64** sesuai x86_64 server, lalu tersedia pada registry yang dapat dibaca host. Siapkan build di CI atau mesin terpisah agar proses build tidak berebut RAM server bersama. Compose produksi hanya menarik image prebuilt. Catat digest kedua image; worker dan migrate harus memakai digest worker yang sama. Paket ini belum mempublikasikan image.
+Image web dan worker harus berasal dari commit release yang sama, dibangun untuk **linux/amd64** sesuai x86_64 server, lalu tersedia pada registry yang dapat dibaca host. Siapkan build di CI atau mesin terpisah agar proses build tidak berebut RAM server bersama. Compose produksi hanya menarik image prebuilt. Catat digest kedua image; worker dan migrate harus memakai digest worker yang sama. Digest release terverifikasi tersedia pada [bukti kesiapan](evidence/deployment-readiness-2026-11-10.json).
 
 Contoh perintah build pada builder yang mendukung target tersebut (ganti registry dan release):
 
@@ -30,7 +30,7 @@ Selesaikan test/review dahulu dan pastikan autentikasi registry privat tersedia 
 
 Masukkan melalui Environment Variables Coolify atau private env file di luar Git. Jangan memasukkan database URL/token/secret ke build args, README atau screenshot. Database hanya menerima password PostgreSQL; key kredensial diberikan ke web dan worker. Kehilangan atau mengganti key secara langsung membuat ciphertext GitHub lama tidak dapat didekripsi. Pertahankan key saat restore; rotasi memerlukan proses tersendiri.
 
-Tambahkan callback **https://<domain>/auth/github/callback** pada GitHub App dan cocokkan origin dengan AUTH_BASE_URL. Callback localhost yang masih dipakai lokal dapat dipertahankan; tidak perlu menggantinya dengan wildcard. Paket ini tidak mengubah App karena domain deployment belum ditetapkan.
+Tambahkan callback **https://<domain>/auth/github/callback** pada GitHub App dan cocokkan origin dengan AUTH_BASE_URL. Callback localhost yang masih dipakai lokal dapat dipertahankan; tidak perlu menggantinya dengan wildcard. Callback tambahan untuk `https://sage.caiis.ai.id` sudah disimpan; callback localhost dipertahankan dan wildcard nonaktif.
 
 ## Resource awal
 
@@ -73,7 +73,7 @@ Layout canonical 2 tidak kompatibel dengan reader lama yang hanya memahami layou
 
 ## Bukti lokal dan batas
 
-Hasil pengujian Compose, smoke, persistence dan restore tercatat pada [DEP-01_CHECKS](DEP-01_CHECKS.md). Domain, callback produksi, TLS, registry pull, linux/amd64 runtime dan server bersama belum diverifikasi.
+Hasil pengujian Compose, smoke, persistence dan restore tercatat pada [DEP-01_CHECKS](DEP-01_CHECKS.md). Domain dan callback produksi sudah dikonfigurasi, serta registry pull pada host dan runtime linux/amd64 di CI sudah diverifikasi pada tindak lanjut di bawah. Runtime aplikasi pada server, OAuth produksi, beban bersama dan restore backup belum diverifikasi.
 
 ## Referensi
 
@@ -117,6 +117,6 @@ Atas persetujuan pemilik project, [iltizamhasan3/sage-release-images](https://gi
 
 Callback produksi sudah ditambahkan pada GitHub App dengan wildcard nonaktif; callback localhost dipertahankan. Coolify memakai `/compose.coolify.yaml`, origin `https://sage.caiis.ai.id`, dan routing web internal port 3000. Ini adalah konfigurasi tersimpan, bukan bukti service sudah berjalan. Pengisian kredensial produksi dan backup server aktual masih belum selesai.
 
-Run registry pribadi [42663739278](https://github.com/iltizamhasan3/sage-release-images/actions/runs/42663739278) selesai sukses pada 10 November 2026: build/pull `linux/amd64`, pemeriksaan revision, Compose smoke, dan artifact manifest lulus. Kedua manifest image dapat dibaca secara anonymous; digest dan batas verifikasi dicatat pada [bukti kesiapan](evidence/deployment-readiness-2026-11-10.json). Ini belum berarti image berhasil dipull oleh host dosen atau OAuth produksi sudah diuji.
+Run registry pribadi [42663739278](https://github.com/iltizamhasan3/sage-release-images/actions/runs/42663739278) selesai sukses pada 10 November 2026: build/pull `linux/amd64`, pemeriksaan revision, Compose smoke, dan artifact manifest lulus. Kedua manifest image dapat dibaca secara anonymous; digest dan batas verifikasi dicatat pada [bukti kesiapan](evidence/deployment-readiness-2026-11-10.json). Runtime server dan OAuth produksi masih memerlukan pengujian terpisah setelah credential tersimpan dan service dimulai.
 
 Kedua digest registry pribadi juga telah dipull langsung pada host dosen melalui terminal Coolify; inspeksi image mengonfirmasi `amd64` dan source revision yang sama. Pemeriksaan ini tidak menjalankan aplikasi atau mengubah service kelompok lain. Credential produksi, start service, OAuth E2E, dan transfer/restore backup server tetap tertunda.
