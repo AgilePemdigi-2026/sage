@@ -125,13 +125,14 @@ function inspectMounts(row) {
   }
 }
 
-function isExpectedRuntimeVolume(mounts, destination, readWrite, project) {
+export function runtimeVolumeMatches(mounts, destination, readWrite, project, expectedName, inspectVolume = runDocker) {
+  if (typeof expectedName !== "string" || !expectedName) return false;
   if (!Array.isArray(mounts) || mounts.length !== 1) return false;
   const mount = mounts[0];
   const name = mount.Name ?? mount.name;
   const projectPrefix = typeof name === "string" && (name.startsWith(`${project}_`) || name.startsWith(`${project}-`));
-  if (mount.Type !== "volume" || mount.Destination !== destination || mount.RW !== readWrite || !projectPrefix) return false;
-  const output = runDocker(["volume", "inspect", "--format", "{{json .}}", name]);
+  if (mount.Type !== "volume" || mount.Destination !== destination || mount.RW !== readWrite || !projectPrefix || name !== expectedName) return false;
+  const output = inspectVolume(["volume", "inspect", "--format", "{{json .}}", name]);
   if (output === null) return false;
   try {
     const definition = JSON.parse(output);
@@ -249,9 +250,9 @@ async function run() {
     const dbMounts = inspectMounts(dbRow);
     const webMounts = inspectMounts(webRow);
     const workerMounts = inspectMounts(workerRow);
-    const databaseVolumeSafe = isExpectedRuntimeVolume(dbMounts, "/var/lib/postgresql/data", true, options.project);
-    const webStorageSafe = isExpectedRuntimeVolume(webMounts, "/app/storage", false, options.project);
-    const workerStorageSafe = isExpectedRuntimeVolume(workerMounts, "/app/storage", true, options.project);
+    const databaseVolumeSafe = runtimeVolumeMatches(dbMounts, "/var/lib/postgresql/data", true, options.project, composeConfig.volumes.database.name);
+    const webStorageSafe = runtimeVolumeMatches(webMounts, "/app/storage", false, options.project, composeConfig.volumes.storage.name);
+    const workerStorageSafe = runtimeVolumeMatches(workerMounts, "/app/storage", true, options.project, composeConfig.volumes.storage.name);
     const webStorageName = webMounts?.[0]?.Name ?? webMounts?.[0]?.name;
     const workerStorageName = workerMounts?.[0]?.Name ?? workerMounts?.[0]?.name;
     if (!databaseVolumeSafe || !webStorageSafe || !workerStorageSafe || webStorageName !== workerStorageName) {
