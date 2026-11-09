@@ -100,3 +100,19 @@ Konfigurasi produksi membatasi log Docker menjadi tiga file masing-masing 10 MB 
 - Batas resource awal memakai ceiling di atas; belum merupakan persetujuan quota resmi dari dosen.
 - Lokasi backup di luar server belum diberikan. Sebelum menyimpan data penting, operator perlu menyediakan tujuan backup dan menjalankan restore drill dengan pasangan database/storage yang konsisten.
 - Status build/pull/TLS/OAuth aktual harus dicatat setelah dieksekusi; persiapan workflow tidak berarti deployment berhasil.
+
+## Backup manual ke laptop
+
+Untuk tahap awal, pilihan pemilik project adalah backup manual ke laptop. `npm run deployment:backup -- --context <docker-context-server> --project <project-aktual> --compose <compose-aktual> --env-file <private-env> --output <direktori-baru-di-laptop>` menjalankan preflight dan smoke terhadap context/project eksplisit, menghentikan web/worker, lalu mengalirkan `pg_dump -Fc` serta archive storage langsung ke disk laptop tanpa memuat seluruh backup ke RAM. Script selalu mencoba menyalakan kembali writer meskipun stop/copy gagal. Tidak ada volume yang dihapus.
+
+Context harus benar-benar menunjuk Docker server tujuan melalui akses operator yang sudah tersedia; jangan memakai context Colima untuk backup server dosen. File Compose/environment harus sesuai resource aktual, termasuk penamaan volume hasil Coolify. Script menolak direktori output yang sudah ada. Manifest menyimpan ukuran/hash dan status copy; kegagalan menyimpan artefak parsial dengan status `incomplete`, bukan menandainya sebagai backup berhasil. Key enkripsi/kredensial disimpan privat secara terpisah.
+
+Pengujian transport terkontrol memeriksa copy, penolakan target, penolakan overwrite, serta restart writer setelah kegagalan stop/dump/tar. Pengujian itu tidak membuktikan akses Docker remote atau restore server. Setelah copy nyata, verifikasi hash dan lakukan restore pada volume disposable; jangan menganggap `copied` sebagai signoff restore. SSH/Docker context remote untuk laptop belum tersedia pada konfigurasi yang diperiksa.
+
+### Registry untuk rollout ini
+
+Run [42661516138](https://github.com/AgilePemdigi-2026/sage/actions/runs/42661516138) telah membangun web/worker `linux/amd64`, memverifikasi pull berdasarkan digest dan source revision, serta meluluskan smoke Compose pada source `d7787ff8a27ce1462666039c08d6b4154f9c55ee`. Organisasi menonaktifkan package public; image organisasi belum dapat ditarik secara anonymous.
+
+Atas persetujuan pemilik project, [iltizamhasan3/sage-release-images](https://github.com/iltizamhasan3/sage-release-images) menjadi repository build-only untuk registry pribadi. Workflow mengambil commit penuh dari repository utama, tanpa credential aplikasi, dan mempublikasikan `ghcr.io/iltizamhasan3/sage-web` serta `sage-worker`. Label revision selalu menunjuk commit source, bukan commit repository workflow. Workflow utama organisasi tetap dapat dipakai bila operator kemudian menyediakan autentikasi pull; jangan mencampur digest dari namespace/run lain.
+
+Callback produksi sudah ditambahkan pada GitHub App dengan wildcard nonaktif; callback localhost dipertahankan. Coolify memakai `/compose.coolify.yaml`, origin `https://sage.caiis.ai.id`, dan routing web internal port 3000. Ini adalah konfigurasi tersimpan, bukan bukti service sudah berjalan. Pengisian kredensial produksi dan backup server aktual masih belum selesai.
