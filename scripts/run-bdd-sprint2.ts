@@ -84,11 +84,13 @@ async function codeFingerprint() {
     .filter((path) => path !== "apps/web/next-env.d.ts");
   const hash = createHash("sha256");
   for (const path of [...new Set(paths)].sort()) {
-    hash
-      .update(path)
-      .update("\0")
-      .update(await readFile(path))
-      .update("\0");
+    let bytes: Buffer;
+    try { bytes = await readFile(path); }
+    catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+      throw error;
+    }
+    hash.update(path).update("\0").update(bytes).update("\0");
   }
   return hash.digest("hex");
 }
@@ -159,12 +161,14 @@ try {
             "sage_pdf21",
             "sage_pipeline16",
             "sage_hist01_fresh",
+            "sage_srs_bdd",
           ]
         : [
             ...Object.values(cases).flatMap((definition) =>
               definition.database ? [definition.database] : [],
             ),
             "sage_graph17",
+            "sage_srs_bdd",
           ],
     )) {
       const definition = { database };
@@ -322,7 +326,11 @@ try {
           await Promise.all(
             [
               "tests/bdd/sprint2/acceptance.feature",
-              "tests/bdd/sprint2/srs.feature",
+              "tests/bdd/sprint2/graph.feature",
+              "tests/bdd/sprint2/document.feature",
+              "tests/bdd/sprint2/history.feature",
+              "tests/bdd/sprint2/browser.steps.ts",
+              "tests/bdd/sprint2/browser-fixture.ts",
               "tests/bdd/sprint2/srs-cases.json",
               "tests/bdd/sprint2/steps.ts",
               "tests/bdd/sprint2/cases.json",
@@ -339,7 +347,7 @@ try {
         limitations: [
           "CLI identity does not prove SAGE OAuth as this account.",
           "Controlled provider fixtures do not prove live GitHub authorization.",
-          "Browser suites share synthetic sessions and source fixtures; related SRS checkpoints share a suite run.",
+          "Each SRS scenario uses its own synthetic owner, analysis and browser context; the disposable server/database/worker are shared. Supporting regression suites may reuse a suite run.",
           "Full PDF visual acceptance, process restart recovery and fresh Docker-to-demo acceptance require separate runs.",
         ],
       },

@@ -230,3 +230,28 @@ Feature: Sprint 2 regression evidence
   Scenario: Submission through the actual queue and result publication
     When I test the application browser case "pipeline"
     Then the production application browser checks pass
+
+  @supporting_browser
+  Scenario: [Supporting regression] Verify extended graph behavior across viewports and accounts
+    When I test the application browser case "graph"
+    Then the production application browser checks pass
+
+  @supporting_browser
+  Scenario: [Supporting regression] Verify extended document behavior across viewports and accounts
+    When I test the application browser case "document"
+    Then the production application browser checks pass
+
+  @supporting_browser
+  Scenario: [Supporting regression] Verify extended pdf behavior across viewports and accounts
+    When I test the application browser case "pdf"
+    Then the production application browser checks pass
+
+  @supporting_browser
+  Scenario: [Supporting regression] Verify extended markdown behavior across viewports and accounts
+    When I test the application browser case "markdown"
+    Then the production application browser checks pass
+
+  @supporting_browser
+  Scenario: [Supporting regression] Verify extended history behavior across viewports and accounts
+    When I test the application browser case "history"
+    Then the production application browser checks pass
