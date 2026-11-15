@@ -2,9 +2,56 @@
   <img src="docs/assets/readme-banner.svg" alt="SAGE — Pahami struktur kode, telusuri buktinya" width="100%" />
 </p>
 
-<p align="center"><strong>Source-code Architecture Graph Extraction</strong><br />Evidence-Grounded Software Architecture Documentation</p>
+<p align="center"><strong>Source-code Architecture Graph Extraction</strong><br />Pahami komponen, dependency, dan alur aplikasi melalui dokumentasi berbasis evidence source code.</p>
 
-<p align="center">Pahami arsitektur repository PHP dan JavaScript/TypeScript melalui graph dan dokumentasi yang dapat ditelusuri ke source code.</p>
+<p align="center"><a href="https://sage.caiis.ai.id/">Buka SAGE</a> · <a href="docs/guides/USAGE.md">Panduan penggunaan</a> · <a href="docs/README.md">Dokumentasi</a> · <a href="CONTRIBUTING.md">Kontribusi</a></p>
+
+## Fitur dan dukungan
+
+| Fitur | Yang bisa dilakukan |
+| --- | --- |
+| Akses GitHub | Login dengan GitHub App; pilih repository public sendiri, public pihak lain, atau private yang diizinkan |
+| Analisis repository | Pilih branch/commit, jalankan pipeline berurutan, pantau progres dan elapsed time, lalu retry jika gagal |
+| Code Knowledge | Telusuri komponen dan dependency kode, filter node, fokus tetangga, serta periksa evidence file/baris |
+| Dokumentasi hasil | Baca Interface Catalog, Software Engineering Diagram, dan UML Class Diagram dari snapshot yang sama |
+| Koreksi dan ekspor | Koreksi label/kelompok model semantik; ekspor Markdown lengkap atau PDF ringkas dengan diagram vektor A4 |
+| History | Cari dan buka kembali hasil milik akun sendiri, lalu hapus analisis beserta artefaknya setelah konfirmasi |
+
+**Batas analyzer:** analisis statis PHP dan JavaScript/TypeScript tidak menjalankan kode target dan tidak memakai layanan AI eksternal. Pengenalan user flow mendukung pola **Next.js App Router dan Laravel** yang teruji; kandidat guard Node HTTP terbatas tidak berarti semua framework didukung. Import atau kedekatan folder tidak membuktikan urutan aktivitas.
+
+**Code Knowledge** menunjukkan struktur/dependency; **Software Engineering Diagram** menunjukkan aktor, fitur, dan alur yang dikenali; **UML** menunjukkan class dan relasi yang ditemukan, bukan daftar seluruh file. Source dinamis dapat tetap `Unresolved`; confidence semantik `Proven`/`Indicated` adalah kategori terpisah. Hasil lama mungkin perlu analisis ulang. Markdown memiliki batas ukuran 32 MiB; PDF membagi alur besar menjadi beberapa halaman agar tetap terbaca. Lihat [kontrak analyzer](docs/reference/ANALYSIS_SPEC.md) dan [aturan keluaran](docs/reference/DOCUMENT_PRESENTATION.md).
+
+## Tampilan aplikasi
+
+Screenshot berasal dari aplikasi aktual dengan data fixture aman. Nama repository contoh dan commit sintetis bukan hasil analisis repository pengguna; cakupan pengambilannya tercatat pada [catatan screenshot](docs/assets/screenshots/README.md).
+
+### Pemilihan repository
+
+![Pemilihan repository dan target branch pada SAGE](docs/assets/screenshots/repository.png)
+
+### Code Knowledge
+
+![Graph komponen dan dependency dengan kontrol pencarian serta evidence](docs/assets/screenshots/code-knowledge.png)
+
+### Dokumentasi hasil
+
+![Interface Catalog beserta navigasi diagram dan ekspor Markdown atau PDF](docs/assets/screenshots/documentation.png)
+
+## Workflow
+
+Klik node untuk membuka panduan terkait. GitHub menyediakan kontrol diagram; pada layar kecil, buka diagram untuk memperbesar.
+
+```mermaid
+flowchart LR
+  A["Login GitHub"] --> B["Pilih repo dan commit"] --> C["Analisis"] --> D["Graph dan dokumen"] --> E["Ekspor / history"]
+  click A "https://github.com/AgilePemdigi-2026/sage/blob/main/docs/guides/GITHUB_APP_SETUP.md" "Setup GitHub App"
+  click B "https://github.com/AgilePemdigi-2026/sage/blob/main/docs/guides/USAGE.md#pilih-target" "Pilih target"
+  click C "https://github.com/AgilePemdigi-2026/sage/blob/main/docs/guides/USAGE.md#jalankan-analisis" "Progres dan error"
+  click D "https://github.com/AgilePemdigi-2026/sage/blob/main/docs/guides/USAGE.md#baca-hasil" "Baca hasil"
+  click E "https://github.com/AgilePemdigi-2026/sage/blob/main/docs/guides/USAGE.md#ekspor-dan-history" "Ekspor dan history"
+```
+
+## Tech stack
 
 <p align="center">
   <a href="https://nextjs.org/"><img src="docs/assets/tech/nextjs.svg" alt="Next.js" title="Next.js" width="36" height="36" /></a>
@@ -21,280 +68,33 @@
 
 <p align="center">Next.js · React · TypeScript · Tailwind CSS · Node.js<br />PHP · PostgreSQL · Prisma · Docker · Playwright</p>
 
-<p align="center">
-  <a href="docs/LOCAL_SETUP.md">Panduan lokal</a> ·
-  <a href="docs/PRODUCT_BACKLOG.md">Backlog</a> ·
-  <a href="docs/SPRINT_PLAN.md">Sprint plan</a> ·
-  <a href="CONTRIBUTING.md">Kontribusi</a>
-</p>
+Web/API memakai Next.js; worker Node.js/PHP menangani analyzer dan ekspor; PostgreSQL menyimpan metadata serta hasil canonical. Snapshot dan file ekspor tersimpan pada volume privat. Rincian ada di [arsitektur](docs/reference/ARCHITECTURE.md) dan [model data](docs/reference/DATA_MODEL.md). Logo mengikuti [lisensi aset](docs/assets/tech/README.md).
 
-**Dalam pengembangan — per 30 Oktober 2026.** Login dan akses repository sudah tersedia; pipeline sembilan tahap menerbitkan graph dan dokumen bersama; ekspor Markdown dan PDF tersedia dari dokumen canonical.
+## Quick start Docker
 
-<details>
-<summary>Rincian implementasi dan batas analisis</summary>
-
-Login GitHub App, daftar repository public/instalasi, pemilihan branch dan full SHA, `POST /api/analyses` yang mengantre secara idempotent, serta snapshot immutable dan source handlers tersambung ke provider nyata. Worker mengonsumsi antrean secara berurutan dan menjalankan sembilan handler nyata. Graph, ADD, limitation, dan hash hasil diterbitkan bersama setelah seluruh tahap selesai. Analisis gagal dapat diulang dengan SHA serta konfigurasi yang sama setelah izin GitHub diperiksa kembali.
-
-Landing, login, workspace, dan halaman repository memakai backend autentikasi/repository nyata. Mode pratinjau telah dihapus; workspace, progres, graph, dan dokumen memakai hasil analisis akun yang masuk. Fixture tetap tersedia khusus pengujian. Dokumen hasil analisis menyediakan **Ekspor Markdown** dan **Ekspor PDF**, status antrean, unduhan privat, serta retry kegagalan. Riwayat dan progres produk membaca record tersimpan. **Code Knowledge** `/analyses/{analysisId}/graph` langsung menampilkan graph komponen dan dependency dari CKG, dengan proyeksi essential, pencarian, filter, fokus tetangga, dan evidence source. Tampilan ini terpisah dari Software Engineering Diagram; kegagalan API graph menampilkan error dan retry. Dokumen `/analyses/{analysisId}/document` menghubungkan Interface Catalog, UML, dan Software Engineering Diagram dua tingkat: overview fitur/aktor, lalu alur fitur berbukti. Analisis baru menyimpan model semantik terpisah; hasil lama menampilkan keterangan untuk analisis ulang. Node Query dan kategori AST dapat digabung untuk menyaring graph tanpa mengubah hasil canonical; gunakan **Atur ulang filter** untuk menghapus pencarian dan pilihan kategori. Mode graph tetap mengikuti pilihan pengguna. [Bukti filter graph](docs/GRAPH-02_CHECKS.md) menjelaskan perilaku dan batas pengujiannya. Inspector menampilkan bounds AST, relasi masuk/keluar, dan evidence canonical. Dialog source membaca cuplikan dari snapshot yang hash-nya diverifikasi, dengan loading, retry, dan close melalui keyboard; lihat [bukti inspector/source](docs/GRAPH-03_CHECKS.md). Ekspor Markdown diproses worker sebagai job terpisah tanpa mengubah hasil analisis; file memuat tiga artefak, source Mermaid dan evidence mandiri. Lihat [bukti ekspor Markdown](docs/EXP-01_CHECKS.md). PDF menyertakan diagram vektor ringkas pada A4 serta evidence; lihat [bukti PDF](docs/EXP-02_CHECKS.md). Pemilik dapat menghapus analisis terminal dari history setelah konfirmasi. Cleanup menutup akses hasil, menghapus snapshot serta ekspor, dan menyediakan retry jika gagal; analisis atau ekspor aktif tidak dapat dihapus. Lihat [bukti penghapusan](docs/DATA-02_CHECKS.md). Bukti dokumen dan batas pipeline ada pada [DOC-01 checks](docs/DOC-01_CHECKS.md). Bukti dan batas verifikasi UI dicatat di [UI-02/UI-03 checks](docs/UI-02_CHECKS.md).
-
-</details>
-
-## Kemampuan yang ditargetkan
-
-| Kemampuan | Hasil yang ingin dicapai |
-| --- | --- |
-| Akses GitHub | Login, repository publik milik pihak lain, dan repository private yang telah diotorisasi |
-| Analisis source code | Adapter PHP dan JS/TS dengan model kode serta kontrak evidence yang sama |
-| Code Knowledge Graph | Telusuri module, class, interface, function, dan hubungan antarkode |
-| Bukti yang dapat diperiksa | Temuan terhubung ke file, baris, dan snapshot commit yang dianalisis |
-| Dokumentasi arsitektur | Interface Catalog, Software Engineering Diagram, UML Class Diagram, serta Architecture Definition Document |
-| Ekspor dan riwayat | Simpan Markdown/PDF, buka kembali analisis, dan hapus data milik pengguna |
-
-Seluruh kemampuan di atas masuk target MVP lokal. Status implementasi serta acceptance criteria mengikuti [backlog](docs/PRODUCT_BACKLOG.md) dan [test plan](docs/TEST_PLAN.md).
-
-Panduan keterbacaan diagram dan pendekatan source-backed tersedia pada [revisi diagram](docs/DIAGRAM_READABILITY.md). Istilah kontrol mengikuti [bahasa antarmuka](docs/UI_LANGUAGE.md); label dari source tetap dipertahankan. Overview interaktif langsung menampilkan koneksi aktor, endpoint/controller, dan data store. Perubahan extractor memerlukan analisis ulang; perubahan tampilan overview berlaku pada model semantik tersimpan.
-
-## Alur penggunaan
-
-[Buka workflow interaktif — zoom dan geser diagram](https://mermaid.live/view#pako:eNpVks1vozAQxf-Vkc-pes9hpaT5IG0qRW13L2UPAzYwwtiWP1p1k_zvO5gGqRck4_d-83jDWdRWKrEUjbafdYc-wvGlNAAhVa1H10GdvFcmvpfiTfmgJCEExAhkqBR_RynAim-PtiUDUpkWDewpFqnie7i7-wXrcylOpKkD7IMK4JWzgaL1X6W4ToT1KLycUqWpv8AD854xpL5n1u-XI2DEBC4jJHriRxPRz_O_3Z4-MKoLbNh-MCGixkCwco71Bugf56uwxh_zvwkPOej2_Ra08mjqLvtqOwwUwbpA1qCeLZvJMh22-bBj_x_UJMe5HLBVMSOapPWN81qsZsQuu_bseuSsZvxaR05pMgqCGiril8zp0M2WfbYUeR06hcRlTHsa50jbp0GZWVxk8YHF69Qj9IzkdDAojToRdBR-lDDJH1m-7YOzHp7R99J-GriH02Y36w5Z98S6Al0KgFwLBQqcOTK6g96ahvzALcyep-w5jgWjGbdZa4UmuWm1ta0QNLY3vTJSLMSgmEFSLM8idmoYf1OpGkw6iutCYIr29cvUYhl9UguRnOTtbwi5j2F6ef0PwYrv7A). Tampilan ini membuka Mermaid Live; diagram di bawah tetap tersedia langsung di README.
-
-Alur analisis, graph, dokumen, history, ekspor Markdown/PDF, dan penghapusan tersedia pada aplikasi; tampilan hasil selalu memakai data akun yang masuk.
-
-```mermaid
-flowchart LR
-  subgraph current["Tersedia saat ini"]
-    A["Login dengan GitHub"] --> B{"Pilih akses repository"}
-    B -->|Publik| C["Masukkan URL atau pilih dari daftar"]
-    B -->|Private| D["Instalasi App dan izin baca repository"]
-    C --> E["Pilih branch dan commit opsional"]
-    D --> E
-    E --> F["Validasi target dan full commit SHA"]
-    F --> G["Jalankan pipeline sembilan tahap"]
-    G --> H["Telusuri graph dan dokumen"]
-    H --> I["Buka kembali melalui history"]
-    H --> J["Ekspor Markdown / PDF"]
-    I --> K["Hapus analisis setelah konfirmasi"]
-    K --> L["Pantau cleanup atau coba lagi"]
-  end
-```
-
-Setelah memilih repository, fokus berpindah ke target branch dan tombol mulai analisis. Progres menampilkan waktu berlalu dari timestamp server. Graph memakai jaringan yang dapat digeser/zoom dan difokuskan pada node. Katalog menyediakan pencarian dan halaman berisi maksimal lima baris; relasi, batasan, serta bukti diagram dibuka saat diperlukan. Tautan evidence membuka file GitHub pada commit analisis beserta barisnya; repository private tetap memerlukan izin GitHub. Markdown tetap lengkap, sedangkan PDF tetap ringkas pada A4.
-
-Pemilih target memanggil API submission idempotent; worker menjalankan satu analisis pada satu waktu. Progres diperbarui setiap tiga detik dan polling berhenti saat terminal. Rincian teknis: [arsitektur](docs/ARCHITECTURE.md) dan [ANA-07 #16](https://github.com/AgilePemdigi-2026/sage/issues/16).
-
-## Menjalankan aplikasi di lokal
-
-Gunakan **Docker Engine/Desktop dengan Compose** yang sudah aktif dan **Node.js 24** untuk script setup. PHP, PostgreSQL, runtime aplikasi, serta Chromium dijalankan di container; tidak perlu memasangnya satu per satu pada host.
-
-### 1. Clone dan siapkan konfigurasi
+Siapkan **Node.js 24** dan Docker dengan Compose yang aktif. Pengguna macOS dapat mengikuti [setup Colima](docs/guides/LOCAL_SETUP.md).
 
 ```sh
 git clone https://github.com/AgilePemdigi-2026/sage.git
 cd sage
 node scripts/setup-local.mjs
 docker compose config --quiet
-```
-
-Sudah punya repository-nya? Masuk ke folder `sage` dan mulai dari command setup. Script membuat `.env` privat dengan password PostgreSQL dan key enkripsi acak. Jika `.env` sudah ada, nilai lama dipertahankan dan key yang belum tersedia ditambahkan. Tidak perlu menyalin placeholder `.env.example`.
-
-PDF hasil analisis menyajikan katalog ringkas, overview fitur, dan halaman alur vektor pada A4; alur besar dibagi dengan keterangan hubungan antarhalaman. Markdown menyimpan detail penuh, termasuk ID, atribut, dan evidence. Tampilan interaktif memakai nama simbol dan lokasi source. Lihat [aturan penyajian dokumen](docs/DOCUMENT_PRESENTATION.md).
-
-### 2. Build lalu start aplikasi
-
-```sh
-docker compose build
-docker compose up -d --wait --wait-timeout 180
-docker compose ps
-```
-
-**Build menyiapkan image; `up` menjalankan aplikasinya.** Tunggu command `up` selesai. Service `web`, `worker`, dan `db` seharusnya berstatus **healthy**. Service `migrate` boleh berstatus **Exited (0)** karena tugas migrasinya sudah selesai.
-
-### 3. Konfigurasikan login GitHub
-
-Login nyata memerlukan GitHub App. Bootstrap menyiapkan form registrasi dan menyimpan kredensial langsung ke `.env` privat setelah konfirmasi pemilik akun:
-
-```sh
-node scripts/setup-github-app.mjs --name NAMA-APP-YANG-UNIK
-docker compose up -d --force-recreate --no-deps web
-```
-
-Ikuti [panduan GitHub App](docs/GITHUB_APP_SETUP.md). Callback pengembangan menggunakan `http://localhost:3000/auth/github/callback`; gunakan port web 3000 untuk konfigurasi ini. Pembuatan/otorisasi App dan instalasi repository merupakan langkah berbeda. Tanpa konfigurasi App, halaman login menampilkan kondisi belum tersedia. Jangan mengirim client secret atau private key lewat chat maupun commit.
-
-### 4. Buka aplikasi di browser
-
-| Tujuan | Alamat |
-| --- | --- |
-| Halaman aplikasi | **[http://localhost:3000](http://localhost:3000)** |
-| Pemeriksaan layanan | [http://localhost:3000/api/health](http://localhost:3000/api/health) |
-| Riwayat analisis (nyata) | [http://localhost:3000/workspace/history](http://localhost:3000/workspace/history) |
-
-Landing, login, workspace, dan akses repository nyata sudah tersedia. Rute pratinjau lama sudah dihapus dan mengembalikan 404. Adapter worker menyediakan deklarasi dan relasi statis sesuai [capability JS/TS](docs/ANA-03_CHECKS.md) dan [capability PHP](docs/ANA-04_CHECKS.md); target dinamis atau tidak terbukti tetap `Unresolved`. Resolver 0.3.0 menambah dukungan instance lokal, receiver bertipe dan pewarisan yang tidak ambigu. Untuk memakai resolver baru, jalankan analisis baru; hasil history mempertahankan versi dan snapshot aslinya. Submission masuk queue durable dan diproses oleh worker selama container worker berjalan. Health check yang berhasil mengembalikan `status: "ok"` dan `database: "ok"`.
-
-Graph hasil tersimpan dibuka melalui **Buka knowledge graph** pada detail analisis yang sukses; lihat [bukti verifikasi graph](docs/GRAPH-01_CHECKS.md). Code Knowledge membuka proyeksi essential dari CKG; **Detail AST** dan **Semua referensi** tersedia untuk penelusuran lanjut. Software Engineering Diagram memakai model semantik untuk aktor, tindakan, keputusan, proses, dan hasil. Dukungan alur mencakup pola Next.js App Router dan Laravel yang teruji, serta kandidat guard Node HTTP yang terbatas dan ditandai indikasi; ini bukan dukungan untuk semua aplikasi JavaScript/PHP. Jika tidak ada alur yang dikenali, halaman menampilkan keterangan dukungan dan tautan Code Knowledge, tanpa canvas kosong. Koreksi label/kelompok semantik tetap disimpan per analisis dan dipakai oleh ekspor. Hasil tersimpan tidak ditulis ulang oleh pembaruan extractor; analisis ulang diperlukan untuk versi baru. Lihat [kontrak semantik](docs/SEMANTIC_ANALYSIS.md) dan [batas verifikasi](docs/SEM-01_CHECKS.md). UML memakai susunan atas-ke-bawah, dependency berbukti, serta peran Boundary–Control–Entity berdasarkan konvensi nama/path. Referensi yang belum terpecahkan tetap tersedia pada detail dan Markdown. Lihat [revisi resolver dan UML](docs/ANA-08_CHECKS.md) untuk cakupan, batas, serta hasil tes. Navigasi hasil menghubungkan Progres, Knowledge graph, dan Dokumentasi secara langsung. Software Engineering Diagram merangkum area source yang dapat dibuka; UML menyediakan filter area dan halaman class agar tetap terbaca. Graph dan dokumen hanya tersedia setelah publikasi bundle lengkap; hasil sementara dari analisis gagal tetap tidak dapat dibuka. Lihat [bukti pipeline dan batas pengujiannya](docs/ANA-07_CHECKS.md).
-
-### 5. Stop, jalankan kembali, atau perbarui
-
-```sh
-# Menghentikan aplikasi; data pada volume tetap tersimpan.
-docker compose stop
-
-# Menjalankan kembali container yang dihentikan dengan stop.
-docker compose start
-```
-
-Saat service `web` berhenti, `http://localhost:3000` tidak dapat diakses. Tidak perlu mematikan Docker Desktop atau Colima untuk menghentikan SAGE; `docker compose stop` hanya menghentikan layanan project ini dan mempertahankan data volume. Jika container belum dibuat atau sudah dihapus dengan `docker compose down`, gunakan command `up` pada langkah 2.
-
-Setelah menarik perubahan kode terbaru:
-
-```sh
-git pull --ff-only
-node scripts/setup-local.mjs
 docker compose build
 docker compose up -d --wait --wait-timeout 180
 ```
 
-Untuk memeriksa kendala:
+Buka [localhost:3000](http://localhost:3000). `web`, `worker`, dan `db` harus healthy; `migrate` selesai dengan exit 0. **Login memerlukan konfigurasi GitHub App sendiri** sesuai [panduan GitHub App](docs/guides/GITHUB_APP_SETUP.md). Jangan commit `.env`, token, atau private key.
 
-```sh
-docker compose ps --all
-docker compose logs --tail=100 web worker migrate
-```
+Untuk menghentikan aplikasi tanpa menghapus data, jalankan `docker compose stop`. Untuk menyalakan container yang sudah dibuat, jalankan `docker compose start`; gunakan `up` di atas jika container belum ada. Perubahan source memerlukan build dan `up` kembali. Jangan memakai `down -v` bila ingin mempertahankan data. Panduan lengkap tersedia pada [setup lokal](docs/guides/LOCAL_SETUP.md).
 
-Jika port 3000 dipakai aplikasi lain, ubah `WEB_PORT=3001` di `.env`, jalankan kembali command `up`, lalu buka `http://localhost:3001`. Pada macOS dengan Colima, mulai VM dan pilih Docker context terlebih dahulu sesuai [panduan lokal](docs/LOCAL_SETUP.md#prasyarat-dan-menjalankan).
+## Dokumentasi
 
-Migrasi, smoke test, persistensi, dan troubleshooting lebih lengkap tersedia di [panduan setup lokal](docs/LOCAL_SETUP.md). Bukti implementasi: [DATA-01](docs/DATA-01_CHECKS.md), [kontrak CCM minimum](docs/ANA-05-S1_CHECKS.md), [hardening CCM dan kompatibilitas PHP/JS/TS](docs/ANA-05_CHECKS.md), [spike taxonomy CCM v1](docs/CCM_TAXONOMY_SPIKE.md), [oracle minimum](docs/QA-01-S1_CHECKS.md), serta [review oracle dan benchmark repository](docs/QA-01_CHECKS.md).
-
-Daftar repository menampilkan **public milik akun yang login** secara otomatis, dengan pagination dan pilihan branch. Bagian instalasi App menampilkan akses private/shared yang diberikan GitHub; instalasi milik collaborator atau organisasi dapat muncul bila akun memang berizin. Untuk mengganti akun, keluar dari SAGE lalu login kembali; pergantian akun pada tab lain akan memuat ulang daftar dan menghapus target sebelumnya. Memilih repository memvalidasi target; analisis berjalan melalui antrean worker dengan snapshot full SHA.
-
-## Benchmark analyzer
-
-QA-01 menyediakan pengukuran offline untuk dua repository publik pada commit tetap, dengan tiga container terpisah per sampel, 1 CPU dan RAM maksimum 2 GiB. Source target tidak dijalankan. Persiapan source membutuhkan akses GitHub; pengukuran berikutnya tanpa jaringan:
-
-```sh
-npm run benchmark:prepare
-npm run benchmark:repositories
-```
-
-Gunakan Node yang didukung project, dependency lokal dan image `sage-worker:local` yang sudah tersedia. Hasil tersimpan di `artifacts/qa01-repository-benchmark.json`; Compose/web/database tidak perlu dinyalakan. [Laporan QA-01](docs/QA-01_CHECKS.md) menjelaskan reproduksi dari worktree, peak memori termasuk proses PHP, serta batas kesimpulannya.
-
-## Pengujian browser
-
-Setelah layanan Docker berjalan, jalankan regression Playwright untuk fitur yang tersedia:
-
-```sh
-docker compose build worker
-docker compose run --rm --no-deps worker npm run test:browser
-```
-
-Empat suite memeriksa landing, login/workspace, pemilihan repository, isolasi pergantian akun serta penghapusan route pratinjau pada 360/390/768/1024/1440 px. Identitas serta sesi fixture sementara dibersihkan setelah pengujian. Respons provider pada tes UI dikontrol; akses GitHub nyata diperiksa terpisah melalui `test:provider:playwright` dengan akun yang telah diotorisasi. Laporan dan screenshot per run berada di `/app/storage/browser-regression` pada volume Docker (atau `artifacts/browser-regression` untuk run dari source). Untuk menyimpan bukti di host, lihat [panduan regression](docs/QA-04-S1_CHECKS.md) serta [perbaikan isolasi akun](docs/GH-03-S1_CHECKS.md).
-
-Pengujian fixture UI tidak membuktikan alur produk. Bukti pipeline, ekspor PDF, history, dan penghapusan dicatat terpisah pada dokumen pemeriksaan masing-masing.
-
-## Acceptance Cucumber BDD Sprint 1
-
-Feature, scenario, dan step Cucumber menggunakan Gherkin berbahasa Inggris dengan parameter URL, label, pesan, dan input dalam petik dua sesuai gaya SRS. Suite ini berisi 10 skenario browser dengan API terkendali dan 10 pemeriksaan pendukung domain untuk source, antrean, serta runner. `npm run test:bdd:dry` memvalidasi sintaks dan resolusi step tanpa menjalankan assertion perilaku; run langsung perlu Node 24, database PostgreSQL disposable, dan server lokal. Untuk run terisolasi dengan Docker gunakan `npm run test:bdd:docker`. Laporan per run disimpan di `artifacts/bdd/`. [BDD Sprint 1](docs/BDD_SPRINT1.md) memetakan setiap tes aktual ke katalog sepuluh skenario sumber SRS B.7.1–B.7.3, termasuk batas cakupan dan pemeriksaan lokal yang bukan skenario SRS. Browser terkendali tidak membuktikan GitHub live atau penerimaan pipeline produk penuh.
-
-## Acceptance Cucumber BDD Sprint 2
-
-`npm run test:bdd:sprint2` menjalankan 14 skenario SRS B.7.4–B.7.6 dengan langkah interaksi pengguna yang eksplisit (seperti Sprint 1), regresi kontrak/database, serta browser Next.js dan worker pada PostgreSQL disposable. Gunakan Node 24, PHP, Docker/Colima, Chromium Playwright, dan akun GitHub CLI penguji; fixture private memerlukan `SAGE_BDD_PRIVATE_REPOSITORY` yang diizinkan. Runner membersihkan resource milik tes dan menyimpan laporan Cucumber per run. OAuth live dicatat terpisah dari session sintetis. Lihat [panduan, pemetaan SRS, dan batas bukti BDD Sprint 2](docs/BDD_SPRINT2.md).
-
-## Stack teknologi
-
-| Area | Teknologi |
+| Kebutuhan | Panduan |
 | --- | --- |
-| Web dan API | Next.js App Router · React · TypeScript · Tailwind CSS |
-| Pemrosesan | Worker Node.js terpisah dari proses web |
-| Database | PostgreSQL · Prisma ORM |
-| Analyzer JavaScript/TypeScript | TypeScript Compiler API |
-| Analyzer PHP | nikic/PHP-Parser melalui runtime PHP pada worker |
-| Graph interaktif | Cytoscape.js — canvas fixture tersedia; integrasi hasil produk menyusul |
-| Dokumen dan PDF | Mermaid untuk rendering diagram · Playwright/Chromium untuk PDF |
-| Lingkungan lokal | Docker Compose · Persistent volumes |
+| Mulai memakai aplikasi | [Penggunaan](docs/guides/USAGE.md) · [Troubleshooting](docs/guides/TROUBLESHOOTING.md) |
+| Menjalankan dan menguji | [Setup lokal](docs/guides/LOCAL_SETUP.md) · [Testing](docs/guides/TESTING.md) |
+| Memahami hasil analisis | [Analyzer](docs/reference/ANALYSIS_SPEC.md) · [Semantik](docs/reference/SEMANTIC_ANALYSIS.md) · [Format keluaran](docs/reference/DOCUMENT_PRESENTATION.md) |
+| Mengelola layanan | [Deployment, resource, backup, dan pemulihan](docs/operations/COOLIFY.md) |
+| Meninjau requirement dan bukti | [Planning](docs/planning/README.md) · [Arsip pemeriksaan](docs/archive/README.md) · [Evidence](docs/evidence/) |
 
-Logo disimpan lokal; sumber dan lisensinya tersedia di [aset teknologi](docs/assets/tech/README.md). Dependency dipin pada lockfile dan base image memakai digest. Modul DOC-02 menyediakan proyeksi UML/struktur dan renderer SVG dari canonical CKG. Uji renderer dijalankan dengan `npm run test:documents:diagrams`; kontrak dan batasnya tersedia pada [spesifikasi analisis](docs/ANALYSIS_SPEC.md#kontrak-proyeksi-diagram-doc-02). Model ADD, penyimpanan tiga artefak atomik, API privat dan halaman dokumen tersedia pada DOC-01. Ekspor produk terotorisasi tetap mengikuti #20–21. Pengujian dokumen: `npm run test:documents:integration` dan `npm run test:documents:live`, dengan database uji disposable serta opt-in yang dijelaskan pada [DOC-01 checks](docs/DOC-01_CHECKS.md).
-
-## Prinsip pengembangan
-
-- **Berbasis bukti:** fakta teknis berasal dari static analysis; resolusi relasi hanya `Exact` atau `Unresolved`.
-- **Target konsisten:** repository, branch, dan full SHA dipertahankan sepanjang analisis; kode target dibaca sebagai data.
-- **Alur bertahap:** satu analisis repository aktif secara global, dengan sembilan tahap pipeline berurutan.
-- **Akses sesuai pemilik:** login diperlukan untuk analisis, history, hasil, dan penghapusan; akses private mengikuti izin GitHub.
-- **Retensi jelas:** hasil disimpan sampai pemilik menghapusnya; kredensial tetap mengikuti masa berlaku dan pencabutan akses.
-- **UI Indonesia:** pendekatan mobile first dengan pengalaman desktop yang lengkap.
-- **Lokal dan server:** alur Docker lokal sudah diverifikasi; rollout Coolify disiapkan terpisah dengan batas resource untuk server bersama.
-- **MVP sebelum eksperimen:** seluruh fitur wajib ditargetkan selesai Sprint 2; LLM opsional setelah MVP freeze.
-
-## Dokumentasi proyek
-
-| Dokumen | Kegunaan |
-| --- | --- |
-| [PRD](docs/PRD.md) | Tujuan, cakupan, pengguna, dan batas MVP |
-| [Requirement traceability](docs/REQUIREMENTS_TRACEABILITY.md) | Pemetaan 72 requirement SRS ke backlog dan pengujian |
-| [Arsitektur](docs/ARCHITECTURE.md) | Komponen aplikasi, stack, pipeline, dan lingkungan lokal |
-| [Spesifikasi analisis](docs/ANALYSIS_SPEC.md) | CCM, node, edge, evidence, cakupan analyzer, dan artefak |
-| [Model data](docs/DATA_MODEL.md) | Entitas penyimpanan, lifecycle, dan penghapusan |
-| [Kontrak API](docs/API_CONTRACT.md) | Endpoint, payload, otorisasi, status, dan error |
-| [Design guidelines](docs/DESIGN_GUIDELINES.md) | Acuan Figma, token, bahasa UI, state, dan responsivitas |
-| [Product backlog](docs/PRODUCT_BACKLOG.md) | Paket pekerjaan, dependensi, acceptance criteria, dan penanggung jawab |
-| [Sprint plan](docs/SPRINT_PLAN.md) | Kalender pengerjaan/review dan target tiap sprint |
-| [Alokasi sprint](docs/SPRINT_ALLOCATION.md) | Deliverable tiap anggota dan bukti kontribusi |
-| [Definition of Done](docs/DEFINITION_OF_DONE.md) | Syarat deliverable dan MVP dinyatakan selesai |
-| [Test plan](docs/TEST_PLAN.md) | Fixture, integrasi GitHub, dan verifikasi ekspor |
-| [BDD Sprint 1](docs/BDD_SPRINT1.md) | Skenario Cucumber, batas pengujian, dan pemetaan ke user story/requirement/issue |
-| [BDD Sprint 2](docs/BDD_SPRINT2.md) | Skenario SRS graph, dokumen/ekspor, history, dan pemeriksaan pendukung terisolasi |
-| [Keputusan dan risiko](docs/DECISIONS.md) | Keputusan, rancangan awal, TBD, dan risiko |
-| [Sumber](docs/SOURCES.md) | PDF, Figma, referensi teknis, dan urutan acuan |
-| [Kontribusi](CONTRIBUTING.md) | Pembagian modul, issue, branch, PR, commit, dan alur merge |
-
-Mulai dari PRD, keputusan, dan spesifikasi analisis, kemudian backlog serta sprint plan. Kontrak API dan model data diperbarui bersama ketika implementasi mengubah kontrak.
-
-## Roadmap sprint
-
-Semua tanggal mengikuti **Asia/Jakarta**. Setiap siklus terdiri atas dua minggu pengerjaan dan satu minggu review user story.
-
-| Sprint | Fokus | Pengerjaan | Review |
-| --- | --- | --- | --- |
-| Sprint 1 | Fondasi, akses repository, kontrak, dan jalur dasar dua bahasa | 12–25 Oktober 2026 | 26 Oktober–1 November 2026 |
-| Sprint 2 | Integrasi seluruh alur MVP dan feature freeze | 2–15 November 2026 | 16–22 November 2026 |
-| Sprint 3 | Regression, penyempurnaan, dokumentasi, dan demo | 23 November–6 Desember 2026 | 7–13 Desember 2026 |
-
-**Target feature-complete: 15 November 2026.** Kalender merupakan rencana; status selesai tetap memerlukan bukti dan review sesuai Definition of Done.
-
-## Tim dan kontribusi
-
-| Anggota | GitHub | Fokus modul |
-| --- | --- | --- |
-| Iltizam Muhammad Hasan | [@iltizamhasan3](https://github.com/iltizamhasan3) | Kontrak/JS/TS, canonical CKG, login/snapshot, review teknis, dan merge |
-| Rizqy Fadhil Athallah | [@rizqy-fadhil](https://github.com/rizqy-fadhil) | Akses/target repository, queue/pipeline, history, dan pengujian integrasi |
-| Valentina Hermawan | [@liliks13](https://github.com/liliks13) | UI, graph/inspector, diagram, PDF, dan verifikasi visual |
-| Zarra Firdaus Ananda Salia | [@zarrrafirdaus](https://github.com/zarrrafirdaus) | Model data, oracle, analyzer PHP, catalog/ADD, Markdown, dan cleanup |
-
-Pekerjaan dilacak melalui issue, branch, PR, dan bukti verifikasi. Gunakan **Conventional Commit satu baris/satu kalimat**. Penanggung jawab serta hasil aktual mengikuti [alur kontribusi](CONTRIBUTING.md) dan [alokasi sprint](docs/SPRINT_ALLOCATION.md).
-
-### Pengujian cleanup terisolasi
-
-`npm test` mencakup unit cleanup. `npm run test:cleanup:integration` dan `npm run test:cleanup:live` bersifat destruktif dan hanya menerima database disposable bernama `sage_cleanup23` dengan `SAGE_CLEANUP_TESTS=1`. Jangan arahkan ke database aplikasi. Tes browser memerlukan build Next, worker, session fixture, serta storage sementara yang sama; lihat [DATA-02 checks](docs/DATA-02_CHECKS.md).
-
-### Persiapan Coolify
-
-Image release `linux/amd64` dibangun di [repository build khusus](https://github.com/iltizamhasan3/sage-release-images), sehingga laptop dan server bersama tidak perlu menjalankan build. [Build dan smoke release 10 November 2026](https://github.com/iltizamhasan3/sage-release-images/actions/runs/42663739278) lulus; kedua image GHCR dapat diakses publik berdasarkan digest. Domain target adalah `https://sage.caiis.ai.id`. **Service Coolify sudah healthy, tetapi akses publik masih mengalami redirect loop melalui Cloudflare; OAuth produksi belum terverifikasi**; [catatan kesiapan](docs/evidence/deployment-readiness-2026-11-10.json) memisahkan hasil CI, konfigurasi tersimpan, dan langkah yang masih tertunda.
-
-Gunakan file **compose.coolify.yaml** terpisah untuk server bersama: image prebuilt ber-digest, migrasi, health check, batas resource dan volume privat. Domain diarahkan hanya ke web port internal 3000. `npm run deployment:check -- --env-file /path/private.env` memvalidasi tanpa start; `npm run deployment:smoke -- --project <project> --compose <file>` memeriksa stack yang disebutkan secara read-only. [Panduan Coolify](docs/COOLIFY.md) menjelaskan environment, image x86_64, backup dan rollback; [bukti DEP-01](docs/DEP-01_CHECKS.md) menjelaskan uji lokal; status rollout server terbaru tersedia pada catatan kesiapan. Perintah Docker lokal tetap memakai compose.yaml.
-
-### Benchmark resource lokal
-
-`npm run benchmark:prepare` menyiapkan source publik yang dipin, lalu `npm run benchmark:resources -- --output artifacts/resources/run-unique.json` mengukur adapter, canonical CKG/ADD, Markdown dan PDF dalam container offline baru per sampel. Laporan memisahkan waktu fase, CPU container, peak charged memory serta ukuran artefak; kegagalan PDF/OOM/timeout tetap dicatat. Output harus baru agar bukti tidak tertimpa. [PERF-02](docs/PERF-02_CHECKS.md) menjelaskan corpus, hasil aktual dan batasnya. [EXP-03](docs/EXP-03_CHECKS.md) memperbaiki penolakan PDF corpus menengah melalui proyeksi terbatas: TS/PHP masing-masing lulus 3/3, peak charged tertinggi sekitar 624 MiB. PDF menyebutkan simbol/relasi yang diringkas; canonical dan Markdown tetap lengkap. PDF menerima canonical input sampai 32 MiB, membatasi HTML hasil proyeksi sampai 12 MiB, dan membatasi output PDF sampai 32 MiB; repository lebih besar masih dapat ditolak. Ini bukan benchmark database/queue, login GitHub atau kapasitas Coolify bersama; quota produksi tetap perlu verifikasi operator.
-
-### Isi database dan penyimpanan hasil
-
-PostgreSQL menyimpan identitas pengguna, hash sesi, kredensial GitHub terenkripsi, metadata repository/analisis, stage/job, metadata source/storage, canonical CKG/ADD dan metadata ekspor. Archive source serta file Markdown/PDF berada di volume storage. Hasil tetap disimpan sampai pemilik menghapus analisis; tidak ada TTL otomatis.
-
-Hasil baru memakai `storageLayoutVersion: 2`: canonical graph/dokumen disimpan sekali, tanpa mirror JSON yang menggandakan isinya. Baris lama tetap terbaca dan hanya dikonversi setelah source, hash dan isi canonical tervalidasi. `npm run storage:compact` adalah audit operator; apply memerlukan `--apply` dan backup dahulu. Lihat [model data](docs/DATA_MODEL.md) dan [panduan serta hasil PERF-01](docs/PERF-01_CHECKS.md). Ini tidak mengganti kuota/benchmark Coolify atau menghapus data pengguna.
-
-## Langkah berikutnya
-
-1. Sebelum deployment Coolify pada server bersama, tetapkan kuota aplikasi, kapasitas disk dan strategi backup bersama operator. Penyimpanan graph/dokumen memakai canonical tunggal melalui **PERF-01 #96**; benchmark core tersedia pada **PERF-02 #98**. lihat [hasil pengukuran dan batas](docs/PERF-01_CHECKS.md). Penghematan payload bukan bukti performa server bersama.
-2. Consumer sembilan tahap, progres, retry, dan publikasi atomik tersedia pada **ANA-07 #16**; lihat [bukti serta batas pengujian](docs/ANA-07_CHECKS.md). Gate oracle formal tim tetap mengikuti #4/#11/#14.
-3. Canonical CKG dan persistensi owner/lease-scoped tersedia sebagai handler internal **ANA-06 #14**; lihat [bukti dan batas acceptance](docs/ANA-06_CHECKS.md). Model dan halaman dokumen **DOC-01 #15** tersedia untuk hasil tersimpan yang sukses; lihat [bukti DOC-01](docs/DOC-01_CHECKS.md). Query/filter dan inspector graph **#18–19**, Markdown/PDF **#20–21**, serta penghapusan **#23** tersedia dengan bukti masing-masing. History list/detail **#22** dan graph tersimpan **#17** sudah tersedia untuk record nyata; pipeline tersedia melalui worker ANA-07.
-4. Frontend Figma **UI-02 #59** dan **UI-03 #60** telah diuji pada lima viewport; bukti tersebut merupakan catatan historis fixture. Revisi workspace nyata, graph jaringan, evidence GitHub, dan detail bertahap dijelaskan pada [UI-05 checks](docs/UI-05_CHECKS.md).
-5. Ikuti bukti dan batas per issue: [GH-02](docs/GH-02_CHECKS.md), [REP-01](docs/REP-01_CHECKS.md), [REP-02](docs/REP-02_CHECKS.md), [ANA-02](docs/ANA-02_CHECKS.md), serta [test plan](docs/TEST_PLAN.md). Tutup acceptance produk setelah alur lengkap diperiksa.
+[Buka seluruh dokumentasi](docs/README.md).

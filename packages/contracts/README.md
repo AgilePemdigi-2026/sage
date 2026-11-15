@@ -34,7 +34,7 @@ Seluruh byte file berstatus `processed` harus valid UTF-8, termasuk bagian di lu
 
 Rentang deklarasi anak harus berada di dalam rentang parent pada file yang sama. Pemeriksaan siklus parent memakai traversal iteratif. Edge `CONTAINS` yang diberikan harus `Exact`, menghubungkan parent source ke anak source sesuai `parentId`, dan menyertakan evidence deklarasi anak. Validator tidak mewajibkan edge containment pada output adapter deklarasi yang belum menjalankan resolver. Pelanggaran rentang parent memakai `CCM_NODE_PARENT_BOUNDS_INVALID`; edge containment yang tidak konsisten memakai `CCM_EDGE_CONTAINMENT_INVALID`.
 
-Registry schema v1 tetap memakai tujuh kategori inti. `TypeAlias`, `Enum`, dan `Trait` belum ditambahkan; adapter mencatat keterbatasannya sesuai [spesifikasi analisis](../../docs/ANALYSIS_SPEC.md) dan [hasil spike taxonomy](../../docs/CCM_TAXONOMY_SPIKE.md). Hasil JSON yang telah disimpan harus divalidasi kembali bersama byte snapshot sebelum dikonsumsi. Bukti hardening dan kompatibilitas adapter tersedia pada [ANA-05](../../docs/ANA-05_CHECKS.md).
+Registry schema v1 tetap memakai tujuh kategori inti. `TypeAlias`, `Enum`, dan `Trait` belum ditambahkan; adapter mencatat keterbatasannya sesuai [spesifikasi analisis](../../docs/reference/ANALYSIS_SPEC.md) dan [hasil spike taxonomy](../../docs/archive/analyzer/CCM_TAXONOMY_SPIKE.md). Hasil JSON yang telah disimpan harus divalidasi kembali bersama byte snapshot sebelum dikonsumsi. Bukti hardening dan kompatibilitas adapter tersedia pada [ANA-05](../../docs/archive/analyzer/ANA-05_CHECKS.md).
 
 ## Cakupan
 

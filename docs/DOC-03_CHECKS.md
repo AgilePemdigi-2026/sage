@@ -1,29 +1,19 @@
 # Pemeriksaan README dan use flow
 
-Tanggal: 20 Oktober 2026. Paket DOC-03, issue [#62](https://github.com/AgilePemdigi-2026/sage/issues/62), penanggung jawab Rizqy (`rizqy-fadhil`).
+Dokumen ini dipindahkan ke [Pemeriksaan README dan use flow](archive/documents/DOC-03_CHECKS.md). Tautan lama dipertahankan untuk referensi issue dan PR.
 
-## Perubahan
+<a id="perubahan"></a>
 
-Emoji dekoratif dihapus dari judul, tabel, navigasi dan teks. Pembuka menggunakan judul, ringkasan, sepuluh logo teknologi lokal dan tautan dokumentasi yang terpusat; tidak memakai badge statistik/fitur yang belum dibuktikan. Rincian implementasi tetap tersedia dalam bagian yang dapat dibuka agar status preview dan consumer nonaktif tetap jelas.
+[Perubahan](archive/documents/DOC-03_CHECKS.md#perubahan)
 
-Flowchart Mermaid memisahkan login/izin repository/pemilihan target/full SHA yang tersedia dari pipeline dan hasil yang masih menunggu integrasi Sprint 2. Queue/API sudah ada, tetapi pemilih target belum memanggil submission dan consumer belum aktif. Perapian README tidak mengubah acceptance backend.
+<a id="referensi-yang-diperiksa"></a>
 
-Panduan Docker menjelaskan `docker compose stop`, `docker compose start`, serta penggunaan `up` untuk container yang belum dibuat atau telah dihapus. Saat web berhenti, localhost SAGE tidak tersedia; Docker Desktop/Colima boleh tetap aktif. Perintah stop mempertahankan data volume. Layanan yang sedang berjalan tidak dihentikan untuk pemeriksaan dokumentasi ini.
+[Referensi yang diperiksa](archive/documents/DOC-03_CHECKS.md#referensi-yang-diperiksa)
 
-## Referensi yang diperiksa
+<a id="verifikasi"></a>
 
-- [AppFlowy README](https://github.com/AppFlowy-IO/AppFlowy/blob/main/README.md): hierarki pembuka, ringkasan dan navigasi terpusat; teks/klaim/emoji proyek tersebut tidak disalin.
-- [Supabase README](https://github.com/supabase/supabase/blob/master/README.md): ringkasan produk, diagram penjelas dan rujukan dokumentasi.
-- Docker Docs: [compose stop](https://docs.docker.com/reference/cli/docker/compose/stop/) dan [compose start](https://docs.docker.com/reference/cli/docker/compose/start/).
+[Verifikasi](archive/documents/DOC-03_CHECKS.md#verifikasi)
 
-## Verifikasi
+<a id="revisi-pembuka-dan-interaksi"></a>
 
-README diproses melalui GitHub Markdown API (`gfm`) untuk memeriksa HTML yang disanitasi. Hasil ditinjau di Chromium pada 390 dan 1440 px dengan stylesheet lokal; diagram dirender memakai Mermaid yang dipin dalam project. Ini preview HTML tersanitasi dengan CSS pemeriksaan lokal, bukan klaim pemeriksaan UI GitHub langsung.
-
-Pemeriksaan mencakup judul terpusat, sepuluh logo termuat, diagram sembilan node valid, tidak ada overflow dokumen atau error JavaScript, tidak ada emoji dekoratif, path aset/tautan lokal valid, dan `git diff --check`. Screenshot, SVG hasil render dan laporan berada di `artifacts/doc-03` yang diabaikan Git. Tidak ada perubahan runtime, sehingga tes backend tidak diulang.
-
-## Revisi pembuka dan interaksi
-
-Banner SVG lama dipulihkan; judul SAGE terpisah di atasnya dihapus agar tidak berulang. Flowchart menggunakan `flowchart LR` untuk alur kiri ke kanan. Tautan Mermaid Live membawa source diagram yang sama melalui state terkompresi pada fragment URL; interaksi zoom/geser tersedia di viewer eksternal, sementara README tetap memuat diagram Mermaid biasa. Tidak memerlukan layanan SAGE lokal.
-
-Pemeriksaan ulang 20 Oktober: HTML GitHub tersanitasi dirender dengan CSS lokal pada 390/1440 px; banner dan sepuluh logo termuat, tidak ada heading ganda, overflow dokumen atau error JavaScript. Diagram sembilan node valid dan state tautan dapat didekode kembali menjadi source yang identik. Viewer Mermaid Live dibuka di Chromium dan interaksi wheel zoom serta drag pan diperiksa melalui perubahan transform diagram.
+[Revisi pembuka dan interaksi](archive/documents/DOC-03_CHECKS.md#revisi-pembuka-dan-interaksi)

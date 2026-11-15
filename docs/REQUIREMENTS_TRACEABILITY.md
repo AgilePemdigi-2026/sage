@@ -1,161 +1,39 @@
 # Requirements traceability
 
-Status diperbarui 9 November 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Mapping bukan bukti acceptance penuh. Status mengacu bukti pada issue/check record dan menyatakan batas controlled/live; `Planned` berarti belum ada bukti penerimaan yang dicatat. Signoff lokal REL-01 tidak menyatakan deployment Coolify atau kapasitas server bersama sudah teruji.
+Dokumen ini dipindahkan ke [Requirements traceability](planning/REQUIREMENTS_TRACEABILITY.md). Tautan lama dipertahankan untuk referensi issue dan PR.
 
-Judul requirement berasal dari SRC-SRS; nomor halaman menggunakan indeks PDF. Rincian perilaku dibaca bersama sumber dan PRD, bukan digantikan hanya oleh judul. ID backlog adalah ID internal; nomor issue GitHub tersedia pada tabel product backlog. Test ID merujuk [test plan](TEST_PLAN.md).
+<a id="requirement-srs"></a>
 
-## Requirement SRS
+[Requirement SRS](planning/REQUIREMENTS_TRACEABILITY.md#requirement-srs)
 
-| ID | Judul sumber | PDF hlm. | Screen/state | Backlog | Test case | Sprint target | Status |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| SAGE-FR-GH-01 | GitHub Connection Action | 27 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-GH-02 | GitHub Authorization Redirect | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-GH-03 | Authorization Callback Handling | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-GH-04 | Successful GitHub Connection | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-GH-05 | Authorized Repository Retrieval | 28 | Pilih Repository | GH-02 | T-GH-03, T-DATA-01 | 1 | Paket GH-02 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-GH-06 | Repository Access Restriction | 28 | Pilih Repository | GH-02 | T-GH-03, T-DATA-01 | 1 | Paket GH-02 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-GH-07 | Repository Selection Navigation | 28 | Landing / Pilih Repository | GH-01 | T-GH-01, T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-GH-08 | Permission Denial Handling | 28 | Landing | GH-01 | T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-GH-09 | Authentication Failure Handling | 28 | Landing | GH-01 | T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-GH-10 | Retry Connection | 28 | Landing | GH-01 | T-GH-02 | 1 | Paket GH-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-01 | Authorized Repository List | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-02 | Repository Search | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-03 | Repository Selection | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-04 | Analysis Target Display | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-05 | Branch Retrieval | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-06 | Branch Selection | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-07 | Optional Commit Selection | 30 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-08 | Latest Commit Fallback | 30 | Pilih Repository / Progres | REP-02 | T-REP-02 | 1 | Paket REP-02 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-09 | Analysis Target Validation | 30 | Pilih Repository | REP-01 | T-REP-02 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-10 | Repository Snapshot Retrieval | 30 | Pilih Repository / Progres | REP-02 | T-REP-02, T-SEC-01 | 1 | Paket REP-02 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-11 | Analysis Initialization | 30 | Progres | ANA-01 | T-ANA-01 | 1 | Paket ANA-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-REP-12 | Analysis Progress Navigation | 30 | Progres | ANA-07 | T-ANA-02 | 1-2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-REP-13 | Repository Search Empty Result | 31 | Pilih Repository | REP-01 | T-REP-01 | 1 | Paket REP-01 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-ANA-01 | Analysis Progress Display | 32 | Progres | ANA-07 | T-ANA-02 | 1-2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-ANA-02 | Repository Snapshot Processing | 32 | Progres | REP-02 | T-REP-02 | 1 | Paket REP-02 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-ANA-03 | Language and Project Structure Detection | 32 | Progres / Keterbatasan | ANA-02 | T-ANA-05 | 1 | Paket ANA-02 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-ANA-04 | Supported Source Code Analysis | 32 | Progres / Hasil | ANA-03, ANA-04 | T-ANA-03 | 1-2 | Adapter statis teruji sesuai capability; pipeline nyata teruji dengan provider terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-ANA-05 | Common Code Model Generation | 32 | Progres / Hasil | ANA-05 | T-ANA-04 | 1-2 | Validator/adapter serta oracle source-reviewed diterima; limitation tercatat (ANA-05_CHECKS, QA-01_CHECKS) |
-| SAGE-FR-ANA-06 | Code Knowledge Graph Generation | 33 | Graph | ANA-06 | T-ANA-04, T-GRAPH-01 | 2 | Canonical CKG, replay/counts/provenance dan persistensi terverifikasi (ANA-06_CHECKS) |
-| SAGE-FR-ANA-07 | Interface Catalog Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-ANA-08 | Software Engineering Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-ANA-09 | UML Class Diagram Generation | 33 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-ANA-10 | Architecture Definition Document Generation | 33 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-ANA-11 | Analysis Progress Update | 33 | Progres | ANA-07 | T-ANA-02 | 1-2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-ANA-12 | Unsupported Language Notification | 33 | Progres / Keterbatasan | ANA-02 | T-ANA-05 | 1 | Paket ANA-02 teruji; integrasi penuh mengikuti test plan |
-| SAGE-FR-ANA-13 | Partial Analysis Continuation | 33 | Progres / Keterbatasan | ANA-02, ANA-03, ANA-04 | T-ANA-05 | 1-2 | Partial/failed sibling dan unresolved teruji pada worker; alur produk teruji dengan provider terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-ANA-14 | Analysis Completion Status | 33 | Progres | ANA-07 | T-ANA-02, T-ANA-05 | 2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-ANA-15 | Analysis Result Access | 33 | Progres / Graph | ANA-07, GRAPH-01 | T-GRAPH-01 | 2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-GRAPH-01 | Analysis Context Display | 35 | Graph | GRAPH-01 | T-GRAPH-01 | 2 | Graph CKG tersimpan dan publikasi pipeline teruji dengan provider terkontrol (GRAPH-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-GRAPH-02 | Code Knowledge Graph Display | 35 | Graph | GRAPH-01 | T-GRAPH-01 | 2 | Graph CKG tersimpan dan publikasi pipeline teruji dengan provider terkontrol (GRAPH-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-GRAPH-03 | Node Query | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Query AND kategori canonical, reset/no-result dan immutability teruji (GRAPH-02_CHECKS) |
-| SAGE-FR-GRAPH-04 | AST Category Filter | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Query AND kategori canonical, reset/no-result dan immutability teruji (GRAPH-02_CHECKS) |
-| SAGE-FR-GRAPH-05 | Graph Filtering Result | 35 | Graph | GRAPH-02 | T-GRAPH-02 | 2 | Query AND kategori canonical, reset/no-result dan immutability teruji (GRAPH-02_CHECKS) |
-| SAGE-FR-GRAPH-06 | Node Selection | 35 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Terimplementasi dan teruji; batas fixture pada GRAPH-03_CHECKS |
-| SAGE-FR-GRAPH-07 | Node Inspector | 35 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Terimplementasi dan teruji; batas fixture pada GRAPH-03_CHECKS |
-| SAGE-FR-GRAPH-08 | Location and AST Bounds Display | 35 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Terimplementasi dan teruji; batas fixture pada GRAPH-03_CHECKS |
-| SAGE-FR-GRAPH-09 | Direct Relations Display | 36 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Terimplementasi dan teruji; batas fixture pada GRAPH-03_CHECKS |
-| SAGE-FR-GRAPH-10 | Source Evidence Display | 36 | Graph / Inspector / Source | GRAPH-03 | T-GRAPH-03 | 2 | Terimplementasi dan teruji; batas fixture pada GRAPH-03_CHECKS |
-| SAGE-FR-GRAPH-11 | Document Access | 36 | Graph / Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-GRAPH-12 | Unavailable Result Handling | 36 | Graph unavailable / Progres | ANA-07 | T-ANA-02, T-GRAPH-03 | 1-2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-GRAPH-13 | Analysis Progress Display | 36 | Graph unavailable / Progres | ANA-07 | T-ANA-02, T-GRAPH-03 | 1-2 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| SAGE-FR-EXP-01 | Architecture Definition Document Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-EXP-02 | Interface Catalog Display | 37 | Dokumen | DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-EXP-03 | Software Engineering Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-EXP-04 | UML Class Diagram Display | 37 | Dokumen | DOC-02, DOC-01 | T-DOC-01 | 2 | DOC-01 paket teruji; publikasi atomik pipeline teruji dengan provider terkontrol (DOC-01_CHECKS, ANA-07_CHECKS) |
-| SAGE-FR-EXP-05 | PDF Export | 38 | Dokumen / Ekspor PDF | EXP-02 | T-EXP-02 | 2 | Implemented; teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
-| SAGE-FR-EXP-06 | Markdown Export | 38 | Dokumen / Ekspor Markdown | EXP-01 | T-EXP-01 | 2 | Markdown tersedia; bukti dan batas EXP-01_CHECKS |
-| SAGE-FR-EXP-07 | Export File Generation | 38 | Dokumen / Ekspor | EXP-01, EXP-02 | T-EXP-01, T-EXP-02, T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
-| SAGE-FR-EXP-08 | Export File Availability | 38 | Dokumen / Ekspor | EXP-01, EXP-02 | T-EXP-01, T-EXP-02, T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
-| SAGE-FR-EXP-09 | Export Failure Notification | 38 | Dokumen / Ekspor gagal | EXP-01, EXP-02 | T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
-| SAGE-FR-EXP-10 | Export Retry | 38 | Dokumen / Ekspor gagal | EXP-01, EXP-02 | T-EXP-03 | 2 | Markdown terimplementasi (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
-| SAGE-FR-HIST-01 | Analysis History Display | 39 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Query/owner integration, HTTP, dan render history Chromium lulus; review owner pending (HIST-01_CHECKS) |
-| SAGE-FR-HIST-02 | Analysis History Information | 39 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | API detail serta sembilan label tahap terlihat pada Chromium; hanya satu fixture completed (HIST-01_CHECKS) |
-| SAGE-FR-HIST-03 | Repository Search | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Search repository/branch diuji PostgreSQL dan nama repository di browser (HIST-01_CHECKS) |
-| SAGE-FR-HIST-04 | Commit SHA Search | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | SHA search lulus pada PostgreSQL; belum diulang di browser (HIST-01_CHECKS) |
-| SAGE-FR-HIST-05 | History Filtering | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Status/query/cursor lulus PostgreSQL; browser menguji query dan reset filter (HIST-01_CHECKS) |
-| SAGE-FR-HIST-06 | Analysis History Selection | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Owner-scoped API dan klik menuju detail lulus (HIST-01_CHECKS) |
-| SAGE-FR-HIST-07 | Completed Analysis Navigation | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Detail completed terbuka; graph tujuan belum dibuka pada smoke HIST-01 (HIST-01_CHECKS) |
-| SAGE-FR-HIST-08 | Ongoing Analysis Navigation | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Detail/progress dan poller state terimplementasi; browser belum menguji status aktif (HIST-01_CHECKS) |
-| SAGE-FR-HIST-09 | Empty History State | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | No-match state dirender di browser; akun tanpa record belum diuji di browser (HIST-01_CHECKS) |
-| SAGE-FR-HIST-10 | New Analysis Action | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Aksi submission tersedia; browser smoke tidak mengirim analisis (HIST-01_CHECKS) |
-| SAGE-FR-HIST-11 | New Analysis Navigation | 40 | Riwayat Analisis | HIST-01 | T-HIST-01, T-DATA-01 | 2 | Navigasi ke submission tersedia; browser smoke tidak menguji alur ini (HIST-01_CHECKS) |
+<a id="requirement-lokal-hasil-keputusan"></a>
 
-## Requirement lokal hasil keputusan
+[Requirement lokal hasil keputusan](planning/REQUIREMENTS_TRACEABILITY.md#requirement-lokal-hasil-keputusan)
 
-ID `APP-*` merupakan tambahan project, bukan identifier yang diklaim berasal dari PDF. Semua masih Planned kecuali kebijakan planning yang telah disepakati; bukti runtime tetap NOT_RUN.
+<a id="nonfunctional-requirement-dan-batas-teknis"></a>
 
-| ID | Requirement | Backlog | Test case/bukti | Status |
-| --- | --- | --- | --- | --- |
-| APP-01 | Semua analisis memerlukan login dan history milik pengguna | GH-01, HIST-01, DATA-01 | T-GH-01, T-DATA-01, T-HIST-01 | Fresh GitHub login, owner history, and test-analysis deletion verified on isolated empty-volume Docker run; broader owner-isolation/error coverage remains in GH/DATA/HIST records ([QA-02](QA-02_CHECKS.md)) |
-| APP-02 | Setelah login, public repository pihak lain dapat dipilih melalui URL/slug | GH-02, REP-01 | T-GH-03, T-REP-01 | Live public repository list and pinned full-SHA target selection verified on fresh run; provider/error matrix remains in GH-02/REP-01 ([QA-02](QA-02_CHECKS.md)) |
-| APP-03 | Hanya satu analysis repository aktif secara global dengan antrean | ANA-01 | T-ANA-01 | Planned |
-| APP-04 | Target full SHA immutable sebelum antrean dan retry memakai record baru | REP-02, ANA-07 | T-REP-02, T-ANA-06 | Pipeline/progres/retry dan publikasi atomik teruji; provider browser terkontrol (ANA-07_CHECKS) |
-| APP-05 | Hasil/snapshot disimpan sampai user menghapus; deletion membersihkan turunannya | DATA-01, DATA-02 | T-DATA-01, T-DATA-02 | Implemented; owner-only cleanup/retry teruji ([bukti](DATA-02_CHECKS.md)) |
-| APP-06 | Semua komponen MVP berjalan lokal melalui Docker Compose | ENV-01, REL-01 | T-REL-01 | Fresh isolated database/storage volumes, migration, healthy services, login, analysis, docs, exports and cleanup verified locally; Coolify/shared host not tested ([REL-01](REL-01_CHECKS.md)) |
-| APP-07 | UI menggunakan Bahasa Indonesia | UI-01, QA-03 | T-UI-01 | Teruji pada history, progress, graph, dokumen dan alur repository; [QA-03](QA-03_CHECKS.md), batas text-contrast sampling berlaku |
-| APP-08 | Mobile first dengan pengalaman laptop/desktop yang tetap lengkap | UI-01, GRAPH-01, QA-03 | T-UI-01 | Lima viewport diuji untuk halaman utama dan graph; [QA-03](QA-03_CHECKS.md), batas raster/SVG contrast tetap dicatat |
-| APP-09 | LLM tidak menjadi dependency MVP sebelum freeze | ENV-01, REL-01 | T-REL-01 dan review dependency/config | Tidak ada integrasi/provider LLM atau credential model pada source/config; analyzer berbasis aturan statis dan dependency scan lokal |
-| APP-10 | PHP dan JS/TS dikembangkan paralel dan diuji melalui capability matrix | ANA-03, ANA-04, QA-01 | T-ANA-03, T-ANA-04 | Dua capability matrix, 33 fakta resolver, signoff source oracle dan benchmark dua corpus tersedia; batas kapasitas dicatat (QA-01_CHECKS) |
-| APP-11 | Error pipeline, recovery, source unavailable, dan export retry dapat ditindaklanjuti | ANA-07, GRAPH-03, EXP-01, EXP-02 | T-ANA-06, T-GRAPH-03, T-EXP-03 | Pipeline/retry/recovery memiliki bukti terkontrol (ANA-07_CHECKS); source unavailable/retry teruji (GRAPH-03_CHECKS); failure/retry Markdown tersedia (EXP-01_CHECKS); PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
-| APP-12 | Seluruh fitur MVP ditargetkan selesai Sprint 2, Sprint 3 finishing | REL-01, FIN-01, FIN-02, FIN-03, FIN-04 | T-REL-01 dan review sprint | Jadwal target 15 November 2026; issue Sprint 2 22/22 closed; signoff #24/#26 diterima setelah review dan merge PR #127. Tanggal milestone belum dinyatakan tercapai sebelum Sprint 2 berakhir. |
-| APP-13 | Handoff memakai issue/PR dan commit Conventional Commit satu kalimat | PLAN-01 | Pemeriksaan dokumentasi, issue/PR, dan metadata commit aktual | Kebijakan disepakati |
+[Nonfunctional requirement dan batas teknis](planning/REQUIREMENTS_TRACEABILITY.md#nonfunctional-requirement-dan-batas-teknis)
 
-## Nonfunctional requirement dan batas teknis
+<a id="resolusi-ketidaksesuaian"></a>
 
-ID `NFR-*` adalah indeks lokal untuk pengujian prinsip yang tersebar di SRS; bukan penomoran asli sumber.
+[Resolusi ketidaksesuaian](planning/REQUIREMENTS_TRACEABILITY.md#resolusi-ketidaksesuaian)
 
-| ID | Prinsip dan referensi SRS | Backlog | Test case | Status |
-| --- | --- | --- | --- | --- |
-| NFR-01 | Fakta teknis static analysis dan Exact/Unresolved, SRS 2.5 dan 5.4 | ANA-03, ANA-04, ANA-05, ANA-06 | T-ANA-03, T-ANA-04, T-DOC-01 | Adapter, source-reviewed oracle dan canonical CKG tercatat pada ANA-05/06_CHECKS dan QA-01_CHECKS; batas klaim tetap berlaku |
-| NFR-02 | Traceability file/baris, SRS 2.5 dan 5.4 | ANA-05, GRAPH-03, DOC-01, DOC-02 | T-ANA-04, T-GRAPH-03, T-DOC-01 | Inspector/source snapshot dan bounds teruji (GRAPH-03_CHECKS); oracle source review diterima (QA-01_CHECKS) |
-| NFR-03 | Konsistensi snapshot yang sama, SRS 5.4 Reliability | REP-02, ANA-06 | T-REP-02, T-ANA-04 | Hash CKG deterministik, evidence dicocokkan pada snapshot yang sama dan replay diterima (ANA-06_CHECKS) |
-| NFR-04 | Source asli tidak berubah dan kode target tidak dieksekusi, SRS 5.2 dan glossary | REP-02, ANA-03, ANA-04 | T-SEC-01 | Snapshot/adapter teruji tanpa eksekusi source atau konfigurasi target |
-| NFR-05 | Credential terlindungi dan akses user terisolasi, SRS 5.3 | GH-01, DATA-01, DATA-02 | T-GH-02, T-DATA-01, T-DATA-02, T-SEC-01 | Owner/auth/cleanup teruji; signoff keamanan menyeluruh tetap QA-02 |
-| NFR-06 | Progress tetap tersedia dan resource/performa diukur, SRS 5.1 | ENV-01, ANA-01, ANA-07, QA-01 | T-ANA-01, T-ANA-02, T-REL-01 | Benchmark enam run pada dua corpus repository tersedia (QA-01_CHECKS); progres browser/worker teruji dengan provider terkontrol (ANA-07_CHECKS); kapasitas dekat ceiling belum diterima, SLA tetap TBD |
-| NFR-07 | Usability serta bahasa/responsivitas keputusan project, SRS 5.4 dan APP-07/08 | UI-01, QA-03 | T-UI-01 | Lima viewport, keyboard focus dan visible text contrast lulus dalam scope sampled; SVG/canvas contrast tidak dipixel-audit ([QA-03](QA-03_CHECKS.md)) |
-| NFR-08 | Maintainability adapter/contracts dan interoperabilitas, SRS 5.4 | ENV-01, ANA-05, REL-01 | T-ANA-04, T-REL-01 | Adapter contract, semantic fixtures, typecheck, serta build Docker lokal teruji; registry pull, domain, Coolify dan interoperability server bersama belum diuji ([REL-01](REL-01_CHECKS.md)) |
-| NFR-09 | Kegagalan export tidak mengubah hasil, SRS 5.2 | EXP-01, EXP-02 | T-EXP-03 | Ekspor/retry Markdown menjaga hash analisis/CKG/ADD; PDF teruji ([EXP-02_CHECKS](EXP-02_CHECKS.md)) |
+<a id="mapping-fase-dan-regression"></a>
 
-## Resolusi ketidaksesuaian
+[Mapping fase dan regression](planning/REQUIREMENTS_TRACEABILITY.md#mapping-fase-dan-regression)
 
-Pakai Exact/Unresolved tanpa Inferred Static Edge; filter memakai kategori AST, bukan Service; context full SHA tetap; history berbasis status; source preview dan export membaca snapshot/document yang sama. Detail perubahan dan status 24 TBD ada di [decision log](DECISIONS.md).
+<a id="pemeliharaan-mapping"></a>
 
-## Mapping fase dan regression
+[Pemeliharaan mapping](planning/REQUIREMENTS_TRACEABILITY.md#pemeliharaan-mapping)
 
-Pemisahan berikut mempertahankan 72 ID SRS dan seluruh acceptance parent. Daftar requirement pada issue adalah konteks yang diwarisi dari paket sumber; fase hanya membuktikan scope yang tercantum, bukan otomatis memverifikasi semua requirement konteks tersebut.
+<a id="optimasi-storage-sebelum-deployment"></a>
 
-| Paket fase/regression | Mewarisi konteks backlog | Bukti terbatas yang harus tersedia |
-| --- | --- | --- |
-| QA-01-S1 | QA-01 | T-ANA-03/T-ANA-04 (oracle minimum; semantic adapter acceptance tetap menunggu implementasi) |
-| UI-01 | GH-01, REP-01, ANA-07, QA-03 | T-UI-01 (komponen dasar, bukan acceptance UI produk penuh) |
-| ANA-05-S1 | ANA-05 | T-ANA-04 (kontrak minimum) |
-| ANA-03-S1 | ANA-03 | T-ANA-03/T-ANA-04 (deklarasi minimum) |
-| ANA-04-S1 | ANA-04 | T-ANA-03/T-ANA-04 (PHP minimum) |
-| ANA-07-S1 | ANA-07 | T-ANA-02 (runner terkontrol; integrasi nyata NOT_RUN) |
-| GRAPH-01-S1 | GRAPH-01 | T-GRAPH-01/T-UI-01 (fixture canvas dasar) |
-| QA-03-S1 | QA-03 | T-UI-01 (baseline; acceptance UI produk lengkap tetap QA-03) |
-| DOC-02 | DOC-01 | T-DOC-01, T-EXP-02, T-SEC-01 (bagian proyeksi/render) |
-| FIN-03 | GH-01, GH-02, REP-01, ANA-07, HIST-01, QA-02 | T-GH-01/02/03, T-REP-01/02, T-ANA-01/02/06, T-HIST-01, T-REL-01 |
-| FIN-04 | GRAPH-01, GRAPH-02, GRAPH-03, QA-03, EXP-02 | T-GRAPH-01/02/03, T-UI-01, T-EXP-02/03 |
+[Optimasi storage sebelum deployment](planning/REQUIREMENTS_TRACEABILITY.md#optimasi-storage-sebelum-deployment)
 
-UI-01 membuktikan komponen dasar, `*-S1` membuktikan hasil awal Sprint 1, dan DOC-02 membuktikan dua proyeksi diagram. Integrasi GitHub/analisis/ekspor nyata tetap diperiksa pada parent dan kasus penerimaan lengkap. FIN-03/04 mengulang kasus terkait setelah freeze; penambahan issue tidak menciptakan requirement sumber baru atau hasil PASS baru.
+<a id="bukti-operasional-ops-01--2-november-2026"></a>
 
-## Pemeliharaan mapping
+[Bukti operasional OPS-01 — 2 November 2026](planning/REQUIREMENTS_TRACEABILITY.md#bukti-operasional-ops-01--2-november-2026)
 
-Setelah issue nyata dibuat, tambahkan URL/nomor issue pada ID backlog terkait. Setelah pengujian, tautkan run yang memuat commit aplikasi, fixture/full SHA, versi config, serta hasil aktual. Requirement hanya menjadi Verified setelah bukti dan review sesuai [Definition of Done](DEFINITION_OF_DONE.md); persiapan, mock, atau screenshot saja tidak menutup seluruh requirement.
+<a id="explainable-analysis-extension"></a>
 
-UI-02 (#59) dan UI-03 (#60) menambah frontend Figma pada Sprint 1. Preview progres/history/graph/dokumen menggunakan fixture ReportService tervalidasi, bukan hasil pipeline pengguna. Karena itu perubahan tampilan tidak menutup requirement analisis, persistensi history, generator artefak, atau ekspor produk. Bukti UI dicatat di [UI-02_CHECKS.md](UI-02_CHECKS.md).
-
-## Optimasi storage sebelum deployment
-
-PERF-01 #96 merupakan paket teknis lokal pendukung persistensi dan efisiensi; tidak menambah requirement SRS atau menyatakan acceptance release selesai. T-PERF-01 membuktikan canonical/source/hash/owner tetap terjaga saat mirror lama dihapus, dengan regresi alur graph/dokumen dan ekspor layout 2. Pemetaan requirement yang ada tidak berubah. Hasil, pengukuran dan batas tercatat pada [PERF-01_CHECKS](PERF-01_CHECKS.md); REL-01/FIN-01 tetap memiliki gate sendiri.
-
-
-## Bukti operasional OPS-01 — 2 November 2026
-
-OPS-01 #104 menambah T-OPS-01 untuk diagnostik aman dan retry service terbatas, serta mengulang T-ANA-01/T-ANA-06 untuk owner/lease/attempt fencing, shutdown, recovery `WORKER_INTERRUPTED` dan publikasi setelah retry eksplisit. [OPS-01_CHECKS](OPS-01_CHECKS.md) memisahkan unit, PostgreSQL/proses nyata dan provider fixture; batas worker tetap 2 GiB/1,5 CPU. Ini mendukung FIN-01/QA-02/REL-01 tanpa menerima seluruh gate release atau kapasitas server bersama.
-
-## Explainable analysis extension
-
-Source-backed reconstruction and source traceability are extended with semantic v2 relationship explanations and static documentation context. Acceptance and compatibility are specified in [EXPLAINABLE_ANALYSIS.md](EXPLAINABLE_ANALYSIS.md); verification scenarios are in [TEST_PLAN.md](TEST_PLAN.md). Documentation context does not expand the CKG resolution taxonomy or claim universal framework/runtime support.
+[Explainable analysis extension](planning/REQUIREMENTS_TRACEABILITY.md#explainable-analysis-extension)

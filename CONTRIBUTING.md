@@ -1,6 +1,6 @@
 # Alur kontribusi
 
-Status: workflow aktif. Per 20 Oktober 2026, 41 GitHub Issues dan tiga milestone tersedia; issue implementasi dan bukti terbaru menjadi acuan status pekerjaan.
+Workflow: **issue → branch → pengujian → PR → review → merge**. Gunakan issue, milestone, dan bukti acceptance aktual; jumlah issue tidak dipatok di panduan ini.
 
 ## Tanggung jawab
 
@@ -13,12 +13,12 @@ Pekerjaan direncanakan berdasarkan modul, deliverable, dan dependensi antar-issu
 | Valentina Hermawan | Shell UI/mobile/desktop, graph/inspector, proyeksi diagram, PDF, dan regression visual |
 | Zarra Firdaus Ananda Salia | Model data/session/credential, oracle, adapter PHP, catalog/ADD, Markdown, cleanup, dan panduan/demo |
 
-Pembagian di atas merupakan rencana tanggung jawab. Setiap issue/PR mencatat scope, pelaksana, pemeriksa, dan hasil aktualnya. Akun GitHub yang dipetakan adalah Iltizam `iltizamhasan3`, Rizqy `rizqy-fadhil`, Valentina `liliks13`, dan Zarra `zarrrafirdaus`. Semua akun sudah terverifikasi sebagai kolaborator dan seluruh paket Zarra telah di-assign ke akunnya. Scope tiap sprint mengikuti [alokasi sprint](docs/SPRINT_ALLOCATION.md).
+Pembagian di atas merupakan rencana tanggung jawab. Setiap issue/PR mencatat scope, pelaksana, pemeriksa, dan hasil aktualnya. Akun GitHub yang dipetakan adalah Iltizam `iltizamhasan3`, Rizqy `rizqy-fadhil`, Valentina `liliks13`, dan Zarra `zarrrafirdaus`. Assignment dan hak akses mengikuti kondisi GitHub saat pengerjaan. Scope tiap sprint mengikuti [alokasi sprint](docs/planning/SPRINT_ALLOCATION.md).
 
 ## Issues dan milestone
 
 - Satu issue memiliki satu deliverable yang dapat diperiksa dan satu penanggung jawab utama.
-- Gunakan ID backlog internal dari [product backlog](docs/PRODUCT_BACKLOG.md); nomor issue GitHub ditambahkan setelah issue benar-benar dibuat.
+- Gunakan ID backlog internal dari [product backlog](docs/planning/PRODUCT_BACKLOG.md); nomor issue GitHub ditambahkan setelah issue benar-benar dibuat.
 - Cantumkan requirement, scope, file yang terkait, dependensi, acceptance criteria, dan bukti yang harus dilampirkan.
 - Milestone: `Sprint 1`, `Sprint 2`, `Sprint 3` dengan tanggal akhir review masing-masing.
 - Label area: `planning`, `github`, `repository`, `analyzer`, `graph`, `document`, `export`, `data`, `testing`, `ui`, `bug`, `blocked`.
@@ -37,9 +37,9 @@ Penanggung jawab paket memperbarui branch dari base yang sesuai, memeriksa diff,
 
 ## Branch dan PR
 
-Gunakan branch seperti `feat/12-github-callback`, `fix/34-source-preview`, atau `docs/56-test-plan`; nomor hanya contoh dan harus diganti dengan nomor issue nyata. Satu branch berfokus pada satu paket atau beberapa issue yang memiliki dependensi kuat. Satu issue boleh berisi beberapa commit untuk perubahan substantif yang terpisah, seperti kontrak, persistensi, integrasi, dan dokumentasi; jangan menambah commit kosong atau memecah perubahan tanpa alasan teknis.
+Gunakan branch seperti `feat/12-github-callback`, `fix/34-source-preview`, atau `docs/56-test-plan`; nomor hanya contoh dan harus diganti dengan nomor issue nyata. Nama branch tidak menggunakan nama alat bantu. Satu branch berfokus pada satu paket atau beberapa issue yang memiliki dependensi kuat. Satu issue boleh berisi beberapa commit untuk perubahan substantif yang terpisah, seperti kontrak, persistensi, integrasi, dan dokumentasi; jangan menambah commit kosong atau memecah perubahan tanpa alasan teknis.
 
-Alur kerja: issue siap -> pengerjaan paket -> verifikasi -> commit -> PR -> review teknis oleh Iltizam -> merge oleh Iltizam ke `main`. Commit awal baseline planning dibuat langsung pada repository yang masih kosong. Proteksi `main` mewajibkan PR dan penyelesaian percakapan review; minimum approval adalah 0 sehingga PR buatan sendiri dapat di-merge setelah diperiksa tanpa menunggu approval akun lain. GitHub tetap tidak menyediakan self-approval. Review teknis dan bukti verifikasi tetap dicatat; force push dan penghapusan diblokir. Akun yang terdaftar untuk push/merge adalah `iltizamhasan3`; administrator tetap dapat mengubah pengaturan proteksi. Pemeriksaan wajib CI ditambahkan setelah workflow CI tersedia.
+Alur kerja: issue siap -> pengerjaan paket -> verifikasi -> commit -> PR -> review teknis oleh Iltizam -> merge oleh Iltizam ke `main`. Commit awal baseline planning dibuat langsung pada repository yang masih kosong. Proteksi `main` mewajibkan PR dan penyelesaian percakapan review; minimum approval adalah 0 sehingga PR buatan sendiri dapat di-merge setelah diperiksa tanpa menunggu approval akun lain. GitHub tetap tidak menyediakan self-approval. Review teknis dan bukti verifikasi tetap dicatat; force push dan penghapusan diblokir. Akun yang terdaftar untuk push/merge adalah `iltizamhasan3`; administrator tetap dapat mengubah pengaturan proteksi. Periksa status checks dan aturan proteksi yang berlaku pada PR sebelum merge.
 
 Agent reviewer independen meninjau diff dan konteks langsung dari PR pada head SHA yang dicatat. Temuan dicantumkan pada review PR dan diperbaiki sebelum merge; review diri sendiri dicatat sebagai komentar karena GitHub tidak mengizinkan self-approval.
 
@@ -69,4 +69,8 @@ Gunakan identitas Git milik pengirim yang sudah diperiksa. Secret, token, privat
 
 ## Review dokumentasi
 
-Periksa tautan relatif, kelengkapan requirement, kesamaan enum/API, kalender, dan status bukti. Saat dokumentasi berubah bersama implementasi, PR harus memperbarui dokumen yang terdampak, menunjuk issue/check yang menjadi dasar klaim, dan membedakan layanan nyata, fixture, serta pekerjaan rencana. Hasil pengujian hanya diperbarui dengan bukti dari run yang benar-benar dilakukan; laporan historis tetap mencatat scope dan hasil saat itu. Perubahan scope atau keputusan harus memperbarui [decision log](docs/DECISIONS.md), traceability, backlog, dan test plan yang terdampak.
+Periksa tautan relatif, kelengkapan requirement, kesamaan enum/API, kalender, dan status bukti. Saat dokumentasi berubah bersama implementasi, PR harus memperbarui dokumen yang terdampak, menunjuk issue/check yang menjadi dasar klaim, dan membedakan layanan nyata, fixture, serta pekerjaan rencana. Hasil pengujian hanya diperbarui dengan bukti dari run yang benar-benar dilakukan; laporan historis tetap mencatat scope dan hasil saat itu. Perubahan scope atau keputusan harus memperbarui [decision log](docs/planning/DECISIONS.md), traceability, backlog, dan test plan yang terdampak.
+
+## Pemeriksaan sebelum PR
+
+Untuk perubahan implementasi, jalankan pemeriksaan yang relevan dan `npm run check` sesuai [panduan testing](docs/guides/TESTING.md). Untuk dokumentasi saja, cocokkan command dengan package scripts/Compose, periksa tautan/anchor/aset, dan lihat rendering GitHub. Jangan mengklaim pengujian aplikasi baru berdasarkan pemindahan laporan lama. Sertakan hasil aktual dan batas yang belum diuji dalam PR.
