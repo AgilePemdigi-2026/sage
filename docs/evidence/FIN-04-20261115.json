@@ -1,0 +1,14 @@
+{
+  "issue": 40,
+  "baseCommit": "e85fb6fef249f81ec543fa681d8678f47bd7667a",
+  "browserStatus": "PASS",
+  "browserLogSha256": "820f893172d8e6621a66da3a0b2922e83abce9619b9eb2e1a9a628a7dc37cde9",
+  "scope": "Real React/Next browser with intercepted API fixtures and saved corpus models",
+  "fullAcceptance": "PENDING_ALL_SCREEN_MATRIX_AND_PDF_VISUAL_SIGNOFF",
+  "unit": {
+    "status": "PASS",
+    "tests": 53,
+    "logSha256": "312f89cf29b55e2b84da26838b9e081c2a6b5aca7fde2eda6dbfec9c77013de1",
+    "command": "npx tsx --test tests/graph-modes.test.ts tests/graph-filters.test.ts tests/graph-data.test.ts tests/inspector-data.test.ts tests/pdf-export.test.ts tests/pdf-projection.test.ts tests/human-diagrams.test.ts"
+  }
+}
