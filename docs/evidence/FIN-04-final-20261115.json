@@ -1,0 +1,132 @@
+{
+  "issue": 40,
+  "node": "24.22.3",
+  "pipelineMatrix": [
+    {
+      "state": "repository-selected",
+      "width": 360,
+      "overflow": 0
+    },
+    {
+      "state": "repository-selected",
+      "width": 390,
+      "overflow": 0
+    },
+    {
+      "state": "repository-selected",
+      "width": 768,
+      "overflow": 0
+    },
+    {
+      "state": "repository-selected",
+      "width": 1024,
+      "overflow": 0
+    },
+    {
+      "state": "repository-selected",
+      "width": 1440,
+      "overflow": 0
+    },
+    {
+      "state": "pipeline-complete",
+      "width": 360,
+      "overflow": 0
+    },
+    {
+      "state": "pipeline-complete",
+      "width": 390,
+      "overflow": 0
+    },
+    {
+      "state": "pipeline-complete",
+      "width": 768,
+      "overflow": 0
+    },
+    {
+      "state": "pipeline-complete",
+      "width": 1024,
+      "overflow": 0
+    },
+    {
+      "state": "pipeline-complete",
+      "width": 1440,
+      "overflow": 0
+    },
+    {
+      "state": "retry-progress",
+      "width": 360,
+      "overflow": 0
+    },
+    {
+      "state": "retry-progress",
+      "width": 390,
+      "overflow": 0
+    },
+    {
+      "state": "retry-progress",
+      "width": 768,
+      "overflow": 0
+    },
+    {
+      "state": "retry-progress",
+      "width": 1024,
+      "overflow": 0
+    },
+    {
+      "state": "retry-progress",
+      "width": 1440,
+      "overflow": 0
+    },
+    {
+      "state": "retry-permission-error",
+      "width": 360,
+      "overflow": 0
+    },
+    {
+      "state": "retry-permission-error",
+      "width": 390,
+      "overflow": 0
+    },
+    {
+      "state": "retry-permission-error",
+      "width": 768,
+      "overflow": 0
+    },
+    {
+      "state": "retry-permission-error",
+      "width": 1024,
+      "overflow": 0
+    },
+    {
+      "state": "retry-permission-error",
+      "width": 1440,
+      "overflow": 0
+    }
+  ],
+  "pipelineStatus": "PASS",
+  "matrixRun": "artifacts/bdd/sprint2-2026-11-15T10-54-26-914Z",
+  "fullRun": "artifacts/bdd/sprint2-2026-11-15T10-47-22-227Z",
+  "pdfVisualStatus": "PASS",
+  "pdfVisualScope": "All pages of three distinct sampled PDFs; byte-identical normal 390px copy deduplicated",
+  "pdfPagesReviewed": 12,
+  "pdfs": [
+    {
+      "file": "sage-pdf21-browser-1440.pdf",
+      "pages": 4,
+      "sha256": "749a29aa7b933c3a55a0fc79bf485209a50881bce6aed4e0fc8eedf24b90c772",
+      "visual": "PASS"
+    },
+    {
+      "file": "sage-pdf21-browser-retry.pdf",
+      "pages": 4,
+      "sha256": "7dae461bf0297dedc0d20566a40b5c4886cc45da5c3864adcc766beaff4b5f32",
+      "visual": "PASS"
+    },
+    {
+      "file": "bce-main-classes.pdf",
+      "pages": 4,
+      "sha256": "e4e8b01a6443206a4c6da286e321d1348bfb22815b01db1e633cefd6dd2e56f4",
+      "visual": "PASS"
+    }
+  ]
+}
