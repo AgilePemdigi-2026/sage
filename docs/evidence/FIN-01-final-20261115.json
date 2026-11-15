@@ -1,0 +1,16 @@
+{
+  "issue": 27,
+  "baseCommit": "43a48340477c824cf98fc792a232794796276b84",
+  "node": "24.22.3",
+  "check": "PASS",
+  "unitTests": 548,
+  "dataTests": 8,
+  "lintErrors": 0,
+  "lintWarnings": 3,
+  "checkLogSha256": "8b254a549dc64e17639613913fea349e4adc2fe6ec7456a4645faa1ee1e04b84",
+  "resolvedFindings": [
+    104,
+    113
+  ],
+  "resourceEvidence": "semantic/export-replay-20261115.json"
+}

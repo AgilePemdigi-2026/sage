@@ -1,6 +1,6 @@
 # Final demo dan replay regression
 
-Refs #28. Panduan ini belum merupakan signoff final: #27, #39 dan #40 tetap menjadi dependensi penerimaan.
+Panduan final untuk #28. Penerimaan regression dan review akhir dicatat pada FIN-01_CHECKS.md, FIN-03_CHECKS.md dan FIN-04_CHECKS.md; penutupan mengikuti review PR final.
 
 ## Demo aplikasi
 
@@ -31,3 +31,11 @@ SAGE_BDD_PRIVATE_REPOSITORY=iltizamhasan3/sage SAGE_BDD_REPORT_DIR=artifacts/bdd
 Suite dijalankan pada 15 November 2026 tanpa parameter fixture private; command di atas menyertakan parameter yang diperlukan untuk replay. Retest provider menggunakan parameter tersebut dan lulus. Run penuh: 56/57 lulus karena parameter fixture private terlewat; retest provider: 2/2 lulus. Host run memakai Node 26.4.0, sehingga replay pada Node 24 tetap diperlukan untuk acceptance environment resmi. Ini bukan satu run penuh yang bersih.
 
 Jika Docker hanya dinyalakan untuk QA ini dan tidak dipakai pekerjaan lain, `colima stop --profile sage` menghentikan VM tanpa menghapus volume. Jangan menghentikan Docker bersama ketika proses lain masih berjalan.
+
+## Replay final yang lulus
+
+Run bersih pada Node 24.22.3, application commit `43a48340477c824cf98fc792a232794796276b84`, memakai command lengkap di atas dan akun CLI Rizqy: **57 skenario / 220 langkah lulus, tanpa skip**. Folder bukti: `artifacts/bdd/sprint2-2026-11-15T10-47-22-227Z`; manifest aman ada di [FIN-03 final](evidence/FIN-03-final-20261115.json). Laporan gagal awal tetap disimpan sebagai riwayat.
+
+Demo otomatis melalui real Next/database/worker mencakup submit target, kemajuan analisis, hasil graph/dokumen, ekspor Markdown/PDF, error/retry, history dan deletion pada data disposable. Provider aplikasi memakai fixture dan sesi sintetis; provider public/private CLI memakai API GitHub nyata. Ini bukan login OAuth baru pada produksi. OAuth produksi dan kapasitas server bersama tidak diklaim oleh regression lokal ini.
+
+Matriks lima viewport dan 12 halaman PDF sampel diterima pada [FIN-04](FIN-04_CHECKS.md). Resource/worker diterima pada [FIN-01](FIN-01_CHECKS.md). Batas analyzer dan error ekspor ukuran besar tetap dijelaskan kepada pengguna. Tidak ada perubahan deployment Coolify dalam paket ini.

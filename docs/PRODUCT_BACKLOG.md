@@ -63,10 +63,10 @@ Penutupan fase awal tidak menutup acceptance parent atau requirement produk. Fix
 | PERF-02 | Benchmark core analisis, Markdown/PDF dan resource lokal | 2 | P1 / M | Iltizam | PERF-01, QA-01 | - | Paket terukur; [bukti dan batas](PERF-02_CHECKS.md), tidak menutup FIN-01 | [#98](https://github.com/AgilePemdigi-2026/sage/issues/98) |
 | DEP-01 | Persiapan Compose Coolify dan pemeriksaan operasional | 2 | P1 / M | Rizqy | PERF-01, PERF-02 | - | Persiapan lokal teruji; [bukti](DEP-01_CHECKS.md), deployment belum dilakukan | [#99](https://github.com/AgilePemdigi-2026/sage/issues/99) |
 | REL-01 | MVP freeze lokal dan panduan setup/demo teruji | 2 | P0 / M | Iltizam | QA-02, QA-03 | - | Local Docker-to-demo gate passed from fresh isolated DB/storage volumes; Coolify/shared-server checks not run; reviewed and merged in [PR #127](https://github.com/AgilePemdigi-2026/sage/pull/127) ([REL-01_CHECKS](REL-01_CHECKS.md)) | [#26](https://github.com/AgilePemdigi-2026/sage/issues/26) |
-| FIN-01 | Regression analyzer/worker, evidence, dan performa | 3 | P2 / L | Iltizam | REL-01 | - | Planned | [#27](https://github.com/AgilePemdigi-2026/sage/issues/27) |
-| FIN-03 | Regression akses repository, pipeline, history, dan integrasi | 3 | P2 / L | Rizqy | REL-01 | - | Planned | [#39](https://github.com/AgilePemdigi-2026/sage/issues/39) |
-| FIN-04 | Regression graph/UI, aksesibilitas, dan keterbacaan PDF | 3 | P2 / L | Valentina | REL-01 | - | Planned | [#40](https://github.com/AgilePemdigi-2026/sage/issues/40) |
-| FIN-02 | Verifikasi dokumen, panduan pengguna, dan demo akhir | 3 | P2 / L | Zarra | FIN-01, FIN-03, FIN-04 | - | Planned | [#28](https://github.com/AgilePemdigi-2026/sage/issues/28) |
+| FIN-01 | Regression analyzer/worker, evidence, dan performa | 3 | P2 / L | Iltizam | REL-01 | - | Verified; [final acceptance](FIN-01_CHECKS.md), closure melalui review PR final | [#27](https://github.com/AgilePemdigi-2026/sage/issues/27) |
+| FIN-03 | Regression akses repository, pipeline, history, dan integrasi | 3 | P2 / L | Rizqy | REL-01 | - | Verified; [final acceptance](FIN-03_CHECKS.md), closure melalui review PR final | [#39](https://github.com/AgilePemdigi-2026/sage/issues/39) |
+| FIN-04 | Regression graph/UI, aksesibilitas, dan keterbacaan PDF | 3 | P2 / L | Valentina | REL-01 | - | Verified; [final acceptance](FIN-04_CHECKS.md), closure melalui review PR final | [#40](https://github.com/AgilePemdigi-2026/sage/issues/40) |
+| FIN-02 | Verifikasi dokumen, panduan pengguna, dan demo akhir | 3 | P2 / L | Zarra | FIN-01, FIN-03, FIN-04 | - | Verified; [final acceptance](FINAL_DEMO.md), closure melalui review PR final | [#28](https://github.com/AgilePemdigi-2026/sage/issues/28) |
 
 ## Scope sisa dan penerimaan parent
 

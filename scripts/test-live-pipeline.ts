@@ -299,6 +299,23 @@ async function installSession(context: BrowserContext, account: DisposableAccoun
   await context.addCookies([cookie(account)]);
 }
 
+const viewportMatrix: Array<{ state: string; width: number; overflow: number }> = [];
+async function checkViewportMatrix(page: Page, state: string): Promise<void> {
+  const original = page.viewportSize();
+  try {
+    for (const width of [360, 390, 768, 1024, 1440]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await page.evaluate(() => new Promise<void>(done => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+      const overflow = await page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+      assert.ok(overflow <= 1, `${state} overflows the page at ${width}px by ${overflow}px`);
+      await page.screenshot({ path: join(resultDir, `matrix-${state}-${width}.png`), fullPage: true });
+      viewportMatrix.push({ state, width, overflow });
+    }
+  } finally {
+    if (original) await page.setViewportSize(original);
+  }
+}
+
 async function selectFixtureRepository(page: Page): Promise<void> {
   await page.goto(`${base}/workspace/repositories`, { waitUntil: "domcontentloaded" });
   await page.getByRole("heading", { name: "Pilih repository", exact: true }).waitFor();
@@ -513,6 +530,7 @@ async function runLivePipelineRegression(): Promise<void> {
     });
 
     await selectFixtureRepository(page);
+    await checkViewportMatrix(page, "repository-selected");
     assert.equal(await page.getByLabel("Branch", { exact: true }).inputValue(), "main");
     await page.getByLabel("Commit (opsional)", { exact: true }).fill(fixtureCommit);
 
@@ -612,6 +630,7 @@ async function runLivePipelineRegression(): Promise<void> {
     assert.ok(progressObservations.some(item => item.status === "COMPLETED_WITH_LIMITATIONS"), "polling must apply the terminal status published by the worker");
     checks.push("browser polls the real PostgreSQL progress API through RUNNING and COMPLETED_WITH_LIMITATIONS, shows graph/document results, and stops after terminal state");
     await page.screenshot({ path: join(resultDir, "pipeline-complete.png"), fullPage: true });
+    await checkViewportMatrix(page, "pipeline-complete");
     emittedScreenshots.push("pipeline-complete.png");
 
     phase = "failed-parent-retry-ui-and-replay";
@@ -658,6 +677,7 @@ async function runLivePipelineRegression(): Promise<void> {
     assert.equal(retryReplay.body.data?.replayed, true);
     checks.push("failed-detail retry creates a distinct child with the same full SHA/configuration, rechecks simulated provider permission, and exact-key replay returns that child");
     await retryPage.screenshot({ path: join(resultDir, "retry-progress.png"), fullPage: true });
+    await checkViewportMatrix(retryPage, "retry-progress");
     emittedScreenshots.push("retry-progress.png");
     await retryPageContext.close();
 
@@ -807,6 +827,7 @@ async function runLivePipelineRegression(): Promise<void> {
     assert.equal(await db.analysis.count({ where: { ownerUserId: denied.userId } }), deniedCountBeforeUi, "failed fresh permission check creates no child job");
     assert.equal(await deniedPage.getByRole("button", { name: /coba lagi|ulangi|retry/i }).count(), 1, "the retry action remains available after a provider denial");
     await deniedPage.screenshot({ path: join(resultDir, "retry-permission-error.png"), fullPage: true });
+    await checkViewportMatrix(deniedPage, "retry-permission-error");
     emittedScreenshots.push("retry-permission-error.png");
     await deniedContext.close();
     checks.push("browser displays a safe retry error after fresh provider permission denial and leaves the retry parent unchanged");
@@ -952,6 +973,7 @@ async function runLivePipelineRegression(): Promise<void> {
       failures,
       scope: "Live Next.js HTTP and Chromium browser against isolated PostgreSQL with the real queue consumer, stage handlers, terminal publication, retry endpoint, and result readers.",
       simulatedBoundary: providerBoundary,
+      viewportMatrix,
       mainAnalysis: mainSummary ?? null,
       retryAnalysis: retrySummary ?? null,
       artifacts: emittedScreenshots,
