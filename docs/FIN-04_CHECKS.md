@@ -10,4 +10,4 @@ Evidence is kept locally under `artifacts/fin04-20261115`; screenshots may inclu
 
 ## Acceptance still pending
 
-The harness covers desktop/mobile, not the complete required five viewport matrix. Every page of the newly generated Perpus/Emosync PDFs still needs visual inspection for clipping, fonts and relationship readability. This partial result does not close #40. Production OAuth and database/worker integration are outside this browser fixture run.
+The saved Emosync architecture overview passed flow/graph checks at 360, 390, 768, 1024 and 1440 px. Perpus and SAGE additionally passed initial overview checks at 390 px. This does not establish the five-viewport matrix for all core application screens and states. Every page of the newly generated Perpus/Emosync PDFs still needs visual inspection for clipping, fonts and relationship readability. This partial result does not close #40. Production OAuth and database/worker integration are outside this browser fixture run.
