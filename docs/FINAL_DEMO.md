@@ -28,6 +28,6 @@ Buka `cucumber.html` pada direktori run terbaru di `artifacts/bdd/sprint2-<times
 SAGE_BDD_PRIVATE_REPOSITORY=iltizamhasan3/sage SAGE_BDD_REPORT_DIR=artifacts/bdd/provider-retest-baru node --import tsx node_modules/@cucumber/cucumber/bin/cucumber.js --config cucumber-sprint2.mjs --tags @live_cli
 ```
 
-Command suite dan retest di atas benar-benar dijalankan pada 15 November 2026. Run penuh: 56/57 lulus karena parameter fixture private terlewat; retest provider: 2/2 lulus. Host run memakai Node 26.4.0, sehingga replay pada Node 24 tetap diperlukan untuk acceptance environment resmi. Ini bukan satu run penuh yang bersih.
+Suite dijalankan pada 15 November 2026 tanpa parameter fixture private; command di atas menyertakan parameter yang diperlukan untuk replay. Retest provider menggunakan parameter tersebut dan lulus. Run penuh: 56/57 lulus karena parameter fixture private terlewat; retest provider: 2/2 lulus. Host run memakai Node 26.4.0, sehingga replay pada Node 24 tetap diperlukan untuk acceptance environment resmi. Ini bukan satu run penuh yang bersih.
 
 Jika Docker hanya dinyalakan untuk QA ini dan tidak dipakai pekerjaan lain, `colima stop --profile sage` menghentikan VM tanpa menghapus volume. Jangan menghentikan Docker bersama ketika proses lain masih berjalan.
