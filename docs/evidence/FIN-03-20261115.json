@@ -1,0 +1,25 @@
+{
+  "issue": 39,
+  "baseCommit": "e85fb6fef249f81ec543fa681d8678f47bd7667a",
+  "account": "rizqy-fadhil",
+  "unitTests": 81,
+  "fullRun": {
+    "scenarios": 57,
+    "passed": 56,
+    "failed": 1,
+    "cause": "Authorized private fixture environment parameter omitted"
+  },
+  "providerRetest": {
+    "scenarios": 2,
+    "passed": 2,
+    "failed": 0
+  },
+  "singleCleanFullRun": false,
+  "node": "26.4.0",
+  "requiredNode": "24",
+  "logSha256": {
+    "sage-fin03-20261115.log": "2d5d5dc1fccbba882811732817d1d0b6d2d72795b01479e1bae723855870edb4",
+    "sage-fin03-bdd-20261115.log": "0e5a3e09c8403ce6acb99979a96133020fc1692dd0fa5b5f4218ba054ac57b03",
+    "sage-fin03-provider-20261115.log": "cd32647fcde2e72dd42fb7cb789ba521358b3f54c214186fc0e02359f11002be"
+  }
+}
