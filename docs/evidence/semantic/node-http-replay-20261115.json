@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "extractorVersion": "0.4.2",
+  "sourceCkgHash": "48ad249c143756baa307bf02dc4bffdfdf005b1fd0d601570c3100c05774e600",
+  "modelHash": "e7b18b45a1ce00a17990f278c2099e4b6c3d61719d23899bd05c6a4dba8039d0",
+  "features": 5,
+  "nodes": 66,
+  "edges": 76,
+  "limitations": 3,
+  "canonicalEvidenceValidation": "PASS",
+  "scope": "Offline source replay with canonical hash/span validation; does not prove runtime reachability or OAuth/worker integration"
+}
