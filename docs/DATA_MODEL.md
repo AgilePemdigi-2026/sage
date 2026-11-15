@@ -36,7 +36,7 @@ Dokumen ini dipindahkan ke [Model data dan lifecycle](reference/DATA_MODEL.md). 
 
 <a id="cakupan-yang-masih-menunggu-issue-lain"></a>
 
-[Cakupan yang masih menunggu issue lain](reference/DATA_MODEL.md#cakupan-yang-masih-menunggu-issue-lain)
+[Cakupan yang masih menunggu issue lain](reference/DATA_MODEL.md#integrasi-modul)
 
 <a id="canonical-ckg-ana-06"></a>
 

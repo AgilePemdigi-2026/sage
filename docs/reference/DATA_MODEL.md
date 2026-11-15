@@ -102,7 +102,7 @@ Sesudah selesai, data analisis beserta stages, source metadata, limitations, gra
 
 Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, exclusion rules, dan hash canonical graph/document. Replay membandingkan canonical content dengan ordering tetap; job ID dan waktu eksekusi tidak masuk ke hash fakta.
 
-## Cakupan yang masih menunggu issue lain
+## Integrasi modul
 
 - Queue durable, API submission idempotent, dan runner stage terbatas sudah memiliki bukti. Consumer ANA-07 menjalankan sembilan tahap dan menerbitkan bundle atomik; retry FAILED memerlukan pemeriksaan izin baru serta analysis ID baru dengan SHA/configuration yang sama.
 - DOC-01 #15 memvalidasi dan menyimpan tiga artefak dokumen bersama serta menyediakan API/halaman privat. History #22 menyediakan pembacaan list/detail GET, GRAPH-01 #17 menyediakan graph canonical; query/filter/inspector #18–19 tersedia. Ekspor Markdown #20 memiliki bukti terpisah; PDF #21 memiliki bukti terpisah pada [EXP-02_CHECKS](../archive/documents/EXP-02_CHECKS.md).

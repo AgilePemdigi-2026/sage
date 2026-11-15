@@ -28,7 +28,7 @@ Dokumen ini dipindahkan ke [Arsitektur sistem](reference/ARCHITECTURE.md). Tauta
 
 <a id="struktur-aplikasi-yang-direncanakan"></a>
 
-[Struktur aplikasi yang direncanakan](reference/ARCHITECTURE.md#struktur-aplikasi-yang-direncanakan)
+[Struktur aplikasi yang direncanakan](reference/ARCHITECTURE.md#struktur-aplikasi)
 
 <a id="handler-internal-canonical-ckg"></a>
 

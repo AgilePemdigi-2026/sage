@@ -25,7 +25,7 @@ Perbaikan tampilan tidak mengubah fakta canonical, evidence, kepemilikan akun at
 
 Alur statis bukan simulasi runtime lengkap. Closure yang hanya dideklarasikan bukan bukti suatu aktivitas telah dijalankan. Dukungan framework masih terbatas pada pola yang diuji; tidak menyatakan kesetaraan kemampuan pemahaman agent Archify.
 
-PDF tetap menggunakan halaman A4 dan aturan kepadatan sendiri; perubahan continuous canvas berlaku untuk frontend. Batas ekspor besar pada [issue #113](https://github.com/AgilePemdigi-2026/sage/issues/113) tetap terbuka sampai ada pengujian ekspor baru yang lulus. Tidak ada perubahan Coolify pada revisi ini.
+PDF tetap menggunakan halaman A4 dan aturan kepadatan sendiri; perubahan continuous canvas berlaku untuk frontend. Pemeriksaan historis di bawah mendahului penyelesaian batas ekspor besar. Status penerimaan issue #113 dibaca pada [laporan perbaikan](../archive/foundation/ISSUE-113_CHECKS.md); batas ukuran tetap berlaku. Catatan revisi ini tidak menyatakan perubahan Coolify.
 
 ## Pemeriksaan 1 November 2026
 

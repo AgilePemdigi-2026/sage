@@ -32,7 +32,7 @@ Tiga service jangka panjang: `web`, `worker`, dan `db`; service `migrate` berjal
 - Credential dan key berasal dari environment lokal yang diabaikan Git; contoh konfigurasi hanya berisi placeholder.
 - Command yang sudah diverifikasi untuk lingkungan lokal tercantum di [setup lokal](../guides/LOCAL_SETUP.md); keberhasilan setup fondasi tidak membuktikan pipeline produk lengkap.
 
-Hosting produksi tetap TBD. Pemisahan worker dipertahankan ketika aplikasi dipindahkan ke server; evaluasi deployment harus mencakup worker, database, Chromium, dan volume, bukan hanya frontend.
+Produksi berjalan melalui Coolify pada server bersama dengan web, worker, PostgreSQL, Chromium, dan volume privat. Web dirutekan ke port internal 3000 melalui domain aplikasi; resource ceiling awal bukan quota resmi dosen. Lihat [runbook operasi](../operations/COOLIFY.md) untuk registry, routing, backup, dan batas verifikasi.
 
 ## Identitas dan target repository
 
@@ -88,20 +88,23 @@ Diagram statis merupakan proyeksi dari canonical graph. DOC-02 memakai Mermaid u
 - Source, komentar, label graph, dan diagram di-escape sebagai data; halaman cetak tidak dapat menjalankan HTML/JS dari repository.
 - Semua endpoint hasil, source, export, dan delete memeriksa pemilik; opaque ID tidak menggantikan otorisasi.
 
-## Struktur aplikasi yang direncanakan
+## Struktur aplikasi
 
 ```text
 apps/web/                 UI dan route API
 apps/worker/              orchestration, queue, pipeline, export
-packages/contracts/       tipe payload, CCM, graph, dan dokumen
+packages/contracts/      tipe payload, CCM, registry, dan validator
+packages/database/       schema, migrasi, dan reader owner-scoped
 packages/analyzer-js/     adapter JavaScript/TypeScript
 packages/analyzer-php/    adapter PHP dan program parser tepercaya
 packages/documents/       proyeksi artefak dan template cetak
 tests/fixtures/           source uji kecil dengan oracle yang direview
-tests/e2e/                alur aplikasi dan ekspor
+tests/bdd/                skenario Gherkin dan langkah browser
+tests/*.integration.ts   pengujian database/worker terisolasi
+scripts/                  runner integrasi, browser, dan operasi
 ```
 
-Workspace web/worker/database, parser probe, renderer probe, serta tests/fixtures sudah dibuat. packages/contracts masih berupa batas modul; contracts CCM dan struktur E2E produk mengikuti issue berikutnya.
+Contracts CCM, canonical serialization, registry, dan validator tersedia di packages/contracts. Proyeksi dokumen/semantik berada di packages/documents. Runner browser dan worker memakai database/storage disposable sesuai guard masing-masing; sesi fixture tidak membuktikan OAuth provider nyata.
 
 ## Handler internal canonical CKG
 
@@ -111,7 +114,7 @@ ANA-06 menyediakan `createCkgStageHandlers` untuk COMMON_CODE_MODEL dan KNOWLEDG
 
 Web memeriksa session dan pemilik/status analisis sebelum membaca snapshot archive dari volume read-only. Archive aktif terbaru dipilih secara owner/analysis-scoped dengan urutan createdAt/id; canonical reader memverifikasi kembali hash/source/mirror dan target immutable. Endpoint graph hanya menyediakan proyeksi lengkap setelah status sukses, tanpa source bytes, path storage atau token. Validasi byte archive ini tidak menjalankan adapter/resolver atau source target.
 
-Browser mengikat payload ke ID analisis serta akun, membuang respons generasi lama, dan menghapus data sebelum pemeriksaan ulang identitas pada focus/pageshow/visibility. Mode Ikhtisar/Fokus/Semua referensi hanya menghasilkan subset tampilan dari fakta canonical. Budget render 200 node/500 edge dijelaskan bersama canonical/mode/visible counts; API tidak memotong graph. Node Query literal dan kategori AST canonical digabung AND pada proyeksi lengkap sebelum mode/budget render; edge hanya bertahan jika kedua endpoint cocok. Reset/no-result tidak mengubah payload atau hash canonical. Lihat [GRAPH-02_CHECKS](../archive/graph/GRAPH-02_CHECKS.md). Inspector/source (GRAPH-03) membaca ulang canonical CKG dan archive melalui helper terotorisasi yang sama. Detail node membawa relasi langsung lengkap, sementara source hanya dikirim atas permintaan untuk ID file evidence canonical dengan rentang maksimum 200 baris/128 KiB. Respons diikat ke akun, analysis, hash, snapshot serta node/file. Lihat [GRAPH-03_CHECKS](../archive/graph/GRAPH-03_CHECKS.md). Bukti terisolasi dan batas pipeline tersedia pada [GRAPH-01_CHECKS](../archive/graph/GRAPH-01_CHECKS.md).
+Browser mengikat payload ke ID analisis serta akun, membuang respons generasi lama, dan menghapus data sebelum pemeriksaan ulang identitas pada focus/pageshow/visibility. Mode Esensial/Detail AST/Fokus node/Semua referensi hanya menghasilkan subset tampilan dari fakta canonical. Budget render 200 node/500 edge dijelaskan bersama canonical/mode/visible counts; API tidak memotong graph. Node Query literal dan kategori AST canonical digabung AND pada proyeksi lengkap sebelum mode/budget render; edge hanya bertahan jika kedua endpoint cocok. Reset/no-result tidak mengubah payload atau hash canonical. Lihat [GRAPH-02_CHECKS](../archive/graph/GRAPH-02_CHECKS.md). Inspector/source (GRAPH-03) membaca ulang canonical CKG dan archive melalui helper terotorisasi yang sama. Detail node membawa relasi langsung lengkap, sementara source hanya dikirim atas permintaan untuk ID file evidence canonical dengan rentang maksimum 200 baris/128 KiB. Respons diikat ke akun, analysis, hash, snapshot serta node/file. Lihat [GRAPH-03_CHECKS](../archive/graph/GRAPH-03_CHECKS.md). Bukti terisolasi dan batas pipeline tersedia pada [GRAPH-01_CHECKS](../archive/graph/GRAPH-01_CHECKS.md).
 
 ## Model dan akses dokumen DOC-01
 
