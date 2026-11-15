@@ -1,0 +1,9 @@
+# FIN-01 final regression acceptance — 15 November 2026
+
+Closes #27 after final PR review. Application baseline: `43a48340477c824cf98fc792a232794796276b84`. Tests use Node 24.22.3 and existing locked dependencies.
+
+`npm run check` passes lint (zero errors, three existing React hook warnings), root/web typecheck, 548 unit tests and 8 data tests, with no skipped tests. This covers JS/TS/PHP adapters, resolver/CCM/CKG/evidence validation, source safety, semantic model/presentation, Markdown/PDF bounds, worker diagnostics and lifecycle contracts. `npm run test:bdd:sprint2` with the authorized private fixture passes 57 scenarios / 220 steps on the same application baseline; full evidence is linked in FIN-03_CHECKS.md.
+
+The performance findings are resolved within their stated contracts. Issue #113: the frozen 161,534,141-byte SAGE ADD reaches controlled size limits instead of a heap abort, with unchanged 2 GiB / 1.5 CPU export containers; owner-scoped production worker, immutable pins and cleanup are covered by retained verified evidence. Perpus/Emosync produce complete artifacts. Issue #104: safe phase diagnostics, bounded recovery, fail-closed configuration, fencing and worker interruption/retry are verified. Independent review checked that the historical verified source fingerprints still match current code; 19 focused tests passed again. The original restart cause and shared-server capacity remain unproven, as explicitly allowed by the controlled-test scope.
+
+No quota or artifact limit was increased. Oversized output is a documented terminal failure, not successful export. Historical resource reports remain unchanged. Reports: ISSUE-113_CHECKS.md, OPS-01_CHECKS.md, evidence/semantic/export-replay-20261115.json, FIN-03_CHECKS.md and FIN-04_CHECKS.md. No product regression requiring another code fix was found in this campaign.
