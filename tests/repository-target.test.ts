@@ -110,8 +110,8 @@ test("public branch listing uses the actual branches endpoint without a user tok
     nextPage: 2,
   });
   assert.equal(requests.length, 2);
-  assert.equal(new Headers(requests[0]?.init?.headers).get("Authorization"), null);
-  assert.equal(new Headers(requests[1]?.init?.headers).get("Authorization"), null);
+  assert.equal(new Headers(requests[0]?.init?.headers).get("Authorization"), `Bearer ${token}`);
+  assert.equal(new Headers(requests[1]?.init?.headers).get("Authorization"), `Bearer ${token}`);
   assert.equal(requests[1]?.url, `${api}${path}?per_page=30&page=1`);
 });
 
@@ -157,7 +157,7 @@ test("private branch reads recheck the installation and send the user token only
   assert.equal(target.commitSha, publicSha);
   assert.equal(target.branchHeadSha, publicSha);
   assert.equal(requests.length, 4);
-  assert.equal(new Headers(requests[0]?.init?.headers).get("Authorization"), null);
+  assert.equal(new Headers(requests[0]?.init?.headers).get("Authorization"), `Bearer ${token}`);
   assert.equal(new Headers(requests[1]?.init?.headers).get("Authorization"), `Bearer ${token}`);
   assert.equal(new Headers(requests[2]?.init?.headers).get("Authorization"), `Bearer ${token}`);
   assert.equal(new Headers(requests[3]?.init?.headers).get("Authorization"), `Bearer ${token}`);
@@ -186,9 +186,9 @@ test("resolveTarget encodes slash and Unicode branch names and accepts an ancest
   assert.equal(target.commitSha, commit);
   assert.equal(target.branchHeadSha, branchHead);
   assert.equal(requests[1]?.url, `${api}${repositoryPath}/branches/feature%2Fref%2F%E6%97%A5%E6%9C%AC%E8%AA%9E`);
-  assert.equal(new Headers(requests[1]?.init?.headers).get("Authorization"), null);
-  assert.equal(new Headers(requests[2]?.init?.headers).get("Authorization"), null);
-  assert.equal(new Headers(requests[3]?.init?.headers).get("Authorization"), null);
+  assert.equal(new Headers(requests[1]?.init?.headers).get("Authorization"), `Bearer ${token}`);
+  assert.equal(new Headers(requests[2]?.init?.headers).get("Authorization"), `Bearer ${token}`);
+  assert.equal(new Headers(requests[3]?.init?.headers).get("Authorization"), `Bearer ${token}`);
 });
 
 test("resolveTarget accepts a full current HEAD and verifies an identical comparison", async () => {

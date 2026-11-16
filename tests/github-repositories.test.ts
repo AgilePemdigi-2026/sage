@@ -48,7 +48,7 @@ function errorCode(error: unknown, code: GitHubRepositoryErrorCode, status: numb
   assert.match(error.message, /[\u0900-\u097f\u00c0-\u024f\u0100-\u017f\u0020-\u007e]/);
 }
 
-test("public repository resolution uses an unauthenticated fixed GitHub API request", async () => {
+test("public repository resolution uses the signed-in user token on the fixed GitHub API origin", async () => {
   const requests: Array<{ url: string; init?: RequestInit }> = [];
   const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
     requests.push({ url: String(input), init });
@@ -71,12 +71,12 @@ test("public repository resolution uses an unauthenticated fixed GitHub API requ
   assert.equal(requests[0]?.init?.redirect, "error");
   assert.equal(requests[0]?.init?.cache, "no-store");
   const headers = new Headers(requests[0]?.init?.headers);
-  assert.equal(headers.get("Authorization"), null);
+  assert.equal(headers.get("Authorization"), `Bearer ${token}`);
   assert.equal(headers.get("Accept"), "application/vnd.github+json");
   assert.equal(headers.get("X-GitHub-Api-Version"), "2026-03-10");
 });
 
-test("public repository listing is scoped to its owner, paginated, sanitized, and unauthenticated", async () => {
+test("public repository listing is scoped to its owner, paginated, sanitized, and authenticated", async () => {
   const calls: Array<{ url: string; authorization: string | null }> = [];
   const fetcher = (async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = String(input);
@@ -107,7 +107,7 @@ test("public repository listing is scoped to its owner, paginated, sanitized, an
     `${api}/users/iltizamhasan3/repos?per_page=30&page=1`,
     `${api}/users/iltizamhasan3/repos?per_page=30&page=2`,
   ]);
-  assert.deepEqual(calls.map((call) => call.authorization), [null, null]);
+  assert.deepEqual(calls.map((call) => call.authorization), [`Bearer ${token}`, `Bearer ${token}`]);
 });
 
 test("public repository listing rejects invalid owner and unsafe pagination links", async () => {
@@ -225,7 +225,7 @@ test("private repository resolution requires an active app installation, content
   assert.equal(result.installationId, "271");
   assert.equal(result.id, "314");
   assert.equal(requests.length, 3);
-  assert.equal(requests[0]?.headers.get("Authorization"), null);
+  assert.equal(requests[0]?.headers.get("Authorization"), `Bearer ${token}`);
   assert.equal(requests[1]?.headers.get("Authorization"), `Bearer ${token}`);
   assert.equal(requests[2]?.headers.get("Authorization"), `Bearer ${token}`);
 });
@@ -450,4 +450,32 @@ test("each client enforces a shared GitHub request budget", async () => {
     return true;
   });
   assert.equal(calls, 30);
+});
+
+test("public requests without a session token remain anonymous", async () => {
+  const client = new GitHubRepositoryClient({
+    accessToken: null,
+    fetcher: (async (_url, init) => {
+      assert.equal(new Headers(init?.headers).get("Authorization"), null);
+      return json(repository({ private: false }));
+    }) as typeof fetch,
+  });
+  assert.equal((await client.resolveRepository("open-org/repo")).private, false);
+});
+
+test("a public request never falls back to the shared anonymous quota when the user quota is exhausted", async () => {
+  let calls = 0;
+  const client = new GitHubRepositoryClient({
+    accessToken: token,
+    fetcher: (async (_url, init) => {
+      calls++;
+      assert.equal(new Headers(init?.headers).get("Authorization"), `Bearer ${token}`);
+      return json({}, 403, { "x-ratelimit-remaining": "0" });
+    }) as typeof fetch,
+  });
+  await assert.rejects(client.listPublicRepositories("iltizamhasan3"), (error: unknown) => {
+    errorCode(error, "RATE_LIMIT", 429);
+    return true;
+  });
+  assert.equal(calls, 1);
 });
