@@ -586,7 +586,12 @@ export class GitHubRepositoryClient {
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": API_VERSION,
     });
-    if (authenticated && token) headers.set("Authorization", `Bearer ${token}`);
+    // Public requests also use the signed-in user's quota instead of the shared
+    // server IP quota. Private access is still checked through installations.
+    if (token) {
+      if (token.length > 4096 || !/^[\x21-\x7e]+$/.test(token)) return fail("AUTH_REQUIRED");
+      headers.set("Authorization", `Bearer ${token}`);
+    }
 
     try {
       return await this.fetcher(`${API_ORIGIN}${path}`, {

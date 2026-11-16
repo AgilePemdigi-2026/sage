@@ -1,3 +1,4 @@
+import { fetchSourceArchive, type SourceSelection } from "./source-archive.ts";
 import { GitHubRepositoryClient, GitHubRepositoryError } from "./client.js";
 
 const API_ORIGIN = "https://api.github.com";
@@ -8,6 +9,8 @@ const MAX_ARCHIVE_BYTES = DEFAULT_MAX_ARCHIVE_BYTES;
 const DEFAULT_TIMEOUT_MS = 60_000;
 
 export type RepositoryArchiveInput = {
+  readonly sourceOnly?: boolean;
+  readonly onSourceSelection?: (selection: SourceSelection) => void;
   readonly repository: string;
   readonly githubRepositoryId: string;
   readonly commitSha: string;
@@ -206,15 +209,22 @@ export async function fetchRepositoryArchive(input: RepositoryArchiveInput): Pro
     if (repository.id !== input.githubRepositoryId) return fail("NOT_FOUND");
 
     const sha = input.commitSha.toLowerCase();
+    if (input.sourceOnly) {
+      const selected = await fetchSourceArchive({ owner: repository.owner, name: repository.name, sha, token: input.accessToken, signal: scope.signal, fetcher, maxArchiveBytes });
+      if (selected) {
+        input.onSourceSelection?.(selected.selection);
+        return selected.archive;
+      }
+    }
     const apiPath = `/repos/${encodeURIComponent(repository.owner)}/${encodeURIComponent(repository.name)}/tarball/${sha}`;
     const apiHeaders = new Headers({
       Accept: "application/vnd.github+json",
       "X-GitHub-Api-Version": API_VERSION,
     });
-    if (repository.private) {
-      if (!input.accessToken) return fail("AUTH_REQUIRED");
-      apiHeaders.set("Authorization", `Bearer ${input.accessToken}`);
-    }
+    if (repository.private && !input.accessToken) return fail("AUTH_REQUIRED");
+    // Authenticate the API hop for public archives too; never forward the token
+    // to the codeload redirect.
+    if (input.accessToken) apiHeaders.set("Authorization", `Bearer ${input.accessToken}`);
     const apiResponse = await fetcher(`${API_ORIGIN}${apiPath}`, {
       method: "GET",
       headers: apiHeaders,

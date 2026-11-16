@@ -152,3 +152,11 @@ Next.js App Router dan Laravel adalah pola awal; unsupported/dynamic bindings di
 Model semantik terpisah mengenali pola Next.js App Router dan Laravel yang didukung fixture, serta kandidat guard Node HTTP terbatas. Hubungan memiliki evidence dan confidence Proven/Indicated tanpa mengubah resolution Exact/Unresolved. Struktur lain dapat menghasilkan Code Knowledge tanpa user flow. Import dan kedekatan direktori tidak dipakai sebagai bukti urutan aktivitas. Lihat [kontrak semantik](SEMANTIC_ANALYSIS.md).
 
 PDF menyajikan ringkasan serta diagram vektor A4; alur besar dibagi agar terbaca. Markdown memuat detail hingga batas 32 MiB. Detail teknis file/metode tidak harus menjadi node utama diagram semantik; lihat [aturan keluaran](DOCUMENT_PRESENTATION.md).
+
+### Snapshot source untuk repository dengan aset besar
+
+Worker memeriksa Git tree pada commit target sebelum mengunduh arsip. Repository sampai 20 MiB tetap memakai arsip lengkap. Untuk repository lebih besar, snapshot mengambil Git blob file reguler yang lolos filter, dengan maksimal 250 file, 1 MiB per file, total source 20 MiB, empat request paralel, dan deadline snapshot 60 detik. Arsip yang disimpan tetap dibatasi 25 MiB; batas resource tidak dinaikkan.
+
+Model biner seperti ONNX, aset gambar/font/media, direktori dependency/generated, symlink, submodule, dan file yang melebihi batas dilewati. Hash Git blob diverifikasi sebelum pengarsipan. Daftar file yang dilewati disimpan pada hasil tahap snapshot dan ditampilkan sebagai batasan analisis; submodule tidak diunduh. Python dan isi model tidak otomatis menjadi bahasa yang didukung analyzer.
+
+Request API menggunakan token pengguna yang sudah login. Snapshot lama tidak diubah; jalankan ulang analisis yang sebelumnya gagal.

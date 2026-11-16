@@ -1,3 +1,4 @@
+import { snapshotManifest } from "./snapshot/selection.ts";
 import { readFileSync } from "node:fs";
 import { canonicalizeCcm, parseCanonicalCkg } from "@sage/contracts";
 import { projectArchitectureDocument } from "@sage/documents/model";
@@ -165,7 +166,7 @@ async function publishFromStages(
   signal: AbortSignal,
 ): Promise<boolean> {
   signal.throwIfAborted();
-  const snapshot = context.sourceSnapshot;
+  const snapshot = snapshotManifest(context.sourceSnapshot);
   if (!hasExactFields(snapshot, ["storageObjectId", "archiveSha256", "archiveBytes", "commitSha", "files", "extractedBytes"]) ||
       typeof snapshot.storageObjectId !== "string" || typeof snapshot.archiveSha256 !== "string" ||
       typeof snapshot.archiveBytes !== "number" || typeof snapshot.files !== "number" ||
