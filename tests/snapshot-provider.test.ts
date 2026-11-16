@@ -101,7 +101,7 @@ test("public archive fetch rechecks repository identity and downloads only the i
       assert.equal(init?.method, "GET");
       assert.equal(init?.redirect, "manual");
       assert.equal(new Headers(init?.headers).get("X-GitHub-Api-Version"), "2026-03-10");
-      assert.equal(new Headers(init?.headers).get("Authorization"), null);
+      assert.equal(new Headers(init?.headers).get("Authorization"), `Bearer ${token}`);
       return new Response(null, { status: 302, headers: { Location: location } });
     }
     if (url.origin === codeload && url.pathname === `/open-org/repo/legacy.tar.gz/${sha}`) {
@@ -127,8 +127,8 @@ test("public archive fetch rechecks repository identity and downloads only the i
     `/open-org/repo/legacy.tar.gz/${sha}`,
   ]);
   assert.equal(new URL(requests[1]!.url).pathname, apiPath);
-  assert.equal(new Headers(requests[0]?.init?.headers).get("Authorization"), null);
-  assert.equal(new Headers(requests[1]?.init?.headers).get("Authorization"), null);
+  assert.equal(new Headers(requests[0]?.init?.headers).get("Authorization"), `Bearer ${token}`);
+  assert.equal(new Headers(requests[1]?.init?.headers).get("Authorization"), `Bearer ${token}`);
   assert.equal(new Headers(requests[2]?.init?.headers).get("Authorization"), null);
 });
 
@@ -162,7 +162,7 @@ test("private archive fetch verifies current Contents access and sends the user 
   assert.deepEqual(bytes, archiveBytes);
   assert.equal(requests.length, 5);
   assert.deepEqual(requests.slice(0, 4).map(({ init }) => new Headers(init?.headers).get("Authorization")), [
-    null,
+    `Bearer ${token}`,
     `Bearer ${token}`,
     `Bearer ${token}`,
     `Bearer ${token}`,
