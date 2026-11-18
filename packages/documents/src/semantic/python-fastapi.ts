@@ -45,28 +45,52 @@ function hasParameterNamed(signature: string | null, binding: string): boolean {
   const escaped = escapeRegExp(binding);
   return signature.slice(start + 1, end).split(",").some(parameter => new RegExp(`^\\s*\\*{0,2}${escaped}(?=\\s*(?::|=|,|$))`, "u").test(parameter));
 }
+function handlerBindsName(handlerCode: string, binding: string): boolean {
+  const escaped = escapeRegExp(binding);
+  const directBinding = new RegExp(`^\\s*(?:(?:async\\s+)?for\\s+${escaped}\\b|del\\s+${escaped}\\b|(?:global|nonlocal)\\s+.*\\b${escaped}\\b|(?:async\\s+)?(?:def|class)\\s+${escaped}\\b|.*\\bas\\s+${escaped}\\b|.*\\blambda\\s+[^:]*\\b${escaped}\\b)`);
+  const importBindsName = (line: string): boolean => {
+    const fromImport = line.match(/^\s*from\s+\S+\s+import\s+(.+)$/u);
+    if (fromImport) return fromImport[1]!.replace(/[()]/gu, "").split(/\s*,\s*/u).some(item => {
+      const [name, alias] = item.trim().split(/\s+as\s+/u);
+      return name === "*" || (alias ?? name)?.split(".")[0] === binding;
+    });
+    const directImport = line.match(/^\s*import\s+(.+)$/u);
+    if (!directImport) return false;
+    return directImport[1]!.split(/\s*,\s*/u).some(item => {
+      const [name, alias] = item.trim().split(/\s+as\s+/u);
+      return (alias ?? name?.split(".")[0]) === binding;
+    });
+  };
+  const isNameToken = (leftHandSide: string) => {
+    const colon = leftHandSide.indexOf(":");
+    const target = colon >= 0 ? leftHandSide.slice(0, colon) : leftHandSide;
+    return target.split(/[,\s()[\]{}]+/u).some(token => token.replace(/^\*+/u, "") === binding);
+  };
+  for (const line of handlerCode.split("\n")) {
+    if (directBinding.test(line) || new RegExp(`\\b${escaped}\\s*:=`, "u").test(line)) return true;
+    if (importBindsName(line)) return true;
+    const assignment = line.match(/(?<![=!<>])(?:\+=|-=|\*=|\/=|\|=|&=|\^=|=(?!=))/u);
+    if (assignment && isNameToken(line.slice(0, assignment.index))) return true;
+    const annotation = line.match(/^\s*(.+?)\s*:\s*[^=]+$/u);
+    if (annotation && isNameToken(annotation[1]!)) return true;
+  }
+  return false;
+}
 function bindingIsShadowed(input: { source: string; binding: string; signature: string | null; handlerBody: string; exactImportLines: ReadonlySet<number>; sourceModelDeclarationLine: number | null }): boolean {
   const { source, binding, signature, handlerBody, exactImportLines, sourceModelDeclarationLine } = input;
   if (hasParameterNamed(signature, binding)) return true;
-  const escaped = escapeRegExp(binding);
   const handlerCode = pythonCodeOnly(handlerBody);
-  const handlerShadow = new RegExp(`^\\s*(?:(?:async\\s+)?for\\s+${escaped}\\b|${escaped}\\s*(?::[^=]+)?(?:=|\\+=|-=|\\*=|/=|\\|=|&=|\\^=)|del\\s+${escaped}\\b|(?:global|nonlocal)\\s+.*\\b${escaped}\\b|(?:async\\s+)?(?:def|class)\\s+${escaped}\\b|.*\\bas\\s+${escaped}\\b|.*\\blambda\\s+[^:]*\\b${escaped}\\b)`);
-  if (handlerCode.split("\n").some(line => handlerShadow.test(line))) return true;
+  if (handlerBindsName(handlerCode, binding)) return true;
 
   const moduleCode = pythonCodeOnly(source).split("\n");
   const localScopeIndents: number[] = [];
-  const moduleRebind = new RegExp(`^\\s*(?:(?:async\\s+)?for\\s+${escaped}\\b|${escaped}\\s*(?::[^=]+)?(?:=|\\+=|-=|\\*=|/=|\\|=|&=|\\^=)|del\\s+${escaped}\\b|(?:global|nonlocal)\\s+.*\\b${escaped}\\b|(?:with|except)\\b.*\\bas\\s+${escaped}\\b|(?:async\\s+)?(?:def|class)\\s+${escaped}\\b)`);
-  const importBinding = new RegExp(`\\b${escaped}\\b`, "u");
   for (let index = 0; index < moduleCode.length; index++) {
     const line = moduleCode[index] ?? ""; if (!line.trim()) continue;
     const indent = line.match(/^\s*/u)?.[0].length ?? 0;
     while (localScopeIndents.length && indent <= localScopeIndents.at(-1)!) localScopeIndents.pop();
     const lineNumber = index + 1;
     const isModelImport = exactImportLines.has(lineNumber);
-    if (!localScopeIndents.length && !isModelImport) {
-      const isImport = /^\s*(?:from\s+.+\s+import\b|import\s+)/u.test(line);
-      if ((moduleRebind.test(line) && lineNumber !== sourceModelDeclarationLine) || (isImport && importBinding.test(line))) return true;
-    }
+    if (!localScopeIndents.length && !isModelImport && lineNumber !== sourceModelDeclarationLine && handlerBindsName(line, binding)) return true;
     if (/^\s*(?:async\s+)?(?:def|class)\s+[A-Za-z_]\w*/u.test(line)) localScopeIndents.push(indent);
   }
   return false;

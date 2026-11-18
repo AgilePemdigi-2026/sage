@@ -140,6 +140,38 @@ test("Python model access and relationship facts resolve through exact module bi
       "    return session.query(User).all()",
       "",
     ].join("\n")),
+    "app/aliased_import.py": encoder.encode([
+      "from a.models import User",
+      "from other.helpers import User as Other",
+      "@app.get('/aliased-import')",
+      "def aliased_import_users():",
+      "    return session.query(User).all()",
+      "",
+    ].join("\n")),
+    "app/local_import.py": encoder.encode([
+      "from a.models import User",
+      "@app.get('/local-import')",
+      "def local_import_users():",
+      "    from b.models import User",
+      "    return session.query(User).all()",
+      "",
+    ].join("\n")),
+    "app/destructured.py": encoder.encode([
+      "from a.models import User",
+      "@app.get('/destructured')",
+      "def destructured_users():",
+      "    User, other = (dict, None)",
+      "    return session.query(User).all()",
+      "",
+    ].join("\n")),
+    "app/annotated.py": encoder.encode([
+      "from a.models import User",
+      "@app.get('/annotated')",
+      "def annotated_users():",
+      "    User: type",
+      "    return session.query(User).all()",
+      "",
+    ].join("\n")),
   };
   const result = analyzePythonSources({ snapshot, sources });
   assert.ok(result.ccm, JSON.stringify(result.diagnostics));
@@ -151,12 +183,13 @@ test("Python model access and relationship facts resolve through exact module bi
   const bStore = semantic.nodes.find(node => node.kind === "store" && node.technicalNodeIds.includes(bUser?.id ?? ""));
   const orderStore = semantic.nodes.find(node => node.kind === "store" && node.technicalNodeIds.includes(order?.id ?? ""));
   const userAccesses = semantic.edges.filter(edge => edge.label === "accesses data model");
-  assert.equal(userAccesses.length, 1);
-  assert.equal(userAccesses[0]?.target, aStore?.id, "route import binds only to a.models.User");
+  assert.equal(userAccesses.length, 2);
+  assert.ok(userAccesses.every(edge => edge.target === aStore?.id), "route imports bind only to a.models.User, including when another import aliases the same source name");
   assert.ok(!userAccesses.some(edge => edge.target === bStore?.id));
-  assert.ok(!userAccesses.some(edge => edge.evidence.some(item => ["app/factory.py", "app/rebound.py", "app/shadowed.py"].includes(item.filePath))), "construction, reassignment, and handler parameter shadowing do not become ORM access facts");
+  assert.ok(!userAccesses.some(edge => edge.evidence.some(item => ["app/factory.py", "app/rebound.py", "app/shadowed.py", "app/local_import.py", "app/destructured.py", "app/annotated.py"].includes(item.filePath))), "construction, reassignment, imports, destructuring, annotation-only, and parameter shadowing do not become ORM access facts");
   assert.ok(semantic.limitations.some(item => item.filePath === "app/rebound.py" && item.reason.includes("rebinds Python model binding")));
   assert.ok(semantic.limitations.some(item => item.filePath === "app/shadowed.py" && item.reason.includes("shadows or rebinds Python model binding")));
+  for (const filePath of ["app/local_import.py", "app/destructured.py", "app/annotated.py"]) assert.ok(semantic.limitations.some(item => item.filePath === filePath && item.reason.includes("shadows or rebinds Python model binding")));
   assert.ok(semantic.edges.some(edge => edge.label === "has relationship to" && edge.source === orderStore?.id && edge.target === aStore?.id));
   assert.ok(!semantic.edges.some(edge => edge.label === "has relationship to" && edge.source === orderStore?.id && edge.target === bStore?.id));
 
