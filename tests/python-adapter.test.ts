@@ -117,6 +117,12 @@ test("Python model access and relationship facts resolve through exact module bi
       "User = dict",
       "",
     ].join("\n")),
+    "tuple_rebound/models.py": encoder.encode([
+      "class User(Base):",
+      "    __tablename__ = 'tuple_shadowed_users'",
+      "User, other = (dict, None)",
+      "",
+    ].join("\n")),
     "app/routes.py": encoder.encode([
       "from a.models import User",
       "@app.get('/users')",
@@ -179,6 +185,13 @@ test("Python model access and relationship facts resolve through exact module bi
       "    return session.query(User).all()",
       "",
     ].join("\n")),
+    "app/tuple_target_rebound.py": encoder.encode([
+      "from tuple_rebound.models import User",
+      "@app.get('/tuple-target-rebound')",
+      "def tuple_target_rebound_users():",
+      "    return session.query(User).all()",
+      "",
+    ].join("\n")),
     "app/destructured.py": encoder.encode([
       "from a.models import User",
       "@app.get('/destructured')",
@@ -209,10 +222,13 @@ test("Python model access and relationship facts resolve through exact module bi
   assert.equal(userAccesses.length, 2);
   assert.ok(userAccesses.every(edge => edge.target === aStore?.id), "route imports bind only to a.models.User, including when another import aliases the same source name");
   assert.ok(!userAccesses.some(edge => edge.target === bStore?.id));
-  assert.ok(!userAccesses.some(edge => edge.evidence.some(item => ["app/factory.py", "app/rebound.py", "app/shadowed.py", "app/local_import.py", "app/local_multiline_import.py", "app/target_rebound.py", "app/destructured.py", "app/annotated.py"].includes(item.filePath))), "construction, reassignment, imports, destructuring, annotation-only, and parameter shadowing do not become ORM access facts");
+  assert.ok(!userAccesses.some(edge => edge.evidence.some(item => ["app/factory.py", "app/rebound.py", "app/shadowed.py", "app/local_import.py", "app/local_multiline_import.py", "app/target_rebound.py", "app/tuple_target_rebound.py", "app/destructured.py", "app/annotated.py"].includes(item.filePath))), "construction, reassignment, imports, destructuring, annotation-only, and parameter shadowing do not become ORM access facts");
   const targetReboundImport = result.ccm.edges.find(edge => edge.kind === "IMPORTS" && edge.evidence.some(item => item.filePath === "app/target_rebound.py"));
   assert.equal(targetReboundImport?.resolution, "Unresolved", "an imported class rebound after declaration is not published as an exact source symbol");
   assert.equal(targetReboundImport?.unresolvedReason, "AMBIGUOUS_SYMBOL");
+  const tupleTargetReboundImport = result.ccm.edges.find(edge => edge.kind === "IMPORTS" && edge.evidence.some(item => item.filePath === "app/tuple_target_rebound.py"));
+  assert.equal(tupleTargetReboundImport?.resolution, "Unresolved", "destructuring rebinding in the exporting module invalidates the imported source symbol");
+  assert.equal(tupleTargetReboundImport?.unresolvedReason, "AMBIGUOUS_SYMBOL");
   assert.ok(semantic.limitations.some(item => item.filePath === "app/rebound.py" && item.reason.includes("rebinds Python model binding")));
   assert.ok(semantic.limitations.some(item => item.filePath === "app/shadowed.py" && item.reason.includes("shadows or rebinds Python model binding")));
   for (const filePath of ["app/local_import.py", "app/local_multiline_import.py", "app/destructured.py", "app/annotated.py"]) assert.ok(semantic.limitations.some(item => item.filePath === filePath && item.reason.includes("shadows or rebinds Python model binding")));

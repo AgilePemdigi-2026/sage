@@ -52,6 +52,22 @@ function pythonCodeLines(lines: string[]): string[] {
     return output.join("");
   });
 }
+function assignmentTargetNames(target: string): string[] {
+  let value = target.trim();
+  while ((value.startsWith("(") && value.endsWith(")")) || (value.startsWith("[") && value.endsWith("]"))) value = value.slice(1, -1).trim();
+  value = value.replace(/^\*+/u, "").trim();
+  const annotation = value.indexOf(":");
+  if (annotation >= 0) value = value.slice(0, annotation).trim();
+  if (/^[A-Za-z_]\w*$/u.test(value)) return [value];
+  if (/[.\[\]{}]/u.test(value)) return [];
+  return value.split(",").flatMap(part => part.trim() ? assignmentTargetNames(part) : []);
+}
+function pythonAssignedNames(line: string): string[] {
+  const assignment = line.match(/(?<![=!<>])(?:\+=|-=|\*=|\/=|\|=|&=|\^=|=(?!=))/u);
+  if (assignment) return assignmentTargetNames(line.slice(0, assignment.index));
+  const annotation = line.match(/^\s*(.+?)\s*:\s*[^=]+$/u);
+  return annotation ? assignmentTargetNames(annotation[1]!) : [];
+}
 function byteOffset(text: string, utf16: number): number { return Buffer.byteLength(text.slice(0, utf16), "utf8"); }
 function evidence(path: string, hash: string, text: string, offsets: number[], startLine: number, endLine: number, role: EvidenceSpan["role"]): EvidenceSpan {
   const startUtf16 = offsets[Math.max(0, startLine - 1)] ?? 0;
@@ -150,10 +166,9 @@ export function analyzePythonSources(input: { snapshot: CcmSnapshot; sources: Re
     const assignments = new Map<string, number[]>();
     for (let lineIndex = 0; lineIndex < codeLines.length; lineIndex++) {
       if (indentAt(codeLines, lineIndex) !== 0) continue;
-      const assigned = codeLines[lineIndex]?.match(/^\s*([A-Za-z_]\w*)\s*(?::\s*[^=]+)?=(?!=)/u)?.[1];
-      if (assigned) assignments.set(assigned, [...(assignments.get(assigned) ?? []), lineIndex + 1]);
-      const deleted = codeLines[lineIndex]?.match(/^\s*del\s+([A-Za-z_]\w*)/u)?.[1];
-      if (deleted) assignments.set(deleted, [...(assignments.get(deleted) ?? []), lineIndex + 1]);
+      for (const assigned of pythonAssignedNames(codeLines[lineIndex] ?? "")) assignments.set(assigned, [...(assignments.get(assigned) ?? []), lineIndex + 1]);
+      const deleted = codeLines[lineIndex]?.match(/^\s*del\s+(.+)$/u)?.[1];
+      if (deleted) for (const name of assignmentTargetNames(deleted)) assignments.set(name, [...(assignments.get(name) ?? []), lineIndex + 1]);
       const fromImport = codeLines[lineIndex]?.match(/^\s*from\s+\.*[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*\s+import\s+(.+)$/u)?.[1];
       const importMatch = codeLines[lineIndex]?.match(/^\s*import\s+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)(?:\s+as\s+([A-Za-z_]\w*))?/u);
       const importedNames = fromImport?.replace(/[()]/gu, "").split(/\s*,\s*/u).map(value => {
@@ -178,11 +193,11 @@ export function analyzePythonSources(input: { snapshot: CcmSnapshot; sources: Re
       while (lexicalScopes.length && indent <= lexicalScopes.at(-1)!) lexicalScopes.pop();
       const insideLocalScope = lexicalScopes.length > 0;
       if (!insideLocalScope && indent > 0) {
-        const assigned = raw.match(/^\s*([A-Za-z_]\w*)\s*(?::\s*[^=]+)?=(?!=)/u)?.[1];
+        const assigned = pythonAssignedNames(raw);
         const deleted = raw.match(/^\s*del\s+([A-Za-z_]\w*)/u)?.[1];
         const declaration = raw.match(/^\s*(?:async\s+)?(?:def|class)\s+([A-Za-z_]\w*)/u)?.[1];
         const loopTarget = raw.match(/^\s*(?:async\s+)?for\s+(.+?)\s+in\b/u)?.[1];
-        if (assigned) recordUncertain(assigned, lineIndex + 1);
+        for (const name of assigned) recordUncertain(name, lineIndex + 1);
         if (deleted) recordUncertain(deleted, lineIndex + 1);
         if (declaration) recordUncertain(declaration, lineIndex + 1);
         if (loopTarget) for (const name of loopTarget.match(/[A-Za-z_]\w*/gu) ?? []) recordUncertain(name, lineIndex + 1);
