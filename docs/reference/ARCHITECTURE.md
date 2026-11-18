@@ -1,23 +1,25 @@
 # Arsitektur sistem
 
-Web/API mengautentikasi akun dan mengantrekan pekerjaan; worker menjalankan sembilan tahap lalu menerbitkan graph dan dokumen secara atomik. History, inspector, ekspor Markdown/PDF, serta cleanup membaca hasil tersimpan dengan pemeriksaan pemilik. Model semantik dan overlay koreksi terpisah dari fakta CCM/CKG. Rincian setup ada di [setup lokal](../guides/LOCAL_SETUP.md); bukti bertanggal ada di [arsip](../archive/README.md).
+Web/API mengautentikasi akun dan mengantrekan pekerjaan; worker membentuk snapshot, CCM/CKG, serta semantic model dari commit yang sama. Setelah analisis selesai, Code Knowledge tersedia sebagai view pendamping. Pengguna dapat membuat TOGAF Phase C baseline ADD melalui endpoint terpisah yang menyimpan snapshot ADD dan revision overlay per owner. UI aktif menampilkan Code Knowledge dan TOGAF ADD; Software Engineering Diagram serta UML lama tidak lagi menjadi keluaran utama. Rincian setup ada di [setup lokal](../guides/LOCAL_SETUP.md); bukti bertanggal ada di [arsip](../archive/README.md).
 
 ## Komponen
 
 | Komponen | Tanggung jawab | Batas |
 | --- | --- | --- |
-| Web/API Next.js | Session, GitHub callback, target analisis, riwayat, graph, dokumen, dan endpoint job | Tidak menjalankan parsing panjang di request HTTP |
-| Worker Node.js | Mengambil job, snapshot, pipeline, adapter analyzer, persistensi hasil, dan ekspor | Satu analysis job aktif secara global |
+| Web/API Next.js | Session, GitHub callback, target analisis, riwayat, graph, ADD baseline, review overlay, dan endpoint job | Tidak menjalankan parsing source panjang di request HTTP |
+| Worker Node.js | Mengambil job, snapshot, pipeline, adapter analyzer, persistensi CKG/semantic model, dan job lama | Satu analysis job aktif secara global |
 | Adapter JS/TS | TypeScript Compiler API, AST, simbol, tipe, dan evidence | Versi API dipin; tidak memuat plugin atau menjalankan project target |
 | Adapter PHP | nikic/PHP-Parser melalui program PHP tepercaya milik SAGE | Membaca source sebagai data; tidak mengeksekusi file target |
-| PostgreSQL | User, koneksi, job, stage, hasil terstruktur, dokumen, dan metadata storage | Seluruh query hasil memiliki konteks pemilik |
+| Adapter Python | Pemindai line-structured untuk deklarasi, route FastAPI-style literal, model SQLAlchemy-style, dan beberapa relasi lokal | Bukan Python AST penuh; tidak mengeksekusi source atau menyelesaikan alur dinamis |
+| Extractor data | SQL DDL, OpenAPI JSON/YAML, serta pola JSON Schema tertentu | Tidak membuktikan skema runtime atau integrasi yang tidak dideklarasikan |
+| PostgreSQL | User, koneksi, job, stage, CKG/semantic model, ADD baseline, revision, dan metadata storage | Seluruh query hasil memiliki konteks pemilik |
 | Persistent volume | Snapshot/source evidence dan file ekspor | Tidak berada di Git atau direktori static publik |
 | GitHub | Identitas, izin, metadata target, dan snapshot source | Akses dibatasi pada hak pengguna/instalasi |
 | Browser | UI Indonesia, Cytoscape.js, inspector, dan unduhan | Tidak menerima token GitHub atau private key |
 
-Pipeline: GitHub -> snapshot immutable -> adapter bahasa -> Common Code Model -> canonical Code Knowledge Graph -> tiga proyeksi artefak -> Architecture Definition Document -> ekspor. Worker aktif memproses pipeline; dukungan alur semantik tetap mengikuti pola extractor yang dikenali.
+Alur produk: GitHub -> immutable snapshot -> static adapters -> CCM/CKG -> semantic model -> Code Knowledge. Setelah pipeline selesai, endpoint **Generate ADD** memproyeksikan baseline Data Architecture dan Application Architecture, menyimpan model, lalu membuka catalog/matrix/review/export. Detail model ada di [TOGAF ADD](TOGAF_ADD.md).
 
-LLM tidak terhubung ke jalur MVP. Framework backend tambahan, graph database, dan layanan antrean terpisah tidak menjadi dependency awal.
+LLM kampus opsional dipanggil hanya jika user mengaktifkan consent saat Generate ADD. Payload dibatasi pada nama dan relationship summary; model hanya membantu menulis dua narrative baseline dan tidak dapat mengubah fakta source. Jika endpoint/model tidak tersedia, narrative deterministik tetap dipakai. Framework backend tambahan, graph database, dan layanan antrean terpisah tidak menjadi dependency awal.
 
 ## Docker Compose
 
@@ -55,10 +57,12 @@ Callback memakai state sekali pakai, session berumur terbatas, dan pemetaan inst
 | 3 | `STATIC_ANALYSIS` | Menjalankan analisis statis |
 | 4 | `COMMON_CODE_MODEL` | Membentuk Common Code Model |
 | 5 | `KNOWLEDGE_GRAPH` | Membangun Code Knowledge Graph |
-| 6 | `INTERFACE_CATALOG` | Menghasilkan Interface Catalog |
-| 7 | `SOFTWARE_ENGINEERING_DIAGRAM` | Menghasilkan Software Engineering Diagram |
-| 8 | `UML_CLASS_DIAGRAM` | Menghasilkan UML Class Diagram |
-| 9 | `ARCHITECTURE_DOCUMENT` | Menyusun Architecture Definition Document |
+| 6 | `INTERFACE_CATALOG` | Menyiapkan katalog interface |
+| 7 | `SOFTWARE_ENGINEERING_DIAGRAM` | Memvalidasi proyeksi struktur source |
+| 8 | `UML_CLASS_DIAGRAM` | Memvalidasi relasi class |
+| 9 | `ARCHITECTURE_DOCUMENT` | Menyimpan hasil analisis |
+
+Stage key lama tetap dipakai untuk kompatibilitas pipeline dan data historis; label UI tidak lagi menawarkan Software Engineering Diagram atau UML sebagai deliverable utama. ADD baseline dibuat terpisah sesudah pipeline selesai.
 
 Antrean PostgreSQL, idempotent enqueue, claim, lease/lock database, dan guard global sudah diimplementasikan serta diuji pada [ANA-01](../archive/analyzer/ANA-01_CHECKS.md). Runner dasar ANA-07-S1 kini dipakai oleh consumer ANA-07. Worker mengambil satu job, menyusun registry sembilan handler nyata, mempertahankan lease selama eksekusi dan publikasi, lalu melepaskan slot hanya bersama transisi terminal. Restart tidak melanjutkan artefak in-memory: lease kedaluwarsa menjadi FAILED/WORKER_INTERRUPTED dan pengguna membuat retry baru. [Bukti ANA-07](../archive/analyzer/ANA-07_CHECKS.md) membedakan provider terkontrol dari GitHub live.
 
@@ -72,11 +76,11 @@ Progress memakai endpoint read-only dengan polling tiga detik selama QUEUED/RUNN
 
 ## Ketersediaan hasil
 
-Publikasikan graph dan ADD sebagai satu result bundle setelah kesembilan tahap berhasil. `COMPLETED_WITH_LIMITATIONS` tetap memiliki bundle lengkap beserta daftar bagian yang dikecualikan. Gagal membentuk salah satu artefak membuat analisis `FAILED`; artefak internal parsial tidak disajikan sebagai hasil selesai.
+Graph, semantic model, dan legacy architecture document dipublikasikan bersama setelah kesembilan tahap pipeline berhasil. ADD Phase C baseline baru dibuat saat pengguna menekan **Generate ADD**. Karena itu, analisis yang selesai belum tentu memiliki `AddBaseline` tersimpan. `COMPLETED_WITH_LIMITATIONS` tetap memiliki graph/semantic output serta daftar bagian yang dikecualikan. Gagal membentuk artefak pipeline membuat analisis `FAILED`; artefak internal parsial tidak disajikan sebagai hasil selesai.
 
-Kegagalan ekspor setelah hasil tersedia hanya memengaruhi export job. Graph dan ADD yang telah selesai tetap dapat dibuka. Satu format aktif pada toolbar dokumen menonaktifkan permintaan format lain pada toolbar yang sama sesuai alur mockup.
+Kegagalan membuat ADD tidak mengubah hasil CKG/semantic yang telah selesai; Generate ADD dapat dicoba lagi. Pada UI ADD saat ini, Markdown diunduh dari browser dan PDF dibuat melalui Print / Save as PDF. Export job worker yang masih ada melayani alur dokumen lama dan tidak membuktikan ekspor PDF ADD baru.
 
-Diagram statis merupakan proyeksi dari canonical graph. DOC-02 memakai Mermaid untuk source mandiri dan SVG, melalui Chromium dengan jaringan diblokir serta validasi output. Pilihan renderer tidak menentukan fakta atau resolusi relasi. DOC-01 mengintegrasikan ADD dan tampilan diagram lokal. Ekspor produk masih mengikuti EXP-01/EXP-02.
+ArchiMate ADD views merupakan proyeksi dari canonical semantic model dan CKG. Legacy DOC-02 masih memakai Mermaid untuk dokumen lama; ia tidak menentukan fakta ADD atau resolver. Halaman ADD aktif merender SVG dari model ADD dan membuat Markdown/PDF dari model serta review overlay yang sedang ditampilkan. Worker export jobs masih mendukung format dokumen lama.
 
 ## Batas keamanan pemrosesan
 
@@ -118,12 +122,14 @@ Browser mengikat payload ke ID analisis serta akun, membuang respons generasi la
 
 ## Model dan akses dokumen DOC-01
 
-Setelah KNOWLEDGE_GRAPH, handler INTERFACE_CATALOG, SOFTWARE_ENGINEERING_DIAGRAM dan UML_CLASS_DIAGRAM memproyeksikan CKG yang sama. ARCHITECTURE_DOCUMENT memeriksa ulang identitas serta isi artefak sebelumnya dan menyimpan tiga artefak sekaligus sebagai canonical ADD. Snapshot/source tetap owner-bound; tidak ada fetch HEAD atau eksekusi source target pada tahap dokumen. Model murni diekspor melalui `@sage/documents/model`, sehingga database tidak perlu memuat Chromium atau renderer Mermaid.
+Pipeline masih menjalankan handler internal INTERFACE_CATALOG, SOFTWARE_ENGINEERING_DIAGRAM, UML_CLASS_DIAGRAM, dan ARCHITECTURE_DOCUMENT untuk kompatibilitas publikasi yang telah ada. Hasil tiga tampilan lama tidak lagi menjadi UI utama. TOGAF Phase C ADD baru dibuat oleh endpoint owner-scoped `/api/analyses/{analysisId}/add` sesudah analisis berstatus terminal sukses; endpoint membaca GraphBundle dan SemanticModel canonical serta memvalidasi hash/snapshot yang sama.
 
-Dokumen internal dan graph disembunyikan oleh canonical reader selama analisis belum sukses. DOC-01 tidak menyatakan Analysis/Job selesai dan tidak mengaktifkan consumer. ANA-07 memeriksa kelengkapan/hash kedua hasil dan menerbitkan status sukses secara atomik. Detail kontrak: [spesifikasi analisis](ANALYSIS_SPEC.md#model-add-dan-batas-publikasi-doc-01).
+Dokumen internal dan graph disembunyikan oleh canonical reader selama analisis belum sukses. Pipeline menerbitkan hasil graph/semantic setelah stage yang diwajibkan selesai; ADD baseline tetap dibuat terpisah dari hasil tersebut. Detail kontrak: [spesifikasi analisis](ANALYSIS_SPEC.md#togaf-phase-c-add-baseline).
 
-Halaman `/analyses/{analysisId}/document` mengambil model melalui API privat setelah memeriksa session dan owner. Client mengosongkan hasil saat identitas diperiksa ulang atau akun berubah, dan menolak respons lama. Mermaid lokal merender source proyeksi tervalidasi dengan guard DOC-02; SVG diperiksa lalu ditampilkan sebagai gambar Blob. Kontrol zoom 100–400% dan scroll lokal membantu membaca diagram lebar; karakter escape dinormalisasi hanya sebagai teks SVG. Kegagalan/batas renderer ditampilkan eksplisit tanpa memotong katalog atau fakta canonical. Ekspor Markdown/PDF mengikuti issue berikutnya.
+Halaman `/analyses/{analysisId}/document` mengambil model ADD melalui API privat setelah memeriksa session dan owner. Client menolak respons dari akun yang berubah. Diagram Data Structure dan Application Cooperation dirender sebagai SVG dari model yang sama serta mengikuti overlay review. Markdown memuat katalog, functional decomposition, matrix, relationship register, limitation, review state, dan evidence commit-pinned. PDF memakai print CSS A4 dan dikendalikan browser.
 
-## Ekspor Markdown EXP-01
+## Ekspor ADD aktif dan pipeline ekspor legacy
 
-Reader canonical dokumen tersedia pada modul worker bersama yang dipakai juga oleh wrapper web. Export mengikat document hash dan renderer version; request ganda dideduplikasi. Slot antrean `export` terpisah dari slot `analysis`, dengan lease dan recovery tersendiri. Worker memverifikasi ulang ADD terhadap CKG/source archive, merender byte Markdown deterministik, menulis file privat dan memublikasikan metadata READY setelah pemeriksaan integritas. Gagal/retry ekspor tidak mengubah status atau hash hasil analisis. Status, retry dan download tetap owner-scoped; UI mengabaikan respons lama dan memeriksa session lagi sesudah body unduhan diterima. Bukti dan batas aktual mengikuti [EXP-01_CHECKS](../archive/documents/EXP-01_CHECKS.md).
+ADD baseline saat ini diekspor dari halaman yang sudah memuat canonical model dan review overlay: Markdown dibuat di browser, sedangkan PDF memakai print browser dengan layout A4. Keduanya mengacu ke snapshot repository/commit yang sama dan evidence commit-pinned. Perubahan pada overlay yang belum disimpan ikut tampil pada ekspor sesi tersebut; pengguna sebaiknya menyimpan review terlebih dahulu bila ingin revisi menjadi data persisten.
+
+Job ekspor worker dan arsip EXP-01 adalah implementasi legacy bagi alur dokumen sebelumnya. Keberadaan fitur lama itu bukan bukti bahwa export worker menangani model `sage-add-baseline-v1`. Cache/versioning, pagination PDF berukuran besar, dan konsistensi lintas format ADD baru masih harus diuji sebelum dinyatakan siap rilis. Lihat [kontrak ADD](TOGAF_ADD.md) dan [catatan historis EXP-01](../archive/documents/EXP-01_CHECKS.md).

@@ -113,6 +113,14 @@ Kategori UI memakai kind AST canonical yang tersedia pada graph; query dan kateg
 
 Hasil graph/document baru tersedia pada `COMPLETED` atau `COMPLETED_WITH_LIMITATIONS`. Akses sebelum selesai menghasilkan `409 RESULT_NOT_READY` dengan link progress milik user. Node/file yang tidak tersedia menghasilkan `404` dan UI menyediakan state yang sesuai.
 
+## TOGAF Phase C baseline ADD
+
+`GET /api/analyses/{analysisId}/add` membaca baseline canonical dan revision overlay terbaru. Jika hasil analisis sukses tetapi baseline belum dibuat, respons `409 ADD_NOT_READY` atau `409` dengan `data.status = "not-generated"` memberi UI jalur Generate. `POST /api/analyses/{analysisId}/add` menerima JSON tepat `{ "allowLlm": false }` atau `true`; `true` hanya meminta bantuan wording narasi setelah consent eksplisit. Hasil source facts tetap berasal dari snapshot tersimpan dan tidak diberikan ke LLM. Generate menyimpan satu model untuk analisis dan request ulang mengembalikan model yang sama.
+
+`PATCH /api/analyses/{analysisId}/add` menerima JSON tepat `{ "expectedRevision": 0, "overlay": { "schemaVersion": "sage-add-review-v1", "revision": 1, "status": "draft", "elements": {} } }`. Overlay hanya dapat mengoreksi nama, feature group, dan review status elemen canonical. Revision ditambahkan secara append-only; revision yang sudah usang menghasilkan `409 ADD_REVISION_CONFLICT`. Sesi, owner analysis, origin, ukuran payload, ID elemen, hash model, dan snapshot diperiksa server-side. Semua response memakai private/no-store dan account binding.
+
+`GET /api/analyses/{analysisId}/document` di atas tetap kontrak **legacy `sage-add-v1`** dari pipeline dokumen sebelumnya. Halaman itu bukan hasil ADD Phase C terbaru; gunakan endpoint `/add` dan workspace ADD. Ekspor Phase C mengambil snapshot model/revision ketika request ekspor dibuat; kontrak implementasi ekspor baru masih harus direkonsiliasi dengan worker export sebelum dapat disebut tersedia. LaTeX Phase C saat ini diunduh sebagai `.tex` dari browser dan tidak memakai collection endpoint ekspor di bawah.
+
 ## Ekspor
 
 | Method | Endpoint | Perilaku |

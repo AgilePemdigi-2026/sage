@@ -2,9 +2,11 @@
 
 ## Kontrak
 
-`SemanticModel` (`sage-semantic-v1`) adalah model canonical terpisah dari fakta CCM/CKG. Snapshot, SHA-256 source graph, versi extractor, serta evidence sumber mengikat hasil ke commit yang dianalisis. Node: actor, feature, concept, component, store, step, decision, outcome. Setiap hubungan memuat evidence dan alasan **Terbukti** (`proven`) atau **Indikasi** (`indicated`). Ini tidak mengubah resolusi `Exact`/`Unresolved` pada CKG. Data tidak menyatakan bahwa seluruh jalur statis pasti dapat dieksekusi pada runtime.
+`SemanticModel` (`sage-semantic-v2`) adalah model canonical terpisah dari fakta CCM/CKG. Snapshot, SHA-256 source graph, versi extractor, serta evidence sumber mengikat hasil ke commit yang dianalisis. Node: actor, feature, concept, component, store, step, decision, outcome. Setiap hubungan memuat evidence dan alasan **Terbukti** (`proven`) atau **Indikasi** (`indicated`). Ini tidak mengubah resolusi `Exact`/`Unresolved` pada CKG. Data tidak menyatakan bahwa seluruh jalur statis pasti dapat dieksekusi pada runtime.
 
-Extractor berbasis aturan berjalan pada worker yang ada, tanpa layanan AI, instalasi dependency, atau eksekusi source repository target. Next.js menggunakan AST TypeScript dan Laravel menggunakan token PHP serta deklarasi route/controller. Import dan kedekatan folder tidak menjadi urutan aktivitas. Framework lain atau binding dinamis memerlukan bukti tersendiri dan menghasilkan batasan bila tidak dapat ditelusuri.
+Extractor berbasis aturan berjalan pada worker yang ada tanpa instalasi dependency atau eksekusi source repository target. Next.js menggunakan AST TypeScript, Laravel memakai token PHP serta deklarasi route/controller, Node HTTP dan FastAPI hanya mendukung pola literal terbatas. SQL, Prisma model, OpenAPI JSON/YAML, dan sebagian JSON Schema menambah contract data/interface, bukan dukungan bahasa pemrograman baru. Import dan kedekatan folder tidak menjadi urutan aktivitas. Framework lain atau binding dinamis memerlukan bukti tersendiri dan menghasilkan batasan bila tidak dapat ditelusuri. LLM kampus tidak dipakai untuk membentuk semantic model; consent LLM berlaku terpisah dan hanya untuk wording narrative ADD.
+
+Prisma extraction mengatalogkan deklarasi `model` dan relasi ketika field secara eksplisit memakai nama model lain dalam schema root yang sama. Relasi dua arah dikelompokkan menjadi satu association dengan kedua deklarasi sebagai evidence. Scalar field, enum, operasi CRUD, data owner, distribusi, dan deployment tidak disimpulkan dari schema. File schema yang malformed, target relasi ambigu, dan self-reference yang belum didukung dilaporkan sebagai limitation.
 
 ## Penyajian interaktif
 
@@ -14,18 +16,18 @@ Extractor `0.2.0` memperbaiki hubungan kondisi/query Laravel serta mengecualikan
 
 ## Penyimpanan dan akses
 
-- `SemanticModel` menyimpan satu `canonicalContent`, hash model, source CKG hash, versi schema/extractor, serta foreign key pemilik/analisis. Tidak ada salinan model JSON per revisi.
+- `SemanticModel` menyimpan satu `canonicalContent`, hash model, source CKG hash, versi schema/extractor, serta foreign key pemilik/analisis. Tidak ada salinan model JSON per revisi. ADD baseline memakai penyimpanan canonical tersendiri (`AddBaseline`) dengan append-only `AddRevision` untuk koreksi dokumen.
 - `PresentationRevision` hanya menyimpan overlay label/kelompok dan hash overlay. Revisi nol berarti hasil otomatis; pembaruan menambahkan revisi, tidak menimpa source.
 - GET `/api/analyses/:analysisId/semantic` membaca model dan overlay terbaru untuk sesi/pemilik yang sama. Hasil lama tanpa model memberikan keterangan analisis ulang; graph/ADD lama tetap dapat dibaca.
 - PATCH `/api/analyses/:analysisId/semantic/presentation` menerima `{ "expectedRevision": 0, "overlay": { "labels": {}, "groups": {} } }`. Body, same-origin, akun, ID node/fitur, panjang label, dan pemilik divalidasi. Pengelompokan hanya untuk konsep, komponen, dan store; tidak menambah hubungan.
 - Row lock analisis lalu model, serta pemeriksaan revisi mencegah dua penulis menimpa perubahan. Revisi usang ditolak dengan konflik HTTP 409. Reset menghapus override terkait pada revisi baru.
 - Penghapusan analisis menghapus model dan riwayat koreksi melalui cascade. Kredensial tidak masuk model semantik.
 
-## Ekspor dan kompatibilitas
+## ADD aktif dan kompatibilitas export
 
-Permintaan ekspor mem-pin hash model dan revisi overlay secara atomik. Cache memakai hash ADD, format, versi renderer yang mencakup model/revisi. Worker membaca revisi historis yang dipin; koreksi berikutnya tidak mengubah ekspor yang sudah diantrekan. PDF dan Markdown menggunakan fungsi proyeksi overlay yang sama dengan aturan UI.
+Semantic model adalah salah satu input canonical bagi ADD, bukan file dokumen yang diekspor langsung. Halaman TOGAF ADD membaca `AddBaseline` beserta overlay/revision saat ini. Markdown dan LaTeX dibuat dari snapshot aktif di browser; PDF memakai print browser dengan SVG A4. File LaTeX adalah source unduhan dan bukan bagian dari export worker/API. Export worker yang mem-pin semantic model/presentation revision tetap ada untuk format lama; hal itu tidak membuktikan worker menghasilkan `sage-add-baseline-v1`.
 
-PDF memuat overview serta diagram vektor per bagian alur pada A4; halaman membatasi kepadatan dan mencatat relasi yang melintasi bagian lain. Tidak menggambar panah pengganti untuk relasi yang tidak ikut halaman. Markdown menyertakan seluruh fitur, konsep, langkah, relasi, alasan, indikasi, batasan, evidence, dan register teknis ADD. Detail source tetap dapat ditelusuri pada commit serta rentang baris GitHub. Evidence agregat fitur/aktor dapat merangkum rentang per file; evidence hubungan mempertahankan lokasi individual.
+Markdown ADD mencakup katalog, functional decomposition, matriks, relasi, limitations, review, dan evidence commit-pinned. LaTeX memproyeksikan struktur Phase C, tabel, diagram, serta evidence yang sama; source belum dikompilasi di worktree ini. PDF ringkas memakai diagram SVG pada halaman A4. Cache/versioning, pagination pada repository besar, dan konsistensi penuh seluruh tampilan masih memerlukan acceptance untuk ADD aktif.
 
 Batas source, ukuran canonical model, artefak, timeout, serta resource worker tetap berlaku. Analisis yang gagal memenuhi kontrak tidak diterbitkan sebagai hasil sukses. Dukungan backend Laravel tidak membuktikan adanya layar atau interaksi frontend.
 

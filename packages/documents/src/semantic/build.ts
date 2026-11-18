@@ -3,15 +3,17 @@ import type { SemanticFeature, SemanticInput, SemanticModel } from "./model.ts";
 import { extractLaravel } from "./laravel.ts";
 import { extractNext } from "./next.ts";
 import { extractNodeHttp } from "./node-http.ts";
+import { extractPythonFastApi } from "./python-fastapi.ts";
+import { extractDataArtifacts } from "./data-artifacts.ts";
 import { compactEvidence } from "./builder.ts";
 import { analyzeDocumentation } from "./documentation.ts";
 import { explainExtractedEdge } from "./explanations.ts";
 
 /** Build deterministic source-grounded semantics; there are no model/network calls. */
 export function buildSemanticModel(input: SemanticInput): SemanticModel {
-  const fragments = [extractNext(input), extractLaravel(input), extractNodeHttp(input)];
+  const fragments = [extractNext(input), extractLaravel(input), extractNodeHttp(input), extractPythonFastApi(input), extractDataArtifacts(input)];
   fragments.forEach((fragment, index) => {
-    const extractor = ["next", "laravel", "node-http"][index]!;
+    const extractor = ["next", "laravel", "node-http", "python-fastapi", "data-artifacts"][index]!;
     fragment.edges = fragment.edges.map(edge => {
       const explanation = edge.explanation ?? explainExtractedEdge(edge);
       return { ...edge, explanation: { ...explanation, rule: `${extractor}:${explanation.kind}` } };
@@ -22,13 +24,13 @@ export function buildSemanticModel(input: SemanticInput): SemanticModel {
   const features = mergeFeatures(fragments.flatMap(fragment => fragment.features));
   // An empty model is not evidence that an application has no flows.
   if (features.length === 0) {
-    const firstSource = input.ccm.files.map(file => file.path).filter(path => path in input.sources && /\.[cm]?[jt]sx?$|\.php$/u.test(path)).sort()[0];
+    const firstSource = input.ccm.files.map(file => file.path).filter(path => path in input.sources && /\.[cm]?[jt]sx?$|\.(?:php|py|sql|json|ya?ml)$/u.test(path)).sort()[0];
     if (firstSource) fragments.push({ nodes: [], edges: [], features: [], frameworks: [], limitations: [{ filePath: firstSource, reason: "Tidak ada user flow yang dikenali pada snapshot; pola aplikasi mungkin belum didukung. Ketiadaan hasil bukan bukti bahwa aplikasi tidak memiliki alur." }] });
   }
   const snapshot = JSON.parse(JSON.stringify(input.ccm.snapshot)) as SemanticModel["snapshot"];
   const value: SemanticModel = {
     schemaVersion: "sage-semantic-v2",
-    extractorVersion: "0.4.2",
+    extractorVersion: "0.6.0",
     sourceCkgHash: input.sourceCkgHash,
     snapshot,
     documentation: analyzeDocumentation({ sources: input.documentationSources ?? {}, snapshotPaths: input.snapshotPaths ?? [...new Set([

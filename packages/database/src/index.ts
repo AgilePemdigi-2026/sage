@@ -104,6 +104,7 @@ export {
   SemanticPresentationConflictError,
   validatePresentationOverlay,
 } from "./semantic.ts";
+export { readAddBaseline, saveAddBaseline, saveAddRevision, AddBaselineConflictError } from "./add-baseline.ts";
 export {
   AnalysisDeletionActiveError,
   AnalysisDeletionNotFoundError,

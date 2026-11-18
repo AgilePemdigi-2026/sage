@@ -215,6 +215,8 @@ model Analysis {
   architectureDocument       ArchitectureDocument?
   semanticModel              SemanticModel?
   presentationRevisions      PresentationRevision[]
+  addBaseline                AddBaseline?
+  addRevisions               AddRevision[]
   exports                    Export[]
   jobs                       Job[]                 @relation("JobAnalysisOwner")
   storageObjects             StorageObject[]
@@ -468,5 +470,42 @@ model PresentationRevision {
   @@unique([analysisId, ownerUserId, revision])
   @@unique([id, analysisId, ownerUserId, semanticModelId, revision])
   @@index([semanticModelId, revision])
+  @@index([ownerUserId, createdAt])
+}
+
+/// TOGAF Phase C baseline document generated after repository analysis.
+model AddBaseline {
+  id              String   @id @default(cuid())
+  ownerUserId     String
+  analysisId      String
+  sourceCkgHash   String   @db.VarChar(64)
+  modelHash       String   @db.VarChar(64)
+  schemaVersion   String
+  canonicalContent String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  analysis        Analysis @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+  revisions       AddRevision[]
+
+  @@unique([analysisId, ownerUserId])
+  @@unique([id, analysisId, ownerUserId])
+  @@index([ownerUserId, createdAt])
+}
+
+/// Append-only user review overlay for the generated baseline.
+model AddRevision {
+  id            String      @id @default(cuid())
+  ownerUserId   String
+  analysisId    String
+  addBaselineId String
+  revision      Int
+  overlay       Json
+  contentHash   String      @db.VarChar(64)
+  createdAt     DateTime    @default(now())
+  analysis      Analysis    @relation(fields: [analysisId, ownerUserId], references: [id, ownerUserId], onDelete: Cascade)
+  baseline      AddBaseline @relation(fields: [addBaselineId, analysisId, ownerUserId], references: [id, analysisId, ownerUserId], onDelete: Cascade)
+
+  @@unique([analysisId, ownerUserId, revision])
+  @@index([addBaselineId, revision])
   @@index([ownerUserId, createdAt])
 }

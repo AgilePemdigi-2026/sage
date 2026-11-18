@@ -41,9 +41,12 @@ Paket dokumentasi dapat Done berdasarkan pemeriksaan dokumen/commit tanpa mengkl
 
 - Query, kategori AST, focus/overview/references, incoming/outgoing, inspector, evidence, dan source preview berfungsi pada hasil nyata.
 - Canonical counts tidak tercampur dengan counts subset tampilan; context repository/branch/SHA konsisten.
-- Interface Catalog, Software Engineering Diagram, dan UML Class Diagram berasal dari graph yang sama dan dapat ditelusuri.
-- Artefak tidak menambah HTTP endpoint, composition, cardinality, atau dependency yang tidak didukung source.
-- Relasi unresolved beserta batas cakupan tetap terlihat pada hasil yang relevan.
+- Code Knowledge adalah visualisasi source pendamping, bukan keluaran arsitektur atau flow aplikasi.
+- ADD memuat baseline Data Architecture dan Application Architecture, katalog, matriks, serta ArchiMate Data Structure dan Application Cooperation views dari snapshot source yang sama.
+- Hubungan ArchiMate harus cocok dengan profile subset yang diterapkan dan memiliki evidence serta confidence; relasi indicated tidak ditulis sebagai proven.
+- Target-state, gap/RAG, business capability, business process, data owner, deployment, dan integrasi antar-aplikasi tidak dibuat tanpa bukti atau input manusia.
+- Relasi unresolved dan batas cakupan analyzer tetap dijelaskan pada hasil yang relevan.
+- Corrections hanya mengubah label/feature group/review status pada versioned overlay; source facts dan relationships tidak berubah.
 
 ## Done untuk ekspor
 

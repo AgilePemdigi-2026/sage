@@ -20,6 +20,8 @@ Model ini memperinci empat entitas konseptual pada SRS agar queue, source eviden
 | `AnalysisLimitation` | Pemilik/analysis, path opsional, stage, code, penjelasan aman, jumlah bagian terdampak |
 | `GraphBundle` | Satu per analysis, pemilik, schema/config hash, `storageLayoutVersion`, canonical CKG text, counts, content hash; mirror nodes/edges hanya layout 1 |
 | `ArchitectureDocument` | Maksimal satu per analysis, title, versi model, `storageLayoutVersion`, `canonicalContent`, content hash dan timestamps; tiga mirror artefak hanya layout 1 |
+| `AddBaseline` | Maksimal satu per analysis dan pemilik; `sourceCkgHash`, schema/model hash, satu `canonicalContent` untuk TOGAF Phase C baseline ADD |
+| `AddRevision` | Append-only per analysis/pemilik; overlay label, feature group, dan review status, nomor revisi, hash; terikat ke `AddBaseline` |
 | `Export` | Pemilik/analysis/document, format, versi renderer, status, storage reference, content hash, error code |
 | `StorageObject` | Pemilik/analysis, jenis objek, opaque storage key unik, hash, ukuran, status penghapusan |
 | `WorkerSlot` | Slot global `analysis`, `export`, dan `cleanup`, relasi job/pemilik, lease/heartbeat, hash token lease, dan counter FIFO; row lock menserialkan enqueue/claim/renew/fail |
@@ -118,6 +120,8 @@ Simpan full SHA, hash snapshot/file, versi parser/resolver/schema, config hash, 
 ## Canonical ADD DOC-01
 
 `ArchitectureDocument.canonicalContent` menyimpan JSON `sage-add-v1`; nullable hanya untuk legacy yang tidak disajikan sebagai hasil canonical. Pada layout 1, ketiga kolom artefak JSONB berisi string JSON canonical agar escaped NUL/lone surrogate dipertahankan. Layout 2 menyimpan canonicalContent sekali dengan ketiga mirror sebagai SQL NULL. Reader meregenerasi model dari CKG serta source snapshot dan memverifikasi hash, title/version, serta ketentuan mirror sesuai storageLayoutVersion. Penulisan dilakukan sekali secara transaksional dengan lease/stage fence; replay berbeda ditolak. Model tidak memuat ID record/job atau waktu generate dalam hash. DOC-01 tidak mengubah status Analysis/Job terminal; publikasi graph+document+resultHash bersama dilakukan ANA-07. Lihat [bukti DOC-01](../archive/documents/DOC-01_CHECKS.md).
+
+`AddBaseline.canonicalContent` menyimpan satu model `sage-add-baseline-v1` dengan snapshot CKG yang sama seperti hasil analisis. `AddRevision` tidak menggandakan source facts atau relationships; setiap revision hanya menyimpan overlay yang diizinkan dan hash canonical. Reader/writer memeriksa owner, schema/model hash, source CKG hash, validasi model, revisi terakhir, serta hash/shape overlay. Revisi lama ditolak sebagai conflict. Ini adalah model baru untuk keluaran Phase C; data `ArchitectureDocument` historis tetap dapat dibaca oleh jalur legacy dan tidak otomatis dikonversi.
 
 ## Ekspor Markdown EXP-01
 

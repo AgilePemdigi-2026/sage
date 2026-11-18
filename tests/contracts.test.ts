@@ -172,7 +172,7 @@ function refreshEdgeId(edge: CcmEdge): void {
 test("registries expose the schema v1 kinds, relations, languages, origins and reasons", () => {
   assert.deepEqual(NODE_KINDS, ["Module", "Class", "Interface", "Function", "Method", "Property", "UnresolvedReference"]);
   assert.deepEqual(EDGE_KINDS, ["CONTAINS", "IMPORTS", "EXPORTS", "EXTENDS", "IMPLEMENTS", "TYPE_REFERENCES", "CALLS", "INSTANTIATES", "READS", "WRITES", "THROWS", "INCLUDES"]);
-  assert.deepEqual(LANGUAGES, ["javascript", "typescript", "php"]);
+  assert.deepEqual(LANGUAGES, ["javascript", "typescript", "php", "python"]);
   assert.deepEqual(NODE_ORIGINS, ["source", "stdlib", "external", "unresolved"]);
   assert.deepEqual(UNRESOLVED_REASONS, ["DYNAMIC_LOAD", "UNKNOWN_RECEIVER", "EXTERNAL_DEPENDENCY", "UNSUPPORTED_CONSTRUCT", "AMBIGUOUS_SYMBOL"]);
 });
