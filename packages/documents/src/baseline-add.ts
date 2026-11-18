@@ -10,7 +10,7 @@ export type { AddElement, AddBaselineModel, AddOrigin, AddRelationship, ArchiMat
 const id = (prefix: string, key: string) => `${prefix}:${createHash("sha256").update(key).digest("hex").slice(0, 20)}`;
 const uniqueEvidence = (spans: EvidenceSpan[]) => [...new Map(spans.map(span => [`${span.filePath}:${span.startLine}:${span.endLine}:${span.role}`, span])).values()];
 function routeMethod(label: string): string | null {
-  const match = label.trim().match(/^((?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)(?:\/(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS))*)\s+(\/\S*)$/iu);
+  const match = label.trim().match(/^((?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|TRACE)(?:\/(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS|TRACE))*)\s+(\/\S*)$/iu);
   return match?.[1]?.toUpperCase() ?? null;
 }
 

@@ -85,6 +85,74 @@ test("FastAPI api_route methods expand through the semantic model into ADD inter
   assert.ok(interfaces.includes("POST /books"));
 });
 
+test("TRACE routes are retained in the ADD interface catalog", () => {
+  const sources = { "app.py": encoder.encode(["@app.trace('/debug')", "def trace_debug():", "    return []", ""].join("\n")) };
+  const result = analyzePythonSources({ snapshot, sources });
+  assert.ok(result.ccm, JSON.stringify(result.diagnostics));
+  const semantic = buildSemanticModel({ ccm: result.ccm, sourceCkgHash: "f".repeat(64), sources });
+  const add = buildAddBaseline({ ccm: result.ccm, semantic, sourceCkgHash: "f".repeat(64) });
+  assert.ok(add.catalogs.interfaces.some(item => add.elements.find(element => element.id === item.elementId)?.name === "TRACE /debug"));
+});
+
+test("Python model access and relationship facts resolve through exact module bindings", () => {
+  const sources = {
+    "a/models.py": encoder.encode([
+      "class User(Base):",
+      "    __tablename__ = 'users'",
+      "    id = Column(Integer, primary_key=True)",
+      "class Order(Base):",
+      "    __tablename__ = 'orders'",
+      "    user = relationship('User')",
+      "",
+    ].join("\n")),
+    "b/models.py": encoder.encode([
+      "class User(Base):",
+      "    __tablename__ = 'other_users'",
+      "    id = Column(Integer, primary_key=True)",
+      "",
+    ].join("\n")),
+    "app/routes.py": encoder.encode([
+      "from a.models import User",
+      "@app.get('/users')",
+      "def get_users():",
+      "    return session.query(User).all()",
+      "",
+    ].join("\n")),
+  };
+  const result = analyzePythonSources({ snapshot, sources });
+  assert.ok(result.ccm, JSON.stringify(result.diagnostics));
+  const semantic = buildSemanticModel({ ccm: result.ccm, sourceCkgHash: "f".repeat(64), sources });
+  const aUser = result.ccm.nodes.find(node => node.kind === "Class" && node.filePath === "a/models.py" && node.name === "User");
+  const bUser = result.ccm.nodes.find(node => node.kind === "Class" && node.filePath === "b/models.py" && node.name === "User");
+  const order = result.ccm.nodes.find(node => node.kind === "Class" && node.name === "Order");
+  const aStore = semantic.nodes.find(node => node.kind === "store" && node.technicalNodeIds.includes(aUser?.id ?? ""));
+  const bStore = semantic.nodes.find(node => node.kind === "store" && node.technicalNodeIds.includes(bUser?.id ?? ""));
+  const orderStore = semantic.nodes.find(node => node.kind === "store" && node.technicalNodeIds.includes(order?.id ?? ""));
+  const userAccesses = semantic.edges.filter(edge => edge.label === "accesses data model");
+  assert.equal(userAccesses.length, 1);
+  assert.equal(userAccesses[0]?.target, aStore?.id, "route import binds only to a.models.User");
+  assert.ok(!userAccesses.some(edge => edge.target === bStore?.id));
+  assert.ok(semantic.edges.some(edge => edge.label === "has relationship to" && edge.source === orderStore?.id && edge.target === aStore?.id));
+  assert.ok(!semantic.edges.some(edge => edge.label === "has relationship to" && edge.source === orderStore?.id && edge.target === bStore?.id));
+
+  const ambiguousSources = {
+    ...sources,
+    "app/ambiguous.py": encoder.encode([
+      "from a.models import User",
+      "from b.models import User",
+      "@app.get('/ambiguous')",
+      "def ambiguous_users():",
+      "    return session.query(User).all()",
+      "",
+    ].join("\n")),
+  };
+  const ambiguousResult = analyzePythonSources({ snapshot, sources: ambiguousSources });
+  assert.ok(ambiguousResult.ccm, JSON.stringify(ambiguousResult.diagnostics));
+  const ambiguousSemantic = buildSemanticModel({ ccm: ambiguousResult.ccm, sourceCkgHash: "f".repeat(64), sources: ambiguousSources });
+  assert.ok(!ambiguousSemantic.edges.some(edge => edge.label === "accesses data model" && edge.evidence.some(item => item.filePath === "app/ambiguous.py")), "shadowed duplicate model bindings are not guessed");
+  assert.ok(ambiguousSemantic.limitations.some(item => item.filePath === "app/ambiguous.py" && item.reason.includes("ambiguous Python model binding")));
+});
+
 test("Python dynamic route path expressions are omitted and reported as limitations", () => {
   const sources = { "app.py": encoder.encode([
     "@app.get('/prefix' + suffix)",

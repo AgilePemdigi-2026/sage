@@ -21,6 +21,44 @@ export function extractPythonFastApi(input: SemanticInput): SemanticFragment {
   const semanticNodes = new Map<string, SemanticNode>();
   const features = new Map<string, SemanticFeature>();
   const edges = new Map<string, SemanticEdge>();
+  const pythonNodesById = new Map(pythonNodes.map(node => [node.id, node]));
+  const modelIds = new Set(modelNodes.map(node => node.id));
+  const modulesById = new Map(pythonNodes.filter(node => node.kind === "Module").map(node => [node.id, node]));
+  const modelBindingsByFile = new Map<string, Map<string, Map<string, CcmNode>>>();
+  const addModelBinding = (filePath: string, binding: string, model: CcmNode) => {
+    const bindings = modelBindingsByFile.get(filePath) ?? new Map<string, Map<string, CcmNode>>();
+    const candidates = bindings.get(binding) ?? new Map<string, CcmNode>();
+    candidates.set(model.id, model);
+    bindings.set(binding, candidates);
+    modelBindingsByFile.set(filePath, bindings);
+  };
+  for (const model of modelNodes) if (model.filePath && model.name) addModelBinding(model.filePath, model.name, model);
+  const decodedSources = new Map<string, string>();
+  const textFor = (filePath: string): string => {
+    const cached = decodedSources.get(filePath); if (cached !== undefined) return cached;
+    const bytes = input.sources[filePath];
+    const text = bytes ? new TextDecoder("utf-8", { fatal: false }).decode(bytes) : "";
+    decodedSources.set(filePath, text); return text;
+  };
+  for (const edge of input.ccm.edges) {
+    if (edge.kind !== "IMPORTS" || edge.resolution !== "Exact") continue;
+    const sourceModule = modulesById.get(edge.sourceId);
+    const model = pythonNodesById.get(edge.targetId);
+    if (!sourceModule?.filePath || !model || !modelIds.has(model.id) || !model.name) continue;
+    const importLineNumber = edge.evidence[0]?.startLine;
+    const importLine = importLineNumber ? textFor(sourceModule.filePath).split("\n")[importLineNumber - 1] ?? "" : "";
+    const imported = importLine.match(/^\s*from\s+.+?\s+import\s+(.+)\s*$/u)?.[1]?.replace(/[()]/gu, "");
+    if (!imported) continue;
+    // The Python adapter resolves a single explicit class target per import
+    // edge. Match only that bound symbol and its alias; unresolved and
+    // multi-symbol imports stay out of the semantic model.
+    const binding = imported.split(/\s*,\s*/u).map(item => {
+      const [name, alias] = item.trim().split(/\s+as\s+/u);
+      return { name, alias: alias ?? name };
+    }).find(item => item.name === model.name);
+    if (binding?.alias && /^[A-Za-z_]\w*$/u.test(binding.alias)) addModelBinding(sourceModule.filePath, binding.alias, model);
+  }
+  const modelsBoundAs = (filePath: string, name: string): CcmNode[] => [...(modelBindingsByFile.get(filePath)?.get(name)?.values() ?? [])];
   const actorId = semanticId("actor", "python", 0, "python-api-client");
   const storeIdByTechnicalNode = new Map<string, string>();
   for (const model of modelNodes) {
@@ -71,13 +109,24 @@ export function extractPythonFastApi(input: SemanticInput): SemanticFragment {
       edges.set(actorEdge.id, actorEdge); edges.set(handlerEdge.id, handlerEdge);
       feature.edgeIds.push(actorEdge.id, handlerEdge.id);
 
-      for (const model of modelNodes) {
-        if (!model.name || !new RegExp(`\\b${escapeRegExp(model.name)}\\b`, "u").test(body)) continue;
-        if (!/(?:query|select|add|add_all|merge|delete|get|execute|scalars|session\s*\.)/iu.test(body)) continue;
-        const storeId = storeIdByTechnicalNode.get(model.id); if (!storeId) continue;
-        feature.nodeIds.push(storeId);
-        const storeEdge: SemanticEdge = { id: semanticEdgeId(filePath, route.location.startByte, `python:store:${handlerId}:${storeId}`), source: handlerId, target: storeId, label: "accesses data model", confidence: "indicated", reason: "The handler body references a model declaration alongside a database operation token; indirect or dynamic persistence is not followed.", evidence: compactEvidence([...accessEvidence(route), ...nodeEvidence(model)]) };
-        edges.set(storeEdge.id, storeEdge); feature.edgeIds.push(storeEdge.id);
+      const hasDataOperation = /(?:query|select|add|add_all|merge|delete|get|execute|scalars|session\s*\.)/iu.test(body);
+      if (hasDataOperation) {
+        let linkedModel = false; let ambiguousBinding = false;
+        for (const [bindingName, candidates] of modelBindingsByFile.get(filePath) ?? []) {
+          if (!new RegExp(`\\b${escapeRegExp(bindingName)}\\b`, "u").test(body)) continue;
+          if (candidates.size !== 1) {
+            ambiguousBinding = true;
+            fragment.limitations.push({ filePath, reason: `Handler ${route.name} references ambiguous Python model binding ${bindingName}; no data access relationship was inferred.` });
+            continue;
+          }
+          const model = [...candidates.values()][0]!;
+          const storeId = storeIdByTechnicalNode.get(model.id); if (!storeId) continue;
+          linkedModel = true;
+          feature.nodeIds.push(storeId);
+          const storeEdge: SemanticEdge = { id: semanticEdgeId(filePath, route.location.startByte, `python:store:${handlerId}:${storeId}`), source: handlerId, target: storeId, label: "accesses data model", confidence: "indicated", reason: "The handler references an unambiguous local or explicitly imported model binding alongside a database operation token; dynamic persistence is not followed.", evidence: compactEvidence([...accessEvidence(route), ...nodeEvidence(model)]) };
+          edges.set(storeEdge.id, storeEdge); feature.edgeIds.push(storeEdge.id);
+        }
+        if (!linkedModel && !ambiguousBinding && modelNodes.length) fragment.limitations.push({ filePath, reason: `Handler ${route.name} contains a database operation but no unambiguous local or explicitly imported data model binding was identified.` });
       }
       if (/\b(if|try|except|raise|HTTPException)\b/u.test(body)) fragment.limitations.push({ filePath, reason: `Handler ${route.name} contains a conditional or error branch; this first Python adapter records the entry and direct data references but does not project decision outcomes.` });
     }
@@ -88,12 +137,29 @@ export function extractPythonFastApi(input: SemanticInput): SemanticFragment {
     const owner = property.parentId ? pythonNodes.find(node => node.id === property.parentId) : null;
     const sourceStore = owner ? storeByTechnicalNode.get(owner.id) : null;
     if (!sourceStore || !property.location || !property.signature) continue;
-    const targetName = property.signature.match(/relationship\s*\(\s*["']?([A-Za-z_]\w*)/u)?.[1];
-    const targetNode = targetName ? modelNodes.find(node => node.name === targetName) : null;
+    const targetName = property.signature.match(/relationship\s*\(\s*["']([A-Za-z_]\w*)["']/u)?.[1];
+    if (!targetName) {
+      fragment.limitations.push({ filePath: property.filePath ?? "", reason: `SQLAlchemy relationship ${property.name} does not use a supported literal model name; no data relationship was inferred.` });
+      continue;
+    }
+    const targetCandidates = targetName && property.filePath ? modelsBoundAs(property.filePath, targetName) : [];
+    if (targetCandidates.length > 1) {
+      fragment.limitations.push({ filePath: property.filePath ?? "", reason: `SQLAlchemy relationship target ${targetName} is ambiguous in this module; no data relationship was inferred.` });
+      continue;
+    }
+    if (!targetCandidates.length) {
+      fragment.limitations.push({ filePath: property.filePath ?? "", reason: `SQLAlchemy relationship target ${targetName} could not be resolved to one local or explicitly imported model; no data relationship was inferred.` });
+      continue;
+    }
+    const targetNode = targetCandidates[0] ?? null;
     const targetStore = targetNode ? storeByTechnicalNode.get(targetNode.id) : null;
-    if (!targetStore || targetStore.id === sourceStore.id) continue;
+    if (!targetStore) continue;
+    if (targetStore.id === sourceStore.id) {
+      fragment.limitations.push({ filePath: property.filePath ?? "", reason: `SQLAlchemy self-reference on ${property.name} is not represented in the current ADD profile.` });
+      continue;
+    }
     const edge: SemanticEdge = { id: semanticEdgeId(property.filePath ?? "", property.location.startByte, `python:data-relation:${sourceStore.id}:${targetStore.id}`), source: sourceStore.id, target: targetStore.id,
-      label: "has relationship to", confidence: "proven", reason: "A SQLAlchemy relationship property names a locally declared data model.", evidence: [{ ...property.location, role: "reference" }] };
+      label: "has relationship to", confidence: "proven", reason: "A SQLAlchemy relationship property names an unambiguous local or explicitly imported data model.", evidence: [{ ...property.location, role: "reference" }] };
     edges.set(edge.id, edge);
   }
   for (const feature of features.values()) {

@@ -49,7 +49,7 @@ function prismaRelationName(fieldDeclaration: string): string | null {
 }
 function decodeOpenApiJson(fragment: SemanticFragment, source: Source, root: Record<string, unknown>): void {
   const isOpenApi = typeof root.openapi === "string" || typeof root.swagger === "string";
-  const pathEntries = root.paths && typeof root.paths === "object" && !Array.isArray(root.paths) ? Object.entries(root.paths as Record<string, unknown>) : [];
+  const pathEntries = isOpenApi && root.paths && typeof root.paths === "object" && !Array.isArray(root.paths) ? Object.entries(root.paths as Record<string, unknown>) : [];
   for (const [path, raw] of pathEntries) {
     if (!raw || typeof raw !== "object" || Array.isArray(raw) || !path.startsWith("/")) continue;
     for (const method of Object.keys(raw as Record<string, unknown>)) {
@@ -80,9 +80,13 @@ function parseOpenApiYaml(fragment: SemanticFragment, source: Source): void {
   let offset = 0;
   for (const line of lines) {
     const pathStart = offset; const pathEnd = offset + line.length;
-    const root = line.match(/^(paths|components):\s*$/u);
-    if (root?.[1] === "paths") { inPaths = true; inSchemas = false; currentPath = null; }
-    else if (root?.[1] === "components") { inPaths = false; currentPath = null; }
+    const root = line.match(/^([A-Za-z_][A-Za-z0-9_-]*):(?:\s|$)/u);
+    if (root) {
+      inPaths = root[1] === "paths";
+      inSchemas = false;
+      currentPath = null;
+      currentSchema = null;
+    }
     if (/^\s{2}schemas:\s*$/u.test(line) && !inPaths) { inSchemas = true; currentSchema = null; }
     else if (/^\s{2}[A-Za-z][A-Za-z0-9_-]*:\s*$/u.test(line) && !/^\s{2}schemas:/u.test(line) && inSchemas) inSchemas = false;
     if (inPaths) {

@@ -150,6 +150,28 @@ test("OpenAPI interface labels retain literal paths and SQL foreign keys respect
   assert.ok(!fragment.edges.some(item => item.source === fragment.nodes.find(node => node.label.toLocaleLowerCase() === "events")?.id), "ambiguous unqualified reference is omitted");
 });
 
+test("OpenAPI YAML exits path scope at root extensions and JSON Schema paths are not treated as an API", () => {
+  const yaml = new TextEncoder().encode([
+    'openapi: "3.0.0"',
+    "paths:",
+    "  /real:",
+    "    get:",
+    "      responses: {}",
+    "x-example:",
+    "  /fake:",
+    "    post:",
+    "      summary: This is example data, not an endpoint",
+    "components:",
+    "  schemas:",
+    "    Book:",
+    "      type: object",
+  ].join("\n"));
+  const jsonSchema = new TextEncoder().encode(JSON.stringify({ $schema: "https://json-schema.org/draft/2020-12/schema", paths: { "/not-an-api": { post: {} } }, definitions: { Book: { type: "object" } } }));
+  const fragment = extractDataArtifacts({ ccm: {} as CcmV1, sourceCkgHash: "f".repeat(64), sources: { "openapi.yaml": yaml, "schema.json": jsonSchema } });
+  assert.deepEqual(fragment.nodes.filter(item => item.kind === "component").map(item => item.label), ["GET /real"]);
+  assert.equal(fragment.nodes.filter(item => item.kind === "store" && item.label === "Book").length, 2, "OpenAPI and JSON Schema declarations remain cataloged");
+});
+
 test("SQL string contents do not become DDL facts while quoted identifiers remain readable", () => {
   const sql = new TextEncoder().encode([
     "SELECT 'CREATE TABLE fake(id int)';",
