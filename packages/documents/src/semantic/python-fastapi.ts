@@ -66,9 +66,18 @@ function handlerBindsName(handlerCode: string, binding: string): boolean {
     const target = colon >= 0 ? leftHandSide.slice(0, colon) : leftHandSide;
     return target.split(/[,\s()[\]{}]+/u).some(token => token.replace(/^\*+/u, "") === binding);
   };
-  for (const line of handlerCode.split("\n")) {
+  const lines = handlerCode.split("\n");
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index] ?? "";
     if (directBinding.test(line) || new RegExp(`\\b${escaped}\\s*:=`, "u").test(line)) return true;
-    if (importBindsName(line)) return true;
+    let logicalImport = line;
+    if (/^\s*from\s+\S+\s+import\b/u.test(line)) {
+      const parenthesisBalance = (value: string) => (value.match(/\(/gu)?.length ?? 0) - (value.match(/\)/gu)?.length ?? 0);
+      while (index + 1 < lines.length && (parenthesisBalance(logicalImport) > 0 || logicalImport.trimEnd().endsWith("\\"))) {
+        logicalImport = `${logicalImport.replace(/\\\s*$/u, "")} ${lines[++index]!.trim()}`;
+      }
+    }
+    if (importBindsName(logicalImport)) return true;
     const assignment = line.match(/(?<![=!<>])(?:\+=|-=|\*=|\/=|\|=|&=|\^=|=(?!=))/u);
     if (assignment && isNameToken(line.slice(0, assignment.index))) return true;
     const annotation = line.match(/^\s*(.+?)\s*:\s*[^=]+$/u);

@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { canonicalizeCcm, createEdgeId, createNodeId, type CcmEdge, type CcmFile, type CcmLimitation, type CcmNode, type CcmSnapshot, type CcmV1, type EvidenceSpan, type JsonValue } from "@sage/contracts";
 
-const VERSION = "sage-python-static-0.1.0";
+const VERSION = "sage-python-static-0.1.1";
 const sha256 = (value: Uint8Array | string) => createHash("sha256").update(value).digest("hex");
 function lineIndent(line: string): number { return line.match(/^[ \t]*/u)?.[0].replaceAll("\t", "    ").length ?? 0; }
 function lineOffsets(text: string): number[] {
@@ -278,6 +278,14 @@ export function analyzePythonSources(input: { snapshot: CcmSnapshot; sources: Re
     const name = pythonModule(path); pathByModule.set(name, path);
     if (path.endsWith("/__init__.py")) pathByModule.set(name.replace(/\.__init__$/u, ""), path);
   }
+  const hasChangedModelBinding = (path: string, name: string, model: CcmNode | undefined): boolean => {
+    const declarationLine = model?.location?.startLine ?? 0;
+    return declarationLine > 0 && (
+      (bindingAssignmentsByPath.get(path)?.get(name) ?? []).some(lineNumber => lineNumber > declarationLine) ||
+      (uncertainBindingLinesByPath.get(path)?.get(name) ?? []).some(lineNumber => lineNumber > declarationLine) ||
+      (unknownImportLinesByPath.get(path) ?? []).some(lineNumber => lineNumber > declarationLine)
+    );
+  };
   for (const [path, context] of moduleText) {
     const moduleNode = moduleNodes.get(path); if (!moduleNode) continue;
     const { text, hash, offsets } = context; const lines = text.split("\n"); const codeLines = pythonCodeLines(lines);
@@ -299,16 +307,12 @@ export function analyzePythonSources(input: { snapshot: CcmSnapshot; sources: Re
       }).filter((item): item is { symbol: string; alias: string } => Boolean(item.symbol && item.alias));
       const symbolName = importSymbols[0]?.symbol;
       const symbolCandidates = localPath && symbolName ? declarations.get(localPath)?.filter(node => node.kind === "Class" && node.name === symbolName) ?? [] : [];
-      const target = localPath ? (symbolName ? symbolCandidates.length === 1 ? symbolCandidates[0] : null : moduleNodes.get(localPath) ?? null) : null;
+      const symbolCandidate = symbolCandidates.length === 1 ? symbolCandidates[0] : undefined;
+      const target = localPath ? (symbolName ? symbolCandidate && !hasChangedModelBinding(localPath, symbolName, symbolCandidate) ? symbolCandidate : null : moduleNodes.get(localPath) ?? null) : null;
       for (const imported of importSymbols) {
         const candidates = localPath ? declarations.get(localPath)?.filter(node => node.kind === "Class" && node.name === imported.symbol) ?? [] : [];
         const bound = candidates.length === 1 ? candidates[0] : null;
-        const declarationLine = bound?.location?.startLine ?? 0;
-        const changedAfterDeclaration = declarationLine > 0 && (
-          (bindingAssignmentsByPath.get(localPath!)?.get(imported.symbol) ?? []).some(lineNumber => lineNumber > declarationLine) ||
-          (uncertainBindingLinesByPath.get(localPath!)?.get(imported.symbol) ?? []).some(lineNumber => lineNumber > declarationLine) ||
-          (unknownImportLinesByPath.get(localPath!) ?? []).some(lineNumber => lineNumber > declarationLine)
-        );
+        const changedAfterDeclaration = bound ? hasChangedModelBinding(localPath!, imported.symbol, bound) : false;
         const bindings = importedBindings.get(imported.alias) ?? [];
         bindings.push({ node: bound && !changedAfterDeclaration ? bound : null, line: index + 1 });
         importedBindings.set(imported.alias, bindings);
@@ -326,7 +330,8 @@ export function analyzePythonSources(input: { snapshot: CcmSnapshot; sources: Re
       if (unresolved) nodes.push(unresolved);
       const targetNode = target ?? unresolved!;
       const resolution: CcmEdge["resolution"] = target ? "Exact" : "Unresolved";
-      const edge: CcmEdge = { id: createEdgeId({ snapshotSha: hashSnapshot, sourceId: moduleNode.id, targetId: targetNode.id, kind: "IMPORTS", resolution, evidence: [span], unresolvedReason: target ? null : "EXTERNAL_DEPENDENCY" }), sourceId: moduleNode.id, targetId: targetNode.id, kind: "IMPORTS", resolution, evidence: [span], unresolvedReason: target ? null : "EXTERNAL_DEPENDENCY" };
+      const unresolvedReason = target ? null : localPath && symbolName ? "AMBIGUOUS_SYMBOL" : "EXTERNAL_DEPENDENCY";
+      const edge: CcmEdge = { id: createEdgeId({ snapshotSha: hashSnapshot, sourceId: moduleNode.id, targetId: targetNode.id, kind: "IMPORTS", resolution, evidence: [span], unresolvedReason }), sourceId: moduleNode.id, targetId: targetNode.id, kind: "IMPORTS", resolution, evidence: [span], unresolvedReason };
       edges.push(edge);
     }
   }

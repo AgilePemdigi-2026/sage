@@ -1,6 +1,6 @@
 # TOGAF Phase C ADD scope freeze
 
-**Status:** Frozen for the one-week revision window, 16–23 November 2026.  
+**Status:** Frozen for the one-week revision window, 16–23 November 2026.
 **GitHub milestone:** [TOGAF Phase C ADD Revision](https://github.com/AgilePemdigi-2026/sage/milestone/4).
 
 ## Goal
