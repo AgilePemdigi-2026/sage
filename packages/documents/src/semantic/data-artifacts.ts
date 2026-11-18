@@ -74,7 +74,7 @@ function decodeOpenApiJson(fragment: SemanticFragment, source: Source, root: Rec
 function parseOpenApiYaml(fragment: SemanticFragment, source: Source): void {
   if (!/^\s*(?:openapi|swagger)\s*:\s*["']?[23]/mu.test(source.text)) return;
   const lines = source.text.split("\n");
-  let inPaths = false; let inSchemas = false; let currentPath: string | null = null; let currentSchema: string | null = null;
+  let activeRoot: string | null = null; let inPaths = false; let inSchemas = false; let currentPath: string | null = null; let currentSchema: string | null = null;
   const schemaIds = new Map<string, string>();
   const pendingRefs: Array<{ from: string; toName: string; start: number; end: number }> = [];
   let offset = 0;
@@ -82,12 +82,13 @@ function parseOpenApiYaml(fragment: SemanticFragment, source: Source): void {
     const pathStart = offset; const pathEnd = offset + line.length;
     const root = line.match(/^([A-Za-z_][A-Za-z0-9_-]*):(?:\s|$)/u);
     if (root) {
-      inPaths = root[1] === "paths";
+      activeRoot = root[1]!;
+      inPaths = activeRoot === "paths";
       inSchemas = false;
       currentPath = null;
       currentSchema = null;
     }
-    if (/^\s{2}schemas:\s*$/u.test(line) && !inPaths) { inSchemas = true; currentSchema = null; }
+    if (/^\s{2}schemas:\s*$/u.test(line) && activeRoot === "components") { inSchemas = true; currentSchema = null; }
     else if (/^\s{2}[A-Za-z][A-Za-z0-9_-]*:\s*$/u.test(line) && !/^\s{2}schemas:/u.test(line) && inSchemas) inSchemas = false;
     if (inPaths) {
       const route = line.match(/^\s{2}(\/[^:]+):\s*$/u);

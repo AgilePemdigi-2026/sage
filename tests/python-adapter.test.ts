@@ -118,6 +118,28 @@ test("Python model access and relationship facts resolve through exact module bi
       "    return session.query(User).all()",
       "",
     ].join("\n")),
+    "app/factory.py": encoder.encode([
+      "from a.models import User",
+      "@app.get('/factory')",
+      "def new_user() -> User:",
+      "    return User(name='static')",
+      "",
+    ].join("\n")),
+    "app/rebound.py": encoder.encode([
+      "from a.models import User",
+      "User = dict",
+      "@app.get('/rebound')",
+      "def rebound_users():",
+      "    return session.query(User).all()",
+      "",
+    ].join("\n")),
+    "app/shadowed.py": encoder.encode([
+      "from a.models import User",
+      "@app.get('/shadowed')",
+      "def shadowed_users(User):",
+      "    return session.query(User).all()",
+      "",
+    ].join("\n")),
   };
   const result = analyzePythonSources({ snapshot, sources });
   assert.ok(result.ccm, JSON.stringify(result.diagnostics));
@@ -132,6 +154,9 @@ test("Python model access and relationship facts resolve through exact module bi
   assert.equal(userAccesses.length, 1);
   assert.equal(userAccesses[0]?.target, aStore?.id, "route import binds only to a.models.User");
   assert.ok(!userAccesses.some(edge => edge.target === bStore?.id));
+  assert.ok(!userAccesses.some(edge => edge.evidence.some(item => ["app/factory.py", "app/rebound.py", "app/shadowed.py"].includes(item.filePath))), "construction, reassignment, and handler parameter shadowing do not become ORM access facts");
+  assert.ok(semantic.limitations.some(item => item.filePath === "app/rebound.py" && item.reason.includes("rebinds Python model binding")));
+  assert.ok(semantic.limitations.some(item => item.filePath === "app/shadowed.py" && item.reason.includes("shadows or rebinds Python model binding")));
   assert.ok(semantic.edges.some(edge => edge.label === "has relationship to" && edge.source === orderStore?.id && edge.target === aStore?.id));
   assert.ok(!semantic.edges.some(edge => edge.label === "has relationship to" && edge.source === orderStore?.id && edge.target === bStore?.id));
 

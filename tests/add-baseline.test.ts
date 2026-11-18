@@ -161,6 +161,10 @@ test("OpenAPI YAML exits path scope at root extensions and JSON Schema paths are
     "  /fake:",
     "    post:",
     "      summary: This is example data, not an endpoint",
+    "x-schema-example:",
+    "  schemas:",
+    "    Fake:",
+    "      type: object",
     "components:",
     "  schemas:",
     "    Book:",
@@ -170,6 +174,7 @@ test("OpenAPI YAML exits path scope at root extensions and JSON Schema paths are
   const fragment = extractDataArtifacts({ ccm: {} as CcmV1, sourceCkgHash: "f".repeat(64), sources: { "openapi.yaml": yaml, "schema.json": jsonSchema } });
   assert.deepEqual(fragment.nodes.filter(item => item.kind === "component").map(item => item.label), ["GET /real"]);
   assert.equal(fragment.nodes.filter(item => item.kind === "store" && item.label === "Book").length, 2, "OpenAPI and JSON Schema declarations remain cataloged");
+  assert.ok(!fragment.nodes.some(item => item.kind === "store" && item.label === "Fake"), "schemas outside components.schemas are ignored");
 });
 
 test("SQL string contents do not become DDL facts while quoted identifiers remain readable", () => {

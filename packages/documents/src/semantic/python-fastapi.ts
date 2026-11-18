@@ -8,6 +8,69 @@ function routeLabel(node: CcmNode, method: string, path: string): string {
   return `${method} ${path}`;
 }
 function escapeRegExp(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"); }
+function pythonCodeOnly(source: string): string {
+  let tripleQuote: "'''" | '"""' | null = null;
+  return source.split("\n").map(line => {
+    const output = [...line]; let index = 0;
+    const blank = (start: number, end: number) => { for (let cursor = start; cursor < end; cursor++) if (output[cursor] !== "\t") output[cursor] = " "; };
+    while (index < line.length) {
+      if (tripleQuote) {
+        const end = line.indexOf(tripleQuote, index); const stop = end < 0 ? line.length : end + tripleQuote.length;
+        blank(index, stop); index = stop; if (end >= 0) tripleQuote = null; continue;
+      }
+      if (line[index] === "#") { blank(index, line.length); break; }
+      const triple = line.slice(index, index + 3);
+      if (triple === "'''" || triple === '"""') {
+        tripleQuote = triple; const end = line.indexOf(triple, index + 3); const stop = end < 0 ? line.length : end + triple.length;
+        blank(index, stop); index = stop; if (end >= 0) tripleQuote = null; continue;
+      }
+      const quote = line[index];
+      if (quote === "'" || quote === '"') {
+        const start = index++; while (index < line.length) {
+          if (line[index] === "\\") { index += 2; continue; }
+          if (line[index] === quote) { index++; break; }
+          index++;
+        }
+        blank(start, Math.min(index, line.length)); continue;
+      }
+      index++;
+    }
+    return output.join("");
+  }).join("\n");
+}
+function hasParameterNamed(signature: string | null, binding: string): boolean {
+  if (!signature) return true;
+  const start = signature.indexOf("("); const end = signature.lastIndexOf(")");
+  if (start < 0 || end < start) return true;
+  const escaped = escapeRegExp(binding);
+  return signature.slice(start + 1, end).split(",").some(parameter => new RegExp(`^\\s*\\*{0,2}${escaped}(?=\\s*(?::|=|,|$))`, "u").test(parameter));
+}
+function bindingIsShadowed(input: { source: string; binding: string; signature: string | null; handlerBody: string; exactImportLines: ReadonlySet<number>; sourceModelDeclarationLine: number | null }): boolean {
+  const { source, binding, signature, handlerBody, exactImportLines, sourceModelDeclarationLine } = input;
+  if (hasParameterNamed(signature, binding)) return true;
+  const escaped = escapeRegExp(binding);
+  const handlerCode = pythonCodeOnly(handlerBody);
+  const handlerShadow = new RegExp(`^\\s*(?:(?:async\\s+)?for\\s+${escaped}\\b|${escaped}\\s*(?::[^=]+)?(?:=|\\+=|-=|\\*=|/=|\\|=|&=|\\^=)|del\\s+${escaped}\\b|(?:global|nonlocal)\\s+.*\\b${escaped}\\b|(?:async\\s+)?(?:def|class)\\s+${escaped}\\b|.*\\bas\\s+${escaped}\\b|.*\\blambda\\s+[^:]*\\b${escaped}\\b)`);
+  if (handlerCode.split("\n").some(line => handlerShadow.test(line))) return true;
+
+  const moduleCode = pythonCodeOnly(source).split("\n");
+  const localScopeIndents: number[] = [];
+  const moduleRebind = new RegExp(`^\\s*(?:(?:async\\s+)?for\\s+${escaped}\\b|${escaped}\\s*(?::[^=]+)?(?:=|\\+=|-=|\\*=|/=|\\|=|&=|\\^=)|del\\s+${escaped}\\b|(?:global|nonlocal)\\s+.*\\b${escaped}\\b|(?:with|except)\\b.*\\bas\\s+${escaped}\\b|(?:async\\s+)?(?:def|class)\\s+${escaped}\\b)`);
+  const importBinding = new RegExp(`\\b${escaped}\\b`, "u");
+  for (let index = 0; index < moduleCode.length; index++) {
+    const line = moduleCode[index] ?? ""; if (!line.trim()) continue;
+    const indent = line.match(/^\s*/u)?.[0].length ?? 0;
+    while (localScopeIndents.length && indent <= localScopeIndents.at(-1)!) localScopeIndents.pop();
+    const lineNumber = index + 1;
+    const isModelImport = exactImportLines.has(lineNumber);
+    if (!localScopeIndents.length && !isModelImport) {
+      const isImport = /^\s*(?:from\s+.+\s+import\b|import\s+)/u.test(line);
+      if ((moduleRebind.test(line) && lineNumber !== sourceModelDeclarationLine) || (isImport && importBinding.test(line))) return true;
+    }
+    if (/^\s*(?:async\s+)?(?:def|class)\s+[A-Za-z_]\w*/u.test(line)) localScopeIndents.push(indent);
+  }
+  return false;
+}
 
 /** Extract explicit FastAPI-style route decorators and SQLAlchemy model declarations from the Python adapter facts. */
 export function extractPythonFastApi(input: SemanticInput): SemanticFragment {
@@ -25,6 +88,7 @@ export function extractPythonFastApi(input: SemanticInput): SemanticFragment {
   const modelIds = new Set(modelNodes.map(node => node.id));
   const modulesById = new Map(pythonNodes.filter(node => node.kind === "Module").map(node => [node.id, node]));
   const modelBindingsByFile = new Map<string, Map<string, Map<string, CcmNode>>>();
+  const exactImportLinesByFile = new Map<string, Map<string, Set<number>>>();
   const addModelBinding = (filePath: string, binding: string, model: CcmNode) => {
     const bindings = modelBindingsByFile.get(filePath) ?? new Map<string, Map<string, CcmNode>>();
     const candidates = bindings.get(binding) ?? new Map<string, CcmNode>();
@@ -56,11 +120,24 @@ export function extractPythonFastApi(input: SemanticInput): SemanticFragment {
       const [name, alias] = item.trim().split(/\s+as\s+/u);
       return { name, alias: alias ?? name };
     }).find(item => item.name === model.name);
-    if (binding?.alias && /^[A-Za-z_]\w*$/u.test(binding.alias)) addModelBinding(sourceModule.filePath, binding.alias, model);
+    if (binding?.alias && /^[A-Za-z_]\w*$/u.test(binding.alias)) {
+      addModelBinding(sourceModule.filePath, binding.alias, model);
+      if (importLineNumber) {
+        const fileLines = exactImportLinesByFile.get(sourceModule.filePath) ?? new Map<string, Set<number>>();
+        const lines = fileLines.get(binding.alias) ?? new Set<number>();
+        lines.add(importLineNumber); fileLines.set(binding.alias, lines); exactImportLinesByFile.set(sourceModule.filePath, fileLines);
+      }
+    }
   }
   const modelsBoundAs = (filePath: string, name: string): CcmNode[] => [...(modelBindingsByFile.get(filePath)?.get(name)?.values() ?? [])];
   const actorId = semanticId("actor", "python", 0, "python-api-client");
   const storeIdByTechnicalNode = new Map<string, string>();
+  const modelDeclarationLineById = new Map(modelNodes.map(model => {
+    if (!model.filePath || !model.signature) return [model.id, null] as const;
+    const firstLine = Math.max(0, (model.location?.startLine ?? 1) - 1);
+    const lineIndex = textFor(model.filePath).split("\n").findIndex((line, index) => index >= firstLine && line.trim() === model.signature);
+    return [model.id, lineIndex >= 0 ? lineIndex + 1 : null] as const;
+  }));
   for (const model of modelNodes) {
     if (!model.filePath) continue;
     const storeId = semanticId("store", model.filePath, model.location?.startByte ?? 0, `sqlalchemy:${model.id}`);
@@ -80,6 +157,9 @@ export function extractPythonFastApi(input: SemanticInput): SemanticFragment {
       continue;
     }
     const body = new TextDecoder("utf-8", { fatal: false }).decode(bytes.subarray(route.location.startByte, route.location.endByte));
+    const signatureOffset = route.signature ? body.indexOf(route.signature) : -1;
+    const handlerBody = signatureOffset >= 0 ? body.slice(signatureOffset + route.signature!.length) : "";
+    const executableBody = pythonCodeOnly(handlerBody);
     const routeEvidence = [{ ...route.location, role: "declaration" as const }];
     for (const method of methods) {
       const label = routeLabel(route, method, path);
@@ -109,17 +189,24 @@ export function extractPythonFastApi(input: SemanticInput): SemanticFragment {
       edges.set(actorEdge.id, actorEdge); edges.set(handlerEdge.id, handlerEdge);
       feature.edgeIds.push(actorEdge.id, handlerEdge.id);
 
-      const hasDataOperation = /(?:query|select|add|add_all|merge|delete|get|execute|scalars|session\s*\.)/iu.test(body);
+      const hasDataOperation = /(?:\b[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*\s*\.\s*(?:query|add|add_all|merge|delete|execute|scalars)\s*\(|\b(?:session|db|database)\s*\.\s*get\s*\(|\bselect\s*\()/iu.test(executableBody);
       if (hasDataOperation) {
         let linkedModel = false; let ambiguousBinding = false;
         for (const [bindingName, candidates] of modelBindingsByFile.get(filePath) ?? []) {
-          if (!new RegExp(`\\b${escapeRegExp(bindingName)}\\b`, "u").test(body)) continue;
+          if (!new RegExp(`\\b${escapeRegExp(bindingName)}\\b`, "u").test(executableBody)) continue;
           if (candidates.size !== 1) {
             ambiguousBinding = true;
             fragment.limitations.push({ filePath, reason: `Handler ${route.name} references ambiguous Python model binding ${bindingName}; no data access relationship was inferred.` });
             continue;
           }
           const model = [...candidates.values()][0]!;
+          const exactImportLines = exactImportLinesByFile.get(filePath)?.get(bindingName) ?? new Set<number>();
+          if (bindingIsShadowed({ source: textFor(filePath), binding: bindingName, signature: route.signature, handlerBody, exactImportLines,
+            sourceModelDeclarationLine: model.filePath === filePath ? modelDeclarationLineById.get(model.id) ?? null : null })) {
+            ambiguousBinding = true;
+            fragment.limitations.push({ filePath, reason: `Handler ${route.name} shadows or rebinds Python model binding ${bindingName}; no data access relationship was inferred.` });
+            continue;
+          }
           const storeId = storeIdByTechnicalNode.get(model.id); if (!storeId) continue;
           linkedModel = true;
           feature.nodeIds.push(storeId);
@@ -128,7 +215,7 @@ export function extractPythonFastApi(input: SemanticInput): SemanticFragment {
         }
         if (!linkedModel && !ambiguousBinding && modelNodes.length) fragment.limitations.push({ filePath, reason: `Handler ${route.name} contains a database operation but no unambiguous local or explicitly imported data model binding was identified.` });
       }
-      if (/\b(if|try|except|raise|HTTPException)\b/u.test(body)) fragment.limitations.push({ filePath, reason: `Handler ${route.name} contains a conditional or error branch; this first Python adapter records the entry and direct data references but does not project decision outcomes.` });
+      if (/\b(if|try|except|raise|HTTPException)\b/u.test(executableBody)) fragment.limitations.push({ filePath, reason: `Handler ${route.name} contains a conditional or error branch; this first Python adapter records the entry and direct data references but does not project decision outcomes.` });
     }
   }
 
