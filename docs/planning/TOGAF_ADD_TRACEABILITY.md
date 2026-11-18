@@ -22,8 +22,8 @@ This table is updated only from commands actually run for the current worktree r
 | --- | --- | --- |
 | `npm run typecheck` | Passed | Root and web workspace TypeScript checks passed on 19 November 2026 with Node v24.22.3. |
 | `npm run lint` | Passed with warnings | No lint errors. Three exhaustive-dependency warnings remain in the existing `semantic-workspace.tsx`. |
-| `npm test` | Passed | 589 unit/contract tests, including OpenAPI scope guards, Python binding identity, TRACE interface projection, complete ADD exports, Prisma, and combined-pipeline coverage. PostgreSQL integration is a separate command. |
-| `npm run test:semantic` | Passed | 131 focused analyzer/model/handler/presentation tests. |
+| `npm test` | Passed | 590 unit/contract tests, including OpenAPI scope guards, Python binding identity, TRACE interface projection, complete ADD exports, Prisma, and combined-pipeline coverage. PostgreSQL integration is a separate command. |
+| `npm run test:semantic` | Passed | 132 focused analyzer/model/handler/presentation tests. |
 | ADD corpus replay: Perpus, SAGE, Emosync | Passed | Fresh Node v24.22.3 replays on pinned snapshots passed deterministic model/hash and evidence byte/hash checks. Results are shown below. Resource figures are host process measurements, not server limits. |
 | PostgreSQL owner/revision integration | Passed | 2 tests passed against the new disposable `sage_add_baseline_20261119` database. Migration and test data were removed with the temporary QA Colima profile; the existing `sage` profile and application database were not used. |
 | ADD workspace Playwright/browser review | Passed in fixture scope | Tested initial not-generated state, generation without visiting Code Knowledge, both connected ArchiMate views, paginated application diagram, evidence links, mobile overflow, keyboard access, saved overlay revision, default-off LLM consent and opt-in, active-search print behavior, complete relationship IDs/evidence, all data catalog rows, and matching Markdown/LaTeX/PDF identity. API responses were intercepted fixtures; this does not cover production OAuth, the worker queue, or server persistence. |

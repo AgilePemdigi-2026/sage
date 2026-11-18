@@ -45,6 +45,21 @@ test("Python adapter records literal route, local import, model hints, and bound
   assert.equal(result.diagnostics.length, 0);
 });
 
+test("Python assignment scan ignores defaults in function and SQLModel class headers", () => {
+  const sources = { "app.py": encoder.encode([
+    "class User(SQLModel, table=True):",
+    "    __tablename__ = 'users'",
+    "@app.get('/users')",
+    "def list_users(limit: int = 10):",
+    "    return session.query(User).limit(limit).all()",
+    "",
+  ].join("\n")) };
+  const result = analyzePythonSources({ snapshot, sources });
+  assert.ok(result.ccm, JSON.stringify(result.diagnostics));
+  const semantic = buildSemanticModel({ ccm: result.ccm, sourceCkgHash: "f".repeat(64), sources });
+  assert.ok(semantic.edges.some(edge => edge.label === "accesses data model" && edge.evidence.some(item => item.filePath === "app.py")), "class flags and default parameters are not mistaken for module binding assignments");
+});
+
 test("external imports remain valid CCM facts and FastAPI paths reach the ADD interface catalog", () => {
   const sources = {
     "app.py": encoder.encode([

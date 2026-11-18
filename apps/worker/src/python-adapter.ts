@@ -60,9 +60,11 @@ function assignmentTargetNames(target: string): string[] {
   if (annotation >= 0) value = value.slice(0, annotation).trim();
   if (/^[A-Za-z_]\w*$/u.test(value)) return [value];
   if (/[.\[\]{}]/u.test(value)) return [];
-  return value.split(",").flatMap(part => part.trim() ? assignmentTargetNames(part) : []);
+  const parts = value.split(",");
+  return parts.length > 1 ? parts.flatMap(part => part.trim() ? assignmentTargetNames(part) : []) : [];
 }
 function pythonAssignedNames(line: string): string[] {
+  if (/^\s*(?:(?:async\s+)?def|class)\b/u.test(line)) return [];
   const assignment = line.match(/(?<![=!<>])(?:\+=|-=|\*=|\/=|\|=|&=|\^=|=(?!=))/u);
   if (assignment) return assignmentTargetNames(line.slice(0, assignment.index));
   const annotation = line.match(/^\s*(.+?)\s*:\s*[^=]+$/u);
