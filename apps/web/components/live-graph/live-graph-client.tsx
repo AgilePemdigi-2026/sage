@@ -343,6 +343,12 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
 
     <AnalysisNavigation analysisId={analysisId} active="graph" />
 
+    {visiblePayload ? <section className={ui.notice} aria-labelledby="open-add-title">
+      <strong id="open-add-title">TOGAF Phase C baseline ADD</strong>
+      <p>Code Knowledge menampilkan struktur source. Buka Architecture Definition Document untuk melihat atau membuat baseline arsitektur.</p>
+      <p className={ui.noticeAction}><Link href={`/analyses/${encodeURIComponent(analysisId)}/document`}>Open Architecture Definition Document</Link></p>
+    </section> : null}
+
     {visiblePayload && filterResult && projection && canonicalCounts ? <>
       <section className={styles.graphCard} aria-label="Knowledge graph analisis">
         <div className={styles.graphCardHeader}>

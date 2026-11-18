@@ -11,7 +11,14 @@
     "./semantic": "./src/semantic/build.ts",
     "./semantic/model": "./src/semantic/model.ts",
     "./semantic/validation": "./src/semantic/validation.ts",
-    "./semantic/explanations": "./src/semantic/explanations.ts"
+    "./semantic/explanations": "./src/semantic/explanations.ts",
+    "./baseline-add": "./src/baseline-add.ts",
+    "./baseline-add-model": "./src/baseline-add-model.ts",
+    "./baseline-markdown": "./src/baseline-markdown.ts",
+    "./baseline-latex": "./src/baseline-latex.ts",
+    "./phase-c-add": "./src/phase-c-add.ts",
+    "./add-overlay": "./src/add-overlay.ts",
+    "./baseline-llm": "./src/baseline-llm.ts"
   },
   "dependencies": {
     "@sage/contracts": "0.1.0",

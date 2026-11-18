@@ -47,7 +47,7 @@ function isEvidence(value: unknown): value is EvidenceSpan {
 function isNode(value: unknown): value is CcmNode {
   if (!record(value) || !record(value.attributes)) return false;
   return text(value.id) && NODE_KINDS.has(String(value.kind)) && text(value.name) && text(value.qualifiedName) &&
-    ["javascript", "typescript", "php"].includes(String(value.language)) && nullableText(value.filePath) &&
+    ["javascript", "typescript", "php", "python"].includes(String(value.language)) && nullableText(value.filePath) &&
     (value.location === null || isEvidence(value.location)) && nullableText(value.parentId) &&
     ["source", "stdlib", "external", "unresolved"].includes(String(value.origin)) && nullableText(value.signature);
 }
@@ -97,7 +97,7 @@ function isArchitectureDocument(value: unknown): value is ArchitectureDocumentV1
   if (!["nodes", "edges", "containmentEdges", "referenceEdges", "exactEdges", "unresolvedEdges"]
     .every(key => nonNegativeInteger(counts[key]))) return false;
   if (!(value.files as unknown[]).every(file => record(file) && text(file.path) &&
-      (file.language === null || ["javascript", "typescript", "php"].includes(String(file.language))) &&
+      (file.language === null || ["javascript", "typescript", "php", "python"].includes(String(file.language))) &&
       sha256(file.sha256) && nonNegativeInteger(file.sizeBytes) && ["processed", "excluded", "failed"].includes(String(file.status)))) return false;
   if (!(value.limitations as unknown[]).every(limitation => record(limitation) && nullableText(limitation.path) &&
       text(limitation.reason) && text(limitation.stage))) return false;

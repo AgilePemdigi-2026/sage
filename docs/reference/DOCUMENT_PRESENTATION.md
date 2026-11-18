@@ -1,5 +1,7 @@
 # Penyajian dokumen arsitektur
 
+> **Status:** ketentuan aktif untuk keluaran arsitektur ada pada [kontrak Phase C ADD](TOGAF_ADD.md). Bagian di bawah yang membahas katalog source, Software Engineering Diagram, UML, dan renderer sebelumnya dipertahankan sebagai catatan historis; bagian tersebut bukan daftar keluaran ADD saat ini. Code Knowledge tetap menjadi visualisasi pendamping.
+
 PDF ditujukan untuk dibaca developer dan pemangku kepentingan: ringkas, berwarna berdasarkan kategori, dan menyertakan kontrak serta lokasi source. Markdown mempertahankan model lengkap sampai ID node/relasi, hash, atribut, resolusi, dan evidence. Data canonical tidak berubah akibat penyajian.
 
 ## Pedoman dan referensi

@@ -10,8 +10,8 @@ export function AnalysisNavigation({ analysisId, active, resultsAvailable = true
   const base = `/analyses/${encodeURIComponent(analysisId)}`;
   const items = [
     { id: "progress", label: "Progres", href: base, glyph: "01" },
-    { id: "graph", label: "Code Knowledge", href: `${base}/graph`, glyph: "02" },
-    { id: "document", label: "Dokumentasi", href: `${base}/document`, glyph: "03" },
+    { id: "document", label: "TOGAF ADD", href: `${base}/document`, glyph: "02" },
+    { id: "graph", label: "Code Knowledge", href: `${base}/graph`, glyph: "03" },
   ];
   return <nav className={styles.navigation} aria-label="Navigasi hasil analisis">
     {items.map(item => item.id !== "progress" && !resultsAvailable

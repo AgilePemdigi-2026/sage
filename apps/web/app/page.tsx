@@ -2,9 +2,9 @@ import Link from "next/link";
 import { DesignFrame, Panel } from "../components/design-system/ui.tsx";
 
 const outputs = [
-  ["01", "Code Knowledge Graph", "Jelajahi struktur kode, hubungan langsung, dan bukti sumber."],
-  ["02", "Katalog interface", "Tinjau interface yang ditemukan dalam source code."],
-  ["03", "Diagram arsitektur", "Baca Software Engineering Diagram dan UML Class Diagram."],
+  ["01", "Baseline Data Architecture", "Tinjau logical data objects, hubungan, katalog, dan CRUD yang didukung bukti repository."],
+  ["02", "Baseline Application Architecture", "Baca application portfolio, API contracts, fungsi utama, dan relasi source yang dikenali."],
+  ["03", "ArchiMate views", "Buka Data Structure dan Application Cooperation views dengan evidence pada commit yang sama."],
 ];
 
 export default function Home() {
@@ -13,7 +13,7 @@ export default function Home() {
       <section className="max-w-3xl py-2">
         <p className="font-mono text-xs font-medium tracking-[.16em] text-[#0b7a6c]">DOKUMENTASI ARSITEKTUR SOURCE CODE</p>
         <h1 className="mt-4 max-w-3xl text-[32px] font-semibold leading-[1.2] tracking-tight sm:text-[40px]">Pahami arsitektur.<br />Telusuri buktinya.</h1>
-        <p className="mt-5 max-w-2xl text-sm leading-6 text-[#52637b] sm:text-base sm:leading-7">SAGE membantu membaca struktur repository PHP dan JavaScript/TypeScript melalui graph serta dokumentasi yang berlandaskan source code.</p>
+        <p className="mt-5 max-w-2xl text-sm leading-6 text-[#52637b] sm:text-base sm:leading-7">SAGE menganalisis repository untuk menyusun TOGAF Phase C Baseline Architecture Definition Document. Code Knowledge menjadi visual tambahan untuk menelusuri source dan evidence.</p>
         <div className="mt-7 flex flex-wrap gap-3">
           <Link className="inline-flex min-h-11 items-center rounded-md bg-[#2ac6ae] px-4 py-2 text-sm font-semibold text-[#061e42] hover:bg-[#25b59f]" href="/login">Hubungkan GitHub</Link>
           <Link className="inline-flex min-h-11 items-center rounded-md border border-[#b8c6d3] bg-white px-4 py-2 text-sm font-semibold text-[#061e42] hover:bg-[#f2f6f8]" href="/workspace/history">Buka riwayat</Link>
@@ -39,6 +39,6 @@ export default function Home() {
         </Panel>)}
       </div>
     </section>
-    <p className="mt-6 text-xs leading-5 text-[#63738a]">Source yang didukung: JavaScript/TypeScript dan PHP.</p>
+    <p className="mt-6 text-xs leading-5 text-[#63738a]">Analyzer awal mendukung JavaScript/TypeScript, PHP, dan subset statis Python untuk route FastAPI-style dan model SQLAlchemy-style. SQL, OpenAPI, dan JSON Schema dibaca sebagai contract data; pola dinamis dapat tetap belum terpetakan.</p>
   </DesignFrame>;
 }
