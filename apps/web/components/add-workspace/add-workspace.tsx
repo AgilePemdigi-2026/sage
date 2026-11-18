@@ -31,13 +31,29 @@ function githubEvidence(repository: string, commitSha: string, span: { filePath:
   return `https://github.com/${repository}/blob/${commitSha}/${path}#L${span.startLine}-L${span.endLine}`;
 }
 
-function EvidenceList({ model, spans }: { model: AddBaselineModel; spans: AddElement["evidence"] }) {
+function EvidenceList({ model, spans, showAll = false }: { model: AddBaselineModel; spans: AddElement["evidence"]; showAll?: boolean }) {
   if (!spans.length) return <span className={styles.muted}>Belum ada source evidence</span>;
-  return <ul className={styles.evidenceList}>{spans.slice(0, 4).map((span, index) => <li key={`${span.filePath}:${span.startLine}:${index}`}><a href={githubEvidence(model.snapshot.repository, model.snapshot.commitSha, span)} target="_blank" rel="noreferrer"><code>{span.filePath}:{span.startLine}–{span.endLine}</code></a><small>{span.role}</small></li>)}</ul>;
+  return <ul className={styles.evidenceList}>{(showAll ? spans : spans.slice(0, 4)).map((span, index) => <li key={`${span.filePath}:${span.startLine}:${index}`}><a href={githubEvidence(model.snapshot.repository, model.snapshot.commitSha, span)} target="_blank" rel="noreferrer"><code>{span.filePath}:{span.startLine}–{span.endLine}</code></a><small>{span.role}</small></li>)}</ul>;
 }
 
 function elementTypeLabel(type: AddElement["type"]): string {
   return ({ ApplicationComponent: "Application", ApplicationFunction: "Function", ApplicationService: "Service", ApplicationInterface: "Interface", DataObject: "Data object" })[type];
+}
+
+function RelationshipTable({ model, relationships, showAllEvidence = false }: { model: AddBaselineModel; relationships: AddRelationship[]; showAllEvidence?: boolean }) {
+  const allById = new Map(model.elements.map(item => [item.id, item]));
+  return <table><thead><tr><th>Source</th><th>ArchiMate relationship</th><th>Target</th><th>Confidence</th><th>Review</th><th>Reason</th><th>Evidence</th></tr></thead><tbody>
+    {relationships.map(edge => <tr key={edge.id} data-relationship-id={edge.id}><th scope="row">{allById.get(edge.sourceId)?.name ?? edge.sourceId}</th><td><strong>{edge.type}</strong><small>{edge.label}</small></td><td>{allById.get(edge.targetId)?.name ?? edge.targetId}</td><td>{edge.confidence === "proven" ? "Proven" : "Indicated"}</td><td>{edge.review}</td><td>{edge.reason}</td><td><EvidenceList model={model} spans={edge.evidence} showAll={showAllEvidence} /></td></tr>)}
+    {!relationships.length ? <tr><td colSpan={7} className={styles.emptyCell}>No relationship was identified.</td></tr> : null}
+  </tbody></table>;
+}
+
+function PrintRelationshipRegister({ model }: { model: AddBaselineModel }) {
+  return <section className={styles.printRelationshipRegister} aria-labelledby="complete-relationship-register-title">
+    <h3 id="complete-relationship-register-title">Complete Relationship Register</h3>
+    <p>Every relationship in this ADD model is listed below with its evidence. This includes relationships whose endpoints fall on different diagram pages or outside a specific diagram view.</p>
+    <div className={styles.tableScroll}><RelationshipTable model={model} relationships={model.relationships} showAllEvidence /></div>
+  </section>;
 }
 
 function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStructure" | "applicationCooperation" }) {
@@ -98,7 +114,7 @@ function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStru
         const label = edge.label.length > 28 ? `${edge.label.slice(0, 27)}…` : edge.label;
         const strokeClass = edge.confidence === "proven" ? styles.edgeSource : styles.edgeProposed;
         const marker = edge.type === "AssociationRelationship" ? undefined : `url(#${view}-${suffix}-arrow)`;
-        return <g key={edge.id} className={strokeClass}><path d={`M ${x1} ${y1} H ${bend} V ${y2} H ${x2}`} markerEnd={marker} />{label ? <text x={bend} y={(y1 + y2) / 2 - 5} textAnchor="middle" className={styles.edgeLabel}>{label}</text> : null}<title>{source.name} → {target.name}: {edge.label} ({edge.confidence}; {edge.reason})</title></g>;
+        return <g key={edge.id} data-relationship-id={edge.id} className={strokeClass}><path d={`M ${x1} ${y1} H ${bend} V ${y2} H ${x2}`} markerEnd={marker} />{label ? <text x={bend} y={(y1 + y2) / 2 - 5} textAnchor="middle" className={styles.edgeLabel}>{label}</text> : null}<title>{source.name} → {target.name}: {edge.label} ({edge.confidence}; {edge.reason})</title></g>;
       })}
       {pageElements.map(item => {
         const position = positions.get(item.id); if (!position) return null;
@@ -123,7 +139,6 @@ function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStru
     const pageRelationships = relationships.filter(edge => visible.has(edge.sourceId) && visible.has(edge.targetId));
     return { pageElements, pageRelationships, pageIndex };
   });
-  const allById = new Map(elements.map(item => [item.id, item]));
   return <div className={styles.diagramRegion}>
     <div className={styles.diagramLegend}><span><i className={styles.legendSolid} aria-hidden="true" />Proven from source structure</span><span><i className={styles.legendDashed} aria-hidden="true" />Indicated mapping, review recommended</span></div>
     <div className={styles.diagramViewport} tabIndex={0} role="region" aria-label={`${typeLabel} diagram; scroll to inspect`}>{renderSvg(elements, relationships, "screen")}</div>
@@ -132,21 +147,29 @@ function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStru
     </div>
     <details className={styles.relationshipDetails}>
       <summary>{relationships.length} relationships and source evidence</summary>
-      <div className={styles.tableScroll}><table><thead><tr><th>Source</th><th>ArchiMate relationship</th><th>Target</th><th>Confidence</th><th>Review</th><th>Reason</th><th>Evidence</th></tr></thead><tbody>
-        {relationships.map(edge => <tr key={edge.id}><th scope="row">{allById.get(edge.sourceId)?.name ?? edge.sourceId}</th><td>{edge.label}</td><td>{allById.get(edge.targetId)?.name ?? edge.targetId}</td><td>{edge.confidence === "proven" ? "Proven" : "Indicated"}</td><td>{edge.review}</td><td>{edge.reason}</td><td><EvidenceList model={model} spans={edge.evidence} /></td></tr>)}
-        {!relationships.length ? <tr><td colSpan={7} className={styles.emptyCell}>No relationship was identified.</td></tr> : null}
-      </tbody></table></div>
+      <div className={styles.tableScroll}><RelationshipTable model={model} relationships={relationships} /></div>
     </details>
   </div>;
 }
 
+type DataCatalogEntry = { row: AddBaselineModel["catalogs"]["dataEntities"][number]; element: AddElement };
+
+function DataEntityTable({ model, entries }: { model: AddBaselineModel; entries: DataCatalogEntry[] }) {
+  return <table><thead><tr><th>Data object</th><th>Feature group</th><th>Owner</th><th>Distribution</th><th>Review</th><th>Evidence</th></tr></thead><tbody>{entries.map(({ row, element }) => <tr key={row.elementId} data-element-id={row.elementId}><th scope="row">{element.name}<small>{element.description ?? "Data entity detected from a source data access path."}</small></th><td>{element.featureGroup ?? "Unassigned"}</td><td>{row.owner ?? "Requires confirmation"}</td><td>Requires enterprise input</td><td>{element.review}</td><td><EvidenceList model={model} spans={element.evidence} /></td></tr>)}{!entries.length ? <tr><td colSpan={6} className={styles.emptyCell}>No data object matches this search.</td></tr> : null}</tbody></table>;
+}
+
 function DataCatalog({ model }: { model: AddBaselineModel }) {
   const [query, setQuery] = useState("");
-  const entries = model.catalogs.dataEntities.map(row => ({ row, element: model.elements.find(item => item.id === row.elementId) })).filter(item => item.element && `${item.element.name} ${item.element.description ?? ""} ${item.element.featureGroup ?? ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  const allEntries = model.catalogs.dataEntities.flatMap(row => {
+    const element = model.elements.find(item => item.id === row.elementId);
+    return element ? [{ row, element }] : [];
+  });
+  const entries = allEntries.filter(({ element }) => `${element.name} ${element.description ?? ""} ${element.featureGroup ?? ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.businessDataModel.id} aria-labelledby="data-catalog-title">
     <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>{PHASE_C_ADD.sections.businessDataModel.number} · BASELINE</p><h2 id="data-catalog-title">{PHASE_C_ADD.sections.businessDataModel.title}</h2><p>Data entities found in the repository. Physical hosting and ownership require architect confirmation.</p></div><label className={styles.searchLabel}>Search data <input type="search" value={query} onChange={event => { setQuery(event.currentTarget.value); }} placeholder="Name or feature" /></label></div>
     <h3 className={styles.documentSubheading}>Data Entity Catalog</h3>
-    <div className={styles.tableScroll}><table><thead><tr><th>Data object</th><th>Feature group</th><th>Owner</th><th>Distribution</th><th>Review</th><th>Evidence</th></tr></thead><tbody>{entries.map(({ row, element }) => <tr key={row.elementId}><th scope="row">{element!.name}<small>{element!.description ?? "Data entity detected from a source data access path."}</small></th><td>{element!.featureGroup ?? "Unassigned"}</td><td>{row.owner ?? "Requires confirmation"}</td><td>Requires enterprise input</td><td>{element!.review}</td><td><EvidenceList model={model} spans={element!.evidence} /></td></tr>)}{!entries.length ? <tr><td colSpan={6} className={styles.emptyCell}>No data object matches this search.</td></tr> : null}</tbody></table></div>
+    <div className={`${styles.tableScroll} ${styles.screenDataCatalog}`}><DataEntityTable model={model} entries={entries} /></div>
+    <div className={`${styles.tableScroll} ${styles.printDataCatalog}`}><DataEntityTable model={model} entries={allEntries} /></div>
   </section>;
 }
 
@@ -416,6 +439,7 @@ export function AddWorkspace({ analysisId, accountKey }: { analysisId: string; a
           {activeModel.matrices.applicationInteractions.length ? <div className={styles.tableScroll}><table><thead><tr><th>Source application</th><th>Target application</th><th>Mechanism</th><th>Evidence</th></tr></thead><tbody>{activeModel.matrices.applicationInteractions.map((row, index) => <tr key={`${row.sourceApplicationId}:${row.targetApplicationId}:${index}`}><td>{activeModel.elements.find(item => item.id === row.sourceApplicationId)?.name ?? row.sourceApplicationId}</td><td>{activeModel.elements.find(item => item.id === row.targetApplicationId)?.name ?? row.targetApplicationId}</td><td>{row.mechanism}</td><td><EvidenceList model={activeModel} spans={row.evidence} /></td></tr>)}</tbody></table></div> : <p className={styles.muted}>No interaction between separately identified applications or communication mechanism was confirmed in this repository snapshot. Internal calls remain in the Application Cooperation view.</p>}
         </section>
       </section>
+      <PrintRelationshipRegister model={activeModel} />
       <section className={`${styles.sectionCard} ${styles.sourceNotes}`} id="source-notes" aria-labelledby="source-notes-title">
         <h2 id="source-notes-title">Source and analysis notes</h2>
         <div className={styles.tableScroll}><table><tbody>

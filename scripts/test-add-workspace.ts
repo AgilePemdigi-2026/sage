@@ -13,7 +13,7 @@ import type { SemanticEdge, SemanticFeature, SemanticModel, SemanticNode } from 
 
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const appRootSource = resolve(projectRoot, "apps/web");
-const reportDirectory = resolve(process.env.SAGE_ADD_UI_REPORT_DIR ?? resolve(projectRoot, "artifacts/add-workspace/20261116"));
+const reportDirectory = resolve(process.env.SAGE_ADD_UI_REPORT_DIR ?? resolve(projectRoot, "artifacts/add-workspace/20261119"));
 const analysisId = "qa-add-analysis-01";
 const accountKey = "qa-add-account";
 const sourceCkgHash = "c".repeat(64);
@@ -192,10 +192,15 @@ async function main(): Promise<void> {
     assert.equal(consentReceived, false, "unchecked LLM consent is sent as allowLlm:false");
     assert.ok(await page.locator('#logical-data-model svg g[class*="edgeSource"] > path').count() > 0, "Data Structure view renders source relationships");
     assert.ok(await page.locator('#application-design svg g[class*="edgeSource"] > path').count() > 0, "Application Cooperation view renders source relationships");
+    await page.getByRole("searchbox", { name: "Search data" }).fill("no-such-data-entity");
+    assert.ok((await page.locator('#business-data-model [class*="screenDataCatalog"]').innerText()).includes("No data object matches this search."), "on-screen data entity search can filter the catalog");
     await page.emulateMedia({ media: "print" });
     const printPages = page.locator('#application-design section[class*="printDiagramPage"]');
     const printPageCount = await printPages.count();
     assert.ok(printPageCount >= 6, `large application diagrams are paginated into readable A4-sized subsets (found ${printPageCount} pages)`);
+    const printedDiagramRelationshipIds = new Set(await printPages.locator("svg g[data-relationship-id]").evaluateAll(nodes => nodes.map(node => node.getAttribute("data-relationship-id")).filter((id): id is string => Boolean(id))));
+    const paginatedInterfaceRelationshipIds = model.relationships.filter(edge => edge.id.startsWith("fixture-interface-relation-")).map(edge => edge.id);
+    assert.ok(paginatedInterfaceRelationshipIds.every(id => printedDiagramRelationshipIds.has(id)), "source-supported interface edges remain drawn on their paginated diagram pages");
     const contextualPage = printPages.nth(1).locator("svg");
     const contextualViewBox = await contextualPage.getAttribute("viewBox");
     assert.ok(Number(contextualViewBox?.split(/\s+/u)[2]) < 1240, `sparse print pages compact their active ArchiMate lanes (viewBox=${contextualViewBox})`);
@@ -203,8 +208,19 @@ async function main(): Promise<void> {
     assert.ok(await contextualPage.locator("path").count() > 0, "repeated scope element remains linked to its interfaces on every print page");
     assert.equal(await page.locator('#application-design [class*="diagramNodeName"]').first().evaluate(node => getComputedStyle(node).fontSize), "18px", "printed node text keeps its minimum vector font size");
     assert.equal(await page.locator('#application-design [class*="diagramViewport"]').evaluate(node => getComputedStyle(node).display), "none", "the unpaginated screen SVG is excluded from print");
+    const printRegister = page.locator('[class*="printRelationshipRegister"]');
+    assert.equal(await printRegister.evaluate(node => getComputedStyle(node).display), "block", "print output includes the complete relationship register");
+    const printRegisterIds = await printRegister.locator("tr[data-relationship-id]").evaluateAll(rows => rows.map(row => row.getAttribute("data-relationship-id")));
+    assert.deepEqual([...printRegisterIds].sort(), model.relationships.map(edge => edge.id).sort(), "the print register includes every model relationship, including links outside each diagram view");
+    const expectedRelationshipEvidenceCount = model.relationships.reduce((count, edge) => count + edge.evidence.length, 0);
+    assert.equal(await printRegister.locator('[class*="evidenceList"] li').count(), expectedRelationshipEvidenceCount, "the complete relationship register includes every source evidence span");
+    const printedDataEntityIds = await page.locator('#business-data-model [class*="printDataCatalog"] tr[data-element-id]').evaluateAll(rows => rows.map(row => row.getAttribute("data-element-id")));
+    assert.deepEqual([...printedDataEntityIds].sort(), model.catalogs.dataEntities.map(row => row.elementId).sort(), "print output includes all data entities while the on-screen catalog search is filtering");
+    assert.equal(await page.locator('#business-data-model [class*="screenDataCatalog"]').evaluate(node => getComputedStyle(node).display), "none", "the filtered screen catalog is excluded from print");
+    assert.equal(await page.locator('#business-data-model [class*="printDataCatalog"]').evaluate(node => getComputedStyle(node).display), "block", "the full data entity catalog is enabled in print");
     assert.equal(await page.locator('#review [class*="reviewRows"]').evaluate(node => getComputedStyle(node).display), "none", "review controls are excluded from print output");
     await page.emulateMedia({ media: "screen" });
+    await page.getByRole("searchbox", { name: "Search data" }).fill("");
     assert.ok(await page.getByRole("link", { name: /route.ts:1–1/ }).count() > 0, "source evidence links include line ranges");
     await page.screenshot({ path: resolve(reportDirectory, "add-workspace-desktop.png"), fullPage: true });
 

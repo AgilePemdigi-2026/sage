@@ -117,28 +117,42 @@ function applicationCooperationPages(elements: AddElement[], edges: AddRelations
 }
 
 function dataStructurePages(elements: AddElement[], edges: AddRelationship[]): string {
-  const dataElements = elements.filter(element => element.type === "DataObject");
-  const buckets = Array.from({ length: Math.max(1, Math.ceil(dataElements.length / 24)) }, (_, page) => dataElements.slice(page * 24, (page + 1) * 24));
-  return buckets.map((pageElements, page) => {
-    const positions = new Map(pageElements.map((element, index) => [element.id, {
-      name: `data${page}_${index}`, x: (index % 3) * 5.0, y: -Math.floor(index / 3) * 2.3,
-    }]));
-    const pageEdges = edges.filter(edge => positions.has(edge.sourceId) && positions.has(edge.targetId));
-    const nodes = pageElements.map(element => {
-      const position = positions.get(element.id)!;
-      return `\\node[datanode] (${position.name}) at (${position.x.toFixed(2)},${position.y.toFixed(2)}) {${diagramNodeLabel(element)}};`;
-    });
-    const links = pageEdges.map(edge => {
-      const from = positions.get(edge.sourceId)!; const to = positions.get(edge.targetId)!;
-      const style = edge.confidence === "proven" ? "provenedge" : "indicatededge";
-      const arrow = edge.type === "AssociationRelationship" ? "" : "-{Stealth},";
-      return `\\draw[${arrow}${style}] (${from.name}) -- node[font=\\tiny,fill=white,inner sep=1pt,sloped] {${tex(edge.label)}} (${to.name});`;
+  const byId = new Map(elements.filter(element => element.type === "DataObject").map(element => [element.id, element]));
+  const relationships = edges.flatMap(edge => {
+    const source = byId.get(edge.sourceId); const target = byId.get(edge.targetId);
+    return source && target ? [{ source, target, edge }] : [];
+  });
+  const connected = new Set(relationships.flatMap(row => [row.source.id, row.target.id]));
+  const rows: ({ source: AddElement; target: AddElement; edge: AddRelationship } | { isolated: AddElement })[] = [
+    ...relationships,
+    ...elements.filter(element => element.type === "DataObject" && !connected.has(element.id)).map(element => ({ isolated: element })),
+  ];
+  if (!rows.length) return "\\noindent No source-supported data objects were identified.";
+
+  const perPage = 8;
+  const pageCount = Math.ceil(rows.length / perPage);
+  return Array.from({ length: pageCount }, (_, page) => {
+    const pageRows = rows.slice(page * perPage, (page + 1) * perPage);
+    const nodesAndEdges = pageRows.map((row, index) => {
+      const y = (((pageRows.length - 1) / 2) - index) * 1.5;
+      if ("isolated" in row) return `\\node[datanode] (d${page}_${index}) at (11.25,${y.toFixed(2)}) {${diagramNodeLabel(row.isolated)}};`;
+      const sourceNode = `ds${page}_${index}`; const targetNode = `dt${page}_${index}`;
+      const style = row.edge.confidence === "proven" ? "provenedge" : "indicatededge";
+      const arrow = row.edge.type === "AssociationRelationship" ? "" : "-{Stealth},";
+      return [
+        `\\node[datanode] (${sourceNode}) at (2.4,${y.toFixed(2)}) {${diagramNodeLabel(row.source)}};`,
+        `\\node[datanode] (${targetNode}) at (20.2,${y.toFixed(2)}) {${diagramNodeLabel(row.target)}};`,
+        `\\draw[${arrow}${style}] (${sourceNode}.east) -- node[font=\\scriptsize,fill=white,inner sep=2pt,text width=10cm,align=center] {${tex(row.edge.label)}} (${targetNode}.west);`,
+      ].join("\n");
     });
     return [
-      "\\begin{figure}[p]", "\\centering", `\\caption{ArchiMate Data Structure View${buckets.length > 1 ? ` (${page + 1} of ${buckets.length})` : ""}}`,
+      "\\begin{landscape}", "\\begin{figure}[p]", "\\centering",
+      `\\caption{ArchiMate Data Structure View${pageCount > 1 ? ` (${page + 1} of ${pageCount})` : ""}}`,
       `\\label{fig:dataStructure-${page + 1}}`,
-      "\\begin{tikzpicture}[x=1cm,y=1cm,datanode/.style={draw=green!55!black,fill=green!8,rounded corners,align=center,text width=4.4cm,minimum height=1.0cm,font=\\scriptsize},provenedge/.style={draw=gray!70,thick},indicatededge/.style={draw=orange!85!black,thick,dashed}]",
-      ...nodes, ...links, "\\end{tikzpicture}", "\\end{figure}",
+      "\\begin{tikzpicture}[x=1cm,y=1cm,datanode/.style={draw=green!55!black,fill=green!8,rounded corners,align=center,text width=4.8cm,minimum height=1.1cm,font=\\scriptsize},provenedge/.style={draw=gray!70,thick},indicatededge/.style={draw=orange!85!black,thick,dashed}]",
+      ...nodesAndEdges,
+      "\\node[font=\\scriptsize,anchor=west] at (0,-6.35) {Solid relationship: Proven \\quad Dashed relationship: Indicated};",
+      "\\end{tikzpicture}", "\\end{figure}", "\\end{landscape}",
     ].join("\n");
   }).join("\n\n");
 }

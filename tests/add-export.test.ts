@@ -105,3 +105,36 @@ test("Application Cooperation PDF keeps all relationships across landscape pages
   assert.equal((diagrams.match(/\\draw\[/gu) ?? []).length, 17, "all 17 source relationships are drawn, including continuation pages");
   assert.match(diagrams, /\\begin\{landscape\}/u, "the multi-lane application view uses landscape pages");
 });
+
+test("Data Structure PDF keeps relationships whose endpoints span former page buckets", () => {
+  const expanded = structuredClone(model);
+  const dataIds: string[] = [];
+  for (let index = 0; index < 30; index++) {
+    const elementId = `data:entity-${index}`;
+    dataIds.push(elementId);
+    expanded.elements.push({
+      id: elementId, type: "DataObject", name: `Entity ${index}`, description: null,
+      origin: "source", featureGroup: "Records", evidence: expanded.elements[2]!.evidence, review: "unreviewed",
+    });
+    expanded.catalogs.dataEntities.push({ elementId, owner: null, description: null });
+    expanded.views.dataStructure.elementIds.push(elementId);
+  }
+  expanded.views.dataStructure.relationshipIds = [];
+  for (let index = 0; index < 17; index++) {
+    const relationshipId = `data-relationship:${index}`;
+    expanded.relationships.push({
+      id: relationshipId, type: "AssociationRelationship", sourceId: dataIds[index]!, targetId: dataIds[24 + (index % 6)]!,
+      label: `links entity ${index}`, origin: "source", confidence: "proven", reason: "Direct source relation.",
+      evidence: expanded.elements[2]!.evidence, review: "unreviewed",
+    });
+    expanded.views.dataStructure.relationshipIds.push(relationshipId);
+  }
+
+  const latex = createAddLatex(expanded, emptyAddReviewOverlay(), evidenceUrl, { modelHash });
+  const diagramStart = latex.indexOf("ArchiMate Data Structure View");
+  const diagramEnd = latex.indexOf("Full relationship explanations remain available", diagramStart);
+  const diagrams = latex.slice(diagramStart, diagramEnd);
+  assert.equal((diagrams.match(/\\draw\[/gu) ?? []).length, 17, "all relationships are drawn even when endpoint nodes fall in different data catalog pages");
+  for (let index = 0; index < 17; index++) assert.ok(diagrams.includes(`links entity ${index}`));
+  assert.match(diagrams, /\\begin\{landscape\}/u, "the relationship-first data structure view uses readable A4 landscape pages");
+});
