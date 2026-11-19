@@ -36,7 +36,9 @@ COPY config ./config
 COPY docs/evidence/corpora ./docs/evidence/corpora
 COPY docs/evidence/semantic/oracle.json ./docs/evidence/semantic/oracle.json
 RUN composer install --working-dir=packages/analyzer-php --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist && composer clear-cache
-RUN npm run db:generate && npm run check && npm run build
+# Next.js imports route handlers while collecting page data. This build-only URL
+# satisfies module configuration; no database connection is opened during build.
+RUN npm run db:generate && npm run check && DATABASE_URL=postgresql://sage:build-only@127.0.0.1:5432/sage_build_only npm run build
 
 # Disposable acceptance-test image; not part of the product runtime.
 FROM build AS bdd

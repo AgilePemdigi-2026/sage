@@ -107,13 +107,14 @@ test("Prisma self-relations are reported as a limitation instead of silently dis
 });
 
 test("pinned SAGE route and Prisma source flow through analysis into the ADD baseline", async () => {
-  const metadata = JSON.parse(readFileSync(new URL("../artifacts/semantic/corpora/sage/.snapshot.json", import.meta.url), "utf8")) as {
+  const fixtureRoot = "../tests/fixtures/semantic/sage-pinned";
+  const metadata = JSON.parse(readFileSync(new URL(`${fixtureRoot}/.snapshot.json`, import.meta.url), "utf8")) as {
     repository: string; commit: string;
   };
   const path = "packages/database/prisma/schema.prisma";
-  const schemaBytes = new Uint8Array(readFileSync(new URL(`../artifacts/semantic/corpora/sage/${path}`, import.meta.url)));
+  const schemaBytes = new Uint8Array(readFileSync(new URL(`${fixtureRoot}/${path}`, import.meta.url)));
   const routePath = "apps/web/app/api/health/route.ts";
-  const routeBytes = new Uint8Array(readFileSync(new URL(`../artifacts/semantic/corpora/sage/${routePath}`, import.meta.url)));
+  const routeBytes = new Uint8Array(readFileSync(new URL(`${fixtureRoot}/${routePath}`, import.meta.url)));
   const expectedCommit = "c2dc3d84b220c572fb5b2ce85dd3605e89b11a73";
   const expectedFileSha = "965d35ca15a9e933417e3b1b26d530abb294bc3fcf8a81b2b35c3809e9be6ce7";
   const expectedRouteSha = "ae9efdca562ab19102032e934ec0d67664dbd5f6c6e2d30e82439fe6cf43118f";
