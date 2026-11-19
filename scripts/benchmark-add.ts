@@ -14,6 +14,47 @@ const [inputArg, outputArg, aliasArg] = process.argv.slice(2);
 if (!inputArg || !outputArg || !aliasArg || !/^[a-z0-9-]{2,40}$/u.test(aliasArg)) {
   throw new Error("Usage: npm run benchmark:add -- <pinned-corpus-directory> <new-output-directory> <safe-fixture-alias>");
 }
+async function readContainerPeakChargedBytes(): Promise<number | null> {
+  try {
+    const value = Number((await readFile("/sys/fs/cgroup/memory.peak", "utf8")).trim());
+    return Number.isSafeInteger(value) && value >= 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+async function readContainerCgroupLimits(): Promise<{ memoryMaxBytes: number | null; cpuQuotaMicros: number | null; cpuPeriodMicros: number | null; pidsMax: number | null }> {
+  const readInteger = async (path: string): Promise<number | null> => {
+    try {
+      const value = (await readFile(path, "utf8")).trim();
+      if (!/^\d+$/u.test(value)) return null;
+      const parsed = Number(value);
+      return Number.isSafeInteger(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  };
+  let cpuQuotaMicros: number | null = null;
+  let cpuPeriodMicros: number | null = null;
+  try {
+    const [quota, period] = (await readFile("/sys/fs/cgroup/cpu.max", "utf8")).trim().split(/\s+/u);
+    if (/^\d+$/u.test(quota ?? "") && /^\d+$/u.test(period ?? "")) {
+      cpuQuotaMicros = Number(quota);
+      cpuPeriodMicros = Number(period);
+      if (!Number.isSafeInteger(cpuQuotaMicros) || !Number.isSafeInteger(cpuPeriodMicros)) {
+        cpuQuotaMicros = null;
+        cpuPeriodMicros = null;
+      }
+    }
+  } catch {
+    // cgroup v2 limits are required by the runner and are checked there.
+  }
+  return {
+    memoryMaxBytes: await readInteger("/sys/fs/cgroup/memory.max"),
+    cpuQuotaMicros,
+    cpuPeriodMicros,
+    pidsMax: await readInteger("/sys/fs/cgroup/pids.max"),
+  };
+}
 const input = resolve(inputArg);
 const output = resolve(outputArg);
 await mkdir(output, { recursive: true, mode: 0o700 });
@@ -106,7 +147,8 @@ try {
     elapsedMs: performance.now() - started,
     processCpuMs: cpuMs(process.cpuUsage(processCpuStarted)),
     processPeakRssBytes: process.resourceUsage().maxRSS * 1024,
-    containerPeakChargedBytes: null,
+    containerPeakChargedBytes: await readContainerPeakChargedBytes(),
+    containerCgroupLimits: await readContainerCgroupLimits(),
     scope: "Pinned source, deterministic static analysis, ADD profile validation, evidence byte/hash checks, and in-memory Markdown size; PDF size is not measured because the new ADD PDF renderer is not yet integrated. No source or relationship contents are written to this report.",
   };
 } catch (cause) {
@@ -114,6 +156,8 @@ try {
     status: "FAIL", fixture: aliasArg, elapsedMs: performance.now() - started,
     processCpuMs: cpuMs(process.cpuUsage(processCpuStarted)),
     processPeakRssBytes: process.resourceUsage().maxRSS * 1024,
+    containerPeakChargedBytes: await readContainerPeakChargedBytes(),
+    containerCgroupLimits: await readContainerCgroupLimits(),
     error: cause instanceof Error ? cause.message : String(cause),
   };
 }

@@ -35,6 +35,8 @@ jobs:
     steps:
       - name: Check out source
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
@@ -116,3 +118,23 @@ jobs:
 
       - name: Build the production Docker image
         run: docker build --target web --tag sage-web:ci .
+
+      - name: Prepare pinned ADD benchmark corpora
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/prepare-semantic-corpora.py
+
+      - name: Build the isolated ADD replay image
+        run: docker build --target bdd --tag sage-add-bdd:ci .
+
+      - name: Replay pinned ADD corpora under fixed Linux limits
+        run: python3 scripts/run-add-container-benchmarks.py artifacts/semantic/add-linux-${{ github.run_id }} --image sage-add-bdd:ci --context default
+
+      - name: Save sanitized ADD replay reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sage-add-linux-replay-${{ github.run_id }}
+          path: artifacts/semantic/add-linux-${{ github.run_id }}/*
+          if-no-files-found: warn
+          retention-days: 14
