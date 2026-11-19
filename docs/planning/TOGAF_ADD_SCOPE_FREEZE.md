@@ -61,7 +61,7 @@ Status memakai bukti yang dicatat di [TOGAF ADD traceability](TOGAF_ADD_TRACEABI
 
 - [x] Automated checks, database integration, browser acceptance, and export checks have recorded commands and outcomes; fixture-only results are labeled as such.
 - [x] Perpus, SAGE, and Emosync are checked at pinned commits for supported content and false-positive boundaries.
-- [x] Runtime and peak memory are recorded for macOS and Linux replays. Perpus, SAGE, and Emosync passed at their pinned commits in GitHub Actions run [#44449002743](https://github.com/AgilePemdigi-2026/sage/actions/runs/44449002743) with enforced 2 GiB, 1.5 CPU, and 256 PID limits; this is not a capacity guarantee for the shared Coolify server.
+- [x] Runtime and peak memory are recorded for macOS and Linux replays. Perpus, SAGE, and Emosync passed the bounded replay checks at their pinned commits in GitHub Actions run [#44455856915](https://github.com/AgilePemdigi-2026/sage/actions/runs/44455856915); each report verified 2 GiB total memory, swap disabled, 1.5 CPU, and 256 PID limits. Source analysis may still be partial and the two SAGE file failures are reported separately. This is not a capacity guarantee for the shared Coolify server.
 - [x] Active guide updates and the full GitHub Actions checks, including a clean production Docker image build, are recorded. The GitHub issues remain open for manual review and any follow-up changes.
 
 ## Ownership and tracking

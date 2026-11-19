@@ -114,17 +114,20 @@ if summary_path:
     lines = [
         "## Fixed-limit Linux ADD replay",
         "",
-        "Each replay container is configured for a 2 GiB total memory cap, swap disabled, 1.5 CPU quota, 256 PIDs, no network, and a read-only root. The result column reports whether observed cgroup values matched those configured limits; a failure does not imply the container ran with those limits.",
+        "Each replay container is configured for a 2 GiB total memory cap, swap disabled, 1.5 CPU quota, 256 PIDs, no network, and a read-only root. The Limits observed column reports whether cgroup values matched those configured limits; a failure does not imply the container ran with those limits.",
         "",
         "| Repository | Commit | Result | Limits observed | Elapsed | Cgroup peak | Process peak RSS | Elements | Evidence spans | Report file |",
         "|---|---|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
     report_warnings = []
     for repository, commit, report, written_report_path, report_write_error in summary_rows:
-        add = report.get("add") or {}
+        raw_add = report.get("add")
+        add = raw_add if isinstance(raw_add, dict) else {}
+        raw_resource_limits = report.get("resourceLimitEvidence")
+        resource_limits = raw_resource_limits if isinstance(raw_resource_limits, dict) else {}
         lines.append(
             f"| `{repository}` | `{commit[:12]}` | {report.get('status')} | "
-            f"{(report.get('resourceLimitEvidence') or {}).get('status', 'not verified')} | "
+            f"{resource_limits.get('status', 'not verified')} | "
             f"{report.get('elapsedMs', 'not recorded')} ms | "
             f"{mib(report.get('containerPeakChargedBytes'))} | "
             f"{mib(report.get('processPeakRssBytes'))} | "

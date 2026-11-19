@@ -35,6 +35,14 @@ def load_report(report_path: Path, repository: str, commit: str, process_error: 
             "commit": commit,
             "error": "Benchmark report JSON has no string status",
         }
+    add = report.get("add")
+    if add is not None and not isinstance(add, dict):
+        return {
+            "status": "FAIL_REPORT",
+            "repository": repository,
+            "commit": commit,
+            "error": "Benchmark report JSON has a non-object ADD result",
+        }
     return report
 
 

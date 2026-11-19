@@ -56,6 +56,14 @@ class AddBenchmarkRunnerTests(unittest.TestCase):
         self.assertEqual(report["status"], "FAIL_REPORT")
         self.assertIn("no string status", report["error"])
 
+    def test_json_with_non_object_add_result_is_a_per_corpus_failure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "bad-add.json"
+            path.write_text('{"status":"PASS","add":"unexpected"}', encoding="utf-8")
+            report = load_report(path, "owner/repo", "d" * 40)
+        self.assertEqual(report["status"], "FAIL_REPORT")
+        self.assertIn("non-object ADD result", report["error"])
+
     def test_pass_is_rejected_when_swap_limit_does_not_match(self):
         report = {"status": "PASS", "containerPeakChargedBytes": 123, "containerCgroupLimits": {"memoryMaxBytes": 2 * 1024 * 1024 * 1024}}
         finalized = finalize_report(report, 0, check_cgroup_evidence(report, 2 * 1024 * 1024 * 1024, 256))
