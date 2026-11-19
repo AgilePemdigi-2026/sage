@@ -127,12 +127,15 @@ jobs:
       - name: Build the isolated ADD replay image
         run: docker build --target bdd --tag sage-add-bdd:ci .
 
+      - name: Verify ADD benchmark runner failure handling
+        run: python3 -m unittest discover -s tests -p 'add_benchmark_runner_test.py'
+
       - name: Replay pinned ADD corpora under fixed Linux limits
         run: python3 scripts/run-add-container-benchmarks.py artifacts/semantic/add-linux-${{ github.run_id }} --image sage-add-bdd:ci --context default
 
       - name: Save sanitized ADD replay reports
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
         with:
           name: sage-add-linux-replay-${{ github.run_id }}
           path: artifacts/semantic/add-linux-${{ github.run_id }}/*

@@ -51,11 +51,11 @@ The same three oracle commits passed in a separate Docker container per reposito
 
 | Corpus and commit | Source files / size | Elapsed | Container peak / process peak RSS | ADD elements / relationships | Evidence spans / Markdown bytes |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Perpus `d72c3532` | 89 / 319,532 B | 3.50 s | 320.6 / 358.8 MiB | 201 / 310 | 1,143 / 310,510 B |
-| SAGE `c2dc3d84` | 369 / 3,189,530 B | 87.87 s | 974.1 / 1,003.9 MiB | 87 / 160 | 603 / 184,137 B |
+| Perpus `d72c3532` | 89 / 319,532 B | 3.50 s | 320.6 / 358.9 MiB | 201 / 310 | 1,143 / 310,510 B |
+| SAGE `c2dc3d84` | 369 / 3,189,530 B | 87.87 s | 974.1 / 1,003.6 MiB | 87 / 160 | 603 / 184,137 B |
 | Emosync `a2299266` | 85 / 242,613 B | 4.37 s | 291.4 / 329.7 MiB | 114 / 328 | 651 / 181,550 B |
 
-This is a bounded static replay against those exact source commits, not a capacity guarantee for the shared Coolify server. It does not exercise OAuth, the production queue, deployed storage, or PDF generation.
+Those recorded runs verified the 2 GiB memory cap, but did not record the cgroup swap limit. The runner now disables swap and requires `memory.swap.max = 0`; a fresh run is required before reporting that check as passed. This remains a bounded static replay against those exact source commits, not a capacity guarantee for the shared Coolify server. It does not exercise OAuth, the production queue, deployed storage, or PDF generation.
 
 ## Supported baseline and limitations
 

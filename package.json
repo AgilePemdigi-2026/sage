@@ -77,7 +77,7 @@
     "deployment:check": "node scripts/check-deployment.mjs",
     "deployment:smoke": "node scripts/smoke-deployment.mjs",
     "test:deployment": "tsx --test tests/deployment-config.test.ts",
-    "test:semantic": "tsx --test tests/add-baseline.test.ts tests/add-handlers.test.ts tests/architecture-projection.test.ts tests/python-adapter.test.ts tests/semantic-next.test.ts tests/semantic-node-http.test.ts tests/semantic-laravel.test.ts tests/semantic-presentation.test.ts tests/semantic-storage.test.ts tests/semantic-handlers.test.ts tests/semantic-documentation.test.ts tests/semantic-explanations.test.ts tests/semantic-prisma.test.ts",
+    "test:semantic": "tsx --test tests/add-benchmark.test.ts tests/add-baseline.test.ts tests/add-handlers.test.ts tests/architecture-projection.test.ts tests/python-adapter.test.ts tests/semantic-next.test.ts tests/semantic-node-http.test.ts tests/semantic-laravel.test.ts tests/semantic-presentation.test.ts tests/semantic-storage.test.ts tests/semantic-handlers.test.ts tests/semantic-documentation.test.ts tests/semantic-explanations.test.ts tests/semantic-prisma.test.ts",
     "benchmark:add": "tsx scripts/benchmark-add.ts",
     "test:add:ui": "tsx scripts/test-add-workspace.ts",
     "semantic:prepare": "python3 scripts/prepare-semantic-corpora.py",

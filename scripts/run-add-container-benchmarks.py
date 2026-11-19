@@ -5,6 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import uuid
+from add_benchmark_runner import check_cgroup_evidence, finalize_report, load_report
 
 ROOT = Path(__file__).resolve().parents[1]
 MEMORY_LIMIT_BYTES = 2 * 1024 * 1024 * 1024
@@ -48,7 +49,7 @@ for snapshot in manifest["snapshots"]:
     command = [
         "docker", "--context", args.context, "run", "--rm", "--name", name,
         "--user", f"{os.getuid()}:{os.getgid()}",
-        "--network", "none", "--memory=2g", "--cpus=1.5", "--pids-limit=256",
+        "--network", "none", "--memory=2g", "--memory-swap=2g", "--cpus=1.5", "--pids-limit=256",
         "--shm-size=128m", "--read-only", "--tmpfs", "/tmp:rw,size=536870912",
         "--volume", f"{corpus}:/corpus:ro", "--volume", f"{output}:/results:rw",
         args.image, "node", "--import", "tsx", "scripts/benchmark-add.ts", "/corpus", "/results", slug,
@@ -56,6 +57,7 @@ for snapshot in manifest["snapshots"]:
     log_path = output / f"{slug}.log"
     report_path = output / f"{slug}-report.json"
     exit_code = 1
+    process_error = None
     with log_path.open("x") as log:
         os.chmod(log_path, 0o600)
         try:
@@ -64,39 +66,24 @@ for snapshot in manifest["snapshots"]:
         except subprocess.TimeoutExpired:
             stop_container(name)
             exit_code = 124
+            process_error = "Benchmark container exceeded the 300-second timeout."
         except (OSError, subprocess.SubprocessError):
             stop_container(name)
             exit_code = 125
+            process_error = "Benchmark container could not be started or monitored."
 
-    if report_path.exists():
-        report = json.loads(report_path.read_text())
-    else:
-        report = {
-            "status": "FAIL_PROCESS",
-            "repository": repository,
-            "commit": snapshot["commit"],
-            "error": "Benchmark process ended without writing a report",
-        }
+    report = load_report(report_path, repository, snapshot["commit"], process_error)
     report["containerLimits"] = {
         "memoryBytes": MEMORY_LIMIT_BYTES,
+        "memoryAndSwapBytes": MEMORY_LIMIT_BYTES,
+        "swapAllowanceBytes": 0,
         "cpus": CPU_LIMIT,
         "network": "none",
         "pids": 256,
     }
     report["containerExitCode"] = exit_code
-    limits = report.get("containerCgroupLimits") or {}
-    cgroup_evidence_matches = (
-        report.get("containerPeakChargedBytes") is not None
-        and limits.get("memoryMaxBytes") == MEMORY_LIMIT_BYTES
-        and limits.get("cpuQuotaMicros") == 150000
-        and limits.get("cpuPeriodMicros") == 100000
-        and limits.get("pidsMax") == 256
-    )
-    if not cgroup_evidence_matches:
-        report["status"] = "FAIL_RESOURCE_LIMIT_EVIDENCE"
-        report["error"] = "The container did not report the expected cgroup v2 limits and peak memory."
-    if exit_code != 0 and report.get("status") == "PASS":
-        report["status"] = "FAIL_CONTAINER_EXIT"
+    cgroup_evidence = check_cgroup_evidence(report, MEMORY_LIMIT_BYTES, 256)
+    report = finalize_report(report, exit_code, cgroup_evidence, process_error)
     report_path.write_text(json.dumps(report, indent=2) + "\n")
     os.chmod(report_path, 0o600)
     print(json.dumps({
@@ -104,6 +91,7 @@ for snapshot in manifest["snapshots"]:
         "commit": snapshot["commit"],
         "status": report.get("status"),
         "containerPeakChargedBytes": report.get("containerPeakChargedBytes"),
+        "resourceLimitEvidence": (report.get("resourceLimitEvidence") or {}).get("status"),
         "processPeakRssBytes": report.get("processPeakRssBytes"),
         "elapsedMs": report.get("elapsedMs"),
         "containerExitCode": exit_code,
@@ -117,7 +105,7 @@ if summary_path:
     lines = [
         "## Fixed-limit Linux ADD replay",
         "",
-        "Pinned snapshots were replayed in isolated containers with a 2 GiB memory cap, 1.5 CPU quota, 256 PID cap, no network, read-only root filesystem, and cgroup v2 measurements.",
+        "Pinned snapshots were replayed in isolated containers with a 2 GiB memory cap and swap disabled, 1.5 CPU quota, 256 PID cap, no network, read-only root filesystem, and cgroup v2 measurements.",
         "",
         "| Repository | Commit | Result | Elapsed | Cgroup peak | Process peak RSS | Elements | Evidence spans |",
         "|---|---|---:|---:|---:|---:|---:|---:|",

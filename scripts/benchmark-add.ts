@@ -9,6 +9,7 @@ import { buildAddBaseline, isAddBaselineModel } from "../packages/documents/src/
 import { emptyAddReviewOverlay } from "../packages/documents/src/add-overlay.ts";
 import { createAddMarkdown } from "../packages/documents/src/baseline-markdown.ts";
 import { buildSemanticModel, semanticModelHash } from "../packages/documents/src/semantic/build.ts";
+import { assertAddBenchmarkSourceQuality, summarizeAddBenchmarkSource, type AddBenchmarkSourceSummary } from "./add-benchmark-quality.ts";
 
 const [inputArg, outputArg, aliasArg] = process.argv.slice(2);
 if (!inputArg || !outputArg || !aliasArg || !/^[a-z0-9-]{2,40}$/u.test(aliasArg)) {
@@ -22,7 +23,7 @@ async function readContainerPeakChargedBytes(): Promise<number | null> {
     return null;
   }
 }
-async function readContainerCgroupLimits(): Promise<{ memoryMaxBytes: number | null; cpuQuotaMicros: number | null; cpuPeriodMicros: number | null; pidsMax: number | null }> {
+async function readContainerCgroupLimits(): Promise<{ memoryMaxBytes: number | null; memorySwapMaxBytes: number | null; cpuQuotaMicros: number | null; cpuPeriodMicros: number | null; pidsMax: number | null }> {
   const readInteger = async (path: string): Promise<number | null> => {
     try {
       const value = (await readFile(path, "utf8")).trim();
@@ -50,6 +51,7 @@ async function readContainerCgroupLimits(): Promise<{ memoryMaxBytes: number | n
   }
   return {
     memoryMaxBytes: await readInteger("/sys/fs/cgroup/memory.max"),
+    memorySwapMaxBytes: await readInteger("/sys/fs/cgroup/memory.swap.max"),
     cpuQuotaMicros,
     cpuPeriodMicros,
     pidsMax: await readInteger("/sys/fs/cgroup/pids.max"),
@@ -66,6 +68,7 @@ const started = performance.now();
 const processCpuStarted = process.cpuUsage();
 const cpuMs = (usage: NodeJS.CpuUsage) => ({ user: usage.user / 1000, system: usage.system / 1000, total: (usage.user + usage.system) / 1000 });
 let report: Record<string, unknown>;
+let sourceAnalysis: AddBenchmarkSourceSummary | null = null;
 try {
   const snapshot = JSON.parse(await readFile(resolve(input, ".snapshot.json"), "utf8")) as { repository?: unknown; commit?: unknown };
   if (typeof snapshot.repository !== "string" || typeof snapshot.commit !== "string" || !/^[a-f0-9]{40}$/u.test(snapshot.commit)) throw new Error("Pinned snapshot metadata is required.");
@@ -88,8 +91,10 @@ try {
   const analyzed = await analyzeSnapshotSources({
     snapshot: { repository: snapshot.repository, branch: "pinned", commitSha: snapshot.commit }, files,
   });
+  sourceAnalysis = summarizeAddBenchmarkSource(analyzed);
+  assertAddBenchmarkSourceQuality(analyzed);
   const sourceCpu = cpuMs(process.cpuUsage(sourceCpuStarted));
-  if (!analyzed.ccm) throw new Error(`Source analysis failed: ${analyzed.errorCode ?? "unknown"}.`);
+  if (!analyzed.ccm) throw new Error("Source analysis returned no validated model.");
   const sources = Object.fromEntries(files.map(file => [file.relativePath, file.bytes]));
   const graph = canonicalizeCkg(analyzed.ccm, sources, "f".repeat(64));
   if (!graph.ok) throw new Error(`Canonical graph validation failed: ${graph.errorCode}.`);
@@ -139,6 +144,7 @@ try {
     commit: snapshot.commit,
     runtime: { node: process.version, platform: process.platform, architecture: process.arch },
     source: { fileCount: files.length, bytes: files.reduce((sum, file) => sum + file.byteLength, 0), analysisMs: sourceAnalysisMs, cpuMs: sourceCpu },
+    sourceAnalysis,
     semantic: { features: semantic.features.length, nodes: semantic.nodes.length, edges: semantic.edges.length, milliseconds: semanticMs, cpuMs: semanticCpu, hash: semanticHash },
     add: { schemaVersion: baseline.schemaVersion, archimateVersion: baseline.archimateVersion, elements: baseline.elements.length, elementTypeCounts: typeCounts,
       relationships: baseline.relationships.length, relationshipTypeCounts: relationCounts, dataEntities: baseline.catalogs.dataEntities.length,
@@ -154,6 +160,7 @@ try {
 } catch (cause) {
   report = {
     status: "FAIL", fixture: aliasArg, elapsedMs: performance.now() - started,
+    ...(sourceAnalysis ? { sourceAnalysis } : {}),
     processCpuMs: cpuMs(process.cpuUsage(processCpuStarted)),
     processPeakRssBytes: process.resourceUsage().maxRSS * 1024,
     containerPeakChargedBytes: await readContainerPeakChargedBytes(),
