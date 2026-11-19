@@ -47,6 +47,7 @@ for snapshot in manifest["snapshots"]:
     name = "sage-add-bench-" + uuid.uuid4().hex[:12]
     command = [
         "docker", "--context", args.context, "run", "--rm", "--name", name,
+        "--user", f"{os.getuid()}:{os.getgid()}",
         "--network", "none", "--memory=2g", "--cpus=1.5", "--pids-limit=256",
         "--shm-size=128m", "--read-only", "--tmpfs", "/tmp:rw,size=536870912",
         "--volume", f"{corpus}:/corpus:ro", "--volume", f"{output}:/results:rw",
