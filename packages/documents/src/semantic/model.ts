@@ -14,9 +14,17 @@ export type SemanticConfidence = "proven" | "indicated";
 /** Source-level data operation. This records syntax found in backend code; it does not imply successful runtime execution. */
 export type DataOperation = "create" | "read" | "update" | "delete" | "upsert" | "persist";
 export type SemanticKind = "actor" | "feature" | "concept" | "component" | "store" | "step" | "decision" | "outcome";
+export interface DataIdentity {
+  schema: string | null;
+  name: string;
+  schemaQuoted: boolean;
+  nameQuoted: boolean;
+}
 export interface SemanticNode {
   id: string; kind: SemanticKind; label: string; featureId: string | null;
   confidence: SemanticConfidence; reason: string; evidence: EvidenceSpan[]; technicalNodeIds: string[];
+  /** Exact SQL identity for relational tables; display labels are intentionally not used to resolve CRUD targets. */
+  dataIdentity?: DataIdentity;
 }
 export interface SemanticEdge {
   id: string; source: string; target: string; label: string;

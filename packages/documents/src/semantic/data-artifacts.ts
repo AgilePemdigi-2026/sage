@@ -21,9 +21,11 @@ function jsonPropertyOffset(text: string, key: string, startAt: number): number 
   }
   return -1;
 }
-function addData(fragment: SemanticFragment, source: Source, start: number, end: number, name: string, idKey: string, reason: string): string {
+function addData(fragment: SemanticFragment, source: Source, start: number, end: number, name: string, idKey: string, reason: string,
+  dataIdentity?: { schema: string | null; name: string; schemaQuoted: boolean; nameQuoted: boolean }): string {
   const node = semanticNode({ kind: "store", filePath: source.path, startByte: span(source, start, end, "declaration").startByte, key: idKey,
     label: humanLabel(name), featureId: null, confidence: "proven", reason, evidence: [span(source, start, end, "declaration")] });
+  if (dataIdentity) node.dataIdentity = dataIdentity;
   fragment.nodes.push(node); return node.id;
 }
 function addInterface(fragment: SemanticFragment, source: Source, start: number, end: number, method: string, path: string): void {
@@ -168,13 +170,26 @@ function maskSqlCommentsAndStrings(input: string): string {
 }
 function parseSql(fragment: SemanticFragment, source: Source): void {
   const text = maskSqlCommentsAndStrings(source.text);
-  const tablePattern = /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:["'`\[]?([A-Za-z_][\w$]*)["'`\]]?\s*\.\s*)?["'`\[]?([A-Za-z_][\w$]*)["'`\]]?\s*\(/giu;
+  const tablePattern = /\bCREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:(?:"((?:[^"]|"")+)"|`((?:[^`]|``)+)`|\[([^\]]+)\]|([A-Za-z_][\w$]*))\s*\.\s*)?(?:"((?:[^"]|"")+)"|`((?:[^`]|``)+)`|\[([^\]]+)\]|([A-Za-z_][\w$]*))\s*\(/giu;
   const tables: Array<{ schema: string | null; name: string; id: string; start: number; bodyStart: number; end: number }> = [];
   for (const match of text.matchAll(tablePattern)) {
-    const schema = match[1] ?? null; const name = match[2]!; const start = match.index!; const bodyStart = start + match[0].length; let depth = 1; let end = bodyStart;
+    const rawSchema = match[1] ?? match[2] ?? match[3] ?? match[4] ?? null;
+    const rawName = match[5] ?? match[6] ?? match[7] ?? match[8]!;
+    const schema = rawSchema?.replaceAll('""', '"').replaceAll("``", "`") ?? null;
+    const name = rawName.replaceAll('""', '"').replaceAll("``", "`");
+    const schemaQuoted = match[1] !== undefined || match[2] !== undefined || match[3] !== undefined;
+    const nameQuoted = match[5] !== undefined || match[6] !== undefined || match[7] !== undefined;
+    const start = match.index!; const bodyStart = start + match[0].length; let depth = 1; let end = bodyStart;
     while (end < text.length && depth > 0) { if (text[end] === "(") depth++; else if (text[end] === ")") depth--; end++; }
     if (depth !== 0) continue;
-    const originalStart = source.text.indexOf(match[2]!, start); const id = addData(fragment, source, originalStart, originalStart + name.length, name, `sql-table:${schema ?? ""}.${name}`, "Relational table declared by CREATE TABLE DDL.");
+    const rawNameStart = match[0].lastIndexOf(rawName);
+    const originalStart = start + rawNameStart;
+    const identity = {
+      schema: schema === null ? null : schemaQuoted ? schema : schema.toLocaleLowerCase("en-US"),
+      name: nameQuoted ? name : name.toLocaleLowerCase("en-US"), schemaQuoted, nameQuoted,
+    };
+    const id = addData(fragment, source, originalStart, originalStart + name.length, name, `sql-table:${schema ?? ""}.${name}`,
+      "Relational table declared by CREATE TABLE DDL.", identity);
     tables.push({ schema, name, id, start, bodyStart, end });
   }
   for (const table of tables) {

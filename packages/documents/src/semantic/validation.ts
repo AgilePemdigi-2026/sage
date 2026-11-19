@@ -82,7 +82,8 @@ export function isSemanticModel(value: unknown, context: SemanticValidationConte
   const featureIds = new Set<string>();
   const edgeIds = new Set<string>();
   for (const candidate of nodes) {
-    if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds"])) return false;
+    if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds",
+      ...(Object.prototype.hasOwnProperty.call(candidate, "dataIdentity") ? ["dataIdentity"] : [])])) return false;
     const evidence = dataArray(candidate.evidence, 2_000);
     const technicalNodeIds = dataArray(candidate.technicalNodeIds, 30_000);
     if (typeof candidate.id !== "string" || !candidate.id || nodeIds.has(candidate.id) ||
@@ -93,6 +94,13 @@ export function isSemanticModel(value: unknown, context: SemanticValidationConte
         !nonblank(candidate.reason) || candidate.reason.length > 1000 || !evidence || evidence.length === 0 ||
         evidence.some(item => !validEvidence(item, context)) || !technicalNodeIds ||
         technicalNodeIds.some(id => typeof id !== "string" || (context.ckgNodeIds !== undefined && !context.ckgNodeIds.has(id)))) return false;
+    if (Object.prototype.hasOwnProperty.call(candidate, "dataIdentity")) {
+      const identity = candidate.dataIdentity;
+      if (!exact(identity, ["schema", "name", "schemaQuoted", "nameQuoted"]) ||
+          !(identity.schema === null || (typeof identity.schema === "string" && identity.schema.length > 0 && identity.schema.length <= 256)) ||
+          typeof identity.name !== "string" || !identity.name || identity.name.length > 256 ||
+          typeof identity.schemaQuoted !== "boolean" || typeof identity.nameQuoted !== "boolean" || candidate.kind !== "store") return false;
+    }
     nodeIds.add(candidate.id);
     nodeKinds.set(candidate.id as string, candidate.kind as string);
   }
@@ -110,7 +118,8 @@ export function isSemanticModel(value: unknown, context: SemanticValidationConte
     featureIds.add(candidate.id);
   }
   for (const candidate of nodes) {
-    if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds"]) ||
+    if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds",
+      ...(Object.prototype.hasOwnProperty.call(candidate, "dataIdentity") ? ["dataIdentity"] : [])]) ||
         (candidate.featureId !== null && (typeof candidate.featureId !== "string" || !featureIds.has(candidate.featureId)))) return false;
   }
   const declaredEdgeIds = new Set(edges.filter(plain).map(edge => edge.id));

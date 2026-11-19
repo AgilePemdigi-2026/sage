@@ -1,6 +1,6 @@
 import type { CcmEdge, CcmNode } from "@sage/contracts";
 import { compactEvidence, ensureFeatureNode, evidenceSpan, emptyFragment, humanLabel, semanticEdgeId, semanticId } from "./builder.ts";
-import type { SemanticEdge, SemanticFragment, SemanticInput, SemanticNode } from "./model.ts";
+import type { DataOperation, SemanticEdge, SemanticFragment, SemanticInput, SemanticNode } from "./model.ts";
 
 type Token = { value: string; start: number; end: number; kind: "identifier" | "string" | "number" | "symbol" };
 type GroupScope = { prefix: string; middleware: string[]; prefixUnknown: boolean; middlewareUnknown: boolean };
@@ -12,21 +12,27 @@ type ServiceClass = { filePath: string; bytes: Uint8Array; source: string; class
 type PhpClassSource = { filePath: string; bytes: Uint8Array; source: string; classInfo: PhpClass };
 type MiddlewareAlias = { classRef: string | null; filePath: string; start: number; end: number };
 type ServiceCall = { start: number; end: number; target: ServiceClass; method: PhpMethod; bindingEvidence: Array<{ start: number; end: number }> };
-type ModelInfo = { path: string; name: string; namespace: string; fullName: string; start: number; end: number; eloquent: boolean };
+type ModelInfo = { path: string; name: string; namespace: string; fullName: string; start: number; end: number; eloquent: boolean; overriddenMethods: Set<string> };
 type TokenRange = { start: number; end: number };
 const AUTH_MIDDLEWARE = /^(?:auth(?::|$)|auth\.basic)/;
 
-function eloquentCrudOperation(operation: string): "create" | "read" | "update" | "delete" | "upsert" {
-  if (["create", "insert", "firstOrCreate"].includes(operation)) return "create";
-  if (["upsert", "updateOrCreate", "save"].includes(operation)) return "upsert";
-  if (operation === "update") return "update";
-  if (["delete", "destroy"].includes(operation)) return "delete";
-  return "read";
+function eloquentCrudOperations(operation: string): DataOperation[] {
+  const method = operation.toLowerCase();
+  if (["create", "insert"].includes(method)) return ["create"];
+  if (method === "firstorcreate") return ["read", "create"];
+  if (method === "updateorcreate") return ["read", "upsert"];
+  if (method === "upsert") return ["upsert"];
+  if (method === "save") return ["persist"];
+  if (method === "update") return ["update"];
+  if (["delete", "destroy"].includes(method)) return ["delete"];
+  if (["first", "find", "findorfail", "firstorfail", "get", "all", "count", "exists", "pluck", "value", "sum", "paginate"].includes(method)) return ["read"];
+  return [];
 }
 
-function eloquentCrudLabel(operation: string): string {
-  const kind = eloquentCrudOperation(operation);
-  return kind === "upsert" ? "creates or updates" : `${kind}s`;
+function eloquentCrudLabel(operation: DataOperation): string {
+  if (operation === "upsert") return "creates or updates";
+  if (operation === "persist") return "persists a model";
+  return `${operation}s`;
 }
 
 /** Small PHP lexer. It drops comments and treats quoted strings as indivisible tokens. */
@@ -553,8 +559,31 @@ function modelIndex(paths: string[], sources: Readonly<Record<string, Uint8Array
   return paths.filter(path => applicationPhpSource(path) && /(?:^|\/)Models?\//u.test(path)).flatMap(path => {
     const sourceBytes = sources[path]!, source = new TextDecoder().decode(sourceBytes), declaration = phpClasses(source)[0], eloquent = eloquentClass(source);
     return declaration ? [{ path, name: declaration.name, namespace: declaration.namespace, fullName: declaration.namespace ? `${declaration.namespace}\\${declaration.name}` : declaration.name,
-      start: declaration.start, end: declaration.end, eloquent: eloquent?.proven === true }] : [];
+      start: declaration.start, end: declaration.end, eloquent: eloquent?.proven === true, overriddenMethods: new Set(declaration.methods.keys()) }] : [];
   });
+}
+
+function staticModelRoot(tokens: Token[], operationIndex: number, statementStart: number): { reference: string; methods: string[]; start: number; end: number } | null {
+  for (let cursor = operationIndex - 1; cursor >= statementStart + 1; cursor--) {
+    if (tokens[cursor]?.value !== "::" || tokens[cursor - 1]?.kind !== "identifier") continue;
+    const methodIndex = cursor + 1;
+    if (tokens[methodIndex]?.kind !== "identifier" || tokens[methodIndex + 1]?.value !== "(") continue;
+    const firstClose = matching(tokens, methodIndex + 1);
+    if (firstClose < 0) continue;
+    let next = firstClose + 1;
+    const methods = [tokens[methodIndex]!.value.toLowerCase()];
+    if (methodIndex === operationIndex) return { reference: tokens[cursor - 1]!.value, methods, start: tokens[cursor - 1]!.start, end: tokens[cursor - 1]!.end };
+    while (next < operationIndex) {
+      if (tokens[next]?.value !== "->" || tokens[next + 1]?.kind !== "identifier" || tokens[next + 2]?.value !== "(") break;
+      const chainedClose = matching(tokens, next + 2);
+      if (chainedClose < 0) break;
+      methods.push(tokens[next + 1]!.value.toLowerCase());
+      if (next + 1 === operationIndex) return { reference: tokens[cursor - 1]!.value, methods, start: tokens[cursor - 1]!.start, end: tokens[cursor - 1]!.end };
+      if (next + 1 > operationIndex) break;
+      next = chainedClose + 1;
+    }
+  }
+  return null;
 }
 function controllerServiceBindings(tokens: Token[], handler: HandlerInfo, source: string): { owner: PhpClass | null; bindings: Map<string, { reference: string; evidence: Array<{ start: number; end: number }> }>; parameters: Map<string, string> } {
   const owner = phpClasses(source).find(item => handler.start >= item.start && handler.start < item.end) ?? null;
@@ -1035,7 +1064,7 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
           }
         };
         const models = modelIndex(paths, input.sources);
-        const knownOperations = ["create", "insert", "upsert", "save", "update", "updateOrCreate", "firstOrCreate", "delete", "destroy", "first", "find", "findOrFail", "firstOrFail", "get", "all", "where", "whereDate", "whereHas", "with", "count", "exists", "query", "pluck", "value", "sum", "paginate", "orderBy"];
+        const knownOperations = new Set(["create", "insert", "upsert", "save", "update", "updateorcreate", "firstorcreate", "delete", "destroy", "first", "find", "findorfail", "firstorfail", "get", "all", "count", "exists", "pluck", "value", "sum", "paginate"]);
         const controllerClassInfo = phpClasses(handlerSource).find(item => handler.start >= item.start && handler.start < item.end);
         const controllerNamespace = controllerClassInfo?.namespace ?? "";
         const controllerImports = routeClassImports(handlerSource);
@@ -1072,83 +1101,93 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
             const deferred = rangeAt(deferredRanges, tokenIndex);
             if (deferred) { tokenIndex = deferred.end; continue; }
             const token = serviceTokens[tokenIndex]!;
-            if (token.kind !== "identifier" || !knownOperations.includes(token.value) || serviceTokens[tokenIndex + 1]?.value !== "(") continue;
+            if (token.kind !== "identifier" || !knownOperations.has(token.value.toLowerCase()) || serviceTokens[tokenIndex + 1]?.value !== "(") continue;
             if (!["::", "->"].includes(serviceTokens[tokenIndex - 1]?.value ?? "")) continue;
             const statementStart = Math.max(call.method.bodyStart, serviceTokens.slice(call.method.bodyStart, tokenIndex).map(item => item.value).lastIndexOf(";") + call.method.bodyStart + 1);
-            const modelMatches: ModelInfo[] = [];
-            let mismatchedModel: ModelInfo | null = null;
-            for (let cursor = tokenIndex - 1; cursor >= statementStart + 1; cursor -= 1) {
-              const rawCandidate = serviceTokens[cursor - 1]?.value;
-              if (serviceTokens[cursor]?.value !== "::" || !rawCandidate) continue;
-              const resolved = resolvePhpClassRef(rawCandidate, call.target.classInfo.namespace, serviceImports);
-              modelMatches.push(...models.filter(model => model.fullName.toLowerCase() === resolved.toLowerCase()));
-              mismatchedModel ??= models.find(model => model.name.toLowerCase() === rawCandidate.replace(/^\\/u, "").split("\\").at(-1)?.toLowerCase()) ?? null;
-              if (modelMatches.length) break;
-            }
-            const uniqueModels = [...new Map(modelMatches.map(model => [model.path, model])).values()];
-            if (uniqueModels.length !== 1) {
-              if (!uniqueModels.length && mismatchedModel) fragment.limitations.push({ filePath: call.target.filePath, reason: `Service model reference resolves differently from ${mismatchedModel.fullName}; its store effect is omitted.` });
+            const root = staticModelRoot(serviceTokens, tokenIndex, statementStart);
+            if (!root) continue;
+            const resolved = resolvePhpClassRef(root.reference, call.target.classInfo.namespace, serviceImports);
+            const modelMatches = models.filter(model => model.fullName.toLowerCase() === resolved.toLowerCase());
+            if (modelMatches.length !== 1) {
+              const sameShortName = models.find(model => model.name.toLowerCase() === root.reference.replace(/^\\/u, "").split("\\").at(-1)?.toLowerCase());
+              if (sameShortName) fragment.limitations.push({ filePath: call.target.filePath, reason: `Service model reference resolves differently from ${sameShortName.fullName}; its store effect is omitted.` });
               continue;
             }
-            const model = uniqueModels[0]!, modelBytes = input.sources[model.path]!;
+            const model = modelMatches[0]!, modelBytes = input.sources[model.path]!;
+            const operationKinds = eloquentCrudOperations(token.value);
+            if (!operationKinds.length) continue;
+            const overriddenChainMethods = root.methods.filter(method => model.overriddenMethods.has(method));
+            if (overriddenChainMethods.length) {
+              fragment.limitations.push({ filePath: model.path, reason: `Model ${model.name} overrides ${overriddenChainMethods.join("(), ")}(); framework query-chain behavior is not assumed, so this call has no proven data-operation classification.` });
+              continue;
+            }
             const storeId = semanticId("store", model.path, 0, `eloquent:${model.name}`);
             const storeConfidence = model.eloquent ? "proven" : "indicated";
             addNode({ id: storeId, kind: "store", label: humanLabel(model.name), featureId, confidence: storeConfidence,
-              reason: model.eloquent ? "Service method memanggil operasi Eloquent statis pada model yang dideklarasikan." : "Service method memanggil operasi pada model statis, tetapi inheritance Eloquent tidak terbukti langsung.",
-              evidence: [evidenceSpan(call.target.filePath, call.target.bytes, token.start, serviceTokens[tokenIndex + 1]!.end, "reference"), evidenceSpan(model.path, modelBytes, model.start, model.end, "declaration")],
+              reason: model.eloquent ? "Service method memanggil operasi Eloquent pada model yang dideklarasikan." : "Service method memanggil operasi pada model statis, tetapi inheritance Eloquent tidak terbukti langsung.",
+              evidence: [evidenceSpan(call.target.filePath, call.target.bytes, root.start, root.end, "reference"), evidenceSpan(model.path, modelBytes, model.start, model.end, "declaration")],
               technicalNodeIds: ccmNodes.filter(node => node.kind === "Class" && node.name === model.name && node.filePath === model.path).map(node => node.id) });
-            const operation = token.value;
-            const label = eloquentCrudLabel(operation);
             const operationEvidence = evidenceSpan(call.target.filePath, call.target.bytes, token.start, serviceTokens[tokenIndex + 1]!.end, "reference");
-            const edgeId = semanticEdgeId(call.target.filePath, Buffer.byteLength(call.target.source.slice(0, token.start), "utf8"), `store:${serviceId}:${storeId}:${operation}`);
-            addEdge({ id: edgeId, source: serviceId, target: storeId, label, confidence: storeConfidence, dataOperation: eloquentCrudOperation(operation),
-              reason: "Method service yang dipanggil controller menjalankan operasi model Eloquent pada store ini.",
-              evidence: [declarationEvidence, operationEvidence, ...exactCall.evidence] });
-            feature.nodeIds.push(serviceId, storeId); feature.edgeIds.push(edgeId);
+            for (const operation of operationKinds) {
+              const edgeId = semanticEdgeId(call.target.filePath, Buffer.byteLength(call.target.source.slice(0, token.start), "utf8"), `store:${serviceId}:${storeId}:${operation}`);
+              addEdge({ id: edgeId, source: serviceId, target: storeId, label: eloquentCrudLabel(operation), confidence: storeConfidence, dataOperation: operation,
+                reason: `Method service yang dipanggil controller menjalankan ${operation} melalui chain query Eloquent statis pada store ini.`,
+                evidence: [declarationEvidence, evidenceSpan(call.target.filePath, call.target.bytes, root.start, root.end, "reference"), operationEvidence, ...exactCall.evidence] });
+              feature.nodeIds.push(serviceId, storeId); feature.edgeIds.push(edgeId);
+            }
           }
         }
         const terminalReturnEnd = directMethodReturnEnd(handlerTokens, handler);
         for (let tokenIndex = handler.bodyStart; tokenIndex < handler.bodyEnd; tokenIndex += 1) {
           if (terminalReturnEnd >= 0 && tokenIndex > terminalReturnEnd) {
-            if (["::", "->"].includes(handlerTokens[tokenIndex - 1]?.value ?? "") && knownOperations.includes(handlerTokens[tokenIndex]!.value)) fragment.limitations.push({ filePath: handlerPath, reason: "ORM call setelah unconditional method-level return tidak dapat dijalankan dan dihilangkan dari alur request." });
+            if (["::", "->"].includes(handlerTokens[tokenIndex - 1]?.value ?? "") && knownOperations.has(handlerTokens[tokenIndex]!.value.toLowerCase())) fragment.limitations.push({ filePath: handlerPath, reason: "ORM call setelah unconditional method-level return tidak dapat dijalankan dan dihilangkan dari alur request." });
             break;
           }
           const deferred = rangeAt(handlerFlow.deferredRanges, tokenIndex);
           if (deferred) {
-            if (handlerTokens.slice(deferred.start, deferred.end + 1).some((candidate, index, slice) => knownOperations.includes(candidate.value) && ["::", "->"].includes(slice[index - 1]?.value ?? ""))) {
+            if (handlerTokens.slice(deferred.start, deferred.end + 1).some((candidate, index, slice) => knownOperations.has(candidate.value.toLowerCase()) && ["::", "->"].includes(slice[index - 1]?.value ?? ""))) {
               fragment.limitations.push({ filePath: handlerPath, reason: "ORM call di dalam nested closure/function tidak diperluas menjadi alur request karena callback tersebut mungkin tertunda." });
             }
             tokenIndex = deferred.end; continue;
           }
           const tokenNode = handlerTokens[tokenIndex]!;
-          if (tokenNode.kind !== "identifier") continue;
-          const previous = handlerTokens[tokenIndex - 1]?.value;
-          const staticOperation = previous === "::" && knownOperations.includes(tokenNode.value);
-          const chainedOperation = previous === "->" && knownOperations.includes(tokenNode.value);
-          const operation = (staticOperation || chainedOperation) && handlerTokens[tokenIndex + 1]?.value === "(";
-          if (!operation) continue;
-          let modelName: string | null = null, modelPath: string | null = null;
+          if (tokenNode.kind !== "identifier" || !knownOperations.has(tokenNode.value.toLowerCase()) || handlerTokens[tokenIndex + 1]?.value !== "(") continue;
+          if (!["::", "->"].includes(handlerTokens[tokenIndex - 1]?.value ?? "")) continue;
           const statementStart = Math.max(handler.bodyStart, handlerTokens.slice(handler.bodyStart, tokenIndex).map(t => t.value).lastIndexOf(";") + handler.bodyStart + 1);
-          for (let cursor = tokenIndex - 1; cursor >= statementStart + 1; cursor -= 1) {
-            const rawCandidate = handlerTokens[cursor - 1]?.value;
-            if (handlerTokens[cursor]?.value !== "::" || !rawCandidate) continue;
-            const resolvedCandidate = resolvePhpClassRef(rawCandidate, controllerNamespace, controllerImports);
-            const match = models.find(model => model.fullName.toLowerCase() === resolvedCandidate.toLowerCase());
-            if (match) { modelName = match.name; modelPath = match.path; break; }
-            const sameShortName = models.find(model => model.name.toLowerCase() === rawCandidate.replace(/^\\/u, "").split("\\").at(-1)?.toLowerCase());
-            if (sameShortName) fragment.limitations.push({ filePath: handlerPath, reason: "Static model reference " + rawCandidate + " resolves to a different namespace than " + sameShortName.fullName + "; Eloquent link is omitted." });
+          const root = staticModelRoot(handlerTokens, tokenIndex, statementStart);
+          if (!root) continue;
+          const resolvedCandidate = resolvePhpClassRef(root.reference, controllerNamespace, controllerImports);
+          const modelMatches = models.filter(model => model.fullName.toLowerCase() === resolvedCandidate.toLowerCase());
+          if (modelMatches.length !== 1) {
+            const sameShortName = models.find(model => model.name.toLowerCase() === root.reference.replace(/^\\/u, "").split("\\").at(-1)?.toLowerCase());
+            if (sameShortName) fragment.limitations.push({ filePath: handlerPath, reason: `Static model reference ${root.reference} resolves differently from ${sameShortName.fullName}; its store effect is omitted.` });
+            continue;
           }
-          if (!modelName) continue;
-          const modelBytes = modelPath ? input.sources[modelPath]! : null;
-          const storeId = semanticId("store", modelPath ?? handlerPath, modelBytes ? 0 : tokenNode.start, `eloquent:${modelName}`);
-          const modelDeclaration = modelPath ? models.find(model => model.path === modelPath)! : null;
+          const modelDeclaration = modelMatches[0]!;
+          const operationKinds = eloquentCrudOperations(tokenNode.value);
+          if (!operationKinds.length) continue;
+          const overriddenChainMethods = root.methods.filter(method => modelDeclaration.overriddenMethods.has(method));
+          if (overriddenChainMethods.length) {
+            fragment.limitations.push({ filePath: modelDeclaration.path, reason: `Model ${modelDeclaration.name} overrides ${overriddenChainMethods.join("(), ")}(); framework query-chain behavior is not assumed, so this call has no proven data-operation classification.` });
+            continue;
+          }
+          const modelName = modelDeclaration.name, modelPath = modelDeclaration.path;
+          const modelBytes = input.sources[modelPath]!;
+          const storeId = semanticId("store", modelPath, 0, `eloquent:${modelName}`);
           const confidence = modelDeclaration?.eloquent ? "proven" : "indicated";
-          if (modelDeclaration && !modelDeclaration.eloquent) fragment.limitations.push({ filePath: modelPath!, reason: `Model ${modelName} digunakan oleh controller tetapi deklarasi parent-nya tidak membuktikan Eloquent secara langsung; hubungan ditandai sebagai indikasi.` });
-          addNode({ id: storeId, kind: "store", label: humanLabel(modelName), featureId, confidence, reason: modelDeclaration?.eloquent ? "Pemanggilan query Eloquent statis dan deklarasi model turunan Eloquent ditemukan pada source." : "Pemanggilan model statis ditemukan tetapi inheritance Eloquent tidak dibuktikan secara langsung.", evidence: [evidenceSpan(handlerPath, handlerBytes, tokenNode.start, tokenNode.end, "reference"), ...(modelBytes && modelPath && modelDeclaration ? [evidenceSpan(modelPath, modelBytes, modelDeclaration.start, modelDeclaration.end, "declaration" as const)] : [])], technicalNodeIds: modelPath ? ccmNodes.filter(node => node.kind === "Class" && node.name === modelName && node.filePath === modelPath).map(node => node.id) : [] });
-          const edgeId = semanticEdgeId(handlerPath, Buffer.byteLength(handlerSource.slice(0, tokenNode.start), "utf8"), `store:${controllerId}:${storeId}:${tokenNode.value}`);
-          const label = eloquentCrudLabel(tokenNode.value);
-          addEdge({ id: edgeId, source: controllerId, target: storeId, label, confidence, dataOperation: eloquentCrudOperation(tokenNode.value), reason: "Pemanggilan operasi query statis pada model Eloquent dalam method controller yang dirujuk route.", evidence: [evidenceSpan(handlerPath, handlerBytes, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, "reference")] });
-          feature.nodeIds.push(storeId); feature.edgeIds.push(edgeId);
+          if (!modelDeclaration.eloquent) fragment.limitations.push({ filePath: modelPath, reason: `Model ${modelName} tidak terbukti mewarisi Eloquent secara langsung; hubungan CRUD hanya ditandai sebagai indikasi.` });
+          const rootEvidence = evidenceSpan(handlerPath, handlerBytes, root.start, root.end, "reference");
+          const modelEvidence = evidenceSpan(modelPath, modelBytes, modelDeclaration.start, modelDeclaration.end, "declaration");
+          addNode({ id: storeId, kind: "store", label: humanLabel(modelName), featureId, confidence,
+            reason: modelDeclaration.eloquent ? "Static model call terhubung ke deklarasi model Eloquent." : "Static model call ditemukan, tetapi inheritance Eloquent belum terbukti.",
+            evidence: [rootEvidence, modelEvidence], technicalNodeIds: ccmNodes.filter(node => node.kind === "Class" && node.name === modelName && node.filePath === modelPath).map(node => node.id) });
+          const operationEvidence = evidenceSpan(handlerPath, handlerBytes, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, "reference");
+          for (const operation of operationKinds) {
+            const edgeId = semanticEdgeId(handlerPath, Buffer.byteLength(handlerSource.slice(0, tokenNode.start), "utf8"), `store:${controllerId}:${storeId}:${operation}`);
+            addEdge({ id: edgeId, source: controllerId, target: storeId, label: eloquentCrudLabel(operation), confidence, dataOperation: operation,
+              reason: `Method controller yang terhubung dengan route menjalankan ${operation} melalui chain query Eloquent statis.`, evidence: [rootEvidence, modelEvidence, operationEvidence] });
+            feature.nodeIds.push(storeId); feature.edgeIds.push(edgeId);
+          }
           linkBranchUse(storeId, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, "model operation");
           linkConditionUse(storeId, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, confidence);
           const callClose = matching(handlerTokens, tokenIndex + 1);

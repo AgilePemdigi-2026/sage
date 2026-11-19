@@ -82,10 +82,15 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
     addElement({ id: serviceId, type: "ApplicationService", name: feature.label, description: null, origin: "source", featureGroup: feature.label, evidence: uniqueEvidence(feature.evidence), review: "unreviewed" });
   });
   const semanticToArchimate = new Map<string, string>();
+  const archimateToSemantic = new Map<string, string>();
+  const mapSemanticElement = (nodeId: string, elementId: string) => {
+    semanticToArchimate.set(nodeId, elementId);
+    archimateToSemantic.set(elementId, nodeId);
+  };
   for (const [nodeId, applicationId] of deploymentAppIds) semanticToArchimate.set(nodeId, applicationId);
   for (const node of input.semantic.nodes) {
     if (node.kind === "store") {
-      const dataId = id("data", node.id); semanticToArchimate.set(node.id, dataId);
+      const dataId = id("data", node.id); mapSemanticElement(node.id, dataId);
       const relatedFeatures = new Set(input.semantic.edges.filter(edge => edge.target === node.id)
         .map(edge => semanticNodes.get(edge.source)?.featureId).filter((featureId): featureId is string => Boolean(featureId)));
       const featureId = relatedFeatures.size === 1 ? [...relatedFeatures][0] : node.featureId;
@@ -95,7 +100,7 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
     if (node.kind === "component") {
       if (composeApplicationName(node)) continue;
       const method = routeMethod(node.label);
-      const componentId = id(method ? "interface" : "function", node.id); semanticToArchimate.set(node.id, componentId);
+      const componentId = id(method ? "interface" : "function", node.id); mapSemanticElement(node.id, componentId);
       addElement({ id: componentId, type: method ? "ApplicationInterface" : "ApplicationFunction", name: method ? node.label : routeHandlerLabel(node, input.semantic),
         description: node.reason, origin: "source",
         featureGroup: node.featureId ? semanticFeatures.get(node.featureId)?.label ?? null : null,
@@ -114,11 +119,11 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
       }
       continue;
     }
-    if (node.kind === "feature") semanticToArchimate.set(node.id, id("service", node.featureId ?? node.id));
+    if (node.kind === "feature") mapSemanticElement(node.id, id("service", node.featureId ?? node.id));
     if (node.kind === "step") {
       const method = routeMethod(node.label);
       if (!method) continue;
-      const interfaceId = id("interface", node.id); semanticToArchimate.set(node.id, interfaceId);
+      const interfaceId = id("interface", node.id); mapSemanticElement(node.id, interfaceId);
       addElement({ id: interfaceId, type: "ApplicationInterface", name: node.label, description: node.reason, origin: "source",
         featureGroup: node.featureId ? semanticFeatures.get(node.featureId)?.label ?? null : null,
         evidence: uniqueEvidence(node.evidence), review: "unreviewed" });
@@ -195,7 +200,9 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
   const applicationViewElementIds = new Set(applicationViewElements.map(element => element.id));
   const accessByApplicationData = new Map<string, AddRelationship[]>();
   for (const edge of relationships.values()) if (edge.type === "AccessRelationship") {
-    const applicationId = ownerForEvidence(edge.evidence);
+    const sourceNodeId = archimateToSemantic.get(edge.sourceId);
+    const sourceEvidence = (sourceNodeId ? semanticNodes.get(sourceNodeId)?.evidence : undefined) ?? edge.evidence;
+    const applicationId = ownerForEvidence(sourceEvidence);
     const key = `${applicationId}\0${edge.targetId}`;
     const bucket = accessByApplicationData.get(key) ?? [];
     bucket.push(edge);

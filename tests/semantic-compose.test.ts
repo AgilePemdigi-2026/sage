@@ -151,11 +151,40 @@ test("CRUD matrix derives all operations from backend SQL and assigns them to th
   assert.equal(feedbackRows[0]!.update, "yes");
   assert.equal(feedbackRows[0]!.delete, "yes");
   const crudEdges = semantic.edges.filter(edge => edge.target && feedbackRows[0]!.evidence.some(span => span.filePath === "db/migrations/001_schema.sql") && edge.dataOperation);
-  assert.deepEqual(new Set(crudEdges.map(edge => edge.dataOperation)), new Set(["create", "read", "update", "delete"]));
+  assert.deepEqual(new Set(crudEdges.map(edge => edge.dataOperation)), new Set(["create", "read", "update", "delete", "upsert"]));
   assert.ok(crudEdges.every(edge => edge.confidence === "proven" && edge.evidence.some(span => span.filePath.endsWith("/db.ts"))),
     "confirmed CRUD carries explicit operation metadata and driver-binding evidence");
   assert.ok(!semantic.limitations.some(item => /Static SQL (?:reads|updates) references (?:eligible|updated_at|of|set)/iu.test(item.reason)),
     "CTE aliases, column expressions, lock clauses, and upsert syntax are not misread as table names");
+});
+
+test("CRUD ownership follows the backend operation source when schema evidence belongs to another build context", () => {
+  const input = semanticInput({
+    "compose.yaml": `services:
+  web:
+    build:
+      context: .
+    restart: unless-stopped
+  api:
+    build:
+      context: ./api
+    restart: unless-stopped
+`,
+    "db/migrations/001_schema.sql": `create table feedback_stakeholder (id_feedback uuid primary key);`,
+    "api/server/feedback.ts": `import { Pool } from "pg";
+const pool = new Pool();
+export async function removeFeedback() { return pool.query("delete from feedback_stakeholder"); }`,
+  });
+  const semantic = buildSemanticModel(input);
+  const add = buildAddBaseline({ ccm: input.ccm, semantic, sourceCkgHash });
+  const apiRow = add.matrices.applicationData.find(item =>
+    add.elements.find(element => element.id === item.dataId)?.name.toLowerCase() === "feedback stakeholder" &&
+    add.elements.find(element => element.id === item.applicationId)?.name === "API");
+  assert.ok(apiRow, "the nested API build context receives its own CRUD matrix row");
+  assert.equal(apiRow.delete, "yes");
+  assert.ok(apiRow.evidence.some(span => span.filePath === "api/server/feedback.ts"));
+  assert.ok(!apiRow.evidence.some(span => span.filePath === "src/lib/server/feedback-store.ts"),
+    "CRUD ownership and evidence are derived from each backend operation source, not mixed with other service evidence");
 });
 
 test("static SQL CRUD ignores client-side query lookalikes and records file-scoped server evidence", () => {
@@ -178,6 +207,8 @@ test("static SQL CRUD ignores client-side query lookalikes and records file-scop
   assert.ok(semantic.limitations.some(item => item.filePath.includes("dynamic-store") && /does not resolve|dynamic SQL/u.test(item.reason)), "dynamic backend SQL remains visible as an explicit analyzer limitation");
   assert.ok(semantic.edges.some(edge => edge.label.toLowerCase() === "reads feedback stakeholder" && edge.evidence.some(span => span.filePath.includes("imported-query"))), `literal SQL constants are resolved across local backend imports: ${JSON.stringify(semantic.edges.filter(edge => edge.evidence.some(span => span.filePath.includes("imported-query"))))}`);
   assert.ok(semantic.edges.some(edge => edge.dataOperation === "read" && edge.evidence.some(span => span.filePath.includes("imported-query"))));
+  assert.ok(semantic.edges.some(edge => edge.dataOperation === "read" && edge.evidence.some(span => span.filePath.endsWith("query-constants.ts"))),
+    "the evidence register cites the imported declaration that contains the SQL text");
   assert.ok(!semantic.edges.some(edge => edge.dataOperation === "delete" && edge.evidence.some(span => span.filePath.includes("shadowed-query"))),
     "a function parameter that shadows an imported SQL constant is not mistaken for the constant");
   assert.ok(!semantic.edges.some(edge => edge.evidence.some(span => span.filePath.includes("reassigned-query"))),
@@ -187,6 +218,142 @@ test("static SQL CRUD ignores client-side query lookalikes and records file-scop
   assert.ok(!unverifiedSemantic.edges.some(edge => edge.dataOperation === "delete" && edge.evidence.some(span => span.filePath.includes("unverified-query"))),
     "a method named query without a verified database client is not a CRUD fact");
   assert.ok(unverifiedSemantic.limitations.some(item => item.filePath.includes("unverified-query") && /node-postgres/u.test(item.reason)));
+});
+
+test("SQL CRUD lexer ignores quoted text, EXPLAIN, CTE aliases, and schema-mismatched tables", () => {
+  const input = semanticInput({
+    "src/lib/server/sql-lexing.ts": `import { Pool } from "pg";
+const pool = new Pool();
+export async function inspect() {
+  await pool.query("SELECT $$DELETE FROM feedback_stakeholder$$");
+  await pool.query("SELECT 1 AS \\"DELETE FROM feedback_stakeholder\\"");
+  await pool.query("SELECT E'text\\\\' DELETE FROM feedback_stakeholder; '");
+  await pool.query("EXPLAIN DELETE FROM feedback_stakeholder");
+  await pool.query("WITH feedback_stakeholder AS (SELECT 1) SELECT * FROM feedback_stakeholder");
+  await pool.query("DELETE FROM archive.feedback_stakeholder");
+  await pool.query("INSERT INTO feedback_stakeholder(id_feedback) VALUES (1); INSERT INTO audit_log(id) VALUES (2) ON CONFLICT(id) DO UPDATE SET id=2");
+  await pool.query("INSERT INTO feedback_stakeholder(id_feedback) VALUES (1) ON CONFLICT(id_feedback) DO UPDATE SET id_feedback=excluded.id_feedback");
+}
+export async function unreachable() {
+  return null;
+  await pool.query("DELETE FROM feedback_stakeholder");
+}`,
+  });
+  const semantic = buildSemanticModel(input);
+  const sqlEdges = semantic.edges.filter(edge => edge.dataOperation && edge.evidence.some(span => span.filePath.endsWith("sql-lexing.ts")));
+  assert.deepEqual(new Set(sqlEdges.map(edge => edge.dataOperation)), new Set(["create", "upsert"]));
+  assert.equal(sqlEdges.filter(edge => edge.dataOperation === "update").length, 0, "upsert is represented as upsert and cannot be attributed to another statement's INSERT");
+  assert.equal(sqlEdges.filter(edge => edge.dataOperation === "delete").length, 0, "quoted text, EXPLAIN, and a different schema do not create DELETE evidence");
+  assert.equal(sqlEdges.filter(edge => edge.dataOperation === "read").length, 0, "a CTE alias is not resolved to a physical table with the same name");
+  assert.ok(semantic.limitations.some(item => item.filePath.endsWith("sql-lexing.ts") && /archive\.feedback_stakeholder/u.test(item.reason)),
+    "schema-qualified operations that do not match the schema snapshot remain explicit limitations");
+  assert.ok(semantic.limitations.some(item => item.filePath.endsWith("sql-lexing.ts") && /unreachable \.query\(\)/u.test(item.reason)),
+    "source code after an unconditional return is explicitly excluded");
+});
+
+test("SQL CRUD preserves quoted table identity and requires a matching schema", () => {
+  const input = semanticInput({
+    "db/migrations/002_case_sensitive.sql": `CREATE TABLE public."CaseSensitive" (id integer primary key);`,
+    "src/lib/server/case-sensitive.ts": `import { Pool } from "pg";
+const pool = new Pool();
+export async function remove() {
+  await pool.query("DELETE FROM archive.\\"CaseSensitive\\"");
+  await pool.query("DELETE FROM public.\\"CaseSensitive\\"");
+  await pool.query("DELETE FROM public.casesensitive");
+}`,
+  });
+  const semantic = buildSemanticModel(input);
+  const matches = semantic.edges.filter(edge => edge.dataOperation === "delete" && edge.evidence.some(span => span.filePath.endsWith("case-sensitive.ts")) &&
+    edge.target === semantic.nodes.find(node => node.kind === "store" && node.dataIdentity?.name === "CaseSensitive")?.id);
+  assert.equal(matches.length, 1, "only the exact quoted schema and table identity produce a CRUD edge");
+});
+
+test("SQL CRUD requires an unshadowed immutable pg binding and excludes client-reachable helpers", () => {
+  const input = semanticInput({
+    "src/lib/server/bindings.ts": `import { Pool, type PoolClient } from "pg";
+const pool = new Pool();
+let mutablePool: any = new Pool();
+mutablePool = { query: () => null };
+export const exportedPool = new Pool();
+export const getPool = () => new Pool();
+export async function shadowedClass(Pool: any) { return new Pool().query("delete from feedback_stakeholder"); }
+export async function shadowedPool(pool: any) { return pool.query("delete from feedback_stakeholder"); }
+export async function nestedShadow(pool: Pool) { { const pool = { query(text: string) { return text; } }; return pool.query("delete from feedback_stakeholder"); } }
+export async function nestedDestructuredShadow(db: Pool) { { const { db } = { db: { query(text: string) { return text; } } }; return db.query("delete from feedback_stakeholder"); } }
+export async function nestedDestructuredParameter(db: Pool) { const run = ({ db }: { db: { query(text: string): string } }) => db.query("delete from feedback_stakeholder"); return run({ db: { query: text => text } }); }
+export async function mutable() { return mutablePool.query("delete from feedback_stakeholder"); }
+export async function parameter(client: PoolClient) { return client.query("delete from feedback_stakeholder"); }
+export async function stable() { return pool.query("delete from feedback_stakeholder"); }
+export async function exported() { return exportedPool.query("delete from feedback_stakeholder"); }
+export async function factory() { return getPool().query("delete from feedback_stakeholder"); }
+`,
+    "src/lib/server/types.d.ts": `import { Pool } from "pg"; export declare const QueryText: string;`,
+    "src/app/page.tsx": `"use client"; import { remove } from "../services/client-store"; export default function Page() { return null; }`,
+    "src/services/client-store.ts": `import { Pool } from "pg"; const pool = new Pool(); export async function remove() { return pool.query("delete from feedback_stakeholder"); }`,
+  });
+  const semantic = buildSemanticModel(input);
+  const bindings = semantic.edges.filter(edge => edge.dataOperation === "delete" && edge.evidence.some(span => span.filePath.endsWith("bindings.ts")));
+  assert.equal(bindings.length, 4, "typed PoolClient, module const, exported const, and expression-bodied factory bindings are accepted");
+  assert.ok(bindings.some(edge => edge.evidence.some(span => span.startLine > 0)));
+  assert.ok(!semantic.edges.some(edge => edge.dataOperation === "delete" && edge.evidence.some(span => span.filePath.endsWith("client-store.ts"))),
+    "a helper reachable from a use-client root is not trusted as backend CRUD evidence");
+  assert.ok(!semantic.edges.some(edge => edge.dataOperation === "delete" && edge.evidence.some(span => span.filePath.endsWith("bindings.ts") && [7, 8, 9].includes(span.startLine))),
+    "shadowed and mutable database bindings do not produce proven CRUD edges");
+});
+
+test("an imported database factory is not trusted when a local parameter shadows its name", () => {
+  const input = semanticInput({
+    "src/lib/server/db.ts": `import { Pool } from "pg";
+const pool = new Pool();
+export function database() { return pool; }
+`,
+    "src/lib/server/shadowed-factory.ts": `import { database } from "./db";
+export function remove(database: () => { query(text: string): unknown }) {
+  return database().query("delete from feedback_stakeholder");
+}
+`,
+    "src/lib/server/shadowed-function.ts": `import { database } from "./db";
+export function remove() {
+  function database() { return { query(text: string) { return text; } }; }
+  return database().query("delete from feedback_stakeholder");
+}
+`,
+    "src/lib/server/real-factory.ts": `import { database } from "./db";
+export function remove() {
+  return database().query("delete from feedback_stakeholder");
+}
+`,
+  });
+  const semantic = buildSemanticModel(input);
+  assert.ok(!semantic.edges.some(edge => edge.dataOperation === "delete" && edge.evidence.some(span => span.filePath.endsWith("shadowed-factory.ts"))),
+    "a parameter named like an imported database factory cannot inherit that import's Pool evidence");
+  assert.ok(!semantic.edges.some(edge => edge.dataOperation === "delete" && edge.evidence.some(span => span.filePath.endsWith("shadowed-function.ts"))),
+    "a nested function named like an imported database factory cannot inherit that import's Pool evidence");
+  assert.ok(semantic.edges.some(edge => edge.dataOperation === "delete" && edge.evidence.some(span => span.filePath.endsWith("real-factory.ts"))),
+    "the unshadowed imported database factory still produces backend CRUD evidence");
+  for (const path of ["shadowed-factory.ts", "shadowed-function.ts"]) {
+    assert.ok(semantic.limitations.some(item => item.filePath.endsWith(path) && /could not be tied to a locally verified node-postgres/u.test(item.reason)),
+      `the unsupported shadowed receiver in ${path} is reported as a limitation`);
+  }
+});
+
+test("type-only imports from client modules do not suppress backend CRUD reachability", () => {
+  const input = semanticInput({
+    "src/app/page.tsx": `"use client";
+import type { User } from "../services/users";
+import { type User as PublicUser } from "../services/users";
+export default function Page() { return null; }
+`,
+    "src/services/users.ts": `import { Pool } from "pg";
+const pool = new Pool();
+export async function removeUser() { return pool.query("delete from users"); }
+`,
+    "db/migrations/002_users.sql": `create table users (id integer primary key);`,
+  });
+  const semantic = buildSemanticModel(input);
+  const edge = semantic.edges.find(item => item.dataOperation === "delete" && item.evidence.some(span => span.filePath === "src/services/users.ts"));
+  assert.ok(edge, "erased type-only imports do not make a server-side service client-reachable");
+  assert.equal(edge.confidence, "proven");
 });
 
 test("node-postgres connection results remain traceable through an explicit null-recovery catch", () => {
