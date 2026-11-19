@@ -62,7 +62,7 @@ Status memakai bukti yang dicatat di [TOGAF ADD traceability](TOGAF_ADD_TRACEABI
 - [x] Automated checks, database integration, browser acceptance, and export checks have recorded commands and outcomes; fixture-only results are labeled as such.
 - [x] Perpus, SAGE, and Emosync are checked at pinned commits for supported content and false-positive boundaries.
 - [~] Runtime and peak memory are recorded for macOS replays. A Linux container replay at fixed limits is still unverified.
-- [~] Active guide updates are recorded; the GitHub workflow now includes the production Docker image build, but its result is pending. The GitHub issues remain open until the checks, manual review, and any follow-up changes are complete.
+- [x] Active guide updates and the full GitHub Actions checks, including a clean production Docker image build, are recorded. The GitHub issues remain open for manual review and any follow-up changes.
 
 ## Ownership and tracking
 
