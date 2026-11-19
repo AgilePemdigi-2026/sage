@@ -12,7 +12,7 @@ Baseline: 19 November 2026. This page tracks the one-sprint replacement scope fo
 | Keep user corrections separate from source facts | `packages/documents/src/add-overlay.ts`; `apps/web/lib/add/handlers.ts`; `packages/database/src/add-baseline.ts`; migration `packages/database/prisma/migrations/202611160001_add_baseline/` | `tests/add-handlers.test.ts`; `tests/add-baseline.integration.ts` | Unit and disposable PostgreSQL integration cover owner isolation, canonical hash/idempotency, append-only revisions, and stale/concurrent revision conflicts. |
 | Offer LLM only for consented narrative wording | `packages/documents/src/baseline-llm.ts`; `apps/web/lib/add/handlers.ts` | `tests/add-baseline.test.ts`; `tests/add-handlers.test.ts` | No source bytes are sent; returned text cannot add/alter facts or relationships. Deterministic narrative is the fallback. |
 | Provide readable Markdown, LaTeX, and PDF from the canonical ADD and correction snapshot | `packages/documents/src/baseline-markdown.ts`; `packages/documents/src/baseline-latex.ts`; `packages/documents/src/phase-c-add.ts`; `apps/web/components/add-workspace/` | `tests/add-export.test.ts`; `scripts/test-add-workspace.ts` | Markdown and LaTeX carry the canonical model hash and saved overlay revision. Browser print produces an A4 PDF from that same page snapshot. A server-side PDF export/cache route is not implemented. |
-| Support the current reference projects and resource limits | `scripts/benchmark-add.ts`; `scripts/run-add-container-benchmarks.py`; `.github/workflows/ci.yml`; `artifacts/semantic/corpora/`; `docs/evidence/semantic/oracle.json` | `npm run benchmark:add -- <corpus> <new-output-directory> <alias>`; GitHub Actions run [#44449002743](https://github.com/AgilePemdigi-2026/sage/actions/runs/44449002743) | Replay Perpus, SAGE, and Emosync with commit-pinned evidence. Report runtime, process and cgroup peak memory, model counts, Markdown size, determinism, and limitations; failures remain visible. |
+| Support the current reference projects and resource limits | `scripts/benchmark-add.ts`; `scripts/run-add-container-benchmarks.py`; `.github/workflows/ci.yml`; `artifacts/semantic/corpora/`; `docs/evidence/semantic/oracle.json` | `npm run benchmark:add -- <corpus> <new-output-directory> <alias>`; GitHub Actions run [#44453329920](https://github.com/AgilePemdigi-2026/sage/actions/runs/44453329920) | Replay Perpus, SAGE, and Emosync with commit-pinned evidence. Report runtime, per-language source coverage, process and cgroup peak memory, model counts, Markdown size, determinism, and limitations; failures remain visible. |
 
 ## Verification status
 
@@ -23,9 +23,10 @@ This table is updated only from commands actually run for the current worktree r
 | `npm run typecheck` | Passed | Root and web workspace TypeScript checks passed on 19 November 2026 with Node v24.22.3. |
 | `npm run lint` | Passed with warnings | No lint errors. Three exhaustive-dependency warnings remain in the existing `semantic-workspace.tsx`. |
 | `npm test` | Passed | 590 unit/contract tests, including OpenAPI scope guards, Python binding identity, TRACE interface projection, complete ADD exports, Prisma, and combined-pipeline coverage. PostgreSQL integration is a separate command. |
-| `npm run test:semantic` | Passed | 132 focused analyzer/model/handler/presentation tests. |
+| `npm run test:semantic` | Passed | 134 focused analyzer/model/handler/presentation tests. |
 | ADD corpus replay: Perpus, SAGE, Emosync | Passed | Fresh Node v24.22.3 replays on pinned snapshots passed deterministic model/hash and evidence byte/hash checks. Results are shown below. Resource figures are host process measurements, not server limits. |
-| Fixed-limit Linux ADD replay | Passed | GitHub Actions run [#44449002743](https://github.com/AgilePemdigi-2026/sage/actions/runs/44449002743) replayed all three pinned commits on Ubuntu 24.04 / Node v24.22.0. Docker enforced 2 GiB memory, 1.5 CPU, 256 PIDs, no network, and read-only root; each report confirmed cgroup limits and peak charge. The sanitized reports are attached to the run for 14 days. Per-corpus results follow. |
+| Fixed-limit Linux ADD replay | Passed | GitHub Actions run [#44453329920](https://github.com/AgilePemdigi-2026/sage/actions/runs/44453329920) replayed all three pinned commits on Ubuntu 24.04 / Node v24.22.0. Docker enforced 2 GiB memory with swap disabled, 1.5 CPU, 256 PIDs, no network, and read-only root. Each report confirmed `memory.swap.max = 0`, the remaining cgroup limits, peak charge, and per-language coverage. Sanitized reports are available in the [14-day run artifact](https://github.com/AgilePemdigi-2026/sage/actions/runs/44453329920/artifacts/14496334011). Per-corpus results follow. |
+| ADD replay runner failure handling | Passed locally | Eight Python tests cover missing, malformed, or unwritable reports, process error preservation, and memory/swap cgroup checks. The PR CI is rerunning these against the updated runner. |
 | PostgreSQL owner/revision integration | Passed | 2 tests passed against the new disposable `sage_add_baseline_20261119` database. Migration and test data were removed with the temporary QA Colima profile; the existing `sage` profile and application database were not used. |
 | ADD workspace Playwright/browser review | Passed in fixture scope | Tested initial not-generated state, generation without visiting Code Knowledge, both connected ArchiMate views, paginated application diagram, evidence links, mobile overflow, keyboard access, saved overlay revision, default-off LLM consent and opt-in, active-search print behavior, complete relationship IDs/evidence, all data catalog rows, and matching Markdown/LaTeX/PDF identity. API responses were intercepted fixtures; this does not cover production OAuth, the worker queue, or server persistence. |
 | Markdown, LaTeX, and PDF export | Passed with scope limits | The browser generated an A4 PDF from the reviewed fixture; Tectonic compiled a 19-page A4 LaTeX fixture and key diagram/catalog pages were visually checked. Application Cooperation and Data Structure use paginated relationship rows so cross-page relationships remain drawn; regressions verify every relation survives pagination. Browser print includes a complete relationship/evidence register and an unfiltered catalog. PDF remains browser-print output; no server-side PDF export/cache route exists. Tectonic still reports minor overfull-box warnings; no clipping was visible on the reviewed pages. Test artifacts are ignored and not committed; Tectonic intermediates are kept under `tmp/pdfs/`. |
@@ -47,15 +48,23 @@ Earlier SAGE sessions produced unexplained source-analysis time outliers. The fr
 
 ### Fixed-limit Linux replay
 
-The same three oracle commits passed in a separate Docker container per repository. Cgroup peak is the container's measured memory charge; process peak RSS is reported separately. The run used 2 GiB, 1.5 CPU, a 256 PID cap, no network, and read-only root. Markdown byte counts come from the canonical ADD generated by this replay. PDF bytes are not measured because PDF output still uses browser print.
+The same three oracle commits passed in a separate Docker container per repository. Cgroup peak is the container's measured memory charge; process peak RSS is reported separately. Run [#44453329920](https://github.com/AgilePemdigi-2026/sage/actions/runs/44453329920) used 2 GiB total memory with swap disabled, 1.5 CPU, a 256 PID cap, no network, and read-only root. Markdown byte counts come from the canonical ADD generated by this replay. PDF bytes are not measured because PDF output still uses browser print.
 
 | Corpus and commit | Source files / size | Elapsed | Container peak / process peak RSS | ADD elements / relationships | Evidence spans / Markdown bytes |
 | --- | ---: | ---: | ---: | ---: | ---: |
-| Perpus `d72c3532` | 89 / 319,532 B | 3.50 s | 320.6 / 358.9 MiB | 201 / 310 | 1,143 / 310,510 B |
-| SAGE `c2dc3d84` | 369 / 3,189,530 B | 87.87 s | 974.1 / 1,003.6 MiB | 87 / 160 | 603 / 184,137 B |
-| Emosync `a2299266` | 85 / 242,613 B | 4.37 s | 291.4 / 329.7 MiB | 114 / 328 | 651 / 181,550 B |
+| Perpus `d72c3532` | 89 / 319,532 B | 2.27 s | 321.9 / 360.3 MiB | 201 / 310 | 1,143 / 310,510 B |
+| SAGE `c2dc3d84` | 369 / 3,189,530 B | 70.97 s | 966.0 / 996.2 MiB | 87 / 160 | 603 / 184,137 B |
+| Emosync `a2299266` | 85 / 242,613 B | 2.62 s | 283.7 / 322.2 MiB | 114 / 328 | 651 / 181,550 B |
 
-Those recorded runs verified the 2 GiB memory cap, but did not record the cgroup swap limit. The runner now disables swap and requires `memory.swap.max = 0`; a fresh run is required before reporting that check as passed. This remains a bounded static replay against those exact source commits, not a capacity guarantee for the shared Coolify server. It does not exercise OAuth, the production queue, deployed storage, or PDF generation.
+The benchmark status `PASS` means its configured acceptance checks passed; source analysis can still be partial. Adapter counts make this visible, while file-level failures and other limitations remain in the ADD. SAGE has two eligible source files reported as failed; each corpus processed at least one file for every language with eligible source. The full per-language counts are:
+
+| Corpus | JavaScript (`processed / eligible / failed`) | TypeScript (`processed / eligible / failed`) | PHP (`processed / eligible / failed`) | Python (`processed / eligible / failed`) | Source analysis |
+| --- | ---: | ---: | ---: | ---: | --- |
+| Perpus | 2 / 2 / 0 | 84 / 84 / 0 | 0 / 0 / 0 | 0 / 0 / 0 | Partial |
+| SAGE | 23 / 24 / 1 | 293 / 293 / 0 | 8 / 9 / 1 | 0 / 0 / 0 | Partial |
+| Emosync | 2 / 2 / 0 | 0 / 0 / 0 | 80 / 80 / 0 | 0 / 0 / 0 | Partial |
+
+This is a bounded static replay against those exact source commits, not a capacity guarantee for the shared Coolify server. It does not exercise OAuth, the production queue, deployed storage, or PDF generation.
 
 ## Supported baseline and limitations
 

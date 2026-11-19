@@ -1,5 +1,6 @@
 """Small pure helpers for preserving per-corpus ADD replay diagnostics."""
 import json
+import os
 from pathlib import Path
 
 
@@ -26,6 +27,13 @@ def load_report(report_path: Path, repository: str, commit: str, process_error: 
             "repository": repository,
             "commit": commit,
             "error": "Benchmark report JSON must contain an object",
+        }
+    if not isinstance(report.get("status"), str):
+        return {
+            "status": "FAIL_REPORT",
+            "repository": repository,
+            "commit": commit,
+            "error": "Benchmark report JSON has no string status",
         }
     return report
 
@@ -70,3 +78,19 @@ def finalize_report(report: dict, exit_code: int, cgroup_evidence: dict, process
         else:
             report["resourceLimitError"] = cgroup_evidence.get("error", "Expected cgroup evidence was not recorded.")
     return report
+
+
+def write_final_report(report_path: Path, fallback_path: Path, report: dict) -> tuple[Path | None, str | None]:
+    payload = json.dumps(report, indent=2) + "\n"
+    try:
+        report_path.write_text(payload, encoding="utf-8")
+        os.chmod(report_path, 0o600)
+        return report_path, None
+    except OSError as primary_error:
+        try:
+            fallback_path.write_text(payload, encoding="utf-8")
+            os.chmod(fallback_path, 0o600)
+            return fallback_path, f"Primary report path was unavailable ({type(primary_error).__name__})."
+        except OSError as fallback_error:
+            return None, (f"Could not write report to either path ({type(primary_error).__name__}; "
+                          f"fallback {type(fallback_error).__name__}).")

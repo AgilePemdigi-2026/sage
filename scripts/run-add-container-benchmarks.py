@@ -5,7 +5,7 @@ import os
 from pathlib import Path
 import subprocess
 import uuid
-from add_benchmark_runner import check_cgroup_evidence, finalize_report, load_report
+from add_benchmark_runner import check_cgroup_evidence, finalize_report, load_report, write_final_report
 
 ROOT = Path(__file__).resolve().parents[1]
 MEMORY_LIMIT_BYTES = 2 * 1024 * 1024 * 1024
@@ -72,6 +72,8 @@ for snapshot in manifest["snapshots"]:
             exit_code = 125
             process_error = "Benchmark container could not be started or monitored."
 
+    if exit_code != 0 and process_error is None and not report_path.exists():
+        process_error = f"Benchmark command exited with status {exit_code} without writing a report."
     report = load_report(report_path, repository, snapshot["commit"], process_error)
     report["containerLimits"] = {
         "memoryBytes": MEMORY_LIMIT_BYTES,
@@ -84,8 +86,13 @@ for snapshot in manifest["snapshots"]:
     report["containerExitCode"] = exit_code
     cgroup_evidence = check_cgroup_evidence(report, MEMORY_LIMIT_BYTES, 256)
     report = finalize_report(report, exit_code, cgroup_evidence, process_error)
-    report_path.write_text(json.dumps(report, indent=2) + "\n")
-    os.chmod(report_path, 0o600)
+    written_report_path, report_write_error = write_final_report(report_path, output / f"{slug}-runner-report.json", report)
+    if report_write_error:
+        if written_report_path is None:
+            if report.get("status") == "PASS":
+                report["status"] = "FAIL_REPORT_WRITE"
+                report["error"] = "The benchmark report could not be saved."
+            report["reportWriteError"] = report_write_error
     print(json.dumps({
         "repository": repository,
         "commit": snapshot["commit"],
@@ -95,9 +102,11 @@ for snapshot in manifest["snapshots"]:
         "processPeakRssBytes": report.get("processPeakRssBytes"),
         "elapsedMs": report.get("elapsedMs"),
         "containerExitCode": exit_code,
+        "reportFile": written_report_path.name if written_report_path else None,
+        "reportWriteWarning": report_write_error,
     }), flush=True)
-    summary_rows.append((repository, snapshot["commit"], report))
-    failed |= exit_code != 0 or report.get("status") != "PASS"
+    summary_rows.append((repository, snapshot["commit"], report, written_report_path, report_write_error))
+    failed |= exit_code != 0 or report.get("status") != "PASS" or written_report_path is None
 
 if summary_path:
     def mib(value):
@@ -105,20 +114,27 @@ if summary_path:
     lines = [
         "## Fixed-limit Linux ADD replay",
         "",
-        "Pinned snapshots were replayed in isolated containers with a 2 GiB memory cap and swap disabled, 1.5 CPU quota, 256 PID cap, no network, read-only root filesystem, and cgroup v2 measurements.",
+        "Each replay container is configured for a 2 GiB total memory cap, swap disabled, 1.5 CPU quota, 256 PIDs, no network, and a read-only root. The result column reports whether observed cgroup values matched those configured limits; a failure does not imply the container ran with those limits.",
         "",
-        "| Repository | Commit | Result | Elapsed | Cgroup peak | Process peak RSS | Elements | Evidence spans |",
-        "|---|---|---:|---:|---:|---:|---:|---:|",
+        "| Repository | Commit | Result | Limits observed | Elapsed | Cgroup peak | Process peak RSS | Elements | Evidence spans | Report file |",
+        "|---|---|---:|---:|---:|---:|---:|---:|---:|---|",
     ]
-    for repository, commit, report in summary_rows:
+    report_warnings = []
+    for repository, commit, report, written_report_path, report_write_error in summary_rows:
         add = report.get("add") or {}
         lines.append(
             f"| `{repository}` | `{commit[:12]}` | {report.get('status')} | "
+            f"{(report.get('resourceLimitEvidence') or {}).get('status', 'not verified')} | "
             f"{report.get('elapsedMs', 'not recorded')} ms | "
             f"{mib(report.get('containerPeakChargedBytes'))} | "
             f"{mib(report.get('processPeakRssBytes'))} | "
-            f"{add.get('elements', 'not recorded')} | {add.get('evidenceSpans', 'not recorded')} |"
+            f"{add.get('elements', 'not recorded')} | {add.get('evidenceSpans', 'not recorded')} | "
+            f"{written_report_path.name if written_report_path else 'not saved'} |"
         )
+        if report_write_error:
+            report_warnings.append(f"- `{repository}` report write note: {report_write_error}")
+    if report_warnings:
+        lines.extend(["", *report_warnings])
     with open(summary_path, "a", encoding="utf-8") as summary:
         summary.write("\n".join(lines) + "\n")
 
