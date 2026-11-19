@@ -1,11 +1,11 @@
-/** Canonical headings and numbering for the course Phase C template. */
+/** Canonical headings and numbering for the baseline Architecture Definition Document. */
 export const PHASE_C_ADD = {
   document: {
     id: "phase-c-title",
-    title: "PHASE C: INFORMATION SYSTEMS ARCHITECTURES",
+    title: "ARCHITECTURE DEFINITION DOCUMENTS",
   },
-  dataArchitecture: { id: "data-architecture", title: "Phase C: Data Architecture" },
-  applicationArchitecture: { id: "application-architecture", title: "Phase C: Application Architecture" },
+  dataArchitecture: { id: "data-architecture", title: "Data Architecture" },
+  applicationArchitecture: { id: "application-architecture", title: "Application Architecture" },
   sections: {
     dataPrinciples: { id: "data-principles", number: "1", title: "Data Principles" },
     dataBaseline: { id: "data-baseline", number: "2", title: "Baseline Data Architecture" },

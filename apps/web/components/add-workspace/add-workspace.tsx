@@ -6,6 +6,7 @@ import { applyAddReviewOverlay, emptyAddReviewOverlay, type AddReviewOverlay } f
 import { isAddBaselineModel, type AddBaselineModel, type AddElement, type AddRelationship } from "@sage/documents/baseline-add-model";
 import { createAddMarkdown } from "@sage/documents/baseline-markdown";
 import { createAddLatex } from "@sage/documents/baseline-latex";
+import { addViewFigureNumber, addViewNarratives } from "@sage/documents/baseline-narratives";
 import { PHASE_C_ADD, PHASE_C_ADD_TOC } from "@sage/documents/phase-c-add";
 import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
 import styles from "./add-workspace.module.css";
@@ -57,6 +58,7 @@ function PrintRelationshipRegister({ model }: { model: AddBaselineModel }) {
 }
 
 function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStructure" | "applicationCooperation" }) {
+  const narratives = addViewNarratives(model, view);
   const viewData = model.views[view];
   const elements = viewData.elementIds.map(id => model.elements.find(item => item.id === id)).filter((item): item is AddElement => Boolean(item));
   const relationships = viewData.relationshipIds.map(id => model.relationships.find(item => item.id === id)).filter((item): item is AddRelationship => Boolean(item));
@@ -74,6 +76,7 @@ function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStru
   const byColumn = new Map<string, AddElement[]>();
   for (const type of columns) byColumn.set(type, elements.filter(item => item.type === type).sort((a, b) => (a.featureGroup ?? "").localeCompare(b.featureGroup ?? "") || a.name.localeCompare(b.name)));
   const typeLabel = view === "dataStructure" ? "DATA STRUCTURE VIEW" : "APPLICATION COOPERATION VIEW";
+  const figureTitle = view === "dataStructure" ? "ArchiMate Data Structure View" : "ArchiMate Application Cooperation View";
   const renderSvg = (pageElements: AddElement[], pageRelationships: AddRelationship[], suffix: string, compact = false) => {
     const pageColumns = new Map<string, AddElement[]>();
     for (const type of columns) pageColumns.set(type, pageElements.filter(item => item.type === type));
@@ -126,7 +129,8 @@ function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStru
   };
   const pageSize = dataView ? 24 : 8;
   const count = dataView ? (byColumn.get("DataObject")?.length ?? 0) : Math.max(0, ...[...byColumn.values()].map(items => items.length));
-  const pageCount = Math.max(1, Math.ceil(count / pageSize));
+  const hasDiagram = elements.length > 0;
+  const pageCount = hasDiagram ? Math.ceil(count / pageSize) : 0;
   const printPages = Array.from({ length: pageCount }, (_, pageIndex) => {
     const slicedElements = dataView
       ? (byColumn.get("DataObject") ?? []).slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
@@ -140,11 +144,16 @@ function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStru
     return { pageElements, pageRelationships, pageIndex };
   });
   return <div className={styles.diagramRegion}>
+    <p className={styles.viewIntroduction}>{narratives.introduction}</p>
     <div className={styles.diagramLegend}><span><i className={styles.legendSolid} aria-hidden="true" />Proven from source structure</span><span><i className={styles.legendDashed} aria-hidden="true" />Indicated mapping, review recommended</span></div>
-    <div className={styles.diagramViewport} tabIndex={0} role="region" aria-label={`${typeLabel} diagram; scroll to inspect`}>{renderSvg(elements, relationships, "screen")}</div>
+    <figure className={styles.screenDiagramFigure}>
+      <div className={styles.diagramViewport} tabIndex={0} role="region" aria-label={`${typeLabel} diagram; scroll to inspect`}>{renderSvg(elements, relationships, "screen")}</div>
+      {hasDiagram ? <figcaption className={styles.figureCaption}>Gambar {addViewFigureNumber(view, 1)}: {figureTitle}</figcaption> : null}
+    </figure>
     <div className={styles.printDiagramPages} aria-label={`${typeLabel} paginated print views`}>
-      {printPages.map(({ pageElements, pageRelationships, pageIndex }) => <section className={`${styles.printDiagramPage} ${pageIndex === 0 ? styles.printDiagramPageFirst : ""}`} key={pageIndex}><p>{typeLabel} · Diagram {pageIndex + 1} of {pageCount}</p>{renderSvg(pageElements, pageRelationships, `print-${pageIndex}`, true)}</section>)}
+      {printPages.map(({ pageElements, pageRelationships, pageIndex }) => <section className={`${styles.printDiagramPage} ${pageIndex === 0 ? styles.printDiagramPageFirst : ""}`} key={pageIndex}><figure>{renderSvg(pageElements, pageRelationships, `print-${pageIndex}`, true)}<figcaption className={styles.figureCaption}>Gambar {addViewFigureNumber(view, pageIndex + 1)}: {figureTitle}{pageCount > 1 ? ` (lanjutan ${pageIndex + 1} dari ${pageCount})` : ""}</figcaption></figure></section>)}
     </div>
+    <p className={styles.figureInterpretation}>{hasDiagram ? `Gambar ${addViewFigureNumber(view, 1)} memperlihatkan bahwa ` : ""}{narratives.interpretation}</p>
     <details className={styles.relationshipDetails}>
       <summary>{relationships.length} relationships and source evidence</summary>
       <div className={styles.tableScroll}><RelationshipTable model={model} relationships={relationships} /></div>
@@ -389,7 +398,7 @@ export function AddWorkspace({ analysisId, accountKey }: { analysisId: string; a
       <div className={styles.portfolioItem}>
         <span>OPTIONAL</span><h3>Narrative assistance from campus LLM</h3>
         <label htmlFor="add-llm-consent" style={{ display: "flex", alignItems: "flex-start", gap: 8, margin: "10px 0", cursor: "pointer" }}><input key={`${analysisId}:${accountKey}`} ref={llmConsentInput} id="add-llm-consent" type="checkbox" aria-describedby="add-llm-consent-details" defaultChecked={false} style={{ marginTop: 4 }} /><span>Enable optional LLM narrative assistance by sending a bounded summary of ADD facts to the campus LLM.</span></label>
-        <p id="add-llm-consent-details" className={styles.muted}>If enabled, SAGE sends up to 20 entries per category with application/function/data/interface names, element IDs, available owner or protocol values, and relationship labels. Interface names may contain an API route when that route is the extracted interface name. Source code, file contents, repository file paths, evidence ranges, repository URL, commit SHA, and credentials are not sent. The LLM can write only two narrative paragraphs; it cannot change architecture facts or evidence. If it fails or is not configured, SAGE uses deterministic narratives. Review the text before exporting. With this option unchecked, no LLM request is made.</p>
+        <p id="add-llm-consent-details" className={styles.muted}>If enabled, SAGE sends up to 20 entries per category with application/function/data/interface names, element IDs, available owner or protocol values, relationship labels, and bounded diagram facts. Interface names may contain an API route when that route is the extracted interface name. Source code, file contents, repository file paths, evidence ranges, repository URL, commit SHA, and credentials are not sent. The LLM can write the baseline summaries and four short diagram descriptions; it cannot change architecture facts or evidence. If it fails or is not configured, SAGE uses deterministic narratives. Review the text before exporting. With this option unchecked, no LLM request is made.</p>
       </div>
       {generateError ? <p role="alert">{generateError}</p> : null}
       <button className={styles.primaryButton} type="button" disabled={generating} onClick={() => void generateBaseline()}>{generating ? "Generating baseline…" : "Generate Phase C baseline"}</button>
@@ -412,7 +421,7 @@ export function AddWorkspace({ analysisId, accountKey }: { analysisId: string; a
         </section>
         <DataCatalog model={activeModel} />
         <section className={`${styles.baseline} ${styles.templateSection}`} id={PHASE_C_ADD.sections.logicalDataModel.id} aria-labelledby="logical-data-model-title">
-          <div className={styles.baselineHeading}><div><p className={styles.eyebrow}>{PHASE_C_ADD.sections.logicalDataModel.number}</p><h3 id="logical-data-model-title">{PHASE_C_ADD.sections.logicalDataModel.title}</h3><p>Source-supported logical data objects and explicit data-to-data associations.</p></div><span className={styles.archimateTag}>ArchiMate Data Structure</span></div>
+          <div className={styles.baselineHeading}><div><p className={styles.eyebrow}>{PHASE_C_ADD.sections.logicalDataModel.number}</p><h3 id="logical-data-model-title">{PHASE_C_ADD.sections.logicalDataModel.title}</h3></div><span className={styles.archimateTag}>ArchiMate Data Structure</span></div>
           <ViewDiagram model={activeModel} view="dataStructure" />
         </section>
         <section className={`${styles.sectionCard} ${styles.templateSection}`} id={PHASE_C_ADD.sections.dataManagementProcess.id} aria-labelledby="data-management-process-title">

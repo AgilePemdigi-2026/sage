@@ -37,7 +37,11 @@ function fixture(): AddBaselineModel {
     },
     matrices: { applicationData: [], applicationInteractions: [] },
     views: { dataStructure: { elementIds: ["data:user"], relationshipIds: [] }, applicationCooperation: { elementIds: ["app:auth", "interface:session"], relationshipIds: ["relation:serves"] } },
-    narratives: { dataBaseline: "Deterministic data narrative.", applicationBaseline: "Deterministic application narrative." },
+    narratives: {
+      dataBaseline: "Deterministic data narrative.", applicationBaseline: "Deterministic application narrative.",
+      dataViewIntroduction: "Data view introduction.", dataViewInterpretation: "Data view interpretation.",
+      applicationViewIntroduction: "Application view introduction.", applicationViewInterpretation: "Application view interpretation.",
+    },
     limitations: ["RAW_LIMITATION_DO_NOT_SEND"],
   };
 }
@@ -64,7 +68,11 @@ test("consented LLM receives bounded ADD facts without source, evidence, reposit
   let sentBody = "";
   const result = await enrichAddNarrative({ model, env: llmEnv, fetcher: async (_input, init) => {
     sentBody = String(init?.body ?? "");
-    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ dataBaseline: "Reviewed data narrative.", applicationBaseline: "Reviewed application narrative." }) } }] }), { status: 200 });
+    return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+      dataBaseline: "Reviewed data narrative.", applicationBaseline: "Reviewed application narrative.",
+      dataViewIntroduction: "Reviewed data introduction.", dataViewInterpretation: "Reviewed data interpretation.",
+      applicationViewIntroduction: "Reviewed application introduction.", applicationViewInterpretation: "Reviewed application interpretation.",
+    }) } }] }), { status: 200 });
   } });
 
   assert.equal(result.outcome, "used");
@@ -73,8 +81,11 @@ test("consented LLM receives bounded ADD facts without source, evidence, reposit
   const request = JSON.parse(sentBody) as { messages: Array<{ role: string; content: string }> };
   const userMessage = request.messages.find(message => message.role === "user");
   assert.ok(userMessage);
-  const sent = JSON.parse(userMessage.content) as { facts: Record<string, unknown>; omitted: Record<string, unknown> };
+  const sent = JSON.parse(userMessage.content) as { facts: Record<string, unknown>; omitted: Record<string, unknown>; viewCounts: Record<string, unknown> };
   assert.deepEqual(Object.keys(sent.facts).sort(), ["application", "dataObjects", "functions", "interfaces", "relationships"]);
+  assert.deepEqual(Object.keys(sent.viewCounts).sort(), ["applicationCooperation", "dataStructure"]);
+  assert.equal((sent.viewCounts.applicationCooperation as { relationships: number }).relationships, 1);
+  assert.equal((sent.facts.relationships as Array<{ view: string }>)[0]?.view, "applicationCooperation");
   assert.equal((sent.facts.application as string[])[0], "Authentication");
   assert.equal((sent.facts.dataObjects as Array<{ owner: string }>)[0]?.owner, "owner-metadata-sent");
   assert.equal((sent.facts.interfaces as Array<{ protocol: string }>)[0]?.protocol, "protocol-metadata-sent");
@@ -85,12 +96,20 @@ test("consented LLM receives bounded ADD facts without source, evidence, reposit
   ]) assert.ok(!sentBody.includes(marker), `sensitive source marker was sent: ${marker}`);
 });
 
-test("LLM can change only narratives, records its outcome, and preserves deterministic fallback", async () => {
+test("LLM can change only six bounded narratives, records its outcome, and preserves deterministic fallback", async () => {
   const model = fixture();
-  const result = await enrichAddNarrative({ model, env: llmEnv, fetcher: async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ dataBaseline: "LLM data narrative.", applicationBaseline: "LLM application narrative." }) } }] }), { status: 200 }) });
+  const result = await enrichAddNarrative({ model, env: llmEnv, fetcher: async () => new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+    dataBaseline: "LLM data narrative.", applicationBaseline: "LLM application narrative.",
+    dataViewIntroduction: "LLM data introduction.", dataViewInterpretation: "LLM data interpretation.",
+    applicationViewIntroduction: "LLM application introduction.", applicationViewInterpretation: "LLM application interpretation.",
+  }) } }] }), { status: 200 }) });
   assert.equal(result.outcome, "used");
   assert.equal(result.model.narratives.dataBaseline, "LLM data narrative.");
   assert.equal(result.model.narratives.applicationBaseline, "LLM application narrative.");
+  assert.equal(result.model.narratives.dataViewIntroduction, "LLM data introduction.");
+  assert.equal(result.model.narratives.dataViewInterpretation, "LLM data interpretation.");
+  assert.equal(result.model.narratives.applicationViewIntroduction, "LLM application introduction.");
+  assert.equal(result.model.narratives.applicationViewInterpretation, "LLM application interpretation.");
   const expected = structuredClone(model);
   expected.narratives = result.model.narratives;
   expected.generation = { ...expected.generation, llmOutcome: "used", llmModel: "campus-model" };

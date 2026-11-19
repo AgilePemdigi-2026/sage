@@ -2,6 +2,7 @@ import type { EvidenceSpan } from "@sage/contracts";
 import { applyAddReviewOverlay, type AddReviewOverlay } from "./add-overlay.ts";
 import type { AddBaselineModel, AddElement, AddRelationship } from "./baseline-add.ts";
 import { addExportModelHash, PHASE_C_ADD, PHASE_C_ADD_TOC, type AddExportMetadata } from "./phase-c-add.ts";
+import { addViewNarratives } from "./baseline-narratives.ts";
 
 export type EvidenceUrlBuilder = (span: EvidenceSpan) => string;
 
@@ -43,11 +44,13 @@ export function createAddMarkdown(model: AddBaselineModel, overlay: AddReviewOve
   const elements = new Map(model.elements.map(element => [element.id, element]));
   const applicationRelationships = model.relationships.filter(edge => model.views.applicationCooperation.relationshipIds.includes(edge.id));
   const dataRelationships = model.relationships.filter(edge => model.views.dataStructure.relationshipIds.includes(edge.id));
+  const dataViewNarrative = addViewNarratives(model, "dataStructure");
+  const applicationViewNarrative = addViewNarratives(model, "applicationCooperation");
   const functions = model.elements.filter(element => element.type === "ApplicationFunction" || element.type === "ApplicationService");
   const contents = PHASE_C_ADD_TOC.map(item => `${"  ".repeat(item.level)}- [${markdownText(item.label)}](#${item.id})`);
   const out = [
     `# <a id="${PHASE_C_ADD.document.id}"></a>${PHASE_C_ADD.document.title}`, "",
-    "Architecture Definition Document (ADD): source-grounded baseline for the Data Architecture and Application Architecture portions of Phase C.", "",
+    "Architecture Definition Document (ADD): source-grounded baseline for Data Architecture and Application Architecture.", "",
     "| Repository | Branch | Source commit | ArchiMate profile |",
     "| --- | --- | --- | --- |",
     `| ${cell(model.snapshot.repository)} | ${cell(model.snapshot.branch ?? "Not recorded")} | ${model.snapshot.commitSha} | ${model.archimateVersion} |`, "",
@@ -72,8 +75,9 @@ export function createAddMarkdown(model: AddBaselineModel, overlay: AddReviewOve
   if (!model.catalogs.dataEntities.length) out.push("| No data entity was identified |  |  |  |  |  |  |");
 
   out.push("", `##### <a id="${PHASE_C_ADD.sections.logicalDataModel.id}"></a>${PHASE_C_ADD.sections.logicalDataModel.number} ${PHASE_C_ADD.sections.logicalDataModel.title}`, "",
-    "ArchiMate Data Structure view: source-supported data objects and explicit data-to-data associations.", "", ...relationshipHeader);
+    markdownText(dataViewNarrative.introduction), "", "ArchiMate Data Structure view relationship register", "", ...relationshipHeader);
   out.push(...(dataRelationships.length ? dataRelationships.map(edge => relationshipRow(edge, elements, makeEvidenceUrl)) : ["| No explicit data-to-data relationship was identified |  |  |  |  |  |  |  |"]));
+  out.push("", "**Interpretation of the data view:** " + markdownText(dataViewNarrative.interpretation), "");
 
   out.push("", `##### <a id="${PHASE_C_ADD.sections.dataManagementProcess.id}"></a>${PHASE_C_ADD.sections.dataManagementProcess.number} ${PHASE_C_ADD.sections.dataManagementProcess.title}`, "",
     inputRequired + " Data governance, stewardship, retention, and operational procedures are not established by code declarations alone.", "",
@@ -88,9 +92,10 @@ export function createAddMarkdown(model: AddBaselineModel, overlay: AddReviewOve
   out.push("", "`Unknown` means the operation was not confirmed by supported static evidence; it does not mean `No`.", "",
     `### <a id="${PHASE_C_ADD.applicationArchitecture.id}"></a>${PHASE_C_ADD.applicationArchitecture.title}`, "",
     `#### <a id="${PHASE_C_ADD.sections.applicationDesign.id}"></a>${PHASE_C_ADD.sections.applicationDesign.number} ${PHASE_C_ADD.sections.applicationDesign.title}`, "",
-    markdownText(model.narratives.applicationBaseline), "",
-    "ArchiMate Application Cooperation relationships", "", ...relationshipHeader);
+    markdownText(model.narratives.applicationBaseline), "", markdownText(applicationViewNarrative.introduction), "",
+    "ArchiMate Application Cooperation relationship register", "", ...relationshipHeader);
   out.push(...(applicationRelationships.length ? applicationRelationships.map(edge => relationshipRow(edge, elements, makeEvidenceUrl)) : ["| No application cooperation relationship was extracted |  |  |  |  |  |  |  |"]));
+  out.push("", "**Interpretation of the application view:** " + markdownText(applicationViewNarrative.interpretation), "");
 
   out.push("", `#### <a id="${PHASE_C_ADD.sections.applicationCatalog.id}"></a>${PHASE_C_ADD.sections.applicationCatalog.number} ${PHASE_C_ADD.sections.applicationCatalog.title}`, "",
     "##### Application Portfolio", "",

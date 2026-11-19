@@ -107,17 +107,25 @@ test("ADD projection is deterministic and rejects mixed snapshot identities", ()
   assert.throws(() => buildAddBaseline({ ...input, sourceCkgHash: "invalid" }), /snapshot mismatch/u);
 });
 
-test("optional LLM can rewrite only the two bounded narratives and malformed output falls back", async () => {
+test("optional LLM can rewrite bounded baseline and diagram narratives without changing facts", async () => {
   const model = buildAddBaseline(fixture());
   let sentBody = "";
   const result = await enrichAddNarrative({ model, env: { LLM_BASE_URL: "https://llm.test/v1", LLM_API_KEY: "test-key", LLM_MODEL: "test-model" },
     fetcher: async (_input, init) => {
       sentBody = String(init?.body ?? "");
-      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ dataBaseline: "Reviewed data narrative.", applicationBaseline: "Reviewed application narrative." }) } }] }), { status: 200 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        dataBaseline: "Reviewed data narrative.", applicationBaseline: "Reviewed application narrative.",
+        dataViewIntroduction: "Reviewed data introduction.", dataViewInterpretation: "Reviewed data interpretation.",
+        applicationViewIntroduction: "Reviewed application introduction.", applicationViewInterpretation: "Reviewed application interpretation.",
+      }) } }] }), { status: 200 });
     } });
   assert.equal(result.outcome, "used");
   assert.equal(result.model.narratives.dataBaseline, "Reviewed data narrative.");
   assert.equal(result.model.narratives.applicationBaseline, "Reviewed application narrative.");
+  assert.equal(result.model.narratives.dataViewIntroduction, "Reviewed data introduction.");
+  assert.equal(result.model.narratives.dataViewInterpretation, "Reviewed data interpretation.");
+  assert.equal(result.model.narratives.applicationViewIntroduction, "Reviewed application introduction.");
+  assert.equal(result.model.narratives.applicationViewInterpretation, "Reviewed application interpretation.");
   assert.deepEqual(result.model.elements, model.elements, "LLM output cannot add or edit architecture facts");
   assert.deepEqual(result.model.relationships, model.relationships);
   assert.ok(sentBody.includes("BookController@store"));
@@ -216,7 +224,10 @@ test("LLM request and response bodies remain within explicit byte caps", async (
   const boundedRequest = await enrichAddNarrative({ model: huge, env: { LLM_BASE_URL: "https://llm.test/v1", LLM_API_KEY: "test-key", LLM_MODEL: "test-model" },
     fetcher: async (_input, init) => {
       sentBytes = Buffer.byteLength(String(init?.body ?? ""), "utf8");
-      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ dataBaseline: "Bounded", applicationBaseline: "Bounded" }) } }] }), { status: 200 });
+      return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({
+        dataBaseline: "Bounded", applicationBaseline: "Bounded", dataViewIntroduction: "Bounded",
+        dataViewInterpretation: "bounded", applicationViewIntroduction: "Bounded", applicationViewInterpretation: "bounded",
+      }) } }] }), { status: 200 });
     } });
   assert.equal(boundedRequest.outcome, "used");
   assert.ok(sentBytes <= 32 * 1024);

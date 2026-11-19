@@ -1,12 +1,12 @@
-# Architecture Definition Document (ADD): Phase C
+# Architecture Definition Document (ADD)
 
-SAGE's output remains an **Architecture Definition Document (ADD)**. Its content is scoped to a source-grounded Phase C baseline, and starts directly with **PHASE C: INFORMATION SYSTEMS ARCHITECTURES** without a `BAB` label. Numbered sections use a simple sequence starting at 1; Data Architecture and Application Architecture remain unnumbered group headings.
+SAGE generates an **Architecture Definition Document (ADD)** from a pinned repository snapshot. The PDF cover is titled **ARCHITECTURE DEFINITION DOCUMENTS** with the subtitle **Baseline Data and Application Architecture**. The table of contents and running header omit a Phase C banner. Numbered sections start at 1 under the unnumbered Data Architecture and Application Architecture headings.
 
-TOGAF Phase C and ArchiMate define the architecture content and views. Visual Paradigm's Phase C guide is a supporting reference for the ADD narrative, Data Architecture, Application Architecture, catalogs, and ArchiMate views. The supplied course template **Template PAP Prak Gasal 2026-2027 Fin - Update.docx** guides writing format and presentation only; it does not change the artifact from an ADD or replace the TOGAF/ArchiMate model. Earlier report content and out-of-scope phases are omitted from this Phase C document.
+The content follows the TOGAF Phase C scope for Data and Application Architecture, while ArchiMate supplies a vocabulary and relationship model for selected views. The supplied course template **Template PAP Prak Gasal 2026-2027 Fin - Update.docx** guides writing format and presentation only; it does not change the artifact from an ADD. Earlier report chapters and out-of-scope phases are omitted.
 
-This is a repository-level baseline, not a complete enterprise ADD or certified ArchiMate model. Source code cannot establish every business owner, business function, data principle, physical distribution, deployment boundary, target state, or enterprise integration.
+This is a repository-level baseline, not a complete enterprise ADD or a certified ArchiMate model. Source code can support a limited set of ArchiMate elements and relations, but cannot establish every business owner, business function, data principle, physical distribution, deployment boundary, target state, or enterprise integration.
 
-## Phase C structure
+## ADD structure
 
 The workspace, Markdown, LaTeX, and print-to-PDF outputs follow the same section definitions from `packages/documents/src/phase-c-add.ts` and project the same canonical ADD model and review overlay.
 
@@ -15,8 +15,11 @@ The workspace, Markdown, LaTeX, and print-to-PDF outputs follow the same section
 - [The Open Group: TOGAF Phase C Data Architecture](https://www.opengroup.org/architecture/doc-review/protected-d3/htmlclean/chap09.html)
 - [The Open Group: TOGAF Phase C Application Architecture](https://www.opengroup.org/architecture/doc-review/protected-d3/htmlclean/chap10.html)
 - [Visual Paradigm: TOGAF 10 Phase C deliverables](https://www.visual-paradigm.com/guide/deep-dive-mastering-togaf-10-phase-c-deliverables/)
+- [The Open Group: ArchiMate 3.2 Specification](https://pubs.opengroup.org/architecture/archimate32-doc/)
+- [A method for transforming Knowledge Discovery Metamodel to ArchiMate models, Software and Systems Modeling](https://link.springer.com/article/10.1007/s10270-021-00912-y)
+- [ArchiRev: Reverse engineering of information systems toward ArchiMate models, Journal of Software: Evolution and Process](https://doi.org/10.1002/smr.2314)
 
-These references guide the ADD's architecture scope and view content. The generated result represents only the evidence available from one repository snapshot; it does not invent enterprise-owned facts that the source cannot establish.
+These references guide the ADD's architecture scope and view content. Research shows automated ArchiMate skeletons can be derived from structured source artifacts using static analysis and explicit mappings. It also emphasizes that mappings are selective, business semantics need human validation, and source code alone cannot provide every enterprise view. SAGE therefore labels the exported diagrams as an ArchiMate 3.2 subset, uses relationship-specific connector notation for supported relations, and shows evidence confidence separately from relationship meaning.
 
 | Section | Contents | Source limits |
 | --- | --- | --- |
@@ -39,7 +42,7 @@ The immutable repository commit and canonical ADD model are the data source. Rev
 
 - **Workspace:** interactive view, catalogs, matrices, evidence, review controls, and print layout.
 - **Markdown:** full narrative, catalogs, matrices, relationship details, review state, limitations, and commit-pinned evidence links.
-- **LaTeX:** downloadable `.tex` source for the same Phase C ADD structure, tables, diagrams, and evidence links. Tectonic compiled a 19-page A4 test fixture; representative diagram and catalog pages were visually reviewed. Tectonic reported minor overfull-box warnings, with no clipping visible on the reviewed pages. This is fixture evidence, not a visual review of every repository output.
+- **LaTeX:** downloadable `.tex` source for the same ADD structure, tables, diagrams, and evidence links. The PDF uses an uppercase centered contents heading, left-aligned numbered section headings, repeated table headers, upright A4 pages, inline diagrams with a short introduction before each view and a numbered caption below each image, followed by an interpretation paragraph. Tables have additional cell padding. LaTeX output is a source file; compile it locally to review the exact PDF.
 - **PDF:** generated using the browser's print dialog from the workspace, with A4 print rules and paginated SVG diagrams. A Playwright fixture produced and inspected a real A4 PDF. It is not compiled from the LaTeX source, and the test intercepts API responses rather than exercising production OAuth, worker, or database persistence.
 
 With Tectonic installed, compile a downloaded file using:
@@ -48,9 +51,9 @@ With Tectonic installed, compile a downloaded file using:
 tectonic repository-phase-c-add.tex
 ```
 
-The formats share the same model, corrections, evidence, and section numbering. Their layout differs by medium; Markdown and LaTeX expose tabular relationship details, while the interactive workspace keeps the full registers expandable and shows concise diagrams by default.
+The formats share the same model, corrections, evidence, and section numbering. Their layout differs by medium; Markdown and LaTeX expose tabular relationship details, while the interactive workspace keeps the full registers expandable and shows concise diagrams by default. The PDF follows the supplied PAP sample's figure sequence: brief context, diagram, numbered caption below the diagram, then an explanation that refers to the figure. Only the contents title and cover are centered; numbered body headings remain left-aligned. It is a limited ArchiMate view projection, not a complete or certified enterprise model.
 
-## How analysis contributes to Phase C
+## How source analysis contributes to the ADD
 
 1. The pipeline pins one repository commit and builds the Common Code Model and Code Knowledge Graph.
 2. Static extractors identify supported data objects, interfaces, application components, and source-backed relationships from that snapshot.

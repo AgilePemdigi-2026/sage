@@ -57,7 +57,15 @@ export interface AddBaselineModel {
     dataStructure: { elementIds: string[]; relationshipIds: string[] };
     applicationCooperation: { elementIds: string[]; relationshipIds: string[] };
   };
-  narratives: { dataBaseline: string; applicationBaseline: string };
+  narratives: {
+    dataBaseline: string;
+    applicationBaseline: string;
+    /** Optional for compatibility with ADD snapshots created before diagram narratives were added. */
+    dataViewIntroduction?: string;
+    dataViewInterpretation?: string;
+    applicationViewIntroduction?: string;
+    applicationViewInterpretation?: string;
+  };
   limitations: string[];
 }
 
@@ -102,7 +110,11 @@ export function isAddBaselineModel(value: unknown): value is AddBaselineModel {
       !(value.generation.llmModel === null || isText(value.generation.llmModel, 180)) ||
       !Array.isArray(value.elements) || !Array.isArray(value.relationships) || !isRecord(value.catalogs) || !isRecord(value.matrices) ||
       !isRecord(value.views) || !isRecord(value.narratives) || !Array.isArray(value.limitations) || !isText(value.narratives.dataBaseline) ||
-      !isText(value.narratives.applicationBaseline) || !value.limitations.every(item => isText(item))) return false;
+      !isText(value.narratives.applicationBaseline) ||
+      ![value.narratives.dataViewIntroduction, value.narratives.dataViewInterpretation,
+        value.narratives.applicationViewIntroduction, value.narratives.applicationViewInterpretation]
+        .every(item => item === undefined || isText(item, 1400)) ||
+      !value.limitations.every(item => isText(item))) return false;
 
   const elements = new Map<string, AddElement>();
   for (const item of value.elements) {

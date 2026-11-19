@@ -32,7 +32,11 @@ const model: AddBaselineModel = {
     dataStructure: { elementIds: ["data:customer"], relationshipIds: [] },
     applicationCooperation: { elementIds: ["app:web", "fn:create"], relationshipIds: [] },
   },
-  narratives: { dataBaseline: "One customer object is identified.", applicationBaseline: "One web application is identified." },
+  narratives: {
+    dataBaseline: "One customer object is identified.", applicationBaseline: "One web application is identified.",
+    dataViewIntroduction: "Data view short introduction.", dataViewInterpretation: "data view reading explanation.",
+    applicationViewIntroduction: "Application view short introduction.", applicationViewInterpretation: "application view reading explanation.",
+  },
   limitations: ["Owner requires confirmation."],
 };
 
@@ -71,6 +75,25 @@ test("Markdown and LaTeX render the same canonical hash, review revision, and ov
   assert.ok(latex.includes("C = Create, R = Read, U = Update, D = Delete") && latex.includes("Y = confirmed, N = explicitly absent, ? = unknown"), "compact CRUD matrix declares its legend");
   assert.ok(latex.includes("arraybackslash Y") && latex.includes("arraybackslash ?"), "CRUD cells use compact, unambiguous marks");
   assert.ok(latex.includes("\\renewcommand{\\thesection}{\\arabic{section}}"), "LaTeX uses the agreed simple section numbering");
+  assert.ok(latex.includes("ARCHITECTURE DEFINITION DOCUMENTS") && latex.includes("Baseline Data and Application Architecture"), "cover uses the requested ADD title and baseline subtitle");
+  assert.ok(latex.includes("\\addto\\captionsindonesian{\\renewcommand{\\contentsname}{DAFTAR ISI}}") && latex.includes("\\cfttoctitlefont}{\\hfill\\Large\\bfseries}"), "contents title is uppercase and centered at the top");
+  assert.ok(!latex.includes("\\renewcommand{\\cftsecfont}{\\normalfont\\MakeUppercase}"), "contents links keep hyperref-compatible entry styling");
+  assert.ok(latex.includes("\\titleformat{\\section}[block]{\\normalfont\\Large\\bfseries\\raggedright}"), "numbered section headings are left-aligned");
+  assert.ok(latex.includes("\\titleformat{\\subsection}[block]{\\normalfont\\large\\bfseries\\raggedright}"), "subsection headings are left-aligned");
+  assert.ok(latex.includes("\\setlength{\\tabcolsep}{4pt}") && latex.includes("\\setlength{\\extrarowheight}{2pt}"), "table cells have more inner spacing");
+  assert.ok(latex.includes("\\centering\\arraybackslash \\textbf{Data entity}"), "repeated table headings are centered");
+  assert.ok(latex.includes("\\endfirsthead") && latex.includes("\\endhead"), "long table headers repeat on continuation pages");
+  assert.ok(!latex.includes("PHASE C") && !latex.includes("Phase C:"), "cover, contents, and running header omit Phase C wording");
+  assert.ok(!latex.includes("\\begin{landscape}") && !latex.includes("pdflscape"), "ADD pages remain portrait with upright headers and page numbers");
+  assert.ok(!latex.includes("\\begin{figure}"), "diagrams remain inline so page composition stays controlled");
+  assert.ok(latex.includes("\\renewcommand{\\thefigure}{\\thesection.\\arabic{figure}}"), "figure numbers use the numbered ADD section as their prefix");
+  const dataIntro = latex.indexOf("Data view short introduction.");
+  const firstDiagram = latex.indexOf("\\begin{tikzpicture}", dataIntro);
+  const dataCaption = latex.indexOf("\\captionof{figure}{ArchiMate Data Structure View}", firstDiagram);
+  const dataInterpretation = latex.indexOf("Gambar~\\ref{fig:dataStructure-1} memperlihatkan bahwa", dataCaption);
+  assert.ok(dataIntro >= 0 && dataIntro < firstDiagram && firstDiagram < dataCaption && dataCaption < dataInterpretation, "PDF order is short introduction, diagram, caption, then an interpretation that cites the figure");
+  assert.ok(latex.includes("Gambar~\\ref{fig:applicationCooperation-1} memperlihatkan bahwa"), "application view interpretation cites its printed figure");
+  assert.ok(markdown.includes("Data view short introduction.") && markdown.includes("Interpretation of the data view: data view reading explanation."), "Markdown exposes the same bounded view narratives around its detailed relationship register");
   assert.ok(!latex.includes("BAB 4"));
 });
 
@@ -79,7 +102,7 @@ test("ADD exports reject malformed canonical model hashes", () => {
   assert.throws(() => createAddLatex(model, emptyAddReviewOverlay(), evidenceUrl, { modelHash: "not-a-sha256" }), /Invalid ADD export model hash/u);
 });
 
-test("Application Cooperation PDF keeps all relationships across landscape pages", () => {
+test("Application Cooperation PDF keeps all relationships on upright, connected pages", () => {
   const expanded = structuredClone(model);
   const applicationId = "app:web";
   for (let index = 0; index < 17; index++) {
@@ -99,14 +122,16 @@ test("Application Cooperation PDF keeps all relationships across landscape pages
   }
 
   const latex = createAddLatex(expanded, emptyAddReviewOverlay(), evidenceUrl, { modelHash });
-  const diagramStart = latex.indexOf("ArchiMate Application Cooperation View");
-  const diagramEnd = latex.indexOf("Full relationship explanations remain available", diagramStart);
+  const diagramStart = latex.indexOf("\\section{Application Design (Baseline)}");
+  const diagramEnd = latex.indexOf("\\section{Catalog Design}", diagramStart);
   const diagrams = latex.slice(diagramStart, diagramEnd);
   assert.equal((diagrams.match(/\\draw\[/gu) ?? []).length, 17, "all 17 source relationships are drawn, including continuation pages");
-  assert.match(diagrams, /\\begin\{landscape\}/u, "the multi-lane application view uses landscape pages");
+  assert.equal((diagrams.match(/\\clearpage/gu) ?? []).length, 3, "five relationship rows are kept per upright A4 diagram page");
+  assert.ok(diagrams.includes("\\draw[draw=gray!75,thick,{Diamond[fill=gray]}-]") && diagrams.includes("Composition: exposes interface") && diagrams.includes("PROVEN"), "ArchiMate relationship notation and evidence confidence remain distinct");
+  assert.ok(!diagrams.includes("fill=white") && diagrams.includes("-- (t0_0.west)"), "edge labels do not mask the continuous relationship line");
 });
 
-test("Data Structure PDF keeps relationships whose endpoints span former page buckets", () => {
+test("Data Structure PDF keeps relationships on upright pages with clear connectors", () => {
   const expanded = structuredClone(model);
   const dataIds: string[] = [];
   for (let index = 0; index < 30; index++) {
@@ -131,10 +156,12 @@ test("Data Structure PDF keeps relationships whose endpoints span former page bu
   }
 
   const latex = createAddLatex(expanded, emptyAddReviewOverlay(), evidenceUrl, { modelHash });
-  const diagramStart = latex.indexOf("ArchiMate Data Structure View");
-  const diagramEnd = latex.indexOf("Full relationship explanations remain available", diagramStart);
+  const diagramStart = latex.indexOf("\\section{Logical Data Model (Baseline)}");
+  const diagramEnd = latex.indexOf("\\section{Data Management Process Model (Baseline)}", diagramStart);
   const diagrams = latex.slice(diagramStart, diagramEnd);
   assert.equal((diagrams.match(/\\draw\[/gu) ?? []).length, 17, "all relationships are drawn even when endpoint nodes fall in different data catalog pages");
   for (let index = 0; index < 17; index++) assert.ok(diagrams.includes(`links entity ${index}`));
-  assert.match(diagrams, /\\begin\{landscape\}/u, "the relationship-first data structure view uses readable A4 landscape pages");
+  assert.equal((diagrams.match(/\\clearpage/gu) ?? []).length, 4, "all 17 relationships and seven isolated objects continue across upright A4 pages");
+  assert.ok(diagrams.includes("Association: links entity 0") && diagrams.includes("\\draw[draw=gray!75,thick]"), "the data-object association type, label, and connector are visible");
+  assert.ok(!diagrams.includes("\\begin{landscape}"), "data views keep page headings and numbers upright");
 });

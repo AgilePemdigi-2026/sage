@@ -16,6 +16,7 @@
     "./baseline-add-model": "./src/baseline-add-model.ts",
     "./baseline-markdown": "./src/baseline-markdown.ts",
     "./baseline-latex": "./src/baseline-latex.ts",
+    "./baseline-narratives": "./src/baseline-narratives.ts",
     "./phase-c-add": "./src/phase-c-add.ts",
     "./add-overlay": "./src/add-overlay.ts",
     "./baseline-llm": "./src/baseline-llm.ts"

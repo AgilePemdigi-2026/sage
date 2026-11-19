@@ -186,6 +186,14 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
     narratives: {
       dataBaseline: `${dataElements.length} data object teridentifikasi dari operasi store yang dianalisis. Owner dan distribusi aktual memerlukan konfirmasi.`,
       applicationBaseline: `${appElements.length} application component repository dan ${interfaces.length} interface teridentifikasi. Functional decomposition berasal dari fitur source yang dikenali.`,
+      dataViewIntroduction: `Diagram berikut menampilkan ${dataElements.length} data object dan ${dataViewEdges.length} hubungan antar data object yang dinyatakan pada source snapshot. Katalog dan evidence menyediakan rincian setiap object serta relasi yang terdeteksi.`,
+      dataViewInterpretation: dataElements.length
+        ? `Gambar ini memperlihatkan data object yang dikenali beserta association yang memiliki bukti source. Node tanpa garis menunjukkan bahwa tidak ada association antar data object yang terkonfirmasi untuk node tersebut pada snapshot ini; kondisi itu tidak membuktikan bahwa hubungan tidak ada di sistem yang berjalan.`
+        : "Snapshot ini belum menyediakan data object source-supported untuk ditampilkan pada diagram.",
+      applicationViewIntroduction: `Diagram berikut memetakan ${applicationViewElements.length} elemen aplikasi dan ${applicationViewEdges.length} hubungan source-level yang dikenali secara statis. Elemen dikelompokkan menurut tipe ArchiMate; rincian hubungan dan evidence tersedia pada register.`,
+      applicationViewInterpretation: applicationViewElements.length
+        ? `Gambar ini merangkum hubungan source-level di dalam repository yang dianalisis. Garis solid menunjukkan hubungan proven, sedangkan garis putus-putus menunjukkan pemetaan indicated yang perlu ditinjau. Diagram ini tidak menetapkan batas deployment, business capability, atau perilaku runtime.`
+        : "Snapshot ini belum menyediakan elemen aplikasi source-supported untuk ditampilkan pada diagram.",
     },
     limitations: [...new Set([
       ...input.semantic.limitations.map(item => item.reason),
