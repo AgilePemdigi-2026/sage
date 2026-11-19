@@ -54,7 +54,7 @@ test("Markdown and LaTeX render the same canonical hash, review revision, and ov
     },
   };
   const markdown = createAddMarkdown(model, overlay, evidenceUrl, { modelHash });
-  const latex = createAddLatex(model, overlay, evidenceUrl, { modelHash });
+  const latex = createAddLatex(model, overlay, evidenceUrl, { modelHash, generatedAt: "2026-11-19T02:00:00.000Z" });
 
   for (const output of [markdown, latex]) {
     assert.ok(output.includes(modelHash), "export identifies the persisted canonical ADD model");
@@ -79,6 +79,9 @@ test("Markdown and LaTeX render the same canonical hash, review revision, and ov
   assert.ok(latex.includes("\\addto\\captionsindonesian{\\renewcommand{\\contentsname}{DAFTAR ISI}}") && latex.includes("\\cfttoctitlefont}{\\hfill\\Large\\bfseries}"), "contents title is uppercase and centered at the top");
   assert.ok(!latex.includes("\\renewcommand{\\cftsecfont}{\\normalfont\\MakeUppercase}"), "contents links keep hyperref-compatible entry styling");
   assert.ok(latex.includes("\\titleformat{\\section}[block]{\\normalfont\\Large\\bfseries\\raggedright}"), "numbered section headings are left-aligned");
+  assert.ok(latex.includes("\\fancyhead[L]{\\small\\shortstack[l]{SAGE\\\\ARCHITECTURE DEFINITION DOCUMENTS}}"), "running header identifies SAGE and its ADD title");
+  assert.ok(latex.includes("\\fancyhead[R]{\\small 19 November 2026}"), "running header shows only the Jakarta export date on the right");
+  assert.ok(!latex.includes("\\fancyhead[L]{\\small\\shortstack[l]{Repository:") && !latex.includes("\\fancyhead[R]{\\small ADD}"), "running header omits repository and branch metadata");
   assert.ok(latex.includes("\\titleformat{\\subsection}[block]{\\normalfont\\large\\bfseries\\raggedright}"), "subsection headings are left-aligned");
   assert.ok(latex.includes("\\setlength{\\tabcolsep}{4pt}") && latex.includes("\\setlength{\\extrarowheight}{2pt}"), "table cells have more inner spacing");
   assert.ok(latex.includes("\\centering\\arraybackslash \\textbf{Data entity}"), "repeated table headings are centered");
@@ -93,7 +96,7 @@ test("Markdown and LaTeX render the same canonical hash, review revision, and ov
   const dataInterpretation = latex.indexOf("Gambar~\\ref{fig:dataStructure-1} memperlihatkan bahwa", dataCaption);
   assert.ok(dataIntro >= 0 && dataIntro < firstDiagram && firstDiagram < dataCaption && dataCaption < dataInterpretation, "PDF order is short introduction, diagram, caption, then an interpretation that cites the figure");
   assert.ok(latex.includes("Gambar~\\ref{fig:applicationCooperation-1} memperlihatkan bahwa"), "application view interpretation cites its printed figure");
-  assert.ok(markdown.includes("Data view short introduction.") && markdown.includes("Interpretation of the data view: data view reading explanation."), "Markdown exposes the same bounded view narratives around its detailed relationship register");
+  assert.ok(markdown.includes("Data view short introduction.") && markdown.includes("**Interpretation of the data view:** data view reading explanation."), "Markdown exposes the same bounded view narratives around its detailed relationship register");
   assert.ok(!latex.includes("BAB 4"));
 });
 

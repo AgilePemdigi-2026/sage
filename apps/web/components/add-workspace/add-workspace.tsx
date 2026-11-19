@@ -261,7 +261,7 @@ function ExportPanel({ model, modelHash, overlay }: { model: AddBaselineModel; m
     window.setTimeout(() => URL.revokeObjectURL(href), 1000);
   };
   const downloadLatex = () => {
-    const blob = new Blob([createAddLatex(model, overlay, span => githubEvidence(model.snapshot.repository, model.snapshot.commitSha, span), { modelHash })], { type: "application/x-tex;charset=utf-8" });
+    const blob = new Blob([createAddLatex(model, overlay, span => githubEvidence(model.snapshot.repository, model.snapshot.commitSha, span), { modelHash, generatedAt: new Date().toISOString() })], { type: "application/x-tex;charset=utf-8" });
     const href = URL.createObjectURL(blob); const anchor = document.createElement("a");
     anchor.href = href; anchor.download = repositoryName + "-phase-c-add.tex"; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(href), 1000);

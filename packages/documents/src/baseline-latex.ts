@@ -1,7 +1,7 @@
 import type { EvidenceSpan } from "@sage/contracts";
 import { applyAddReviewOverlay, type AddReviewOverlay } from "./add-overlay.ts";
 import type { AddBaselineModel, AddElement, AddRelationship } from "./baseline-add.ts";
-import { addExportModelHash, PHASE_C_ADD, type AddExportMetadata } from "./phase-c-add.ts";
+import { addExportGeneratedDate, addExportModelHash, PHASE_C_ADD, type AddExportMetadata } from "./phase-c-add.ts";
 import { addViewNarratives, type AddViewKind } from "./baseline-narratives.ts";
 
 export type LatexEvidenceUrlBuilder = (span: EvidenceSpan) => string;
@@ -15,8 +15,16 @@ function tex(value: string): string {
 }
 
 function breakableTex(value: string): string {
-  return tex(value).replaceAll("/", "/\\allowbreak{}").replaceAll(".", ".\\allowbreak{}")
-    .replaceAll("\\_", "\\_\\allowbreak{}").replaceAll("-", "-\\allowbreak{}");
+  return value.split(/(\s+)/u).map(token => {
+    if (!token || /^\s+$/u.test(token)) return token;
+    const characters = Array.from(token);
+    return characters.map((character, index) => {
+      const escaped = tex(character);
+      const punctuationBreak = /[\/._-]/u.test(character);
+      const wordBreak = characters.length >= 9 && index < characters.length - 1;
+      return escaped + (punctuationBreak ? "\\allowbreak{}" : wordBreak ? "\\-" : "");
+    }).join("");
+  }).join("");
 }
 
 function breakableHash(value: string): string {
@@ -58,9 +66,9 @@ function table(headers: string[], rows: string[][], widths: string[]): string {
 
 function relationshipRows(edges: AddRelationship[], elements: ReadonlyMap<string, AddElement>, makeUrl: LatexEvidenceUrlBuilder): string[][] {
   return edges.map(edge => [
-    tex(elements.get(edge.sourceId)?.name ?? edge.sourceId),
-    `\\textbf{${tex(edge.type.replace(/Relationship$/u, ""))}}\\newline ${tex(edge.label)}\\newline {\\scriptsize ${edge.confidence === "proven" ? "Proven" : "Indicated"} · ${reviewLabel(edge.review)}}`,
-    tex(elements.get(edge.targetId)?.name ?? edge.targetId), evidence(edge.evidence, makeUrl),
+    breakableTex(elements.get(edge.sourceId)?.name ?? edge.sourceId),
+    `\\textbf{${breakableTex(edge.type.replace(/Relationship$/u, ""))}}\\newline ${breakableTex(edge.label)}\\newline {\\scriptsize ${edge.confidence === "proven" ? "Proven" : "Indicated"} · ${reviewLabel(edge.review)}}`,
+    breakableTex(elements.get(edge.targetId)?.name ?? edge.targetId), evidence(edge.evidence, makeUrl),
   ]);
 }
 
@@ -172,7 +180,7 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
   const appEdges = model.views.applicationCooperation.relationshipIds.map(id => model.relationships.find(edge => edge.id === id)).filter((edge): edge is AddRelationship => Boolean(edge));
   const entities = model.catalogs.dataEntities.flatMap(row => {
     const element = elements.get(row.elementId);
-    return element ? [[tex(element.name), tex(element.featureGroup ?? "Unassigned"), tex(row.owner ?? "Unknown"), "Not established", tex(row.description ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl)]] : [];
+    return element ? [[breakableTex(element.name), breakableTex(element.featureGroup ?? "Unassigned"), breakableTex(row.owner ?? "Unknown"), "Not established", breakableTex(row.description ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl)]] : [];
   });
   const crud = model.matrices.applicationData.map(row => [
     tex(elements.get(row.applicationId)?.name ?? row.applicationId), tex(elements.get(row.dataId)?.name ?? row.dataId),
@@ -180,21 +188,22 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
   ]);
   const portfolio = model.catalogs.applicationPortfolio.flatMap(row => {
     const element = elements.get(row.elementId);
-    return element ? [[tex(element.name), "Baseline", tex(row.description ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl)]] : [];
+    return element ? [[breakableTex(element.name), "Baseline", breakableTex(row.description ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl)]] : [];
   });
   const functions = model.elements.filter(element => element.type === "ApplicationFunction" || element.type === "ApplicationService").map(element => [
-    element.type === "ApplicationFunction" ? "Function" : "Service", tex(element.name), tex(element.featureGroup ?? "Unassigned"),
-    tex(element.description ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl),
+    element.type === "ApplicationFunction" ? "Function" : "Service", breakableTex(element.name), breakableTex(element.featureGroup ?? "Unassigned"),
+    breakableTex(element.description ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl),
   ]);
   const interfaces = model.catalogs.interfaces.flatMap(row => {
     const element = elements.get(row.elementId);
-    return element ? [[tex(element.name), tex(row.protocol ?? "Not identified"), tex(row.contract ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl)]] : [];
+    return element ? [[breakableTex(element.name), breakableTex(row.protocol ?? "Not identified"), breakableTex(row.contract ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl)]] : [];
   });
   const interactions = model.matrices.applicationInteractions.map(row => [
-    tex(elements.get(row.sourceApplicationId)?.name ?? row.sourceApplicationId), tex(elements.get(row.targetApplicationId)?.name ?? row.targetApplicationId),
-    tex(row.mechanism), evidence(row.evidence, makeEvidenceUrl),
+    breakableTex(elements.get(row.sourceApplicationId)?.name ?? row.sourceApplicationId), breakableTex(elements.get(row.targetApplicationId)?.name ?? row.targetApplicationId),
+    breakableTex(row.mechanism), evidence(row.evidence, makeEvidenceUrl),
   ]);
   const outline = PHASE_C_ADD;
+  const generatedDate = addExportGeneratedDate(metadata);
   const dataViewNarratives = addViewNarratives(model, "dataStructure");
   const applicationViewNarratives = addViewNarratives(model, "applicationCooperation");
   const diagramInterpretation = (view: AddViewKind, elementsForView: AddElement[], edgesForView: AddRelationship[], narrative: string) => {
@@ -215,7 +224,7 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
     "\\setlength{\\parindent}{1.25cm}", "\\setlength{\\parskip}{0.15em}", "\\renewcommand{\\contentsname}{DAFTAR ISI}", "\\renewcommand{\\thesection}{\\arabic{section}}", "\\renewcommand{\\thefigure}{\\thesection.\\arabic{figure}}", "\\renewcommand{\\theHfigure}{\\thesection.\\arabic{figure}}",
     "\\setlength{\\cftbeforetoctitleskip}{0pt}", "\\setlength{\\cftaftertoctitleskip}{1em}", "\\renewcommand{\\cfttoctitlefont}{\\hfill\\Large\\bfseries}", "\\renewcommand{\\cftaftertoctitle}{\\hfill}",
     "\\titleformat{\\section}[block]{\\normalfont\\Large\\bfseries\\raggedright}{\\thesection.}{0.7em}{}", "\\titleformat{\\subsection}[block]{\\normalfont\\large\\bfseries\\raggedright}{\\thesubsection}{0.7em}{}", "\\titleformat{\\subsubsection}[block]{\\normalfont\\normalsize\\bfseries\\raggedright}{\\thesubsubsection}{0.7em}{}", "\\titlespacing*{\\section}{0pt}{1.5em}{0.75em}", "\\titlespacing*{\\subsection}{0pt}{1.1em}{0.55em}", "\\titlespacing*{\\subsubsection}{0pt}{0.9em}{0.4em}",
-    "\\pagestyle{fancy}", "\\fancyhf{}", `\\fancyhead[L]{\\small\\shortstack[l]{Repository: ${tex(model.snapshot.repository)}\\\\Branch: ${tex(model.snapshot.branch ?? "Not recorded")}}}`, "\\fancyhead[R]{\\small ADD}", "\\fancyfoot[C]{\\thepage}", "\\renewcommand{\\headrulewidth}{0.8pt}",
+    "\\pagestyle{fancy}", "\\fancyhf{}", `\\fancyhead[L]{\\small\\shortstack[l]{SAGE\\\\${tex(outline.document.title)}}}`, `\\fancyhead[R]{\\small ${tex(generatedDate)}}`, "\\fancyfoot[C]{\\thepage}", "\\renewcommand{\\headrulewidth}{0.8pt}",
     "\\begin{document}", "\\begin{titlepage}", "\\thispagestyle{empty}", "\\centering", "\\vspace*{3.2cm}", `{\\parbox{0.92\\textwidth}{\\centering\\fontsize{25}{30}\\selectfont\\bfseries ${tex(outline.document.title)}\\par}}`, "\\vspace{1.4cm}", "{\\Large\\bfseries Baseline Data and Application Architecture\\par}", "\\vfill", `{\\large Repository: ${tex(model.snapshot.repository)}\\par}`, `{\\large Source commit: ${breakableHash(model.snapshot.commitSha)}\\par}`, `{\\large Branch: ${tex(model.snapshot.branch ?? "Not recorded")}\\par}`, `{\\large ArchiMate profile: ${tex(model.archimateVersion)}\\par}`, "\\vspace{1cm}", "{\\large Generated from repository evidence\\par}", "\\phantomsection", `\\label{${outline.document.id}}`, "\\end{titlepage}",
     "\\pagenumbering{roman}", "\\tableofcontents", "\\clearpage", "\\pagenumbering{arabic}", "\\setcounter{section}{0}",
     `\\phantomsection\\section*{${tex(outline.dataArchitecture.title)}}\\addcontentsline{toc}{section}{${tex(outline.dataArchitecture.title)}}\\label{${outline.dataArchitecture.id}}`,
@@ -226,7 +235,7 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
     `\\section{${tex(outline.sections.businessDataModel.title)}}\\label{${outline.sections.businessDataModel.id}}`,
     "\\noindent Logical data objects found in the analyzed snapshot. Ownership and physical distribution require enterprise confirmation.",
     "\\subsection*{Data Entity Catalog}",
-    table(["Data entity", "Feature group", "Owner", "Distribution", "Description", "Review", "Evidence"], entities.length ? entities : noRows("No data entity was identified", 7), ["1.5cm", "1.2cm", "1.7cm", "2.2cm", "2.0cm", "1.4cm", "3.0cm"]),
+    table(["Data entity", "Feature group", "Owner", "Distribution", "Description", "Review", "Evidence"], entities.length ? entities : noRows("No data entity was identified", 7), ["1.5cm", "2.1cm", "1.5cm", "1.9cm", "2.0cm", "1.3cm", "2.7cm"]),
     "\\Needspace{13cm}", `\\section{${tex(outline.sections.logicalDataModel.title)}}\\label{${outline.sections.logicalDataModel.id}}`,
     `\\noindent ${tex(dataViewNarratives.introduction)}`,
     "\\par\\smallskip{\\footnotesize Solid and dashed connectors show evidence confidence; end markers distinguish supported ArchiMate relationship types.}",

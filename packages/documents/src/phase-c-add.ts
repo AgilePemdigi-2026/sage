@@ -31,10 +31,19 @@ export const PHASE_C_ADD_TOC = [
 ] as const;
 
 /** Identity of the persisted source model used by all ADD export formats. */
-export type AddExportMetadata = { modelHash?: string };
+export type AddExportMetadata = { modelHash?: string; generatedAt?: string };
 
 export function addExportModelHash(metadata?: AddExportMetadata): string {
   if (metadata?.modelHash === undefined) return "Not supplied";
   if (!/^[a-f0-9]{64}$/u.test(metadata.modelHash)) throw new Error("Invalid ADD export model hash");
   return metadata.modelHash;
+}
+
+/** Format the export timestamp as a date in the project's Jakarta timezone. */
+export function addExportGeneratedDate(metadata?: AddExportMetadata): string {
+  const generatedAt = metadata?.generatedAt === undefined ? new Date() : new Date(metadata.generatedAt);
+  if (!Number.isFinite(generatedAt.getTime())) throw new Error("Invalid ADD export generated date");
+  return new Intl.DateTimeFormat("id-ID", {
+    day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Jakarta",
+  }).format(generatedAt);
 }
