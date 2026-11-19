@@ -31,36 +31,38 @@ The model describes only what can be supported by the selected repository snapsh
 
 ## Acceptance checklist
 
+Status memakai bukti yang dicatat di [TOGAF ADD traceability](TOGAF_ADD_TRACEABILITY.md): `[x]` berarti selesai dalam cakupan yang disebutkan, `[~]` berarti sebagian atau fixture-only, dan `[ ]` berarti belum diverifikasi.
+
 ### 1. Model and analyzer
 
-- [ ] ADD source hash and full commit SHA match the analysis snapshot.
-- [ ] Data and application elements/relationships have valid types, evidence, and explicit confidence; unsupported patterns are visible as limitations.
-- [ ] Negative checks confirm that absent business facts and unsupported relationships are not emitted as proven facts.
-- [ ] Data Structure and Application Cooperation views, catalogs, functional decomposition, and matrices contain only supported entries; unknowns are explicit.
+- [x] ADD source hash and full commit SHA match the analysis snapshot.
+- [x] Data and application elements/relationships have valid types, evidence, and explicit confidence; unsupported patterns are visible as limitations.
+- [x] Negative checks confirm that absent business facts and unsupported relationships are not emitted as proven facts.
+- [x] Data Structure and Application Cooperation views, catalogs, functional decomposition, and matrices contain only supported entries; unknowns are explicit.
 
 ### 2. Persistence and review
 
-- [ ] Disposable-PostgreSQL integration verifies owner isolation, canonical model persistence, revision append, and stale-revision conflict.
-- [ ] User corrections do not mutate source facts; reload returns the saved overlay for the same analysis and owner.
+- [x] Disposable-PostgreSQL integration verifies owner isolation, canonical model persistence, revision append, and stale-revision conflict.
+- [x] User corrections do not mutate source facts; reload returns the saved overlay for the same analysis and owner.
 
 ### 3. User flow and LLM
 
-- [ ] A fresh repository flow reaches analysis completion, generates the ADD from the pinned snapshot, reloads it, and displays its evidence.
-- [ ] LLM defaults to not requested; consented use sends only bounded structured facts and changes narrative fields only.
-- [ ] LLM timeout, invalid response, or unavailable configuration falls back to deterministic narrative without failing ADD generation.
+- [~] A fixture-backed analysis pipeline and the ADD workspace are covered separately. A fresh GitHub OAuth-to-worker-to-ADD run against the deployed application has not been verified.
+- [x] LLM defaults to not requested; consented use sends only bounded structured facts and changes narrative fields only.
+- [x] LLM timeout, invalid response, or unavailable configuration falls back to deterministic narrative without failing ADD generation. A live campus LLM request is not part of this evidence.
 
 ### 4. Exports and presentation
 
-- [ ] Markdown, LaTeX, and PDF reflect the same model hash and review revision as the interactive ADD.
-- [ ] LaTeX compiles; PDF/LaTeX render and A4 page flow are visually reviewed; Markdown links point to the pinned source evidence.
-- [ ] Main document starts at PHASE C with simple section numbering; it has no `BAB` or `4.1`-style section numbering.
+- [x] Markdown, LaTeX, and PDF reflect the same model hash and review revision in the checked fixture.
+- [~] LaTeX compiles and representative pages are visually reviewed; the browser fixture produces an A4 PDF and verifies pagination/evidence. Visual review across real repository outputs remains for manual acceptance.
+- [x] Main document starts at PHASE C with simple section numbering; it has no `BAB` or `4.1`-style section numbering.
 
 ### 5. Final verification and handoff
 
-- [ ] Automated checks, database integration, browser acceptance, and export checks have recorded commands and outcomes; fixture-only results are labeled as such.
-- [ ] Perpus, SAGE, and Emosync are checked at pinned commits for supported content and false-positive boundaries.
-- [ ] Runtime and peak memory are measured in a Linux container with recorded resource limits; failures and outliers remain visible.
-- [ ] README and active guides match the shipped behavior; GitHub issues include reviewable evidence before closure.
+- [x] Automated checks, database integration, browser acceptance, and export checks have recorded commands and outcomes; fixture-only results are labeled as such.
+- [x] Perpus, SAGE, and Emosync are checked at pinned commits for supported content and false-positive boundaries.
+- [~] Runtime and peak memory are recorded for macOS replays. A Linux container replay at fixed limits is still unverified.
+- [~] Active guide updates are recorded; the GitHub workflow now includes the production Docker image build, but its result is pending. The GitHub issues remain open until the checks, manual review, and any follow-up changes are complete.
 
 ## Ownership and tracking
 

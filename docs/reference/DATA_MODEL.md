@@ -135,6 +135,6 @@ GraphBundle dan ArchitectureDocument memiliki storageLayoutVersion: 1 untuk mirr
 
 ## Model semantik dan revisi tampilan
 
-Per 30 Oktober 2026, `SemanticModel` menyimpan satu JSON canonical per analisis beserta source CKG hash, model hash, versi schema/extractor, dan pemilik. `PresentationRevision` menyimpan overlay label/kelompok append-only dan hash overlay; revisi nol adalah hasil otomatis tanpa row tambahan. Foreign key komposit mencegah relasi lintas pemilik. Revisi terkunci saat koreksi dan enqueue ekspor; versi usang ditolak, bukan menimpa data.
+`SemanticModel` menyimpan satu JSON canonical per analisis beserta source CKG hash, model hash, versi schema/extractor, dan pemilik. `PresentationRevision` menyimpan overlay label/kelompok append-only dan hash overlay; revisi nol adalah hasil otomatis tanpa row tambahan. Foreign key komposit mencegah relasi lintas pemilik. Revisi terkunci saat koreksi dan enqueue ekspor; versi usang ditolak, bukan menimpa data.
 
 `Export.semanticModelHash` dan `Export.presentationRevision` mem-pin snapshot koreksi. Keduanya null untuk ekspor legacy, atau keduanya valid untuk ekspor semantik. Cache renderer mencakup pin ini. Tidak menyimpan ulang JSON model per revisi, menambah service/database, atau menyalin kredensial ke model. Model dibatasi 24 MiB dan overlay 256 KiB; batas source/worker dan artefak tetap berlaku. Revisi tetap tersimpan hingga analisis dihapus; cascade/cleanup yang sama menghapus model, revisi, snapshot serta ekspornya. Lihat [kontrak semantik](SEMANTIC_ANALYSIS.md).

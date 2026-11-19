@@ -39,13 +39,13 @@ The immutable repository commit and canonical ADD model are the data source. Rev
 
 - **Workspace:** interactive view, catalogs, matrices, evidence, review controls, and print layout.
 - **Markdown:** full narrative, catalogs, matrices, relationship details, review state, limitations, and commit-pinned evidence links.
-- **LaTeX:** downloadable `.tex` source for the same Phase C ADD structure, tables, diagrams, and evidence links. It is intended to be compiled with a LaTeX distribution such as TeX Live. A LaTeX compiler was not available in the current worktree, so compilation and rendered `.tex` output have not been verified here.
-- **PDF:** generated using the browser's print dialog from the workspace, with A4 print rules and paginated SVG diagrams. It is not compiled from the LaTeX source. Large outputs should be reviewed for pagination before sharing.
+- **LaTeX:** downloadable `.tex` source for the same Phase C ADD structure, tables, diagrams, and evidence links. Tectonic compiled a 19-page A4 test fixture; representative diagram and catalog pages were visually reviewed. Tectonic reported minor overfull-box warnings, with no clipping visible on the reviewed pages. This is fixture evidence, not a visual review of every repository output.
+- **PDF:** generated using the browser's print dialog from the workspace, with A4 print rules and paginated SVG diagrams. A Playwright fixture produced and inspected a real A4 PDF. It is not compiled from the LaTeX source, and the test intercepts API responses rather than exercising production OAuth, worker, or database persistence.
 
-With `latexmk` and a PDF-capable LaTeX distribution installed, compile a downloaded file using:
+With Tectonic installed, compile a downloaded file using:
 
 ```sh
-latexmk -pdf -interaction=nonstopmode repository-phase-c-add.tex
+tectonic repository-phase-c-add.tex
 ```
 
 The formats share the same model, corrections, evidence, and section numbering. Their layout differs by medium; Markdown and LaTeX expose tabular relationship details, while the interactive workspace keeps the full registers expandable and shows concise diagrams by default.
