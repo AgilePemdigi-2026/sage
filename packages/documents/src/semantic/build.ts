@@ -5,15 +5,24 @@ import { extractNext } from "./next.ts";
 import { extractNodeHttp } from "./node-http.ts";
 import { extractPythonFastApi } from "./python-fastapi.ts";
 import { extractDataArtifacts } from "./data-artifacts.ts";
+import { extractDockerCompose } from "./docker-compose.ts";
+import { extractSqlAccess } from "./sql-access.ts";
 import { compactEvidence } from "./builder.ts";
 import { analyzeDocumentation } from "./documentation.ts";
 import { explainExtractedEdge } from "./explanations.ts";
 
 /** Build deterministic source-grounded semantics; there are no model/network calls. */
 export function buildSemanticModel(input: SemanticInput): SemanticModel {
-  const fragments = [extractNext(input), extractLaravel(input), extractNodeHttp(input), extractPythonFastApi(input), extractDataArtifacts(input)];
+  const next = extractNext(input);
+  const laravel = extractLaravel(input);
+  const nodeHttp = extractNodeHttp(input);
+  const pythonFastApi = extractPythonFastApi(input);
+  const dataArtifacts = extractDataArtifacts(input);
+  const sqlAccess = extractSqlAccess(input, dataArtifacts.nodes, [...next.nodes, ...laravel.nodes, ...nodeHttp.nodes, ...pythonFastApi.nodes]);
+  const dockerCompose = extractDockerCompose(input);
+  const fragments = [next, laravel, nodeHttp, pythonFastApi, dataArtifacts, sqlAccess, dockerCompose];
   fragments.forEach((fragment, index) => {
-    const extractor = ["next", "laravel", "node-http", "python-fastapi", "data-artifacts"][index]!;
+    const extractor = ["next", "laravel", "node-http", "python-fastapi", "data-artifacts", "sql-access", "docker-compose"][index]!;
     fragment.edges = fragment.edges.map(edge => {
       const explanation = edge.explanation ?? explainExtractedEdge(edge);
       return { ...edge, explanation: { ...explanation, rule: `${extractor}:${explanation.kind}` } };
@@ -30,7 +39,7 @@ export function buildSemanticModel(input: SemanticInput): SemanticModel {
   const snapshot = JSON.parse(JSON.stringify(input.ccm.snapshot)) as SemanticModel["snapshot"];
   const value: SemanticModel = {
     schemaVersion: "sage-semantic-v2",
-    extractorVersion: "0.6.1",
+    extractorVersion: "0.6.5",
     sourceCkgHash: input.sourceCkgHash,
     snapshot,
     documentation: analyzeDocumentation({ sources: input.documentationSources ?? {}, snapshotPaths: input.snapshotPaths ?? [...new Set([

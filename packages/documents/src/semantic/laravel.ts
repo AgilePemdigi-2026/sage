@@ -16,6 +16,19 @@ type ModelInfo = { path: string; name: string; namespace: string; fullName: stri
 type TokenRange = { start: number; end: number };
 const AUTH_MIDDLEWARE = /^(?:auth(?::|$)|auth\.basic)/;
 
+function eloquentCrudOperation(operation: string): "create" | "read" | "update" | "delete" | "upsert" {
+  if (["create", "insert", "firstOrCreate"].includes(operation)) return "create";
+  if (["upsert", "updateOrCreate", "save"].includes(operation)) return "upsert";
+  if (operation === "update") return "update";
+  if (["delete", "destroy"].includes(operation)) return "delete";
+  return "read";
+}
+
+function eloquentCrudLabel(operation: string): string {
+  const kind = eloquentCrudOperation(operation);
+  return kind === "upsert" ? "creates or updates" : `${kind}s`;
+}
+
 /** Small PHP lexer. It drops comments and treats quoted strings as indivisible tokens. */
 function lex(source: string): Token[] {
   const result: Token[] = [];
@@ -1085,11 +1098,10 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
               evidence: [evidenceSpan(call.target.filePath, call.target.bytes, token.start, serviceTokens[tokenIndex + 1]!.end, "reference"), evidenceSpan(model.path, modelBytes, model.start, model.end, "declaration")],
               technicalNodeIds: ccmNodes.filter(node => node.kind === "Class" && node.name === model.name && node.filePath === model.path).map(node => node.id) });
             const operation = token.value;
-            const label = ["create", "insert", "upsert", "save", "update", "updateOrCreate", "firstOrCreate", "delete", "destroy"].includes(operation)
-              ? ["delete", "destroy"].includes(operation) ? "menghapus" : "menyimpan" : "membaca";
+            const label = eloquentCrudLabel(operation);
             const operationEvidence = evidenceSpan(call.target.filePath, call.target.bytes, token.start, serviceTokens[tokenIndex + 1]!.end, "reference");
             const edgeId = semanticEdgeId(call.target.filePath, Buffer.byteLength(call.target.source.slice(0, token.start), "utf8"), `store:${serviceId}:${storeId}:${operation}`);
-            addEdge({ id: edgeId, source: serviceId, target: storeId, label, confidence: storeConfidence,
+            addEdge({ id: edgeId, source: serviceId, target: storeId, label, confidence: storeConfidence, dataOperation: eloquentCrudOperation(operation),
               reason: "Method service yang dipanggil controller menjalankan operasi model Eloquent pada store ini.",
               evidence: [declarationEvidence, operationEvidence, ...exactCall.evidence] });
             feature.nodeIds.push(serviceId, storeId); feature.edgeIds.push(edgeId);
@@ -1134,8 +1146,8 @@ export function extractLaravel(input: SemanticInput): SemanticFragment {
           if (modelDeclaration && !modelDeclaration.eloquent) fragment.limitations.push({ filePath: modelPath!, reason: `Model ${modelName} digunakan oleh controller tetapi deklarasi parent-nya tidak membuktikan Eloquent secara langsung; hubungan ditandai sebagai indikasi.` });
           addNode({ id: storeId, kind: "store", label: humanLabel(modelName), featureId, confidence, reason: modelDeclaration?.eloquent ? "Pemanggilan query Eloquent statis dan deklarasi model turunan Eloquent ditemukan pada source." : "Pemanggilan model statis ditemukan tetapi inheritance Eloquent tidak dibuktikan secara langsung.", evidence: [evidenceSpan(handlerPath, handlerBytes, tokenNode.start, tokenNode.end, "reference"), ...(modelBytes && modelPath && modelDeclaration ? [evidenceSpan(modelPath, modelBytes, modelDeclaration.start, modelDeclaration.end, "declaration" as const)] : [])], technicalNodeIds: modelPath ? ccmNodes.filter(node => node.kind === "Class" && node.name === modelName && node.filePath === modelPath).map(node => node.id) : [] });
           const edgeId = semanticEdgeId(handlerPath, Buffer.byteLength(handlerSource.slice(0, tokenNode.start), "utf8"), `store:${controllerId}:${storeId}:${tokenNode.value}`);
-          const label = ["create", "insert", "upsert", "save", "update", "updateOrCreate", "firstOrCreate", "delete", "destroy"].includes(tokenNode.value) ? tokenNode.value === "delete" || tokenNode.value === "destroy" ? "menghapus" : "menyimpan" : "membaca";
-          addEdge({ id: edgeId, source: controllerId, target: storeId, label, confidence, reason: "Pemanggilan operasi query statis pada model Eloquent dalam method controller yang dirujuk route.", evidence: [evidenceSpan(handlerPath, handlerBytes, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, "reference")] });
+          const label = eloquentCrudLabel(tokenNode.value);
+          addEdge({ id: edgeId, source: controllerId, target: storeId, label, confidence, dataOperation: eloquentCrudOperation(tokenNode.value), reason: "Pemanggilan operasi query statis pada model Eloquent dalam method controller yang dirujuk route.", evidence: [evidenceSpan(handlerPath, handlerBytes, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, "reference")] });
           feature.nodeIds.push(storeId); feature.edgeIds.push(edgeId);
           linkBranchUse(storeId, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, "model operation");
           linkConditionUse(storeId, tokenNode.start, handlerTokens[tokenIndex + 1]!.end, confidence);

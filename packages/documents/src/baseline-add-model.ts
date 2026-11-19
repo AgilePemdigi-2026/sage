@@ -1,5 +1,6 @@
 import { EVIDENCE_ROLES } from "@sage/contracts/registries";
 import type { CcmV1, EvidenceSpan } from "@sage/contracts";
+import type { DataOperation } from "./semantic/model.ts";
 
 export const ADD_BASELINE_SCHEMA = "sage-add-baseline-v1" as const;
 export const ARCHIMATE_PROFILE_VERSION = "3.2" as const;
@@ -33,6 +34,7 @@ export interface AddRelationship {
   confidence: "proven" | "indicated";
   reason: string;
   evidence: EvidenceSpan[];
+  dataOperation?: DataOperation;
   review: "unreviewed" | "confirmed" | "rejected";
 }
 
@@ -74,6 +76,7 @@ const RELATIONSHIP_TYPES = new Set<ArchiMateRelationshipType>(["CompositionRelat
 const ADD_ORIGINS = new Set<AddOrigin>(["source", "llm-proposal", "user-confirmed"]);
 const CONFIDENCE = new Set(["proven", "indicated"]);
 const REVIEW = new Set(["unreviewed", "confirmed", "rejected"]);
+const DATA_OPERATIONS = new Set<DataOperation>(["create", "read", "update", "delete", "upsert", "persist"]);
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const isText = (value: unknown, max = 100_000): value is string => typeof value === "string" && value.length <= max;
 
@@ -89,7 +92,7 @@ function isEvidence(value: unknown): value is EvidenceSpan {
 
 export function archimatePairAllowed(type: ArchiMateRelationshipType, source: ArchiMateElementType, target: ArchiMateElementType): boolean {
   switch (type) {
-    case "CompositionRelationship": return source === "ApplicationComponent" && target === "ApplicationInterface";
+    case "CompositionRelationship": return source === "ApplicationComponent" && ["ApplicationComponent", "ApplicationInterface"].includes(target);
     case "AssignmentRelationship": return ["ApplicationComponent", "ApplicationInterface"].includes(source) && ["ApplicationFunction", "ApplicationService"].includes(target);
     case "ServingRelationship": return source === "ApplicationService" && ["ApplicationComponent", "ApplicationFunction", "ApplicationInterface", "ApplicationService"].includes(target);
     case "RealizationRelationship": return ["ApplicationComponent", "ApplicationFunction"].includes(source) && target === "ApplicationService";
@@ -130,7 +133,9 @@ export function isAddBaselineModel(value: unknown): value is AddBaselineModel {
     if (!isRecord(item) || typeof item.id !== "string" || !item.id || item.id.length > 180 || relationships.has(item.id) ||
         !RELATIONSHIP_TYPES.has(item.type as ArchiMateRelationshipType) || typeof item.sourceId !== "string" || typeof item.targetId !== "string" ||
         item.sourceId === item.targetId || !isText(item.label, 1000) || !ADD_ORIGINS.has(item.origin as AddOrigin) || !CONFIDENCE.has(item.confidence as string) ||
-        !isText(item.reason) || !Array.isArray(item.evidence) || !item.evidence.every(isEvidence) || !REVIEW.has(item.review as string)) return false;
+        !isText(item.reason) || !Array.isArray(item.evidence) || !item.evidence.every(isEvidence) ||
+        !(item.dataOperation === undefined || DATA_OPERATIONS.has(item.dataOperation as DataOperation)) ||
+        (item.dataOperation !== undefined && item.type !== "AccessRelationship") || !REVIEW.has(item.review as string)) return false;
     const source = elements.get(item.sourceId); const target = elements.get(item.targetId);
     if (!source || !target || !archimatePairAllowed(item.type as ArchiMateRelationshipType, source.type, target.type)) return false;
     relationships.set(item.id, item as unknown as AddRelationship);

@@ -14,6 +14,23 @@ function routeMethod(label: string): string | null {
   return match?.[1]?.toUpperCase() ?? null;
 }
 
+function composeBuildContext(node: SemanticModel["nodes"][number]): string | null {
+  const context = node.reason.match(/\bbuildContext=([^;]+)/u)?.[1];
+  return node.kind === "component" && context ? context : null;
+}
+
+function routeHandlerLabel(node: SemanticModel["nodes"][number], semantic: SemanticModel): string {
+  if (node.kind !== "component" || !/^(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS) API$/u.test(node.label)) return node.label;
+  const route = semantic.edges.find(edge => edge.target === node.id && edge.label === "ditangani oleh")
+    ?.source;
+  const step = route ? semantic.nodes.find(candidate => candidate.id === route) : undefined;
+  return step?.kind === "step" && routeMethod(step.label) ? `${step.label} handler` : node.label;
+}
+
+function composeApplicationName(node: SemanticModel["nodes"][number]): boolean {
+  return node.kind === "component" && composeBuildContext(node) !== null && node.featureId === null;
+}
+
 /** Build a conservative ADD baseline from already verified source facts and semantic evidence. */
 export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; sourceCkgHash: string }): AddBaselineModel {
   if (!/^[a-f0-9]{64}$/.test(input.sourceCkgHash) || input.semantic.sourceCkgHash !== input.sourceCkgHash ||
@@ -31,12 +48,41 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
   const semanticFeatures = new Map(input.semantic.features.map(feature => [feature.id, feature]));
   const appId = id("application", `${input.ccm.snapshot.repository}:${input.ccm.snapshot.commitSha}`);
   addElement({ id: appId, type: "ApplicationComponent", name: input.ccm.snapshot.repository.split("/").at(-1) ?? input.ccm.snapshot.repository,
-    description: "Aplikasi dalam cakupan repository yang dianalisis.", origin: "source", featureGroup: null, evidence: [], review: "unreviewed" });
+    description: "System-level scope represented by the analyzed repository snapshot.", origin: "source", featureGroup: null, evidence: [], review: "unreviewed" });
+  const deploymentNodes = input.semantic.nodes.filter(composeApplicationName);
+  const deploymentAppIds = new Map<string, string>();
+  for (const node of deploymentNodes) {
+    const context = composeBuildContext(node)!;
+    const deploymentId = id("application", node.id);
+    deploymentAppIds.set(node.id, deploymentId);
+    addElement({ id: deploymentId, type: "ApplicationComponent", name: node.label,
+      description: `${node.reason} Build context “${context}”.`, origin: "source", featureGroup: null,
+      evidence: uniqueEvidence(node.evidence), review: "unreviewed" });
+    addRelationship({ id: id("composition", `${appId}:${deploymentId}`), type: "CompositionRelationship", sourceId: appId, targetId: deploymentId,
+      label: "contains configured service", origin: "source", confidence: "proven",
+      reason: "The Compose file declares this build-backed service within the repository-level system scope; this configuration does not establish current runtime availability.",
+      evidence: uniqueEvidence(node.evidence), review: "unreviewed" });
+  }
+  const contextOwner = (path: string): string | null => {
+    const matches = deploymentNodes.flatMap(node => {
+      const context = composeBuildContext(node)!;
+      return context === "." || path === context || path.startsWith(`${context}/`) ? [{ node, context }] : [];
+    });
+    if (!matches.length) return null;
+    const deepest = Math.max(...matches.map(item => item.context === "." ? 0 : item.context.split("/").length));
+    const owners = matches.filter(item => (item.context === "." ? 0 : item.context.split("/").length) === deepest);
+    return owners.length === 1 ? deploymentAppIds.get(owners[0]!.node.id) ?? null : null;
+  };
+  const ownerForEvidence = (spans: EvidenceSpan[]): string => {
+    const owners = [...new Set(spans.map(span => contextOwner(span.filePath)).filter((owner): owner is string => owner !== null))];
+    return owners.length === 1 ? owners[0]! : appId;
+  };
   input.semantic.features.forEach(feature => {
     const serviceId = id("service", feature.id);
     addElement({ id: serviceId, type: "ApplicationService", name: feature.label, description: null, origin: "source", featureGroup: feature.label, evidence: uniqueEvidence(feature.evidence), review: "unreviewed" });
   });
   const semanticToArchimate = new Map<string, string>();
+  for (const [nodeId, applicationId] of deploymentAppIds) semanticToArchimate.set(nodeId, applicationId);
   for (const node of input.semantic.nodes) {
     if (node.kind === "store") {
       const dataId = id("data", node.id); semanticToArchimate.set(node.id, dataId);
@@ -47,17 +93,19 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
       continue;
     }
     if (node.kind === "component") {
+      if (composeApplicationName(node)) continue;
       const method = routeMethod(node.label);
       const componentId = id(method ? "interface" : "function", node.id); semanticToArchimate.set(node.id, componentId);
-      addElement({ id: componentId, type: method ? "ApplicationInterface" : "ApplicationFunction", name: node.label,
+      addElement({ id: componentId, type: method ? "ApplicationInterface" : "ApplicationFunction", name: method ? node.label : routeHandlerLabel(node, input.semantic),
         description: node.reason, origin: "source",
         featureGroup: node.featureId ? semanticFeatures.get(node.featureId)?.label ?? null : null,
         evidence: uniqueEvidence(node.evidence), review: "unreviewed" });
-      if (method) addRelationship({ id: id("composition", `${appId}:${componentId}`), type: "CompositionRelationship", sourceId: appId, targetId: componentId,
+      const ownerId = ownerForEvidence(node.evidence);
+      if (method) addRelationship({ id: id("composition", `${ownerId}:${componentId}`), type: "CompositionRelationship", sourceId: ownerId, targetId: componentId,
         label: "has interface", origin: "source", confidence: "indicated", reason: "The interface contract is declared in the analyzed repository scope; runtime exposure is not inferred.", evidence: uniqueEvidence(node.evidence), review: "unreviewed" });
       else {
-        addRelationship({ id: id("assignment", `${appId}:${componentId}`), type: "AssignmentRelationship", sourceId: appId, targetId: componentId,
-          label: "assigned internal behavior", origin: "source", confidence: "indicated", reason: "A source-level handler or module is represented as internal application behavior under the repository-scope component; separate deployment is not inferred.", evidence: uniqueEvidence(node.evidence), review: "unreviewed" });
+        addRelationship({ id: id("assignment", `${ownerId}:${componentId}`), type: "AssignmentRelationship", sourceId: ownerId, targetId: componentId,
+          label: "assigned internal behavior", origin: "source", confidence: "indicated", reason: "A source-level handler or module is assigned to the most specific unique Compose build context supported by its evidence; deployment is not inferred from source location alone.", evidence: uniqueEvidence(node.evidence), review: "unreviewed" });
         if (node.featureId) {
           const serviceId = id("service", node.featureId);
           addRelationship({ id: id("realization", `${componentId}:${serviceId}`), type: "RealizationRelationship", sourceId: componentId, targetId: serviceId,
@@ -74,7 +122,8 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
       addElement({ id: interfaceId, type: "ApplicationInterface", name: node.label, description: node.reason, origin: "source",
         featureGroup: node.featureId ? semanticFeatures.get(node.featureId)?.label ?? null : null,
         evidence: uniqueEvidence(node.evidence), review: "unreviewed" });
-      addRelationship({ id: id("composition", `${appId}:${interfaceId}`), type: "CompositionRelationship", sourceId: appId, targetId: interfaceId,
+      const ownerId = ownerForEvidence(node.evidence);
+      addRelationship({ id: id("composition", `${ownerId}:${interfaceId}`), type: "CompositionRelationship", sourceId: ownerId, targetId: interfaceId,
         label: "has interface", origin: "source", confidence: "indicated", reason: "The HTTP route is declared in the analyzed repository scope; runtime exposure is not inferred.", evidence: uniqueEvidence(node.evidence), review: "unreviewed" });
     }
   }
@@ -91,6 +140,10 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
       type = "AssociationRelationship";
       label = "references data object";
       reason = `${edge.reason} This is an explicit data-to-data reference in the source contract.`;
+    } else if (sourceNode?.kind === "component" && targetNode?.kind === "component" &&
+      elements.get(sourceId)?.type === "ApplicationComponent" && elements.get(targetId)?.type === "ApplicationComponent") {
+      type = "FlowRelationship";
+      reason = `${edge.reason} Compose configuration and a matching source HTTP client establish an intended integration path; live runtime traffic and availability are not inferred.`;
     } else if (targetNode?.kind === "store" && ["ApplicationFunction", "ApplicationService"].includes(elements.get(sourceId)?.type ?? "")) {
       type = "AccessRelationship";
     }
@@ -112,7 +165,8 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
       reason = `${edge.reason} A statically observed source call is represented as a triggering relationship between internal functions.`;
     } else continue;
     addRelationship({ id: id(type, edge.id), type, sourceId, targetId, label, origin: "source",
-      confidence, reason, evidence: uniqueEvidence(edge.evidence), review: "unreviewed" });
+      confidence, reason, evidence: uniqueEvidence(edge.evidence),
+      ...(type === "AccessRelationship" && edge.dataOperation ? { dataOperation: edge.dataOperation } : {}), review: "unreviewed" });
   }
 
   // Laravel feature membership and some framework extractors do not emit an
@@ -139,25 +193,25 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
     element.type === "ApplicationComponent" || element.type === "ApplicationFunction" ||
     element.type === "ApplicationService" || element.type === "ApplicationInterface");
   const applicationViewElementIds = new Set(applicationViewElements.map(element => element.id));
-  const accessByData = new Map<string, AddRelationship[]>();
+  const accessByApplicationData = new Map<string, AddRelationship[]>();
   for (const edge of relationships.values()) if (edge.type === "AccessRelationship") {
-    const bucket = accessByData.get(edge.targetId) ?? [];
+    const applicationId = ownerForEvidence(edge.evidence);
+    const key = `${applicationId}\0${edge.targetId}`;
+    const bucket = accessByApplicationData.get(key) ?? [];
     bucket.push(edge);
-    accessByData.set(edge.targetId, bucket);
+    accessByApplicationData.set(key, bucket);
   }
-  const crud = (app: AddElement, data: AddElement) => {
-    const relations = accessByData.get(data.id) ?? [];
-    const patterns = {
-      create: /\b(?:create|creates|created|insert|inserts|inserted|register|registers|registered)\b/iu,
-      read: /\b(?:read|reads|retrieve|retrieves|retrieved|select|selects|find|finds|fetch|fetches)\b/iu,
-      update: /\b(?:update|updates|updated|modify|modifies|modified)\b/iu,
-      delete: /\b(?:delete|deletes|deleted|remove|removes|removed)\b/iu,
-    };
-    const operation = (kind: keyof typeof patterns): "yes" | "unknown" => relations.some(edge => patterns[kind].test(edge.label)) ? "yes" : "unknown";
-    return { applicationId: app.id, dataId: data.id, create: operation("create"), read: operation("read"),
+  const crud = (app: AddElement, dataId: string, relations: AddRelationship[]) => {
+    const confirmed = relations.filter(edge => edge.confidence === "proven");
+    const operation = (kind: "create" | "read" | "update" | "delete"): "yes" | "unknown" => confirmed.some(edge =>
+      edge.dataOperation === kind || edge.dataOperation === "upsert" && (kind === "create" || kind === "update")) ? "yes" : "unknown";
+    return { applicationId: app.id, dataId, create: operation("create"), read: operation("read"),
       update: operation("update"), delete: operation("delete"), evidence: uniqueEvidence(relations.flatMap(edge => edge.evidence)) };
   };
   const links = [...relationships.values()];
+  const applicationInteractions = links.filter(edge => edge.type === "FlowRelationship" &&
+    elements.get(edge.sourceId)?.type === "ApplicationComponent" && elements.get(edge.targetId)?.type === "ApplicationComponent")
+    .map(edge => ({ sourceApplicationId: edge.sourceId, targetApplicationId: edge.targetId, mechanism: edge.label, evidence: edge.evidence }));
   // Access paths belong in the CRUD matrix. The ArchiMate Data Structure view
   // shows only data objects and explicit data-to-data associations.
   const dataViewEdges = links.filter(edge => edge.type === "AssociationRelationship" &&
@@ -174,10 +228,12 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
       interfaces: interfaces.map(element => ({ elementId: element.id, protocol: routeMethod(element.name), contract: element.name })),
     },
     matrices: {
-      applicationData: appElements.flatMap(app => dataElements.filter(data => accessByData.has(data.id)).map(data => crud(app, data))),
-      // Calls between source-level components do not prove communication
-      // between independently deployed applications or an integration protocol.
-      applicationInteractions: [],
+      applicationData: [...accessByApplicationData].flatMap(([key, access]) => {
+        const [applicationId, dataId] = key.split("\0");
+        const application = appElements.find(item => item.id === applicationId);
+        return application && dataElements.some(item => item.id === dataId) ? [crud(application, dataId!, access)] : [];
+      }),
+      applicationInteractions,
     },
     views: {
       dataStructure: { elementIds: [...new Set([...dataElements.map(element => element.id), ...dataViewEdges.flatMap(edge => [edge.sourceId, edge.targetId])])], relationshipIds: dataViewEdges.map(edge => edge.id) },
@@ -185,14 +241,14 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
     },
     narratives: {
       dataBaseline: `${dataElements.length} data object teridentifikasi dari operasi store yang dianalisis. Owner dan distribusi aktual memerlukan konfirmasi.`,
-      applicationBaseline: `${appElements.length} application component repository dan ${interfaces.length} interface teridentifikasi. Functional decomposition berasal dari fitur source yang dikenali.`,
+      applicationBaseline: `Cakupan repository mencakup ${Math.max(0, appElements.length - 1)} build-backed service component yang dideklarasikan pada Docker Compose dan ${interfaces.length} interface. Functional decomposition berasal dari source yang dikenali; konfigurasi tidak membuktikan runtime service aktif.`,
       dataViewIntroduction: `Diagram berikut menampilkan ${dataElements.length} data object dan ${dataViewEdges.length} hubungan antar data object yang dinyatakan pada source snapshot. Katalog dan evidence menyediakan rincian setiap object serta relasi yang terdeteksi.`,
       dataViewInterpretation: dataElements.length
         ? `Gambar ini memperlihatkan data object yang dikenali beserta association yang memiliki bukti source. Node tanpa garis menunjukkan bahwa tidak ada association antar data object yang terkonfirmasi untuk node tersebut pada snapshot ini; kondisi itu tidak membuktikan bahwa hubungan tidak ada di sistem yang berjalan.`
         : "Snapshot ini belum menyediakan data object source-supported untuk ditampilkan pada diagram.",
       applicationViewIntroduction: `Diagram berikut memetakan ${applicationViewElements.length} elemen aplikasi dan ${applicationViewEdges.length} hubungan source-level yang dikenali secara statis. Elemen dikelompokkan menurut tipe ArchiMate; rincian hubungan dan evidence tersedia pada register.`,
       applicationViewInterpretation: applicationViewElements.length
-        ? `Gambar ini merangkum hubungan source-level di dalam repository yang dianalisis. Garis solid menunjukkan hubungan proven, sedangkan garis putus-putus menunjukkan pemetaan indicated yang perlu ditinjau. Diagram ini tidak menetapkan batas deployment, business capability, atau perilaku runtime.`
+        ? `Gambar ini merangkum batas repository, service build-backed yang dinyatakan pada Docker Compose, interface, dan perilaku source-level yang dikenali. Garis solid menunjukkan hubungan proven, sedangkan garis putus-putus menunjukkan pemetaan indicated yang perlu ditinjau. Hubungan antar-service menunjukkan integration path yang dikonfigurasi dan didukung pemanggilan HTTP pada source; diagram tidak membuktikan availability atau traffic runtime.`
         : "Snapshot ini belum menyediakan elemen aplikasi source-supported untuk ditampilkan pada diagram.",
     },
     limitations: [...new Set([
@@ -200,7 +256,7 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
       "Data object mengikuti bukti akses data yang dikenali; model data yang tidak diakses alur terpetakan belum tentu tampil.",
       "Owner data, distribusi deployment, business capability, dan proses bisnis memerlukan input atau konfirmasi pengguna.",
       "Matriks CRUD mencatat hanya operasi dengan label eksplisit; sel unknown tidak berarti aplikasi tidak mengakses data.",
-      "Komunikasi antaraplikasi, API gateway, message queue, batch exchange, dan deployment runtime tidak disimpulkan dari pemanggilan komponen di dalam satu repository.",
+      "Inter-service flow hanya ditampilkan bila konfigurasi Docker Compose mengarah ke nama service dan source pada build context yang cocok membaca environment variable lalu membuat HTTP request. Konfigurasi statis tidak membuktikan traffic atau availability runtime; API gateway, message queue, batch exchange, dan pola dinamis lain belum disimpulkan.",
       "Katalog interface saat ini berisi interface API yang terdeteksi dari semantic model; integrasi tak terlacak tidak diasumsikan.",
     ])],
   };

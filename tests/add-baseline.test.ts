@@ -15,8 +15,8 @@ const evidence: EvidenceSpan = {
 const node = (id: string, kind: SemanticNode["kind"], label: string, featureId: string | null): SemanticNode => ({
   id, kind, label, featureId, confidence: "proven", reason: "Declared in source", evidence: [evidence], technicalNodeIds: [],
 });
-const edge = (id: string, source: string, target: string, label: string, confidence: SemanticEdge["confidence"] = "proven"): SemanticEdge => ({
-  id, source, target, label, confidence, reason: "Direct source evidence", evidence: [evidence],
+const edge = (id: string, source: string, target: string, label: string, confidence: SemanticEdge["confidence"] = "proven", dataOperation?: SemanticEdge["dataOperation"]): SemanticEdge => ({
+  id, source, target, label, confidence, reason: "Direct source evidence", evidence: [evidence], ...(dataOperation ? { dataOperation } : {}),
 });
 
 function fixture(): { ccm: CcmV1; semantic: SemanticModel; sourceCkgHash: string } {
@@ -41,7 +41,7 @@ function fixture(): { ccm: CcmV1; semantic: SemanticModel; sourceCkgHash: string
     edge("e:actor-route", "actor:client", "route:create-book", "sends request"),
     edge("e:feature-route", "feature:catalog", "route:create-book", "includes entry point"),
     edge("e:route-controller", "route:create-book", "component:controller", "invokes handler"),
-    edge("e:controller-store", "component:controller", "store:book", "creates record"),
+    edge("e:controller-store", "component:controller", "store:book", "creates record", "proven", "create"),
     edge("e:controller-service", "component:controller", "component:service", "calls service"),
     edge("e:fk", "store:book", "store:author", "references data object"),
   ];
@@ -97,6 +97,15 @@ test("CRUD matrix includes only evidenced accesses and does not turn absence int
   assert.equal(row.delete, "unknown");
   assert.ok(row.evidence.length > 0);
   assert.ok(model.matrices.applicationInteractions.length === 0, "internal calls are not application integrations");
+});
+
+test("indicated backend access remains unknown in the CRUD matrix", () => {
+  const input = fixture();
+  input.semantic.edges.find(item => item.id === "e:controller-store")!.confidence = "indicated";
+  const model = buildAddBaseline(input);
+  const row = model.matrices.applicationData[0]!;
+  assert.equal(row.create, "unknown", "an unresolved ORM binding cannot become confirmed CRUD");
+  assert.ok(model.relationships.some(item => item.confidence === "indicated" && item.type === "AccessRelationship"), "the indicated source evidence remains visible for review");
 });
 
 test("ADD projection is deterministic and rejects mixed snapshot identities", () => {

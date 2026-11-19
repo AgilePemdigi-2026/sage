@@ -690,6 +690,16 @@ function storeOperation(call: ts.CallExpression): { table: string; operation: st
   return { table: segments[1]!, operation };
 }
 
+function storeOperationKind(operation: string): "create" | "read" | "update" | "delete" | "upsert" | "persist" | undefined {
+  if (/^(?:find|select|count|aggregate|list|get|all)/iu.test(operation)) return "read";
+  if (/^(?:delete|remove)/iu.test(operation)) return "delete";
+  if (/^update/iu.test(operation)) return "update";
+  if (/^upsert/iu.test(operation)) return "upsert";
+  if (/^(?:create|insert)/iu.test(operation)) return "create";
+  if (/^(?:save|write)/iu.test(operation)) return "persist";
+  return undefined;
+}
+
 function callConditions(entry: SourceEntry, call: ts.CallExpression, stopAt: ts.Node): ReturnType<typeof nodeEvidence>[] {
   const spans: ReturnType<typeof nodeEvidence>[] = [];
   let parent: ts.Node | undefined = call.parent;
@@ -775,8 +785,9 @@ function addExactCrossFileEffects(fragment: SemanticFragment, input: SemanticInp
         if (existingStore.featureId !== feature.id) existingStore.featureId = null;
       }
       const label = /^(?:find|select|count|aggregate|list|get|all|query)/iu.test(operation.operation) ? "membaca" : /^(?:delete|remove)/iu.test(operation.operation) ? "menghapus" : /^(?:update|upsert)/iu.test(operation.operation) ? "mengubah" : "menyimpan";
+      const dataOperation = storeOperationKind(operation.operation);
       const storeEdge = { id: semanticEdgeId(item.targetEntry.path, operationSpan.startByte, `node-http:service-store:${serviceId}:${storeId}:${operation.operation}`),
-        source: serviceId, target: storeId, label, confidence: "indicated", reason: "Operasi store langsung berada di dalam fungsi yang dipanggil oleh route handler; receiver database belum diverifikasi dan helper lanjutan tidak ditelusuri.",
+        source: serviceId, target: storeId, label, confidence: "indicated", ...(dataOperation ? { dataOperation } : {}), reason: "Operasi store langsung berada di dalam fungsi yang dipanggil oleh route handler; receiver database belum diverifikasi dan helper lanjutan tidak ditelusuri.",
         evidence: [operationSpan, ...callConditions(item.targetEntry, operationCall, targetBody)] } satisfies SemanticEdge;
       addEdge(fragment, feature, storeEdge);
     }

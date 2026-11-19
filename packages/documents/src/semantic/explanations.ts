@@ -39,10 +39,12 @@ export function explainCkgEdge(edge: CcmEdge): RelationshipExplanation {
 /** Called only for new extractor output, never as an upgrade of legacy data. */
 export function explainExtractedEdge(edge: SemanticEdge): RelationshipExplanation {
   const label = edge.label.toLocaleLowerCase("en");
-  const kind = /membaca|reads?/u.test(label) ? "read" : /menulis|writes?|menyimpan|mengubah|menghapus/u.test(label) ? "write"
+  const operationKind = edge.dataOperation === "read" ? "read"
+    : ["create", "update", "delete", "upsert", "persist"].includes(edge.dataOperation ?? "") ? "write" : null;
+  const kind = operationKind ?? (/membaca|reads?/u.test(label) ? "read" : /menulis|writes?|menyimpan|mengubah|menghapus/u.test(label) ? "write"
     : /memeriksa|memvalidasi|diperiksa|menguji|checks?|dilindungi|jika kondisi/u.test(label) ? "guard" : /menjalankan|memanggil|calls?|invokes?/u.test(label) ? "call"
     : /merujuk|references?/u.test(label) ? "reference" : /menghasilkan|returns?/u.test(label) ? "outcome"
-    : /includes|kelompok|contains/u.test(label) ? "grouping" : "source_relationship";
+    : /includes|kelompok|contains/u.test(label) ? "grouping" : "source_relationship");
   return {
     kind, origin: "code", rule: `semantic:${kind}`, summary: edge.reason,
     limitations: [edge.confidence === "indicated"

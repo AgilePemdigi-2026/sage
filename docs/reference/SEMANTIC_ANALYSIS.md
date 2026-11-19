@@ -8,6 +8,14 @@ Extractor berbasis aturan berjalan pada worker yang ada tanpa instalasi dependen
 
 Prisma extraction mengatalogkan deklarasi `model` dan relasi ketika field secara eksplisit memakai nama model lain dalam schema root yang sama. Relasi dua arah dikelompokkan menjadi satu association dengan kedua deklarasi sebagai evidence. Scalar field, enum, operasi CRUD, data owner, distribusi, dan deployment tidak disimpulkan dari schema. File schema yang malformed, target relasi ambigu, dan self-reference yang belum didukung dilaporkan sebagai limitation.
 
+## Bukti backend untuk operasi data
+
+CRUD adalah fakta operasi backend, bukan tebakan dari nama halaman, tombol, route method, nama tabel, atau teks relationship. Setiap semantic access edge dapat membawa `dataOperation` terstruktur (`create`, `read`, `update`, `delete`, `upsert`, atau `persist`). Matriks ADD menampilkan **Yes** hanya jika edge bertingkat `proven` dan memuat operasi eksplisit yang didukung. `upsert` membuktikan create dan update; `persist` sendiri tidak menentukan salah satunya. Evidence `indicated`, operasi tanpa jenis yang pasti, dan ketiadaan evidence menghasilkan `unknown`, bukan `No`.
+
+Untuk SQL TypeScript/JavaScript, `.query()` hanya menjadi fakta CRUD bila receiver dapat ditelusuri secara statis ke `Pool`, `Client`, atau `PoolClient` node-postgres yang diimpor dari `pg`/`pg-pool`, SQL merupakan string literal yang terpecahkan, dan tabel cocok secara unik dengan `CREATE TABLE` pada snapshot. Evidence menyertakan query, binding database, dan deklarasi tabel. Migration/seed dapat menjadi bukti struktur tabel, tetapi tidak dianggap sebagai pemanggilan aplikasi; folder test, fixture, mock, vendor, dan generated dikecualikan dari katalog data.
+
+Laravel memetakan operasi Eloquent literal hanya jika model terbukti mewarisi Eloquent dan pemanggilan backend terhubung dengan alur route/controller/service yang dikenali. Pola Next/ORM, Supabase, Node HTTP, dan SQLAlchemy yang belum memverifikasi binding atau jalur persistence tetap berupa indikasi atau referensi data; pola dinamis, unsupported driver, dan query yang tidak cocok dengan schema dicatat sebagai limitation atau dibiarkan `unknown`. Analyzer tidak menjalankan kode repository, memeriksa database runtime, atau membuktikan query berhasil dieksekusi. **Extractor 0.6.5** menambahkan bukti binding PostgreSQL dan metadata operasi CRUD; analisis ulang diperlukan untuk mengganti model sebelumnya.
+
 ## Penyajian interaktif
 
 Sejak revisi 1 November 2026, graph semantik memakai architecture card dan kelompok tanggung jawab. Lingkaran bukan lagi persyaratan bentuk. Diagram alur mengikuti entry point beserta seluruh hubungan yang tampil dalam scope terpilih, tanpa pemotongan acak 24 node. Zoom, fokus, search dan evidence tetap tersedia. Lihat [audit dan revisi keterbacaan](DIAGRAM_READABILITY.md).

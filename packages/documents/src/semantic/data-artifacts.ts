@@ -3,7 +3,7 @@ import { emptyFragment, evidenceSpan, humanLabel, semanticEdgeId, semanticNode }
 import type { SemanticEdge, SemanticFragment, SemanticInput } from "./model.ts";
 
 const MAX_CONTRACT_BYTES = 1_048_576;
-const EXCLUDED = /(^|\/)(?:vendor|node_modules|dist|build|coverage|generated|fixtures?|mocks?)(\/|$)/iu;
+const EXCLUDED = /(^|\/)(?:vendor|node_modules|dist|build|coverage|generated|fixtures?|mocks?|tests?|__tests__|specs?)(\/|$)/iu;
 type Source = { path: string; bytes: Uint8Array; text: string };
 function readSources(input: SemanticInput): Source[] {
   return Object.entries(input.sources).filter(([path, bytes]) => !EXCLUDED.test(path) && bytes.byteLength <= MAX_CONTRACT_BYTES && /\.(?:sql|json|ya?ml|prisma)$/iu.test(path))
@@ -323,14 +323,16 @@ export function extractDataArtifacts(input: SemanticInput): SemanticFragment {
       continue;
     }
     const priorNodes = fragment.nodes.length; const priorEdges = fragment.edges.length;
+    const isOpenApiYaml = /\.ya?ml$/iu.test(source.path) && /^\s*(?:openapi|swagger)\s*:/mu.test(source.text);
+    const isSchemaJson = /\.json$/iu.test(source.path) && /(?:openapi|swagger|schema|\.schema\.)/iu.test(source.path);
     if (/\.sql$/iu.test(source.path)) parseSql(fragment, source);
-    else if (/\.ya?ml$/iu.test(source.path)) parseOpenApiYaml(fragment, source);
-    else if (/\.json$/iu.test(source.path) && /(?:openapi|swagger|schema|\.schema\.)/iu.test(source.path)) {
+    else if (isOpenApiYaml) parseOpenApiYaml(fragment, source);
+    else if (isSchemaJson) {
       try { const value: unknown = JSON.parse(source.text); if (value && typeof value === "object" && !Array.isArray(value)) decodeOpenApiJson(fragment, source, value as Record<string, unknown>); }
       catch { /* Invalid JSON is reported in limitations below; no partial data model is asserted. */ }
     }
     if (fragment.nodes.length > priorNodes || fragment.edges.length > priorEdges) continue;
-    if (/\.sql$/iu.test(source.path) || /\.ya?ml$/iu.test(source.path) || /\.json$/iu.test(source.path) && /(?:openapi|swagger|schema|\.schema\.)/iu.test(source.path)) {
+    if (/\.sql$/iu.test(source.path) || isOpenApiYaml || isSchemaJson) {
       fragment.limitations.push({ filePath: source.path, reason: "Structured contract file did not match supported static SQL/OpenAPI/JSON Schema patterns; no architecture facts were inferred from its filename alone." });
     }
   }

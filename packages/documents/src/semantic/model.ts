@@ -11,6 +11,8 @@ export interface RelationshipExplanation {
 }
 
 export type SemanticConfidence = "proven" | "indicated";
+/** Source-level data operation. This records syntax found in backend code; it does not imply successful runtime execution. */
+export type DataOperation = "create" | "read" | "update" | "delete" | "upsert" | "persist";
 export type SemanticKind = "actor" | "feature" | "concept" | "component" | "store" | "step" | "decision" | "outcome";
 export interface SemanticNode {
   id: string; kind: SemanticKind; label: string; featureId: string | null;
@@ -19,6 +21,7 @@ export interface SemanticNode {
 export interface SemanticEdge {
   id: string; source: string; target: string; label: string;
   confidence: SemanticConfidence; reason: string; evidence: EvidenceSpan[];
+  dataOperation?: DataOperation;
   explanation?: RelationshipExplanation;
 }
 export interface SemanticFeature {

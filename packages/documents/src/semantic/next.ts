@@ -2099,8 +2099,14 @@ function addStores(fragment: SemanticFragment, input: SemanticInput, entry: Sour
           const store = semanticNode({ kind: "store", filePath: entry.path, startByte: span.startByte, key: `store:${table}`, label: humanLabel(table), featureId,
             confidence: operationConfidence, reason: operationConfidence === "proven" ? operationReason : `${operationReason} Eksekusi operasi belum sepenuhnya terverifikasi.`, evidence: [span], technicalNodeIds: technicalNodesForSpan(input.ccm.nodes, entry.path, span.startByte, span.endByte) });
           fragment.nodes.push(store); nodeIds.push(store.id);
-          const label = /^(find|count|aggregate|select|single|maybeSingle)/u.test(operation) ? "membaca" : /^(delete)/u.test(operation) ? "menghapus" : /^(update)/u.test(operation) ? "mengubah" : "menyimpan";
+          const label = /^(find|count|aggregate|select|single|maybeSingle)/u.test(operation) ? "reads"
+            : /^(delete)/u.test(operation) ? "deletes"
+              : /^(update)/u.test(operation) ? "updates"
+                : /^(upsert)/u.test(operation) ? "creates or updates"
+                  : /^(create|insert)/u.test(operation) ? "creates" : "persists";
           const edge = makeEdge("data-access", componentId, store.id, label, operationConfidence, store.reason, span);
+          const dataOperation = dataOperationForCall(operation);
+          if (dataOperation) edge.dataOperation = dataOperation;
           if (transaction) {
             const callSpan = nodeRange(entry, transaction.call.expression, "reference");
             const callbackSpan = nodeRange(entry, transaction.parameter, "declaration");
@@ -2334,6 +2340,16 @@ function supabaseTerminalOperation(fromCall: ts.CallExpression): string | null {
   if (!ts.isPropertyAccessExpression(access) || access.expression !== fromCall || !ts.isCallExpression(access.parent) || access.parent.expression !== access) return null;
   const method = access.name.text;
   return ["select", "insert", "upsert", "update", "delete", "single", "maybeSingle"].includes(method) ? method : null;
+}
+
+function dataOperationForCall(operation: string): "create" | "read" | "update" | "delete" | "upsert" | "persist" | undefined {
+  if (/^(?:find|count|aggregate|select|single|maybeSingle)/u.test(operation)) return "read";
+  if (/^(?:delete|remove)/u.test(operation)) return "delete";
+  if (/^(?:update)/u.test(operation)) return "update";
+  if (/^(?:upsert)/u.test(operation)) return "upsert";
+  if (/^(?:create|insert)/u.test(operation)) return "create";
+  if (/^(?:save|persist|write)/u.test(operation)) return "persist";
+  return undefined;
 }
 
 function literalErrorProperty(value: ts.Expression | undefined): string | null {
