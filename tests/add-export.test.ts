@@ -105,6 +105,19 @@ test("ADD exports reject malformed canonical model hashes", () => {
   assert.throws(() => createAddLatex(model, emptyAddReviewOverlay(), evidenceUrl, { modelHash: "not-a-sha256" }), /Invalid ADD export model hash/u);
 });
 
+test("PDF keeps dense evidence rows within a readable compact table", () => {
+  const expanded = structuredClone(model);
+  expanded.elements[0]!.evidence = Array.from({ length: 5 }, (_, index) => ({
+    filePath: `src/evidence-${index + 1}.ts`, fileSha256: "d".repeat(64), startByte: index, endByte: index + 1,
+    startLine: index + 1, endLine: index + 2, startColumn: 1, endColumn: 2, role: "reference" as const,
+  }));
+
+  const latex = createAddLatex(expanded, emptyAddReviewOverlay(), evidenceUrl, { modelHash });
+  assert.ok(latex.includes("+ 2 more evidence links in Markdown"), "PDF reports when a row has evidence links omitted for compactness");
+  assert.ok(latex.includes("src/evidence-1.ts") && latex.includes("src/evidence-3.ts"), "PDF keeps the first three evidence links");
+  assert.ok(!latex.includes("src/evidence-4.ts") && !latex.includes("src/evidence-5.ts"), "PDF omits additional links instead of overflowing the table row");
+});
+
 test("Application Cooperation PDF keeps all relationships on upright, connected pages", () => {
   const expanded = structuredClone(model);
   const applicationId = "app:web";

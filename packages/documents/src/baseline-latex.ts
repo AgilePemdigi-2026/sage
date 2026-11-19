@@ -6,6 +6,8 @@ import { addViewNarratives, type AddViewKind } from "./baseline-narratives.ts";
 
 export type LatexEvidenceUrlBuilder = (span: EvidenceSpan) => string;
 
+const PDF_EVIDENCE_LINK_LIMIT = 3;
+
 function tex(value: string): string {
   const replacements: Record<string, string> = {
     "\\": "\\textbackslash{}", "{": "\\{", "}": "\\}", "$": "\\$", "&": "\\&", "%": "\\%",
@@ -45,10 +47,13 @@ function texUrl(value: string): string {
 
 function evidence(spans: EvidenceSpan[], makeUrl: LatexEvidenceUrlBuilder): string {
   if (!spans.length) return "Not available";
-  return spans.map(span => {
+  const links = spans.slice(0, PDF_EVIDENCE_LINK_LIMIT).map(span => {
     const label = breakableTex(`${span.filePath}:${span.startLine}-${span.endLine}`);
     return `\\href{${texUrl(makeUrl(span))}}{\\texttt{\\footnotesize ${label}}}`;
-  }).join("\\newline ");
+  });
+  const omitted = spans.length - links.length;
+  if (omitted > 0) links.push(`{\\scriptsize + ${omitted} more evidence links in Markdown}`);
+  return links.join("\\newline ");
 }
 
 function table(headers: string[], rows: string[][], widths: string[]): string {
