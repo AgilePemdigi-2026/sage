@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import type { CcmV1, EvidenceSpan } from "@sage/contracts";
 import { ADD_BASELINE_SCHEMA, ARCHIMATE_PROFILE_VERSION, archimatePairAllowed } from "./baseline-add-model.ts";
 import type { AddElement, AddBaselineModel, AddRelationship, ArchiMateRelationshipType } from "./baseline-add-model.ts";
+import { projectCoreBaselineView } from "./baseline-core-views.ts";
 import type { SemanticModel } from "./semantic/model.ts";
 
 export { ADD_BASELINE_SCHEMA, ARCHIMATE_PROFILE_VERSION, isAddBaselineModel } from "./baseline-add-model.ts";
@@ -224,7 +225,7 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
   const dataViewEdges = links.filter(edge => edge.type === "AssociationRelationship" &&
     elements.get(edge.sourceId)?.type === "DataObject" && elements.get(edge.targetId)?.type === "DataObject");
   const applicationViewEdges = links.filter(edge => applicationViewElementIds.has(edge.sourceId) && applicationViewElementIds.has(edge.targetId));
-  return {
+  const model: AddBaselineModel = {
     schemaVersion: ADD_BASELINE_SCHEMA, archimateVersion: ARCHIMATE_PROFILE_VERSION, snapshot: structuredClone(input.ccm.snapshot),
     generation: { extractorVersion: input.semantic.extractorVersion, llmOutcome: "not-requested", llmModel: null },
     sourceCkgHash: input.sourceCkgHash, elements: [...elements.values()].sort((a, b) => a.id.localeCompare(b.id)),
@@ -249,14 +250,10 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
     narratives: {
       dataBaseline: `${dataElements.length} data object teridentifikasi dari operasi store yang dianalisis. Owner dan distribusi aktual memerlukan konfirmasi.`,
       applicationBaseline: `Cakupan repository mencakup ${Math.max(0, appElements.length - 1)} build-backed service component yang dideklarasikan pada Docker Compose dan ${interfaces.length} interface. Functional decomposition berasal dari source yang dikenali; konfigurasi tidak membuktikan runtime service aktif.`,
-      dataViewIntroduction: `Diagram berikut menampilkan ${dataElements.length} data object dan ${dataViewEdges.length} hubungan antar data object yang dinyatakan pada source snapshot. Katalog dan evidence menyediakan rincian setiap object serta relasi yang terdeteksi.`,
-      dataViewInterpretation: dataElements.length
-        ? `Gambar ini memperlihatkan data object yang dikenali beserta association yang memiliki bukti source. Node tanpa garis menunjukkan bahwa tidak ada association antar data object yang terkonfirmasi untuk node tersebut pada snapshot ini; kondisi itu tidak membuktikan bahwa hubungan tidak ada di sistem yang berjalan.`
-        : "Snapshot ini belum menyediakan data object source-supported untuk ditampilkan pada diagram.",
-      applicationViewIntroduction: `Diagram berikut memetakan ${applicationViewElements.length} elemen aplikasi dan ${applicationViewEdges.length} hubungan source-level yang dikenali secara statis. Elemen dikelompokkan menurut tipe ArchiMate; rincian hubungan dan evidence tersedia pada register.`,
-      applicationViewInterpretation: applicationViewElements.length
-        ? `Gambar ini merangkum batas repository, service build-backed yang dinyatakan pada Docker Compose, interface, dan perilaku source-level yang dikenali. Garis solid menunjukkan hubungan proven, sedangkan garis putus-putus menunjukkan pemetaan indicated yang perlu ditinjau. Hubungan antar-service menunjukkan integration path yang dikonfigurasi dan didukung pemanggilan HTTP pada source; diagram tidak membuktikan availability atau traffic runtime.`
-        : "Snapshot ini belum menyediakan elemen aplikasi source-supported untuk ditampilkan pada diagram.",
+      dataViewIntroduction: "",
+      dataViewInterpretation: "",
+      applicationViewIntroduction: "",
+      applicationViewInterpretation: "",
     },
     limitations: [...new Set([
       ...input.semantic.limitations.map(item => item.reason),
@@ -267,4 +264,15 @@ export function buildAddBaseline(input: { ccm: CcmV1; semantic: SemanticModel; s
       "Katalog interface saat ini berisi interface API yang terdeteksi dari semantic model; integrasi tak terlacak tidak diasumsikan.",
     ])],
   };
+  const dataCore = projectCoreBaselineView(model, "dataStructure");
+  const applicationCore = projectCoreBaselineView(model, "applicationCooperation");
+  model.narratives.dataViewIntroduction = `Diagram menampilkan ${dataCore.elements.length} data object yang terhubung oleh ${dataCore.relationships.length} association inti. Katalog juga memuat ${dataCore.omittedElementCount} object yang tidak ditampilkan pada view ini.`;
+  model.narratives.applicationViewIntroduction = `Overview menampilkan ${applicationCore.elements.length} komponen atau service aplikasi dengan ${applicationCore.relationships.length} relasi inti. Interface dan fungsi rinci tidak dimasukkan ke diagram ini.`;
+  model.narratives.dataViewInterpretation = dataCore.relationships.length
+    ? "Diagram ini menampilkan association data yang dikonfirmasi oleh source. Object yang tidak tampak tetap tercantum pada katalog; ketiadaannya pada view ini tidak membuktikan bahwa object atau hubungannya tidak ada pada sistem berjalan."
+    : "Snapshot ini belum menyediakan association data yang didukung source untuk ditampilkan pada diagram; data object tetap tersedia pada katalog.";
+  model.narratives.applicationViewInterpretation = applicationCore.relationships.length
+    ? "Diagram ini merangkum hubungan inti antar komponen aplikasi yang ditemukan pada source. Diagram tidak membuktikan business capability, availability, atau traffic runtime."
+    : "Snapshot ini belum menyediakan hubungan inti antar komponen aplikasi yang didukung source untuk ditampilkan pada diagram.";
+  return model;
 }

@@ -1,35 +1,40 @@
 import type { AddBaselineModel } from "./baseline-add-model.ts";
 import { PHASE_C_ADD } from "./phase-c-add.ts";
+import { projectCoreBaselineView } from "./baseline-core-views.ts";
 
 export type AddViewKind = "dataStructure" | "applicationCooperation";
 export type AddViewNarratives = { introduction: string; interpretation: string };
 
 /** Keep older persisted ADD snapshots readable while sharing one deterministic fallback across all outputs. */
 export function addViewNarratives(model: AddBaselineModel, view: AddViewKind): AddViewNarratives {
-  const viewModel = model.views[view];
-  const nodes = viewModel.elementIds.map(id => model.elements.find(element => element.id === id)).filter(Boolean);
-  const relationships = viewModel.relationshipIds.map(id => model.relationships.find(edge => edge.id === id)).filter(Boolean);
-  const proven = relationships.filter(edge => edge?.confidence === "proven").length;
-  const indicated = relationships.length - proven;
+  const core = projectCoreBaselineView(model, view);
+  const stored = model.narratives;
+  const storedNarrative = (text: string | undefined): string | null => {
+    if (!core.relationships.length || !text || text.length > 420 || /solid line|dashed line|garis (?:solid|putus)|node tanpa garis/iu.test(text)) return null;
+    const countMentions = [...text.matchAll(/\b(\d+)\s+(?:data object|application element|elemen aplikasi|relasi|relationship|associations?)/giu)];
+    if (countMentions.some(match => Number(match[1]) !== core.elements.length && Number(match[1]) !== core.relationships.length)) return null;
+    if (view === "applicationCooperation" && /\b(?:interfaces?|endpoints?|handlers?|functions?|fungsi)\b/iu.test(text)) return null;
+    return text;
+  };
+  const dataFallbackIntroduction = `Diagram ini menyoroti ${core.elements.length} data object dalam ${core.relationships.length} association inti. Object lain tetap tercantum pada Data Entity Catalog.`;
+  const applicationFallbackIntroduction = `Overview ini menyoroti ${core.elements.length} application component atau service dan ${core.relationships.length} relasi inti. Detail yang lebih rendah berada di katalog.`;
+  const dataFallbackInterpretation = core.relationships.length
+    ? `Gambar ini memperlihatkan association yang dikonfirmasi source. Object yang tidak digambar tetap ada di katalog; ketiadaannya dari view ini tidak membuktikan object tersebut tidak ada pada sistem berjalan.`
+    : `Snapshot ini belum menunjukkan association data yang didukung source; data object tetap tercantum di katalog.`;
+  const applicationFallbackInterpretation = core.relationships.length
+    ? `Gambar ini memperlihatkan hubungan inti antar application component atau service yang ditemukan pada source. Diagram tidak membuktikan business capability, availability, atau traffic runtime.`
+    : `Snapshot ini belum menunjukkan hubungan inti antar application component atau service yang didukung source.`;
 
   if (view === "dataStructure") {
     return {
-      introduction: model.narratives.dataViewIntroduction ??
-        `Diagram ini menampilkan ${nodes.length} data object dan ${relationships.length} relasi data yang dikenali pada source snapshot. Hanya hubungan antar data object yang didukung bukti source yang dimasukkan.`,
-      interpretation: model.narratives.dataViewInterpretation ??
-        (nodes.length
-          ? `data object yang dikenali pada snapshot beserta association yang memiliki bukti source. Node tanpa garis berarti tidak ada association yang terkonfirmasi untuk node tersebut pada snapshot ini; hal itu tidak membuktikan bahwa hubungan tidak ada di sistem yang berjalan.`
-          : `snapshot ini belum menyediakan data object source-supported untuk ditampilkan pada diagram.`),
+      introduction: storedNarrative(stored.dataViewIntroduction) ?? dataFallbackIntroduction,
+      interpretation: storedNarrative(stored.dataViewInterpretation) ?? dataFallbackInterpretation,
     };
   }
 
   return {
-    introduction: model.narratives.applicationViewIntroduction ??
-      `Diagram ini memetakan ${nodes.length} elemen aplikasi dan ${relationships.length} hubungan yang dikenali secara statis dari repository. Hubungan internal ditampilkan sesuai pemetaan ArchiMate yang didukung evidence.`,
-    interpretation: model.narratives.applicationViewInterpretation ??
-      (nodes.length
-        ? `hubungan source-level yang terdeteksi di dalam satu repository. ${proven} hubungan berstatus proven dan ${indicated} berstatus indicated; hubungan indicated perlu ditinjau. Diagram ini tidak menyatakan batas deployment, business capability, atau perilaku runtime.`
-        : `snapshot ini belum menyediakan elemen aplikasi source-supported untuk ditampilkan pada diagram.`),
+    introduction: storedNarrative(stored.applicationViewIntroduction) ?? applicationFallbackIntroduction,
+    interpretation: storedNarrative(stored.applicationViewInterpretation) ?? applicationFallbackInterpretation,
   };
 }
 

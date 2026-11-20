@@ -7,6 +7,7 @@ import { isAddBaselineModel, type AddBaselineModel, type AddElement, type AddRel
 import { createAddMarkdown } from "@sage/documents/baseline-markdown";
 import { createAddLatex } from "@sage/documents/baseline-latex";
 import { addViewFigureNumber, addViewNarratives } from "@sage/documents/baseline-narratives";
+import { coreRelationshipLabel, projectCoreBaselineView } from "@sage/documents/baseline-core-views";
 import { PHASE_C_ADD, PHASE_C_ADD_TOC } from "@sage/documents/phase-c-add";
 import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
 import styles from "./add-workspace.module.css";
@@ -27,9 +28,10 @@ function parseApiRecord(value: unknown, analysisId: string, accountKey: string):
   return { ...(value as unknown as ApiRecord), model };
 }
 
-function githubEvidence(repository: string, commitSha: string, span: { filePath: string; startLine: number; endLine: number }): string {
+function githubEvidence(repository: string, commitSha: string, span: { filePath: string; startLine: number; endLine: number }, fileOnly = false): string {
   const path = span.filePath.split("/").map(encodeURIComponent).join("/");
-  return `https://github.com/${repository}/blob/${commitSha}/${path}#L${span.startLine}-L${span.endLine}`;
+  const fragment = fileOnly ? "" : `#L${span.startLine}-L${span.endLine}`;
+  return `https://github.com/${repository}/blob/${commitSha}/${path}${fragment}`;
 }
 
 function EvidenceList({ model, spans, showAll = false }: { model: AddBaselineModel; spans: AddElement["evidence"]; showAll?: boolean }) {
@@ -38,124 +40,240 @@ function EvidenceList({ model, spans, showAll = false }: { model: AddBaselineMod
 }
 
 function elementTypeLabel(type: AddElement["type"]): string {
-  return ({ ApplicationComponent: "Application", ApplicationFunction: "Function", ApplicationService: "Service", ApplicationInterface: "Interface", DataObject: "Data object" })[type];
+  return ({ ApplicationComponent: "Application component", ApplicationFunction: "Application function", ApplicationService: "Application service", ApplicationInterface: "Application interface", DataObject: "Data object" })[type];
+}
+
+function TableColumns({ widths }: { widths: number[] }) {
+  return <colgroup>{widths.map((width, index) => <col key={index} style={{ width: `${width}%` }} />)}</colgroup>;
 }
 
 function RelationshipTable({ model, relationships, showAllEvidence = false }: { model: AddBaselineModel; relationships: AddRelationship[]; showAllEvidence?: boolean }) {
   const allById = new Map(model.elements.map(item => [item.id, item]));
-  return <table><thead><tr><th>Source</th><th>ArchiMate relationship</th><th>Target</th><th>Confidence</th><th>Review</th><th>Reason</th><th>Evidence</th></tr></thead><tbody>
-    {relationships.map(edge => <tr key={edge.id} data-relationship-id={edge.id}><th scope="row">{allById.get(edge.sourceId)?.name ?? edge.sourceId}</th><td><strong>{edge.type}</strong><small>{edge.label}</small></td><td>{allById.get(edge.targetId)?.name ?? edge.targetId}</td><td>{edge.confidence === "proven" ? "Proven" : "Indicated"}</td><td>{edge.review}</td><td>{edge.reason}</td><td><EvidenceList model={model} spans={edge.evidence} showAll={showAllEvidence} /></td></tr>)}
-    {!relationships.length ? <tr><td colSpan={7} className={styles.emptyCell}>No relationship was identified.</td></tr> : null}
+  return <table className={styles.relationshipTable}><TableColumns widths={[17, 24, 17, 11, 10, 21]} /><thead><tr><th>Source</th><th>Relationship</th><th>Target</th><th>Evidence status</th><th>Review</th><th>Evidence</th></tr></thead><tbody>
+    {relationships.map(edge => <tr key={edge.id} data-relationship-id={edge.id}><th scope="row">{allById.get(edge.sourceId)?.name ?? edge.sourceId}</th><td><strong>{edge.type.replace(/Relationship$/u, "")}</strong>{coreRelationshipLabel(edge) ? <small>{coreRelationshipLabel(edge)}</small> : null}</td><td>{allById.get(edge.targetId)?.name ?? edge.targetId}</td><td>{edge.confidence === "proven" ? "Proven" : "Indicated"}</td><td>{edge.review}</td><td><EvidenceList model={model} spans={edge.evidence} showAll={showAllEvidence} /></td></tr>)}
+    {!relationships.length ? <tr><td colSpan={6} className={styles.emptyCell}>No source-supported relationship was identified.</td></tr> : null}
   </tbody></table>;
 }
 
 function PrintRelationshipRegister({ model }: { model: AddBaselineModel }) {
+  const data = projectCoreBaselineView(model, "dataStructure");
+  const application = projectCoreBaselineView(model, "applicationCooperation");
+  const relationships = [...data.relationships, ...application.relationships];
   return <section className={styles.printRelationshipRegister} aria-labelledby="complete-relationship-register-title">
-    <h3 id="complete-relationship-register-title">Complete Relationship Register</h3>
-    <p>Every relationship in this ADD model is listed below with its evidence. This includes relationships whose endpoints fall on different diagram pages or outside a specific diagram view.</p>
-    <div className={styles.tableScroll}><RelationshipTable model={model} relationships={model.relationships} showAllEvidence /></div>
+    <h3 id="complete-relationship-register-title">Core Relationship Register</h3>
+    <p>Only the source-supported relationships shown in the stakeholder views are listed here. Lower-level endpoint and function links remain available in their catalogs.</p>
+    <div className={styles.tableScroll}><RelationshipTable model={model} relationships={relationships} showAllEvidence /></div>
   </section>;
+}
+
+type DiagramPoint = { x: number; y: number; level: number };
+
+type ArchimateMarker = "association" | "composition" | "assignment" | "realization" | "serving" | "access" | "triggering" | "flow";
+
+function markerFor(type: AddRelationship["type"]): ArchimateMarker {
+  const markers: Record<AddRelationship["type"], ArchimateMarker> = {
+    AssociationRelationship: "association",
+    CompositionRelationship: "composition",
+    AssignmentRelationship: "assignment",
+    RealizationRelationship: "realization",
+    ServingRelationship: "serving",
+    AccessRelationship: "access",
+    TriggeringRelationship: "triggering",
+    FlowRelationship: "flow",
+  };
+  return markers[type];
+}
+
+function diagramNameLines(value: string, maxLength = 28): string[] {
+  const lines: string[] = [];
+  let line = "";
+  for (const word of value.split(/\s+/u)) {
+    if (line && (line + " " + word).length > maxLength) { lines.push(line); line = ""; }
+    if (word.length > maxLength) {
+      if (line) { lines.push(line); line = ""; }
+      for (let index = 0; index < word.length; index += maxLength) lines.push(word.slice(index, index + maxLength));
+    } else line = line ? line + " " + word : word;
+  }
+  if (line) lines.push(line);
+  return lines.slice(0, 3);
+}
+
+function diagramPositions(elements: AddElement[], relationships: AddRelationship[], view: "dataStructure" | "applicationCooperation", cardWidth: number, cardHeight: number): { positions: Map<string, DiagramPoint>; width: number; height: number } {
+  const byId = new Map(elements.map(element => [element.id, element]));
+  const adjacent = new Map(elements.map(element => [element.id, new Set<string>()]));
+  const incoming = new Map(elements.map(element => [element.id, 0]));
+  const outgoing = new Map(elements.map(element => [element.id, [] as string[]]));
+  for (const edge of relationships) {
+    if (!byId.has(edge.sourceId) || !byId.has(edge.targetId)) continue;
+    adjacent.get(edge.sourceId)!.add(edge.targetId);
+    adjacent.get(edge.targetId)!.add(edge.sourceId);
+    outgoing.get(edge.sourceId)!.push(edge.targetId);
+    incoming.set(edge.targetId, incoming.get(edge.targetId)! + 1);
+  }
+  const label = (id: string) => byId.get(id)?.name ?? id;
+  const groups: string[][] = [];
+  const visited = new Set<string>();
+  for (const element of elements) {
+    if (visited.has(element.id) || !(adjacent.get(element.id)?.size)) continue;
+    const queue = [element.id];
+    const group: string[] = [];
+    visited.add(element.id);
+    while (queue.length) {
+      const current = queue.shift()!;
+      group.push(current);
+      for (const next of adjacent.get(current) ?? []) if (!visited.has(next)) { visited.add(next); queue.push(next); }
+    }
+    groups.push(group);
+  }
+
+  const levelsByGroup = groups.map(group => {
+    const root = [...group].sort((left, right) => (adjacent.get(right)?.size ?? 0) - (adjacent.get(left)?.size ?? 0) || label(left).localeCompare(label(right)))[0]!;
+    const levels = new Map<string, number>();
+    if (view === "applicationCooperation") {
+      const indegree = new Map(group.map(id => [id, 0]));
+      for (const id of group) for (const next of outgoing.get(id) ?? []) if (indegree.has(next)) indegree.set(next, indegree.get(next)! + 1);
+      const ready = group.filter(id => indegree.get(id) === 0).sort((left, right) => label(left).localeCompare(label(right)));
+      const order: string[] = [];
+      for (const id of ready) levels.set(id, 0);
+      while (ready.length) {
+        const current = ready.shift()!;
+        order.push(current);
+        for (const next of outgoing.get(current) ?? []) {
+          if (!indegree.has(next)) continue;
+          levels.set(next, Math.max(levels.get(next) ?? 0, (levels.get(current) ?? 0) + 1));
+          indegree.set(next, indegree.get(next)! - 1);
+          if (indegree.get(next) === 0) { ready.push(next); ready.sort((left, right) => label(left).localeCompare(label(right))); }
+        }
+      }
+      if (order.length !== group.length) levels.clear();
+    }
+    if (levels.size !== group.length) {
+      levels.clear();
+      levels.set(root, 0);
+      const queue = [root];
+      while (queue.length) {
+        const current = queue.shift()!;
+        for (const next of adjacent.get(current) ?? []) if (!levels.has(next)) { levels.set(next, levels.get(current)! + 1); queue.push(next); }
+      }
+    }
+    return levels;
+  });
+
+  const positions = new Map<string, DiagramPoint>();
+  const xGap = view === "applicationCooperation" ? 350 : 430;
+  const marginX = 70;
+  if (view === "dataStructure") {
+    let laneTop = 65;
+    for (const levels of levelsByGroup) {
+      const grouped = new Map<number, string[]>();
+      for (const [id, level] of levels) grouped.set(level, [...(grouped.get(level) ?? []), id]);
+      const rowCount = Math.max(...[...grouped.values()].map(items => items.length), 1);
+      for (const [level, ids] of grouped) {
+        ids.sort((left, right) => label(left).localeCompare(label(right)));
+        const top = laneTop + (rowCount - ids.length) * 60;
+        ids.forEach((id, index) => positions.set(id, { x: marginX + level * xGap, y: top + index * 120, level }));
+      }
+      laneTop += rowCount * 120 + 55;
+    }
+  } else {
+    const rowsByLevel = new Map<number, string[]>();
+    for (const levels of levelsByGroup) for (const [id, level] of levels) rowsByLevel.set(level, [...(rowsByLevel.get(level) ?? []), id]);
+    for (const [level, ids] of rowsByLevel) {
+      ids.sort((left, right) => label(left).localeCompare(label(right)));
+      ids.forEach((id, index) => positions.set(id, { x: marginX + level * xGap, y: 120 + (index - (ids.length - 1) / 2) * 145, level }));
+    }
+  }
+  const maxLevel = Math.max(0, ...[...positions.values()].map(point => point.level));
+  const maxY = Math.max(0, ...[...positions.values()].map(point => point.y));
+  return { positions, width: marginX * 2 + cardWidth + maxLevel * xGap, height: maxY + cardHeight + 65 };
 }
 
 function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStructure" | "applicationCooperation" }) {
   const narratives = addViewNarratives(model, view);
-  const viewData = model.views[view];
-  const elements = viewData.elementIds.map(id => model.elements.find(item => item.id === id)).filter((item): item is AddElement => Boolean(item));
-  const relationships = viewData.relationshipIds.map(id => model.relationships.find(item => item.id === id)).filter((item): item is AddRelationship => Boolean(item));
-  const width = 1240;
+  const core = projectCoreBaselineView(model, view);
+  const elements = core.elements;
+  const relationships = core.relationships;
   const dataView = view === "dataStructure";
-  const cardWidth = dataView ? 300 : 250;
-  const cardHeight = 74;
-  const verticalGap = 112;
-  const columns = dataView
-    ? ["DataObject"]
-    : ["ApplicationComponent", "ApplicationFunction", "ApplicationService", "ApplicationInterface"];
-  const xByType: Record<string, number> = dataView
-    ? { DataObject: 25 }
-    : { ApplicationComponent: 20, ApplicationFunction: 320, ApplicationService: 620, ApplicationInterface: 920 };
-  const byColumn = new Map<string, AddElement[]>();
-  for (const type of columns) byColumn.set(type, elements.filter(item => item.type === type).sort((a, b) => (a.featureGroup ?? "").localeCompare(b.featureGroup ?? "") || a.name.localeCompare(b.name)));
-  const typeLabel = view === "dataStructure" ? "DATA STRUCTURE VIEW" : "APPLICATION COOPERATION VIEW";
-  const figureTitle = view === "dataStructure" ? "ArchiMate Data Structure View" : "ArchiMate Application Cooperation View";
-  const renderSvg = (pageElements: AddElement[], pageRelationships: AddRelationship[], suffix: string, compact = false) => {
-    const pageColumns = new Map<string, AddElement[]>();
-    for (const type of columns) pageColumns.set(type, pageElements.filter(item => item.type === type));
-    const visibleColumns = compact ? columns.filter(type => (pageColumns.get(type)?.length ?? 0) > 0) : columns;
-    const pageXByType: Record<string, number> = compact
-      ? Object.fromEntries(visibleColumns.map((type, index) => [type, 25 + index * (cardWidth + 65)]))
-      : xByType;
-    const dataColumnCount = Math.min(3, pageColumns.get("DataObject")?.length ?? 0);
-    const pageWidth = compact
-      ? dataView ? Math.max(350, 50 + dataColumnCount * cardWidth + Math.max(0, dataColumnCount - 1) * 85)
-        : Math.max(350, 50 + visibleColumns.length * cardWidth + Math.max(0, visibleColumns.length - 1) * 65)
-      : width;
-    const positions = new Map<string, { x: number; y: number }>();
-    if (dataView) {
-      const xPositions = [25, 25 + cardWidth + 85, 25 + (cardWidth + 85) * 2];
-      (pageColumns.get("DataObject") ?? []).forEach((item, index) => positions.set(item.id, { x: xPositions[index % 3]!, y: 62 + Math.floor(index / 3) * verticalGap }));
-    } else {
-      for (const type of visibleColumns) (pageColumns.get(type) ?? []).forEach((item, index) => positions.set(item.id, { x: pageXByType[type] ?? 20, y: 62 + index * verticalGap }));
-    }
-    const rowCount = dataView ? Math.ceil((pageColumns.get("DataObject")?.length ?? 0) / 3) : Math.max(0, ...[...pageColumns.values()].map(items => items.length));
-    const height = Math.max(220, 100 + rowCount * verticalGap);
-    const idByElement = new Map(pageElements.map(item => [item.id, item]));
-    return <svg className={styles.diagram} viewBox={`0 0 ${pageWidth} ${height}`} role="img" aria-labelledby={`${view}-${suffix}-title ${view}-${suffix}-desc`}>
-      <title id={`${view}-${suffix}-title`}>{typeLabel}</title><desc id={`${view}-${suffix}-desc`}>ArchiMate element and source-supported relationship overview.</desc>
-      <defs><marker id={`${view}-${suffix}-arrow`} markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><path d="M0,0 L10,4 L0,8 z" fill="#6c7786" /></marker></defs>
-      {dataView ? <text x="25" y="28" className={styles.diagramLane}>DATA OBJECTS · EXPLICIT RELATIONSHIPS</text> : visibleColumns.map((type, index) => <g key={type}><text x={(pageXByType[type] ?? 20) + cardWidth / 2} y="28" textAnchor="middle" className={styles.diagramLane}>{elementTypeLabel(type as AddElement["type"]).toUpperCase()}</text>
-        {index < visibleColumns.length - 1 ? <line x1={(pageXByType[type] ?? 20) + cardWidth + 14} y1="40" x2={(pageXByType[visibleColumns[index + 1]!] ?? 20) - 14} y2="40" className={styles.laneRule} /> : null}</g>)}
-      {pageRelationships.map(edge => {
-        const from = positions.get(edge.sourceId); const to = positions.get(edge.targetId);
-        if (!from || !to) return null;
-        const source = idByElement.get(edge.sourceId)!; const target = idByElement.get(edge.targetId)!;
-        const sameColumn = from.x === to.x; const sourceOnLeft = sameColumn ? from.y <= to.y : from.x < to.x;
-        const sideOffset = from.x + cardWidth + 26 < pageWidth ? cardWidth : 0;
-        const x1 = sameColumn ? from.x + (sideOffset || -18) : sourceOnLeft ? from.x + cardWidth : from.x;
-        const x2 = sameColumn ? to.x + (sideOffset || -18) : sourceOnLeft ? to.x : to.x + cardWidth;
-        const y1 = from.y + cardHeight / 2; const y2 = to.y + cardHeight / 2;
-        const bend = sameColumn ? x1 + (sideOffset ? 24 : -24) : (x1 + x2) / 2;
-        const label = edge.label.length > 28 ? `${edge.label.slice(0, 27)}…` : edge.label;
-        const strokeClass = edge.confidence === "proven" ? styles.edgeSource : styles.edgeProposed;
-        const marker = edge.type === "AssociationRelationship" ? undefined : `url(#${view}-${suffix}-arrow)`;
-        return <g key={edge.id} data-relationship-id={edge.id} className={strokeClass}><path d={`M ${x1} ${y1} H ${bend} V ${y2} H ${x2}`} markerEnd={marker} />{label ? <text x={bend} y={(y1 + y2) / 2 - 5} textAnchor="middle" className={styles.edgeLabel}>{label}</text> : null}<title>{source.name} → {target.name}: {edge.label} ({edge.confidence}; {edge.reason})</title></g>;
-      })}
-      {pageElements.map(item => {
-        const position = positions.get(item.id); if (!position) return null;
-        const color = item.type === "DataObject" ? "data" : item.type === "ApplicationComponent" ? "application" : item.type === "ApplicationInterface" ? "interface" : item.type === "ApplicationService" ? "service" : "function";
-        return <g key={item.id} className={styles[`node_${color}`]}><rect x={position.x} y={position.y} width={cardWidth} height={cardHeight} rx="7" /><text x={position.x + 16} y={position.y + 26} className={styles.diagramNodeType}>{elementTypeLabel(item.type).toUpperCase()}</text><text x={position.x + 16} y={position.y + 52} className={styles.diagramNodeName}>{item.name.length > 35 ? `${item.name.slice(0, 34)}…` : item.name}</text><title>{item.name}{item.featureGroup ? ` · ${item.featureGroup}` : ""}</title></g>;
-      })}
-      {pageElements.length === 0 ? <text x={30} y={90} className={styles.emptySvg}>Belum ada element yang cukup didukung evidence untuk view ini.</text> : null}
-    </svg>;
-  };
-  const pageSize = dataView ? 24 : 8;
-  const count = dataView ? (byColumn.get("DataObject")?.length ?? 0) : Math.max(0, ...[...byColumn.values()].map(items => items.length));
-  const hasDiagram = elements.length > 0;
-  const pageCount = hasDiagram ? Math.ceil(count / pageSize) : 0;
-  const printPages = Array.from({ length: pageCount }, (_, pageIndex) => {
-    const slicedElements = dataView
-      ? (byColumn.get("DataObject") ?? []).slice(pageIndex * pageSize, (pageIndex + 1) * pageSize)
-      : columns.flatMap(type => (byColumn.get(type) ?? []).slice(pageIndex * pageSize, (pageIndex + 1) * pageSize));
-    const pageElements = dataView ? slicedElements : [...new Map([
-      ...(byColumn.get("ApplicationComponent") ?? []).map(item => [item.id, item] as const),
-      ...slicedElements.map(item => [item.id, item] as const),
-    ]).values()];
-    const visible = new Set(pageElements.map(item => item.id));
-    const pageRelationships = relationships.filter(edge => visible.has(edge.sourceId) && visible.has(edge.targetId));
-    return { pageElements, pageRelationships, pageIndex };
-  });
+  const cardWidth = 300;
+  const cardHeight = 112;
+  const typeLabel = dataView ? "DATA STRUCTURE VIEW" : "APPLICATION COOPERATION VIEW";
+  const figureTitle = dataView ? "ArchiMate Information Structure Viewpoint" : "ArchiMate Application Cooperation Viewpoint";
+  const layout = diagramPositions(elements, relationships, view, cardWidth, cardHeight);
+  const markerId = (type: AddRelationship["type"]) => view + "-" + markerFor(type);
+  const byId = new Map(elements.map(item => [item.id, item]));
+  const hasDiagram = relationships.length > 0;
+  const renderSvg = () => <svg className={styles.diagram} viewBox={"0 0 " + layout.width + " " + layout.height} role="img" aria-labelledby={view + "-diagram-title " + view + "-diagram-desc"}>
+    <title id={view + "-diagram-title"}>{typeLabel}</title>
+    <desc id={view + "-diagram-desc"}>Compact ArchiMate stakeholder view with {elements.length} connected elements and {relationships.length} source-supported relationships.</desc>
+    <defs>
+      <marker id={markerId("CompositionRelationship")} markerWidth="12" markerHeight="12" refX="1" refY="6" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="M 1 6 L 6 1 L 11 6 L 6 11 Z" fill="#57606a" stroke="#57606a" strokeWidth="1.5" /></marker>
+      <marker id={markerId("AssignmentRelationship")} markerWidth="9" markerHeight="9" refX="1" refY="4.5" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><circle cx="4.5" cy="4.5" r="3.3" fill="#57606a" /></marker>
+      <marker id={markerId("RealizationRelationship")} markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1 1 L 11 6 L 1 11 Z" fill="#fbfcfe" stroke="#57606a" strokeWidth="1.5" /></marker>
+      <marker id={markerId("ServingRelationship")} markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M 2 1 L 10 6 L 2 11" fill="none" stroke="#57606a" strokeWidth="1.5" /></marker>
+      <marker id={markerId("AccessRelationship")} markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M 2 1 L 10 6 L 2 11" fill="none" stroke="#57606a" strokeWidth="1.5" /></marker>
+      <marker id={markerId("TriggeringRelationship")} markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1 1 L 11 6 L 1 11 Z" fill="#57606a" /></marker>
+      <marker id={markerId("FlowRelationship")} markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="userSpaceOnUse"><path d="M 1 1 L 11 6 L 1 11 Z" fill="#57606a" /></marker>
+    </defs>
+    {relationships.map(edge => {
+      const from = layout.positions.get(edge.sourceId);
+      const to = layout.positions.get(edge.targetId);
+      const source = byId.get(edge.sourceId);
+      const target = byId.get(edge.targetId);
+      if (!from || !to || !source || !target) return null;
+      const dx = to.x - from.x;
+      const dy = to.y - from.y;
+      const horizontal = Math.abs(dx) >= Math.abs(dy);
+      const x1 = horizontal ? from.x + (dx >= 0 ? cardWidth : 0) : from.x + cardWidth / 2;
+      const y1 = horizontal ? from.y + cardHeight / 2 : from.y + (dy >= 0 ? cardHeight : 0);
+      const x2 = horizontal ? to.x + (dx >= 0 ? 0 : cardWidth) : to.x + cardWidth / 2;
+      const y2 = horizontal ? to.y + cardHeight / 2 : to.y + (dy >= 0 ? 0 : cardHeight);
+      const needsCurve = Math.abs(to.level - from.level) > 1 || from.level === to.level;
+      const curve = dx >= 0 ? -90 : 90;
+      const path = needsCurve
+        ? "M " + x1 + " " + y1 + " C " + (x1 + (dx >= 0 ? 75 : -75)) + " " + (y1 + curve) + ", " + (x2 - (dx >= 0 ? 75 : -75)) + " " + (y2 + curve) + ", " + x2 + " " + y2
+        : "M " + x1 + " " + y1 + " L " + x2 + " " + y2;
+      const label = coreRelationshipLabel(edge);
+      const marker = markerFor(edge.type);
+      const markerStart = marker === "composition" || marker === "assignment" ? "url(#" + markerId(edge.type) + ")" : undefined;
+      const markerEnd = marker === "association" || marker === "composition" || marker === "assignment" ? undefined : "url(#" + markerId(edge.type) + ")";
+      return <g key={edge.id} data-relationship-id={edge.id} data-confidence={edge.confidence} className={styles.edge + " " + styles["edge_" + marker]}>
+        <path d={path} markerStart={markerStart} markerEnd={markerEnd} />
+        {label ? <text x={(x1 + x2) / 2} y={(y1 + y2) / 2 - 12} textAnchor="middle" className={styles.edgeLabel}>{label}</text> : null}
+        <title>{source.name + " → " + target.name + ": " + edge.type.replace(/Relationship$/u, "") + (label ? " (" + label + ")" : "") + ". " + (edge.confidence === "proven" ? "Proven" : "Indicated") + " evidence; " + edge.reason}</title>
+      </g>;
+    })}
+    {elements.map(item => {
+      const position = layout.positions.get(item.id);
+      if (!position) return null;
+      const color = item.type === "DataObject" ? "data" : item.type === "ApplicationService" || item.type === "ApplicationFunction" ? "applicationBehavior" : "application";
+      const lines = diagramNameLines(item.name);
+      const nameStartY = position.y + (lines.length === 1 ? 66 : lines.length === 2 ? 56 : 46);
+      const rx = item.type === "ApplicationService" || item.type === "ApplicationFunction" ? 11 : 2;
+      return <g key={item.id} className={styles["node_" + color]}>
+        <rect x={position.x} y={position.y} width={cardWidth} height={cardHeight} rx={rx} />
+        <text x={position.x + cardWidth / 2} y={position.y + 25} textAnchor="middle" className={styles.diagramNodeType}>{elementTypeLabel(item.type).toUpperCase()}</text>
+        <text x={position.x + cardWidth / 2} y={nameStartY} textAnchor="middle" className={styles.diagramNodeName}>{lines.map((line, index) => <tspan key={item.id + ":" + index} x={position.x + cardWidth / 2} dy={index === 0 ? 0 : 22}>{line}</tspan>)}</text>
+        <title>{item.name + (item.featureGroup ? " · " + item.featureGroup : "")}</title>
+      </g>;
+    })}
+    {!hasDiagram ? <text x="30" y="90" className={styles.emptySvg}>No source-supported relationships were identified for this view.</text> : null}
+  </svg>;
+
   return <div className={styles.diagramRegion}>
     <p className={styles.viewIntroduction}>{narratives.introduction}</p>
-    <div className={styles.diagramLegend}><span><i className={styles.legendSolid} aria-hidden="true" />Proven from source structure</span><span><i className={styles.legendDashed} aria-hidden="true" />Indicated mapping, review recommended</span></div>
+    <p className={styles.coreViewNote}>Showing the core source-supported relationships. Endpoints and lower-level details remain in the catalogs.</p>
+    <div className={styles.diagramLegend}>
+      <span><i className={styles.legendSolid} aria-hidden="true" />Solid line: Association, Composition, or Serving</span>
+      <span><i className={styles.legendDashed} aria-hidden="true" />Dashed arrow: Flow or Realization</span>
+      <span>ArchiMate end markers identify relationship types; evidence confidence appears in the register.</span>
+    </div>
     <figure className={styles.screenDiagramFigure}>
-      <div className={styles.diagramViewport} tabIndex={0} role="region" aria-label={`${typeLabel} diagram; scroll to inspect`}>{renderSvg(elements, relationships, "screen")}</div>
+      <div className={styles.diagramViewport} tabIndex={0} role="region" aria-label={typeLabel + " diagram; scroll to inspect"}>{renderSvg()}</div>
       {hasDiagram ? <figcaption className={styles.figureCaption}>Gambar {addViewFigureNumber(view, 1)}: {figureTitle}</figcaption> : null}
     </figure>
-    <div className={styles.printDiagramPages} aria-label={`${typeLabel} paginated print views`}>
-      {printPages.map(({ pageElements, pageRelationships, pageIndex }) => <section className={`${styles.printDiagramPage} ${pageIndex === 0 ? styles.printDiagramPageFirst : ""}`} key={pageIndex}><figure>{renderSvg(pageElements, pageRelationships, `print-${pageIndex}`, true)}<figcaption className={styles.figureCaption}>Gambar {addViewFigureNumber(view, pageIndex + 1)}: {figureTitle}{pageCount > 1 ? ` (lanjutan ${pageIndex + 1} dari ${pageCount})` : ""}</figcaption></figure></section>)}
-    </div>
-    <p className={styles.figureInterpretation}>{hasDiagram ? `Gambar ${addViewFigureNumber(view, 1)} memperlihatkan bahwa ` : ""}{narratives.interpretation}</p>
+    <p className={styles.figureInterpretation}>{hasDiagram ? "Gambar " + addViewFigureNumber(view, 1) + " memperlihatkan bahwa " : ""}{narratives.interpretation}</p>
     <details className={styles.relationshipDetails}>
-      <summary>{relationships.length} relationships and source evidence</summary>
+      <summary>{relationships.length} core relationships and source evidence</summary>
       <div className={styles.tableScroll}><RelationshipTable model={model} relationships={relationships} /></div>
     </details>
   </div>;
@@ -164,7 +282,7 @@ function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStru
 type DataCatalogEntry = { row: AddBaselineModel["catalogs"]["dataEntities"][number]; element: AddElement };
 
 function DataEntityTable({ model, entries }: { model: AddBaselineModel; entries: DataCatalogEntry[] }) {
-  return <table><thead><tr><th>Data object</th><th>Feature group</th><th>Owner</th><th>Distribution</th><th>Review</th><th>Evidence</th></tr></thead><tbody>{entries.map(({ row, element }) => <tr key={row.elementId} data-element-id={row.elementId}><th scope="row">{element.name}<small>{element.description ?? "Data entity detected from a source data access path."}</small></th><td>{element.featureGroup ?? "Unassigned"}</td><td>{row.owner ?? "Requires confirmation"}</td><td>Requires enterprise input</td><td>{element.review}</td><td><EvidenceList model={model} spans={element.evidence} /></td></tr>)}{!entries.length ? <tr><td colSpan={6} className={styles.emptyCell}>No data object matches this search.</td></tr> : null}</tbody></table>;
+  return <table className={styles.dataEntityTable}><TableColumns widths={[20, 16, 13, 17, 13, 21]} /><thead><tr><th>Data object</th><th>Feature group</th><th>Owner</th><th>Distribution</th><th>Review</th><th>Evidence</th></tr></thead><tbody>{entries.map(({ row, element }) => <tr key={row.elementId} data-element-id={row.elementId}><th scope="row">{element.name}<small>{row.description ?? "Data entity detected from a source data access path."}</small></th><td>{element.featureGroup ?? "Unassigned"}</td><td>{row.owner ?? "Requires confirmation"}</td><td>Requires enterprise input</td><td>{element.review}</td><td><EvidenceList model={model} spans={element.evidence} /></td></tr>)}{!entries.length ? <tr><td colSpan={6} className={styles.emptyCell}>No data object matches this search.</td></tr> : null}</tbody></table>;
 }
 
 function DataCatalog({ model }: { model: AddBaselineModel }) {
@@ -192,7 +310,7 @@ function ApplicationCatalog({ model }: { model: AddBaselineModel }) {
 function InterfaceCatalog({ model }: { model: AddBaselineModel }) {
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.interfaceCatalog.id} aria-labelledby="interface-catalog-title">
     <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>{PHASE_C_ADD.sections.interfaceCatalog.number} · CATALOG</p><h2 id="interface-catalog-title">{PHASE_C_ADD.sections.interfaceCatalog.title}</h2></div></div>
-    {model.catalogs.interfaces.length ? <div className={styles.tableScroll}><table><thead><tr><th>Interface</th><th>Protocol</th><th>Contract</th><th>Review</th><th>Evidence</th></tr></thead><tbody>{model.catalogs.interfaces.map(row => { const item = model.elements.find(element => element.id === row.elementId); return item ? <tr key={item.id}><th scope="row">{item.name}</th><td>{row.protocol ?? "Not identified"}</td><td>{row.contract ?? "Not extracted"}</td><td>{item.review}</td><td><EvidenceList model={model} spans={item.evidence} /></td></tr> : null; })}</tbody></table></div> : <p className={styles.muted}>No interface was identified in this repository snapshot.</p>}
+    {model.catalogs.interfaces.length ? <div className={styles.tableScroll}><table className={styles.interfaceTable}><TableColumns widths={[22, 17, 23, 15, 23]} /><thead><tr><th>Interface</th><th>Protocol</th><th>Contract</th><th>Review</th><th>Evidence</th></tr></thead><tbody>{model.catalogs.interfaces.map(row => { const item = model.elements.find(element => element.id === row.elementId); return item ? <tr key={item.id}><th scope="row">{item.name}</th><td>{row.protocol ?? "Not identified"}</td><td>{row.contract ?? "Not extracted"}</td><td>{item.review}</td><td><EvidenceList model={model} spans={item.evidence} /></td></tr> : null; })}</tbody></table></div> : <p className={styles.muted}>No interface was identified in this repository snapshot.</p>}
   </section>;
 }
 
@@ -200,7 +318,7 @@ function FunctionalCatalog({ model }: { model: AddBaselineModel }) {
   const entries = model.elements.filter(element => element.type === "ApplicationFunction" || element.type === "ApplicationService");
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.logicalApplicationComponents.id} aria-labelledby="functional-decomposition-title">
     <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>{PHASE_C_ADD.sections.logicalApplicationComponents.number} · CATALOG</p><h2 id="functional-decomposition-title">{PHASE_C_ADD.sections.logicalApplicationComponents.title}</h2><p>Functions and services recognized in source. Each item remains linked to evidence and relationship confidence.</p></div></div>
-    <div className={styles.tableScroll}><table><thead><tr><th>Type</th><th>Function or module</th><th>Feature group</th><th>Description</th><th>Review</th><th>Evidence</th></tr></thead><tbody>
+    <div className={styles.tableScroll}><table className={styles.functionalTable}><TableColumns widths={[16, 17, 13, 19, 17, 18]} /><thead><tr><th>Type</th><th>Function or module</th><th>Feature group</th><th>Description</th><th>Review</th><th>Evidence</th></tr></thead><tbody>
       {entries.map(item => <tr key={item.id}><td>{elementTypeLabel(item.type)}</td><th scope="row">{item.name}</th><td>{item.featureGroup ?? "Unassigned"}</td><td>{item.description ?? "No additional description was extracted."}</td><td>{item.review}</td><td><EvidenceList model={model} spans={item.evidence} /></td></tr>)}
       {!entries.length ? <tr><td colSpan={6} className={styles.emptyCell}>No application functions or modules were recognized in this snapshot.</td></tr> : null}
     </tbody></table></div>
@@ -210,10 +328,10 @@ function FunctionalCatalog({ model }: { model: AddBaselineModel }) {
 function CrudMatrix({ model }: { model: AddBaselineModel }) {
   const appById = new Map(model.elements.filter(element => element.type === "ApplicationComponent").map(element => [element.id, element.name]));
   const dataById = new Map(model.elements.filter(element => element.type === "DataObject").map(element => [element.id, element.name]));
-  const cell = (value: "yes" | "no" | "unknown") => value === "yes" ? "Yes" : value === "no" ? "No" : "Unknown";
+  const cell = (value: "yes" | "no" | "unknown") => value === "yes" ? "Y" : value === "no" ? "N" : "?";
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.dataCrudMatrix.id} aria-labelledby="crud-matrix-title">
-    <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>{PHASE_C_ADD.sections.dataCrudMatrix.number} · MATRIX</p><h2 id="crud-matrix-title">{PHASE_C_ADD.sections.dataCrudMatrix.title}</h2><p>Application components are used because the repository does not establish business functions. Unknown means the operation was not confirmed; it does not mean “No”.</p></div></div>
-    <div className={styles.tableScroll}><table><thead><tr><th>Application</th><th>Data object</th><th>Create</th><th>Read</th><th>Update</th><th>Delete</th><th>Evidence</th></tr></thead><tbody>{model.matrices.applicationData.map((row, index) => <tr key={`${row.applicationId}:${row.dataId}:${index}`}><th scope="row">{appById.get(row.applicationId) ?? "Unknown application"}</th><td>{dataById.get(row.dataId) ?? "Unknown data object"}</td><td>{cell(row.create)}</td><td>{cell(row.read)}</td><td>{cell(row.update)}</td><td>{cell(row.delete)}</td><td><EvidenceList model={model} spans={row.evidence} /></td></tr>)}</tbody></table></div>
+    <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>{PHASE_C_ADD.sections.dataCrudMatrix.number} · MATRIX</p><h2 id="crud-matrix-title">{PHASE_C_ADD.sections.dataCrudMatrix.title}</h2><p>Application components are used because the repository does not establish business functions. C = Create, R = Read, U = Update, D = Delete. ? means not confirmed; it does not mean “No”.</p></div></div>
+    <div className={styles.tableScroll}><table className={styles.crudTable}><TableColumns widths={[20, 19, 8, 8, 8, 8, 29]} /><thead><tr><th>Application component</th><th>Data entity</th><th>C</th><th>R</th><th>U</th><th>D</th><th>Evidence</th></tr></thead><tbody>{model.matrices.applicationData.map((row, index) => <tr key={`${row.applicationId}:${row.dataId}:${index}`}><th scope="row">{appById.get(row.applicationId) ?? "Unknown application"}</th><td>{dataById.get(row.dataId) ?? "Unknown data object"}</td><td>{cell(row.create)}</td><td>{cell(row.read)}</td><td>{cell(row.update)}</td><td>{cell(row.delete)}</td><td><EvidenceList model={model} spans={row.evidence} /></td></tr>)}</tbody></table></div>
     {!model.matrices.applicationData.length ? <p className={styles.muted}>No application–data operation has enough source evidence for this matrix yet.</p> : null}
   </section>;
 }
@@ -255,13 +373,13 @@ function ReviewEditor({ model, overlay, update, reset, markReviewed, save, savin
 function ExportPanel({ model, modelHash, overlay }: { model: AddBaselineModel; modelHash: string; overlay: AddReviewOverlay }) {
   const repositoryName = model.snapshot.repository.split("/").at(-1) ?? "repository";
   const downloadMarkdown = () => {
-    const blob = new Blob([createAddMarkdown(model, overlay, span => githubEvidence(model.snapshot.repository, model.snapshot.commitSha, span), { modelHash })], { type: "text/markdown;charset=utf-8" });
+    const blob = new Blob([createAddMarkdown(model, overlay, (span, fileOnly) => githubEvidence(model.snapshot.repository, model.snapshot.commitSha, span, fileOnly), { modelHash })], { type: "text/markdown;charset=utf-8" });
     const href = URL.createObjectURL(blob); const anchor = document.createElement("a");
     anchor.href = href; anchor.download = repositoryName + "-phase-c-add.md"; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(href), 1000);
   };
   const downloadLatex = () => {
-    const blob = new Blob([createAddLatex(model, overlay, span => githubEvidence(model.snapshot.repository, model.snapshot.commitSha, span), { modelHash, generatedAt: new Date().toISOString() })], { type: "application/x-tex;charset=utf-8" });
+    const blob = new Blob([createAddLatex(model, overlay, (span, fileOnly) => githubEvidence(model.snapshot.repository, model.snapshot.commitSha, span, fileOnly), { modelHash, generatedAt: new Date().toISOString() })], { type: "application/x-tex;charset=utf-8" });
     const href = URL.createObjectURL(blob); const anchor = document.createElement("a");
     anchor.href = href; anchor.download = repositoryName + "-phase-c-add.tex"; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(href), 1000);
@@ -445,7 +563,7 @@ export function AddWorkspace({ analysisId, accountKey }: { analysisId: string; a
         <InterfaceCatalog model={activeModel} />
         <section className={`${styles.sectionCard} ${styles.templateSection}`} id={PHASE_C_ADD.sections.applicationInteractions.id} aria-labelledby="application-interactions-title">
           <p className={styles.eyebrow}>{PHASE_C_ADD.sections.applicationInteractions.number}</p><h3 id="application-interactions-title">{PHASE_C_ADD.sections.applicationInteractions.title}</h3>
-          {activeModel.matrices.applicationInteractions.length ? <div className={styles.tableScroll}><table><thead><tr><th>Source application</th><th>Target application</th><th>Mechanism</th><th>Evidence</th></tr></thead><tbody>{activeModel.matrices.applicationInteractions.map((row, index) => <tr key={`${row.sourceApplicationId}:${row.targetApplicationId}:${index}`}><td>{activeModel.elements.find(item => item.id === row.sourceApplicationId)?.name ?? row.sourceApplicationId}</td><td>{activeModel.elements.find(item => item.id === row.targetApplicationId)?.name ?? row.targetApplicationId}</td><td>{row.mechanism}</td><td><EvidenceList model={activeModel} spans={row.evidence} /></td></tr>)}</tbody></table></div> : <p className={styles.muted}>No interaction between separately identified applications or communication mechanism was confirmed in this repository snapshot. Internal calls remain in the Application Cooperation view.</p>}
+          {activeModel.matrices.applicationInteractions.length ? <div className={styles.tableScroll}><table className={styles.interactionTable}><TableColumns widths={[22, 22, 26, 30]} /><thead><tr><th>Source application</th><th>Target application</th><th>Mechanism</th><th>Evidence</th></tr></thead><tbody>{activeModel.matrices.applicationInteractions.map((row, index) => <tr key={`${row.sourceApplicationId}:${row.targetApplicationId}:${index}`}><td>{activeModel.elements.find(item => item.id === row.sourceApplicationId)?.name ?? row.sourceApplicationId}</td><td>{activeModel.elements.find(item => item.id === row.targetApplicationId)?.name ?? row.targetApplicationId}</td><td>{row.mechanism}</td><td><EvidenceList model={activeModel} spans={row.evidence} /></td></tr>)}</tbody></table></div> : <p className={styles.muted}>No interaction between separately identified applications or communication mechanism was confirmed in this repository snapshot. Internal calls remain in the Application Cooperation view.</p>}
         </section>
       </section>
       <PrintRelationshipRegister model={activeModel} />

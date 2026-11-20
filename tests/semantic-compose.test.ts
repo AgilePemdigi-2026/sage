@@ -139,6 +139,17 @@ test("Compose and source evidence flow into the ADD portfolio, cooperation view,
   assert.match(add.narratives.applicationViewInterpretation ?? "", /does not prove|tidak membuktikan/iu);
 });
 
+test("ReqFlow, Application, and NLP stay visible as application component names", () => {
+  const input = semanticInput({ "compose.yaml": compose.replace("  web:\n", "  app:\n") });
+  const semantic = buildSemanticModel(input);
+  const add = buildAddBaseline({ ccm: input.ccm, semantic, sourceCkgHash });
+  const names = add.catalogs.applicationPortfolio.map(row => add.elements.find(element => element.id === row.elementId)!.name);
+  assert.deepEqual(names.sort(), ["Application", "NLP", "ReqFlow"]);
+  assert.equal(add.elements.find(element => element.name === "ReqFlow")?.type, "ApplicationComponent");
+  assert.equal(add.elements.find(element => element.name === "Application")?.type, "ApplicationComponent");
+  assert.equal(add.elements.find(element => element.name === "NLP")?.type, "ApplicationComponent");
+});
+
 test("CRUD matrix derives all operations from backend SQL and assigns them to the owning Compose service", () => {
   const input = semanticInput();
   const semantic = buildSemanticModel(input);

@@ -3,8 +3,9 @@ import { applyAddReviewOverlay, type AddReviewOverlay } from "./add-overlay.ts";
 import type { AddBaselineModel, AddElement, AddRelationship } from "./baseline-add.ts";
 import { addExportGeneratedDate, addExportModelHash, PHASE_C_ADD, type AddExportMetadata } from "./phase-c-add.ts";
 import { addViewNarratives, type AddViewKind } from "./baseline-narratives.ts";
+import { coreRelationshipLabel, projectCoreBaselineView, type BaselineViewName, type CoreBaselineView } from "./baseline-core-views.ts";
 
-export type LatexEvidenceUrlBuilder = (span: EvidenceSpan) => string;
+export type LatexEvidenceUrlBuilder = (span: EvidenceSpan, fileOnly?: boolean) => string;
 
 const PDF_EVIDENCE_LINK_LIMIT = 3;
 
@@ -23,8 +24,10 @@ function breakableTex(value: string): string {
     return characters.map((character, index) => {
       const escaped = tex(character);
       const punctuationBreak = /[\/._-]/u.test(character);
-      const wordBreak = characters.length >= 9 && index < characters.length - 1;
-      return escaped + (punctuationBreak ? "\\allowbreak{}" : wordBreak ? "\\-" : "");
+      // Permit a line break inside long names and identifiers before TeX has
+      // to push them through a narrow catalog cell or past its border.
+      const wordBreak = characters.length >= 16 && index > 0 && index < characters.length - 4 && index % 8 === 0;
+      return escaped + (punctuationBreak || wordBreak ? "\\allowbreak{}" : "");
     }).join("");
   }).join("");
 }
@@ -47,34 +50,25 @@ function texUrl(value: string): string {
 
 function evidence(spans: EvidenceSpan[], makeUrl: LatexEvidenceUrlBuilder): string {
   if (!spans.length) return "Not available";
-  const links = spans.slice(0, PDF_EVIDENCE_LINK_LIMIT).map(span => {
-    const label = breakableTex(`${span.filePath}:${span.startLine}-${span.endLine}`);
-    return `\\href{${texUrl(makeUrl(span))}}{\\texttt{\\footnotesize ${label}}}`;
+  const files = [...new Map(spans.map(span => [span.filePath, span])).values()];
+  const links = files.slice(0, PDF_EVIDENCE_LINK_LIMIT).map(span => {
+    const label = breakableTex(span.filePath);
+    return `\\href{${texUrl(makeUrl(span, true))}}{\\texttt{\\footnotesize ${label}}}`;
   });
-  const omitted = spans.length - links.length;
-  if (omitted > 0) links.push(`{\\scriptsize + ${omitted} more evidence links in Markdown}`);
+  const omitted = files.length - links.length;
+  if (omitted > 0) links.push(`{\\scriptsize + ${omitted} additional evidence files}`);
   return links.join("\\newline ");
 }
 
 function table(headers: string[], rows: string[][], widths: string[]): string {
-  const spec = widths.map(width => `p{${width}}`).join("|");
-  const renderRow = (row: string[]) => (row.length === 1 && row[0]?.startsWith("\\multicolumn")
-    ? row[0]
-    : row.map(value => `\\raggedright\\arraybackslash ${value}`).join(" & ")) + " \\\\ \\hline";
-  const renderHeader = (row: string[]) => row.map(value => `\\centering\\arraybackslash ${value}`).join(" & ") + " \\\\ \\hline";
+  const spec = widths.map(width => `>{\\centering\\arraybackslash}p{${width}}`).join("|");
+  const renderRow = (row: string[]) => row.join(" & ") + " \\\\ \\hline";
+  const renderHeader = (row: string[]) => row.join(" & ") + " \\\\ \\hline";
   return [
-    "\\begingroup", "\\small", "\\setlength{\\tabcolsep}{4pt}", "\\renewcommand{\\arraystretch}{1.18}", "\\setlength{\\extrarowheight}{2pt}", `\\begin{longtable}{|${spec}|}`, "\\hline", "\\rowcolor{green!12}", renderHeader(headers.map(value => `\\textbf{${tex(value)}}`)), "\\endfirsthead",
-    "\\hline", "\\rowcolor{green!12}", renderHeader(headers.map(value => `\\textbf{${tex(value)}}`)), "\\endhead",
+    "\\begingroup", "\\small", "\\setlength{\\tabcolsep}{3pt}", "\\renewcommand{\\arraystretch}{1.25}", "\\setlength{\\extrarowheight}{4pt}", `\\begin{longtable}{|${spec}|}`, "\\hline", "\\rowcolor{green!12}", renderHeader(headers.map(value => `\\textbf{${breakableTex(value)}}`)), "\\endfirsthead",
+    "\\hline", "\\rowcolor{green!12}", renderHeader(headers.map(value => `\\textbf{${breakableTex(value)}}`)), "\\endhead",
     ...rows.map(renderRow), "\\end{longtable}", "\\endgroup",
   ].join("\n");
-}
-
-function relationshipRows(edges: AddRelationship[], elements: ReadonlyMap<string, AddElement>, makeUrl: LatexEvidenceUrlBuilder): string[][] {
-  return edges.map(edge => [
-    breakableTex(elements.get(edge.sourceId)?.name ?? edge.sourceId),
-    `\\textbf{${breakableTex(edge.type.replace(/Relationship$/u, ""))}}\\newline ${breakableTex(edge.label)}\\newline {\\scriptsize ${edge.confidence === "proven" ? "Proven" : "Indicated"} · ${reviewLabel(edge.review)}}`,
-    breakableTex(elements.get(edge.targetId)?.name ?? edge.targetId), evidence(edge.evidence, makeUrl),
-  ]);
 }
 
 function diagramNodeKind(element: AddElement): "appcomponent" | "appfunction" | "appservice" | "appinterface" | "data" {
@@ -87,18 +81,14 @@ function diagramNodeLabel(element: AddElement): string {
     ApplicationComponent: "Application Component", ApplicationFunction: "Application Function",
     ApplicationService: "Application Service", ApplicationInterface: "Application Interface", DataObject: "Data Object",
   };
-  return `\\textbf{${tex(labels[element.type])}}\\\\${tex(element.name)}`;
-}
-
-function relationshipTypeName(type: AddRelationship["type"]): string {
-  return type.replace(/Relationship$/u, "").replace(/([a-z])([A-Z])/gu, "$1 $2");
+  return `{\\scriptsize\\color{gray!70}${tex(labels[element.type])}}\\\\{\\normalsize\\bfseries ${breakableTex(element.name)}}`;
 }
 
 function relationshipNotation(type: AddRelationship["type"]): string {
   switch (type) {
-    case "CompositionRelationship": return "{Diamond[fill=gray]}-";
-    case "AssignmentRelationship": return "{Circle[fill=gray]}-{Stealth[fill=gray]}";
-    case "RealizationRelationship": return "densely dotted,-{Triangle[open]}";
+    case "CompositionRelationship": return "{Diamond[fill=gray!80!black]}-";
+    case "AssignmentRelationship": return "{Circle[fill=gray!80!black]}-";
+    case "RealizationRelationship": return "dashed,-{Triangle[open]}";
     case "ServingRelationship": return "-{Stealth[open]}";
     case "AccessRelationship": return "densely dotted,-{Stealth[open]}";
     case "AssociationRelationship": return "";
@@ -107,71 +97,146 @@ function relationshipNotation(type: AddRelationship["type"]): string {
   }
 }
 
-type DiagramRow =
-  | { source: AddElement; target: AddElement; edge: AddRelationship }
-  | { isolated: AddElement };
+type DiagramPosition = { x: number; y: number };
 
-function diagramRows(elements: AddElement[], edges: AddRelationship[]): DiagramRow[] {
-  const byId = new Map(elements.map(element => [element.id, element]));
-  const relationships = edges.flatMap(edge => {
-    const source = byId.get(edge.sourceId); const target = byId.get(edge.targetId);
-    return source && target ? [{ source, target, edge }] : [];
-  });
-  const connected = new Set(relationships.flatMap(row => [row.source.id, row.target.id]));
-  return [
-    ...relationships,
-    ...elements.filter(element => !connected.has(element.id)).map(element => ({ isolated: element })),
-  ];
-}
-
-function diagramPageCount(elements: AddElement[], edges: AddRelationship[]): number {
-  const rows = diagramRows(elements, edges);
-  return rows.length ? Math.ceil(rows.length / 5) : 0;
-}
-
-function renderDiagramPages(elements: AddElement[], edges: AddRelationship[], view: "dataStructure" | "applicationCooperation"): string {
-  const rows = diagramRows(elements, edges);
-  if (!rows.length) return "\\noindent No source-supported " + (view === "dataStructure" ? "data object" : "application element or relationship") + " was identified.";
-
-  const perPage = 5;
-  const pageCount = Math.ceil(rows.length / perPage);
-  return Array.from({ length: pageCount }, (_, page) => {
-    const pageRows = rows.slice(page * perPage, (page + 1) * perPage);
-    const nodesAndEdges = pageRows.map((row, index) => {
-      const y = (((pageRows.length - 1) / 2) - index) * 1.8;
-      if ("isolated" in row) {
-        return "\\node[" + diagramNodeKind(row.isolated) + "node] (n" + page + "_" + index + ") at (7.5," + y.toFixed(2) + ") {" + diagramNodeLabel(row.isolated) + "};";
+function coreDiagramPositions(view: CoreBaselineView, viewName: BaselineViewName): Map<string, DiagramPosition> {
+  const adjacency = new Map(view.elements.map(element => [element.id, [] as string[]]));
+  const outgoing = new Map(view.elements.map(element => [element.id, [] as string[]]));
+  for (const edge of view.relationships) {
+    adjacency.set(edge.sourceId, [...(adjacency.get(edge.sourceId) ?? []), edge.targetId]);
+    adjacency.set(edge.targetId, [...(adjacency.get(edge.targetId) ?? []), edge.sourceId]);
+    outgoing.set(edge.sourceId, [...(outgoing.get(edge.sourceId) ?? []), edge.targetId]);
+  }
+  const names = new Map(view.elements.map(element => [element.id, element.name]));
+  const degree = (id: string) => adjacency.get(id)?.length ?? 0;
+  const components: Array<{ ids: string[]; depths: Map<string, number> }> = [];
+  const visited = new Set<string>();
+  for (const start of adjacency.keys()) {
+    if (visited.has(start)) continue;
+    const ids: string[] = [];
+    const queue = [start];
+    visited.add(start);
+    while (queue.length) {
+      const id = queue.shift()!;
+      ids.push(id);
+      for (const next of adjacency.get(id) ?? []) if (!visited.has(next)) { visited.add(next); queue.push(next); }
+    }
+    const depths = new Map<string, number>();
+    if (viewName === "applicationCooperation") {
+      const idSet = new Set(ids);
+      const indegree = new Map(ids.map(id => [id, 0]));
+      for (const id of ids) for (const next of outgoing.get(id) ?? []) if (idSet.has(next)) indegree.set(next, indegree.get(next)! + 1);
+      const ready = ids.filter(id => indegree.get(id) === 0).sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b));
+      const order: string[] = [];
+      for (const id of ready) depths.set(id, 0);
+      while (ready.length) {
+        const id = ready.shift()!;
+        order.push(id);
+        for (const next of outgoing.get(id) ?? []) {
+          if (!idSet.has(next)) continue;
+          depths.set(next, Math.max(depths.get(next) ?? 0, (depths.get(id) ?? 0) + 1));
+          indegree.set(next, indegree.get(next)! - 1);
+          if (indegree.get(next) === 0) { ready.push(next); ready.sort((a, b) => (names.get(a) ?? a).localeCompare(names.get(b) ?? b)); }
+        }
       }
-      const sourceNode = "s" + page + "_" + index; const targetNode = "t" + page + "_" + index;
-      const notation = relationshipNotation(row.edge.type);
-      const confidence = row.edge.confidence === "proven"
-        ? "\\textcolor{green!45!black}{\\textbf{PROVEN}}"
-        : "\\textcolor{orange!80!black}{\\textbf{INDICATED}}";
-      const connectorLabel = tex(relationshipTypeName(row.edge.type)) + ": " + tex(row.edge.label) + "\\\\{\\scriptsize " + confidence + "}";
-      return [
-        "\\node[" + diagramNodeKind(row.source) + "node] (" + sourceNode + ") at (2.25," + y.toFixed(2) + ") {" + diagramNodeLabel(row.source) + "};",
-        "\\node[" + diagramNodeKind(row.target) + "node] (" + targetNode + ") at (12.75," + y.toFixed(2) + ") {" + diagramNodeLabel(row.target) + "};",
-        "\\draw[draw=gray!75,thick" + (notation ? "," + notation : "") + "] (" + sourceNode + ".east) -- (" + targetNode + ".west);",
-        "\\node[font=\\scriptsize,align=center,text width=5.8cm] at (7.5," + (y + 0.62).toFixed(2) + ") {" + connectorLabel + "};",
-      ].join("\n");
-    });
-    const viewTitle = view === "dataStructure" ? "ArchiMate Data Structure View" : "ArchiMate Application Cooperation View";
-    const pageBreak = page > 0 ? "\\clearpage" : "";
-    return [
-      pageBreak, "\\Needspace{12cm}", "\\begin{center}",
-      "\\begin{tikzpicture}[x=1cm,y=1cm,appcomponentnode/.style={draw=blue!65!black,fill=blue!6,rectangle,align=center,text width=4.2cm,minimum height=1.05cm,inner sep=3pt,font=\\scriptsize},appfunctionnode/.style={draw=violet!75!black,fill=violet!7,rectangle,align=center,text width=4.2cm,minimum height=1.05cm,inner sep=3pt,font=\\scriptsize},appservicenode/.style={draw=green!55!black,fill=green!8,rectangle,align=center,text width=4.2cm,minimum height=1.05cm,inner sep=3pt,font=\\scriptsize},appinterfacenode/.style={draw=orange!80!black,fill=orange!9,rectangle,align=center,text width=4.2cm,minimum height=1.05cm,inner sep=3pt,font=\\scriptsize},datanode/.style={draw=green!55!black,fill=green!8,rectangle,align=center,text width=4.2cm,minimum height=1.05cm,inner sep=3pt,font=\\scriptsize},>=Stealth]",
-      ...nodesAndEdges,
-      "\\end{tikzpicture}",
-      "\\par\\smallskip\\captionof{figure}{" + viewTitle + (pageCount > 1 ? " (continuation " + (page + 1) + " of " + pageCount + ")" : "") + "}",
-      "\\label{fig:" + view + "-" + (page + 1) + "}",
-      "\\end{center}",
-    ].join("\n");
-  }).join("\n\n");
+      if (order.length !== ids.length) depths.clear();
+    }
+    if (depths.size !== ids.length) {
+      depths.clear();
+      const root = [...ids].sort((a, b) => degree(b) - degree(a) || (names.get(a) ?? a).localeCompare(names.get(b) ?? b))[0]!;
+      depths.set(root, 0);
+      const levelQueue = [root];
+      while (levelQueue.length) {
+        const id = levelQueue.shift()!;
+        for (const next of adjacency.get(id) ?? []) if (!depths.has(next)) { depths.set(next, depths.get(id)! + 1); levelQueue.push(next); }
+      }
+    }
+    components.push({ ids, depths });
+  }
+
+  const positions = new Map<string, DiagramPosition>();
+  if (viewName === "applicationCooperation") {
+    const layers = new Map<number, string[]>();
+    for (const component of components) for (const [id, depth] of component.depths) layers.set(depth, [...(layers.get(depth) ?? []), id]);
+    for (const [depth, ids] of layers) {
+      ids.sort((a, b) => degree(b) - degree(a) || (names.get(a) ?? a).localeCompare(names.get(b) ?? b));
+      ids.forEach((id, index) => positions.set(id, { x: 1.7 + depth * 5.0, y: -((index - (ids.length - 1) / 2) * 1.85) }));
+    }
+    return positions;
+  }
+
+  let laneTop = 0;
+  for (const component of components) {
+    const layers = new Map<number, string[]>();
+    for (const [id, depth] of component.depths) layers.set(depth, [...(layers.get(depth) ?? []), id]);
+    const rowCount = Math.max(...[...layers.values()].map(ids => ids.length), 1);
+    for (const [depth, ids] of layers) {
+      ids.sort((a, b) => degree(b) - degree(a) || (names.get(a) ?? a).localeCompare(names.get(b) ?? b));
+      const layerOffset = (rowCount - ids.length) * 0.9;
+      ids.forEach((id, index) => positions.set(id, { x: 1.7 + depth * 4.0, y: laneTop - layerOffset - index * 1.8 }));
+    }
+    laneTop -= rowCount * 1.8 + 0.55;
+  }
+  return positions;
 }
 
-function diagramPages(elements: AddElement[], edges: AddRelationship[], view: "dataStructure" | "applicationCooperation", title: string): string {
-  if (!elements.length) return `\\noindent ${tex(title)}: no source-supported elements were identified.`;
-  return renderDiagramPages(elements, edges, view);
+function conciseDiagramLabel(edge: AddRelationship): string | null {
+  return edge.type === "FlowRelationship" ? coreRelationshipLabel(edge) : null;
+}
+
+function diagramPageCount(view: CoreBaselineView): number {
+  return view.relationships.length ? 1 : 0;
+}
+
+function renderDiagramPages(viewModel: CoreBaselineView, view: BaselineViewName): string {
+  if (!viewModel.relationships.length) return "\\noindent No source-supported relationship was identified for this view.";
+
+  const positions = coreDiagramPositions(viewModel, view);
+  const ids = new Map(viewModel.elements.map((element, index) => [element.id, `n${index}`]));
+  const nodes = viewModel.elements.map(element => {
+    const position = positions.get(element.id)!;
+    return `\\node[${diagramNodeKind(element)}node] (${ids.get(element.id)}) at (${position.x.toFixed(2)},${position.y.toFixed(2)}) {${diagramNodeLabel(element)}};`;
+  });
+  const edges = viewModel.relationships.map(edge => {
+    const label = conciseDiagramLabel(edge);
+    const labelNode = label ? ` node[midway,fill=white,inner sep=1.5pt,font=\\scriptsize,align=center]{${breakableTex(label)}}` : "";
+    const notation = relationshipNotation(edge.type);
+    const sourcePosition = positions.get(edge.sourceId)!;
+    const targetPosition = positions.get(edge.targetId)!;
+    const options = Math.abs(targetPosition.x - sourcePosition.x) > 5.1 ? "[bend left=24]" : sourcePosition.x === targetPosition.x ? "[bend right=18]" : "[]";
+    return "\\draw[draw=gray!80!black,thick" + (notation ? "," + notation : "") + "] (" + ids.get(edge.sourceId) + ") to" + options + labelNode + " (" + ids.get(edge.targetId) + ");";
+  });
+  const viewTitle = view === "dataStructure" ? "ArchiMate Information Structure Viewpoint" : "ArchiMate Application Cooperation Viewpoint";
+  return [
+    "\\Needspace{12cm}", "\\begin{center}",
+    "\\begin{tikzpicture}[x=1cm,y=1cm,appcomponentnode/.style={draw=blue!65!black,fill=blue!6,rectangle,align=center,text width=3.15cm,minimum height=0.95cm,inner sep=5pt,font=\\small},appfunctionnode/.style={draw=blue!65!black,fill=blue!6,rectangle,rounded corners=4pt,align=center,text width=3.15cm,minimum height=0.95cm,inner sep=5pt,font=\\small},appservicenode/.style={draw=blue!65!black,fill=blue!6,rectangle,rounded corners=4pt,align=center,text width=3.15cm,minimum height=0.95cm,inner sep=5pt,font=\\small},appinterfacenode/.style={draw=blue!65!black,fill=blue!6,rectangle,align=center,text width=3.15cm,minimum height=0.95cm,inner sep=5pt,font=\\small},datanode/.style={draw=blue!65!black,fill=blue!6,rectangle,align=center,text width=3.15cm,minimum height=0.95cm,inner sep=5pt,font=\\small},>=Stealth]",
+    ...nodes,
+    ...edges,
+    "\\end{tikzpicture}",
+    `\\par\\smallskip\\captionof{figure}{${viewTitle}}`,
+    `\\label{fig:${view}-1}`,
+    "\\end{center}",
+  ].join("\n");
+}
+
+function diagramPages(view: CoreBaselineView, name: BaselineViewName, title: string): string {
+  if (!view.relationships.length) return `\\noindent ${tex(title)}: no source-supported relationships were identified.`;
+  return renderDiagramPages(view, name);
+}
+
+function conciseRelationshipRows(view: CoreBaselineView, elements: ReadonlyMap<string, AddElement>, makeUrl: LatexEvidenceUrlBuilder): string[][] {
+  return view.relationships.map(edge => {
+    const label = coreRelationshipLabel(edge);
+    return [
+      breakableTex(elements.get(edge.sourceId)?.name ?? edge.sourceId),
+      `\\textbf{${breakableTex(edge.type.replace(/Relationship$/u, ""))}}${label ? `\\newline ${breakableTex(label)}` : ""}\\newline {\\scriptsize ${edge.confidence === "proven" ? "Proven" : "Indicated"} · ${reviewLabel(edge.review)}}`,
+      breakableTex(elements.get(edge.targetId)?.name ?? edge.targetId), evidence(edge.evidence, makeUrl),
+    ];
+  });
+}
+
+function coreViewNote(): string {
+  return "This view shows only core source-supported relationships. Detailed source relationships remain in the corresponding catalog and relationship register.";
 }
 
 /** Render the same ADD model and section structure as the workspace and Markdown export. */
@@ -179,16 +244,14 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
   model = applyAddReviewOverlay(model, overlay);
   const modelHash = addExportModelHash(metadata);
   const elements = new Map(model.elements.map(element => [element.id, element]));
-  const dataElements = model.views.dataStructure.elementIds.map(id => elements.get(id)).filter((element): element is AddElement => Boolean(element));
-  const appElements = model.views.applicationCooperation.elementIds.map(id => elements.get(id)).filter((element): element is AddElement => Boolean(element));
-  const dataEdges = model.views.dataStructure.relationshipIds.map(id => model.relationships.find(edge => edge.id === id)).filter((edge): edge is AddRelationship => Boolean(edge));
-  const appEdges = model.views.applicationCooperation.relationshipIds.map(id => model.relationships.find(edge => edge.id === id)).filter((edge): edge is AddRelationship => Boolean(edge));
+  const dataView = projectCoreBaselineView(model, "dataStructure");
+  const applicationView = projectCoreBaselineView(model, "applicationCooperation");
   const entities = model.catalogs.dataEntities.flatMap(row => {
     const element = elements.get(row.elementId);
     return element ? [[breakableTex(element.name), breakableTex(element.featureGroup ?? "Unassigned"), breakableTex(row.owner ?? "Unknown"), "Not established", breakableTex(row.description ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl)]] : [];
   });
   const crud = model.matrices.applicationData.map(row => [
-    tex(elements.get(row.applicationId)?.name ?? row.applicationId), tex(elements.get(row.dataId)?.name ?? row.dataId),
+    breakableTex(elements.get(row.applicationId)?.name ?? row.applicationId), breakableTex(elements.get(row.dataId)?.name ?? row.dataId),
     crudMark(row.create), crudMark(row.read), crudMark(row.update), crudMark(row.delete), evidence(row.evidence, makeEvidenceUrl),
   ]);
   const portfolio = model.catalogs.applicationPortfolio.flatMap(row => {
@@ -211,8 +274,8 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
   const generatedDate = addExportGeneratedDate(metadata);
   const dataViewNarratives = addViewNarratives(model, "dataStructure");
   const applicationViewNarratives = addViewNarratives(model, "applicationCooperation");
-  const diagramInterpretation = (view: AddViewKind, elementsForView: AddElement[], edgesForView: AddRelationship[], narrative: string) => {
-    const count = diagramPageCount(elementsForView, edgesForView);
+  const diagramInterpretation = (view: AddViewKind, projection: CoreBaselineView, narrative: string) => {
+    const count = diagramPageCount(projection);
     if (!count) return `\\noindent ${tex(narrative)}`;
     const first = `\\ref{fig:${view}-1}`;
     const figureRange = count > 1 ? `Gambar~${first} sampai Gambar~\\ref{fig:${view}-${count}}` : `Gambar~${first}`;
@@ -240,38 +303,40 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
     `\\section{${tex(outline.sections.businessDataModel.title)}}\\label{${outline.sections.businessDataModel.id}}`,
     "\\noindent Logical data objects found in the analyzed snapshot. Ownership and physical distribution require enterprise confirmation.",
     "\\subsection*{Data Entity Catalog}",
-    table(["Data entity", "Feature group", "Owner", "Distribution", "Description", "Review", "Evidence"], entities.length ? entities : noRows("No data entity was identified", 7), ["1.5cm", "2.1cm", "1.5cm", "1.9cm", "2.0cm", "1.3cm", "2.7cm"]),
+    table(["Data entity", "Feature group", "Owner", "Location", "Description", "Review", "Evidence"], entities.length ? entities : noRows("No data entity was identified", 7), ["2.1cm", "1.9cm", "1.5cm", "1.9cm", "2.1cm", "1.3cm", "2.2cm"]),
     "\\Needspace{13cm}", `\\section{${tex(outline.sections.logicalDataModel.title)}}\\label{${outline.sections.logicalDataModel.id}}`,
     `\\noindent ${tex(dataViewNarratives.introduction)}`,
-    "\\par\\smallskip{\\footnotesize Solid and dashed connectors show evidence confidence; end markers distinguish supported ArchiMate relationship types.}",
+    "\\par\\smallskip{\\footnotesize ArchiMate line styles and end markers identify relationship types. Evidence confidence and review state appear in the register.}",
     "\\setcounter{figure}{0}",
-    diagramPages(dataElements, dataEdges, "dataStructure", "Data Structure"),
-    diagramInterpretation("dataStructure", dataElements, dataEdges, dataViewNarratives.interpretation),
-    "\\medskip\\noindent Relationship labels, confidence, review state, and evidence are listed in the register below.",
+    `\\noindent{\\footnotesize ${tex(coreViewNote())}}`,
+    diagramPages(dataView, "dataStructure", "Information Structure Viewpoint"),
+    diagramInterpretation("dataStructure", dataView, dataViewNarratives.interpretation),
+    "\\medskip\\noindent The compact register lists only the relationships shown in this view.",
     "\\Needspace{6cm}",
-    table(["Source", "Relationship type, label, and review", "Target", "Evidence"], relationshipRows(dataEdges, elements, makeEvidenceUrl).length ? relationshipRows(dataEdges, elements, makeEvidenceUrl) : noRows("No explicit data-to-data relationship was identified", 4), ["2.4cm", "4.7cm", "2.4cm", "3.5cm"]),
+    table(["Source", "Relationship", "Target", "Evidence"], conciseRelationshipRows(dataView, elements, makeEvidenceUrl).length ? conciseRelationshipRows(dataView, elements, makeEvidenceUrl) : noRows("No explicit data-to-data relationship was identified", 4), ["2.4cm", "4.7cm", "2.4cm", "3.5cm"]),
     `\\section{${tex(outline.sections.dataManagementProcess.title)}}\\label{${outline.sections.dataManagementProcess.id}}`,
     "\\noindent\\textbf{Not assessed.} Data governance, stewardship, retention, and operational procedures are not established by code declarations alone.",
     `\\section{${tex(outline.sections.dataFunctionMatrix.title)}}\\label{${outline.sections.dataFunctionMatrix.id}}`,
     "\\noindent\\textbf{Not assessed.} No approved Phase B business-function catalog or mapping was supplied; this matrix is intentionally omitted.",
     `\\section{${tex(outline.sections.dataCrudMatrix.title)}}\\label{${outline.sections.dataCrudMatrix.id}}`,
     "\\noindent This source-based matrix uses application components. An application component is not assumed to be a business function. C = Create, R = Read, U = Update, D = Delete; Y = confirmed, N = explicitly absent, ? = unknown.",
-    table(["Application component", "Data entity", "C", "R", "U", "D", "Evidence"], crud.length ? crud : noRows("No confirmed application-data operation", 7), ["2.7cm", "2.7cm", "0.6cm", "0.6cm", "0.6cm", "0.6cm", "5.2cm"]),
+    table(["Application component", "Data entity", "C", "R", "U", "D", "Evidence"], crud.length ? crud : noRows("No confirmed application-data operation", 7), ["3.1cm", "2.6cm", "0.55cm", "0.55cm", "0.55cm", "0.55cm", "5.1cm"]),
     `\\phantomsection\\section*{${tex(outline.applicationArchitecture.title)}}\\addcontentsline{toc}{section}{${tex(outline.applicationArchitecture.title)}}\\label{${outline.applicationArchitecture.id}}`,
     "\\Needspace{13cm}", `\\section{${tex(outline.sections.applicationDesign.title)}}\\label{${outline.sections.applicationDesign.id}}`, `\\noindent ${tex(model.narratives.applicationBaseline)}`,
     "\\medskip", `\\noindent ${tex(applicationViewNarratives.introduction)}`,
-    "\\par\\smallskip{\\footnotesize Solid and dashed connectors show evidence confidence; end markers distinguish supported ArchiMate relationship types.}",
+    "\\par\\smallskip{\\footnotesize ArchiMate line styles and end markers identify relationship types. Evidence confidence and review state appear in the register.}",
     "\\setcounter{figure}{0}",
-    diagramPages(appElements, appEdges, "applicationCooperation", "Application Cooperation"),
-    diagramInterpretation("applicationCooperation", appElements, appEdges, applicationViewNarratives.interpretation),
-    "\\medskip\\noindent Relationship labels, confidence, review state, and evidence are listed in the register below.",
+    `\\noindent{\\footnotesize ${tex(coreViewNote())}}`,
+    diagramPages(applicationView, "applicationCooperation", "Application Cooperation Viewpoint"),
+    diagramInterpretation("applicationCooperation", applicationView, applicationViewNarratives.interpretation),
+    "\\medskip\\noindent The compact register lists only the relationships shown in this view.",
     "\\Needspace{6cm}",
-    table(["Source", "Relationship type, label, and review", "Target", "Evidence"], relationshipRows(appEdges, elements, makeEvidenceUrl).length ? relationshipRows(appEdges, elements, makeEvidenceUrl) : noRows("No application cooperation relationship was extracted", 4), ["2.4cm", "4.7cm", "2.4cm", "3.5cm"]),
+    table(["Source", "Relationship", "Target", "Evidence"], conciseRelationshipRows(applicationView, elements, makeEvidenceUrl).length ? conciseRelationshipRows(applicationView, elements, makeEvidenceUrl) : noRows("No application cooperation relationship was extracted", 4), ["2.4cm", "4.7cm", "2.4cm", "3.5cm"]),
     `\\section{${tex(outline.sections.applicationCatalog.title)}}\\label{${outline.sections.applicationCatalog.id}}`,
     "\\noindent Current application components are listed from the analyzed repository. No target or planned application portfolio was supplied.",
-    table(["Application component", "State", "Description", "Review", "Evidence"], portfolio.length ? portfolio : noRows("No application component was identified", 5), ["2.3cm", "1.2cm", "3.7cm", "1.5cm", "4.2cm"]),
+    table(["Application component", "State", "Description", "Review", "Evidence"], portfolio.length ? portfolio : noRows("No application component was identified", 5), ["2.8cm", "1.4cm", "3.2cm", "1.4cm", "4.1cm"]),
     `\\section{${tex(outline.sections.logicalApplicationComponents.title)}}\\label{${outline.sections.logicalApplicationComponents.id}}`,
-    table(["Type", "Logical component", "Feature group", "Description", "Review", "Evidence"], functions.length ? functions : noRows("No logical application component was identified", 6), ["1.2cm", "2.4cm", "1.8cm", "2.8cm", "1.4cm", "3.5cm"]),
+    table(["Type", "Logical component", "Feature group", "Description", "Review", "Evidence"], functions.length ? functions : noRows("No logical application component was identified", 6), ["2.2cm", "2.2cm", "2.0cm", "2.2cm", "1.4cm", "3.1cm"]),
     `\\section{${tex(outline.sections.interfaceCatalog.title)}}\\label{${outline.sections.interfaceCatalog.id}}`,
     table(["Interface", "Protocol", "Contract", "Review", "Evidence"], interfaces.length ? interfaces : noRows("No interface was identified", 5), ["2.4cm", "1.7cm", "3.8cm", "1.5cm", "3.7cm"]),
     `\\section{${tex(outline.sections.applicationInteractions.title)}}\\label{${outline.sections.applicationInteractions.id}}`,

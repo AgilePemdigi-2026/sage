@@ -81,10 +81,11 @@ test("consented LLM receives bounded ADD facts without source, evidence, reposit
   const request = JSON.parse(sentBody) as { messages: Array<{ role: string; content: string }> };
   const userMessage = request.messages.find(message => message.role === "user");
   assert.ok(userMessage);
-  const sent = JSON.parse(userMessage.content) as { facts: Record<string, unknown>; omitted: Record<string, unknown>; viewCounts: Record<string, unknown> };
+  const sent = JSON.parse(userMessage.content) as { facts: Record<string, unknown>; coreViews: Record<string, unknown>; omitted: Record<string, unknown>; viewCounts: Record<string, unknown> };
   assert.deepEqual(Object.keys(sent.facts).sort(), ["application", "dataObjects", "functions", "interfaces", "relationships"]);
   assert.deepEqual(Object.keys(sent.viewCounts).sort(), ["applicationCooperation", "dataStructure"]);
-  assert.equal((sent.viewCounts.applicationCooperation as { relationships: number }).relationships, 1);
+  assert.equal((sent.viewCounts.applicationCooperation as { relationships: number }).relationships, 0, "LLM receives the actual stakeholder diagram projection, which excludes interface-level links");
+  assert.equal((sent.coreViews.applicationCooperation as { relationships: unknown[] }).relationships.length, 0);
   assert.equal((sent.facts.relationships as Array<{ view: string }>)[0]?.view, "applicationCooperation");
   assert.equal((sent.facts.application as string[])[0], "Authentication");
   assert.equal((sent.facts.dataObjects as Array<{ owner: string }>)[0]?.owner, "owner-metadata-sent");

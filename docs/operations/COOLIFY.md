@@ -1,12 +1,12 @@
 # Deployment Coolify
 
-Runbook aplikasi pada [sage.caiis.ai.id](https://sage.caiis.ai.id/). Pemeriksaan baca-saja 15 November 2026 menerima HTTP 200 dari `/api/health` dengan web dan database `ok`; ini bukan pengujian OAuth/analisis/ekspor baru. Server 16 CPU/14 GB dipakai bersama; angka itu bukan quota SAGE. [Catatan rollout 10 November](../archive/operations/COOLIFY_ROLLOUT_2026-11-10.md) tetap disimpan sebagai arsip.
+Runbook aplikasi pada [sage.caiis.ai.id](https://sage.caiis.ai.id/). Pemeriksaan baca-saja 20 November 2026 menerima HTTP 404 dari `/api/health`, bukan payload health SAGE yang diharapkan. Pemeriksaan 15 November sebelumnya menerima HTTP 200, sehingga kondisi publik saat ini belum siap dinyatakan sehat; penyebab pada route, proxy, atau origin belum ditentukan. Tidak ada setting Coolify yang diubah dan tidak ada deployment yang dijalankan. Server 16 CPU/14 GB dipakai bersama; angka itu bukan quota SAGE. [Bukti pemeriksaan terbaru](../evidence/deployment-health-2026-11-20.json) dan [catatan rollout 10 November](../archive/operations/COOLIFY_ROLLOUT_2026-11-10.md) tetap tersedia.
 
 ## Bentuk deployment
 
 Gunakan **compose.coolify.yaml** sebagai file Compose tersendiri, bukan override compose.yaml lokal. Empat service: PostgreSQL `db`, migrasi one-shot, Next `web`, dan `worker` (Node/PHP/Chromium). Migrasi menunggu database healthy; aplikasi menunggu migrasi exit 0. Tidak ada port host yang dipublish. Hubungkan domain HTTPS hanya ke komponen web pada port internal 3000. Database/worker tetap melalui network stack; jangan mengaktifkan public port database.
 
-Image web dan worker harus berasal dari commit release yang sama, dibangun untuk **linux/amd64** sesuai x86_64 server, lalu tersedia pada registry yang dapat dibaca host. Siapkan build di CI atau mesin terpisah agar proses build tidak berebut RAM server bersama. Compose produksi hanya menarik image prebuilt. Catat digest kedua image; worker dan migrate harus memakai digest worker yang sama. Digest release terverifikasi tersedia pada [bukti kesiapan](../evidence/deployment-readiness-2026-11-10.json).
+Image web dan worker harus berasal dari commit release yang sama, dibangun untuk **linux/amd64** sesuai x86_64 server, lalu tersedia pada registry yang dapat dibaca host. Siapkan build di CI atau mesin terpisah agar proses build tidak berebut RAM server bersama. Compose produksi hanya menarik image prebuilt. Catat digest kedua image; worker dan migrate harus memakai digest worker yang sama. [Bukti kesiapan 10 November](../evidence/deployment-readiness-2026-11-10.json) adalah catatan historis; buat ulang image dan verifikasi digest untuk commit yang akan dirilis.
 
 Contoh perintah build pada builder yang mendukung target tersebut (ganti registry dan release):
 
@@ -73,7 +73,7 @@ Layout canonical 2 tidak kompatibel dengan reader lama yang hanya memahami layou
 
 ## Bukti lokal dan batas
 
-Hasil pengujian Compose, smoke, persistence dan restore tercatat pada [DEP-01_CHECKS](../archive/operations/DEP-01_CHECKS.md). Domain dan callback produksi sudah dikonfigurasi, serta registry pull pada host dan runtime linux/amd64 di CI sudah diverifikasi pada tindak lanjut di bawah. Runtime server sudah healthy pada tindak lanjut 10 November di bawah. OAuth produksi dan beban bersama belum diverifikasi; restore awal hanya memeriksa database kosong.
+Hasil pengujian Compose, smoke, persistence dan restore tercatat pada [DEP-01_CHECKS](../archive/operations/DEP-01_CHECKS.md); pengujian tersebut bukan bukti bahwa domain dan origin masih sehat saat ini. Rollout 10 November mencatat runtime pernah healthy. Pemeriksaan publik terbaru pada 20 November menerima HTTP 404 dari `/api/health`, sehingga status sehat sebelumnya tidak berlaku sebagai verifikasi terkini. Lihat [bukti terbaru](../evidence/deployment-health-2026-11-20.json). Penyebab route, proxy, atau origin belum diketahui. OAuth produksi, resource quota SAGE, beban bersama, dan restore off-server belum disahkan.
 
 ## Referensi
 

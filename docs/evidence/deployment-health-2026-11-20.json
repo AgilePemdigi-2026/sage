@@ -1,0 +1,20 @@
+{
+  "observedAt": "2026-11-20T12:12:36+07:00",
+  "target": "https://sage.caiis.ai.id/api/health",
+  "method": "GET",
+  "redirectsFollowed": false,
+  "httpStatus": 404,
+  "responseBody": "404 page not found",
+  "responseServer": "cloudflare",
+  "cacheStatus": "DYNAMIC",
+  "expected": {
+    "httpStatus": 200,
+    "body": {
+      "status": "ok",
+      "service": "web",
+      "database": "ok"
+    }
+  },
+  "scope": "Single read-only public endpoint probe. No Coolify configuration or deployment was changed.",
+  "assessment": "Public production readiness is not confirmed. The 404 response does not identify whether the cause is the route, proxy, or origin."
+}

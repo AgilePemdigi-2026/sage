@@ -3,8 +3,10 @@ import { applyAddReviewOverlay, type AddReviewOverlay } from "./add-overlay.ts";
 import type { AddBaselineModel, AddElement, AddRelationship } from "./baseline-add.ts";
 import { addExportModelHash, PHASE_C_ADD, PHASE_C_ADD_TOC, type AddExportMetadata } from "./phase-c-add.ts";
 import { addViewNarratives } from "./baseline-narratives.ts";
+import { coreRelationshipLabel, projectCoreBaselineView } from "./baseline-core-views.ts";
 
-export type EvidenceUrlBuilder = (span: EvidenceSpan) => string;
+export type EvidenceUrlBuilder = (span: EvidenceSpan, fileOnly?: boolean) => string;
+const MAX_EVIDENCE_FILES_PER_ROW = 3;
 
 function markdownText(value: string, singleLine = false): string {
   const escaped = value.replaceAll("&", "&amp;").replaceAll("#", "&#35;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
@@ -17,22 +19,24 @@ function linkDestination(value: string): string { return value.replaceAll("\\", 
 
 function evidenceLinks(spans: EvidenceSpan[], makeUrl: EvidenceUrlBuilder): string {
   if (!spans.length) return "No source evidence";
-  return spans.map(span => {
-    const label = markdownText(span.filePath + ":" + span.startLine + "-" + span.endLine, true);
-    return "[" + label + "](" + linkDestination(makeUrl(span)) + ")";
-  }).join(", ");
+  const files = [...new Map(spans.map(span => [span.filePath, span])).values()];
+  const links = files.slice(0, MAX_EVIDENCE_FILES_PER_ROW).map(span => {
+    const label = markdownText(span.filePath, true);
+    return "[" + label + "](" + linkDestination(makeUrl(span, true)) + ")";
+  });
+  if (files.length > links.length) links.push(`+ ${files.length - links.length} additional evidence files`);
+  return links.join(", ");
 }
 
 function relationshipRow(edge: AddRelationship, elements: ReadonlyMap<string, AddElement>, makeUrl: EvidenceUrlBuilder): string {
   return "| " + cell(elements.get(edge.sourceId)?.name ?? edge.sourceId) + " | " + cell(edge.type) + " | " +
-    cell(edge.label) + " | " + cell(elements.get(edge.targetId)?.name ?? edge.targetId) + " | " +
-    (edge.confidence === "proven" ? "Proven" : "Indicated") + " | " + edge.review + " | " + cell(edge.reason) + " | " +
-    evidenceLinks(edge.evidence, makeUrl) + " |";
+    cell(coreRelationshipLabel(edge) ?? "—") + " | " + cell(elements.get(edge.targetId)?.name ?? edge.targetId) + " | " +
+    (edge.confidence === "proven" ? "Proven" : "Indicated") + " | " + edge.review + " | " + evidenceLinks(edge.evidence, makeUrl) + " |";
 }
 
 const relationshipHeader = [
-  "| Source | ArchiMate relationship | Label | Target | Confidence | Review | Reason | Evidence |",
-  "| --- | --- | --- | --- | --- | --- | --- | --- |",
+  "| Source | ArchiMate relationship | Label | Target | Confidence | Review | Evidence |",
+  "| --- | --- | --- | --- | --- | --- | --- |",
 ];
 
 const inputRequired = "Requires architect input. The analyzed repository does not establish this information.";
@@ -42,8 +46,8 @@ export function createAddMarkdown(model: AddBaselineModel, overlay: AddReviewOve
   model = applyAddReviewOverlay(model, overlay);
   const modelHash = addExportModelHash(metadata);
   const elements = new Map(model.elements.map(element => [element.id, element]));
-  const applicationRelationships = model.relationships.filter(edge => model.views.applicationCooperation.relationshipIds.includes(edge.id));
-  const dataRelationships = model.relationships.filter(edge => model.views.dataStructure.relationshipIds.includes(edge.id));
+  const applicationView = projectCoreBaselineView(model, "applicationCooperation");
+  const dataView = projectCoreBaselineView(model, "dataStructure");
   const dataViewNarrative = addViewNarratives(model, "dataStructure");
   const applicationViewNarrative = addViewNarratives(model, "applicationCooperation");
   const functions = model.elements.filter(element => element.type === "ApplicationFunction" || element.type === "ApplicationService");
@@ -75,8 +79,10 @@ export function createAddMarkdown(model: AddBaselineModel, overlay: AddReviewOve
   if (!model.catalogs.dataEntities.length) out.push("| No data entity was identified |  |  |  |  |  |  |");
 
   out.push("", `##### <a id="${PHASE_C_ADD.sections.logicalDataModel.id}"></a>${PHASE_C_ADD.sections.logicalDataModel.number} ${PHASE_C_ADD.sections.logicalDataModel.title}`, "",
-    markdownText(dataViewNarrative.introduction), "", "ArchiMate Data Structure view relationship register", "", ...relationshipHeader);
-  out.push(...(dataRelationships.length ? dataRelationships.map(edge => relationshipRow(edge, elements, makeEvidenceUrl)) : ["| No explicit data-to-data relationship was identified |  |  |  |  |  |  |  |"]));
+    markdownText(dataViewNarrative.introduction), "",
+    "This view shows the core source-supported data-object associations. Other data objects remain in the catalog.", "",
+    "ArchiMate Information Structure Viewpoint relationship register", "", ...relationshipHeader);
+  out.push(...(dataView.relationships.length ? dataView.relationships.map(edge => relationshipRow(edge, elements, makeEvidenceUrl)) : ["| No explicit data-to-data relationship was identified | — | — | — | — | — | — |"]));
   out.push("", "**Interpretation of the data view:** " + markdownText(dataViewNarrative.interpretation), "");
 
   out.push("", `##### <a id="${PHASE_C_ADD.sections.dataManagementProcess.id}"></a>${PHASE_C_ADD.sections.dataManagementProcess.number} ${PHASE_C_ADD.sections.dataManagementProcess.title}`, "",
@@ -93,8 +99,9 @@ export function createAddMarkdown(model: AddBaselineModel, overlay: AddReviewOve
     `### <a id="${PHASE_C_ADD.applicationArchitecture.id}"></a>${PHASE_C_ADD.applicationArchitecture.title}`, "",
     `#### <a id="${PHASE_C_ADD.sections.applicationDesign.id}"></a>${PHASE_C_ADD.sections.applicationDesign.number} ${PHASE_C_ADD.sections.applicationDesign.title}`, "",
     markdownText(model.narratives.applicationBaseline), "", markdownText(applicationViewNarrative.introduction), "",
-    "ArchiMate Application Cooperation relationship register", "", ...relationshipHeader);
-  out.push(...(applicationRelationships.length ? applicationRelationships.map(edge => relationshipRow(edge, elements, makeEvidenceUrl)) : ["| No application cooperation relationship was extracted |  |  |  |  |  |  |  |"]));
+    "This view shows the main source-supported application relationships. Endpoint and function details remain in the catalogs.", "",
+    "ArchiMate Application Cooperation Viewpoint relationship register", "", ...relationshipHeader);
+  out.push(...(applicationView.relationships.length ? applicationView.relationships.map(edge => relationshipRow(edge, elements, makeEvidenceUrl)) : ["| No application cooperation relationship was extracted | — | — | — | — | — | — |"]));
   out.push("", "**Interpretation of the application view:** " + markdownText(applicationViewNarrative.interpretation), "");
 
   out.push("", `#### <a id="${PHASE_C_ADD.sections.applicationCatalog.id}"></a>${PHASE_C_ADD.sections.applicationCatalog.number} ${PHASE_C_ADD.sections.applicationCatalog.title}`, "",
