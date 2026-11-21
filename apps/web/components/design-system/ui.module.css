@@ -347,3 +347,10 @@ button.navPill:disabled { cursor: not-allowed; opacity: .6; }
 @media (prefers-reduced-motion: reduce) {
   .step:not(:last-child)::after, .stepIndicator, .step[data-status="active"] .stepIndicator::before, .progressPending { animation: none; }
 }
+
+/* ── Badge pulse (status berjalan) & PillButton ──────────────────── */
+.badgePulse { width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: currentColor; animation: pulse 1.6s ease-in-out infinite; }
+button.pill { font: inherit; font-size: var(--text-caption); font-weight: 600; cursor: pointer; }
+.pill[aria-pressed="true"] { border-color: var(--color-teal-100); color: var(--color-teal-700); background: var(--color-teal-50); }
+button.pill:disabled { cursor: not-allowed; opacity: .6; }
+@media (prefers-reduced-motion: reduce) { .badgePulse { animation: none; } }

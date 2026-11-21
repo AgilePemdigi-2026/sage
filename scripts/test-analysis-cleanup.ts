@@ -629,9 +629,9 @@ async function assertNoHorizontalOverflow(target: Page): Promise<void> {
 }
 
 function historyRowForCommit(target: Page, commitSha: string): Locator {
-  // The short SHA is a unique, visible identifier in the fixture row. Its
-  // grandparent is the history row containing that row's action buttons.
-  return target.getByText(commitSha.slice(0, 7), { exact: true }).locator("xpath=../..");
+  // The short SHA is a unique, visible identifier in the fixture row; the
+  // history row (listitem) containing it also holds that row's action buttons.
+  return target.getByRole("listitem").filter({ has: target.getByText(commitSha.slice(0, 7), { exact: true }) });
 }
 
 async function capture(target: Page, name: string): Promise<void> {

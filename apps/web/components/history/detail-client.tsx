@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { AssetIcon, Badge, Button, CopySha, DesignFrame, EmptyState, MaskIcon, PageHead, Panel, PipelineStep, ProgressBar, Stepper, type PipelineStepStatus } from "../design-system/ui.tsx";
 import { useHeaderAccount } from "../design-system/account-context.tsx";
 import designStyles from "../design-system/ui.module.css";
-import { formatDateTime, statusLabel, statusTone } from "./format.ts";
+import { analysisStatusBadge, formatDateTime } from "./format.ts";
 import { createDetailPoller, elapsedAnalysisSeconds, formatElapsedDuration, shouldPollAnalysisDetail } from "./detail-data.ts";
 import type { AnalysisDetailView } from "../../lib/analyses/presenters.ts";
 import progressStyles from "./detail.module.css";
@@ -214,10 +214,9 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
   const runningStage = detail.stages.find(stage => stage.status === "RUNNING");
   const failedStage = detail.stages.find(stage => stage.status === "FAILED");
   const active = !isTerminal(detail.status);
-  const overallLabel = detail.status === "QUEUED" ? "Antre"
-    : detail.status === "RUNNING" && runningStage ? `Berjalan · tahap ${runningStage.sequence} dari ${total}`
-    : statusLabel(detail.status) ?? detail.status;
-  const overallTone = detail.status === "QUEUED" ? "neutral" : statusTone(detail.status) ?? "neutral";
+  const badge = analysisStatusBadge(detail.status);
+  const overallLabel = detail.status === "RUNNING" && runningStage ? `Berjalan · tahap ${runningStage.sequence} dari ${total}` : badge.label;
+  const overallTone = badge.tone;
   const elapsedSeconds = elapsedAnalysisSeconds(detail.timestamps, detail.status, clockNow);
   const duration = elapsedSeconds === null ? "--:--:--" : formatElapsedDuration(elapsedSeconds);
 
@@ -230,7 +229,7 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
         <span className={`${progressStyles.chip} ${progressStyles.chipSha}`}><AssetIcon group="progress-v2" name="imgCommit" /><span className={designStyles.srOnly}>Commit </span><CopySha sha={detail.context.commitSha} /></span>
       </div>}
       aside={<>
-        <span className={progressStyles.statusLive} aria-live="polite"><Badge tone={overallTone}>{overallLabel}</Badge></span>
+        <span className={progressStyles.statusLive} aria-live="polite"><Badge tone={overallTone} pulse={detail.status === "RUNNING"}>{overallLabel}</Badge></span>
         <Stepper steps={["Repository", "Target", "Analisis"]} current={2} label="Langkah analisis" />
       </>}
     />
@@ -295,7 +294,7 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
             </div>
             <div>
               <div className={progressStyles.progressHead}><span>Progres tahap</span><span>{completedStages}/{total}</span></div>
-              <ProgressBar value={completedStages} max={total} label={`${completedStages} dari ${total} tahap selesai`} indeterminate={active} />
+              <ProgressBar value={completedStages} max={total} label={`${completedStages} dari ${total} tahap selesai`} indeterminate={detail.status === "RUNNING"} />
             </div>
             <dl className={progressStyles.facts}>
               <dt>Diantrekan</dt><dd>{formatDateTime(detail.timestamps.queuedAt)}</dd>

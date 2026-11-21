@@ -14,7 +14,8 @@
   --color-teal-600: #22b19b; /* hover tombol primer: teal-500 sedikit lebih gelap (motion spec) */
   --color-teal-700: #0b7a6c;
   --color-ink: #061e42;
-  --color-ink-hover: #0d2a55; /* hover tombol GitHub (ink sedikit lebih terang) */
+  --color-ink-hover: #0d2a55;
+  --color-error-hover: #912018; /* hover tombol hapus permanen */ /* hover tombol GitHub (ink sedikit lebih terang) */
 
   /* Surface & teks */
   --color-canvas: #f2f7f8;

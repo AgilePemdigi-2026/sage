@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { AssetIcon, Badge, DesignFrame, Panel } from "../design-system/ui.tsx";
-import { formatDateTime, statusLabel, statusTone } from "./format.ts";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { AssetIcon, Badge, Button, CopySha, DesignFrame, EmptyState, Field, MaskIcon, PageHead, Panel, PillButton, SkeletonRows } from "../design-system/ui.tsx";
+import designStyles from "../design-system/ui.module.css";
+import { analysisStatusBadge, formatDateTime } from "./format.ts";
+import { elapsedAnalysisSeconds } from "./detail-data.ts";
+import { formatStageDuration } from "./stage-duration.ts";
 import { applyHistoryPatch, createHistoryData, historyDeletionControls } from "./history-data.ts";
 import type { HistoryDeletionAction, HistoryItem, HistoryPatchTarget } from "./history-data.ts";
-import styles from "../design-system/workspace.module.css";
+import css from "./history.module.css";
 import deletionStyles from "./history-delete.module.css";
 
 const STATUS_OPTIONS = ["QUEUED", "RUNNING", "COMPLETED", "COMPLETED_WITH_LIMITATIONS", "FAILED"] as const;
@@ -85,20 +88,32 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
   const visibleItems = accountIsActive ? items : null;
   const visibleError = accountIsActive && error;
   const visibleLoaded = accountIsActive && loaded;
-  const renderRow = (item: HistoryItem) => {
+  const filtersActive = Boolean(trimmed || status);
+  const clearFilters = () => { setQuery(""); setStatus(""); };
+  const renderRow = (item: HistoryItem, index: number) => {
     const action = deletionActions[item.id];
     const deletionStatus = item.deletion?.status;
     const deletionControls = historyDeletionControls(item, action, data.isDeletionActive(item.id));
     const failureMessage = (action?.phase === "failed" ? action.message : null) ?? (item.deletion?.errorCode
       ? `Pembersihan sebelumnya gagal (${item.deletion.errorCode}). Coba lagi untuk menghapus analisis.`
       : "Pembersihan sebelumnya gagal. Coba lagi untuk menghapus analisis.");
-    return <div className={styles.historyRow} key={item.id}>
-      <div><strong>{item.repository.fullName}</strong><span className={styles.shaShort}>{item.commitSha.slice(0, 7)}</span><small>Diantrekan {formatDateTime(item.queuedAt)}{item.completedAt ? ` · Selesai ${formatDateTime(item.completedAt)}` : ""}</small></div>
-      <code>{item.branch || "—"}</code>
-      <span className={styles.historyLanguages}>{item.languages?.length ? item.languages.join(", ") : "Belum terdeteksi"}</span>
-      <Badge tone={statusTone(item.status) ?? "neutral"}>{statusLabel(item.status) ?? item.status}</Badge>
-      <div className={deletionStyles.rowActions}>
-        {!item.deletion ? <Link href={`/analyses/${item.id}`}>Buka</Link> : null}
+    const badge = analysisStatusBadge(item.status);
+    // Durasi hanya dari data yang ada (diantrekan → selesai); analisis aktif/tanpa waktu selesai → "—".
+    const durationSeconds = elapsedAnalysisSeconds({ queuedAt: item.queuedAt, completedAt: item.completedAt }, item.status, Number.NaN);
+    return <li className={css.row} key={item.id} style={{ "--i": Math.min(index, 10) } as CSSProperties}>
+      <div className={css.repo}>
+        <span className={css.repoName} title={item.repository.fullName}>{item.repository.fullName}</span>
+        <span className={css.branch}><MaskIcon group="repository" name="imgBranch" size={13} /><span className={designStyles.srOnly}>Branch </span><span>{item.branch || "—"}</span></span>
+      </div>
+      <div className={css.commit}><span className={css.chip}><AssetIcon group="progress-v2" name="imgCommit" /><CopySha sha={item.commitSha} label={item.commitSha.slice(0, 7)} /></span></div>
+      <span className={css.meta}>
+        <span className={css.languages}>{item.languages?.length ? item.languages.join(", ") : "Belum terdeteksi"}</span>
+        <span className={css.duration}><span className={designStyles.srOnly}>Durasi </span>{formatStageDuration(durationSeconds)}</span>
+        <span className={css.date}><span className={designStyles.srOnly}>Diantrekan </span>{formatDateTime(item.queuedAt)}</span>
+      </span>
+      <span className={css.status}><Badge tone={badge.tone} pulse={item.status === "RUNNING"}>{badge.label}</Badge></span>
+      <div className={`${deletionStyles.rowActions} ${css.actions}`}>
+        {!item.deletion ? <Link className={css.open} href={`/analyses/${item.id}`}>Buka<AssetIcon group="repository" name="imgChevronRight" className={css.chevron} /></Link> : null}
         {deletionControls.pending ? <span className={deletionStyles.pending} role="status">
           <span className={deletionStyles.spinner} aria-hidden="true" />
           {action?.message ?? (deletionStatus === "RUNNING" ? "Penghapusan sedang berjalan" : "Penghapusan sedang menunggu")}
@@ -113,53 +128,39 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
           onClick={() => setConfirming({ item, accountKey })}
         >{deletionControls.failed ? "Coba hapus lagi" : "Hapus"}</button>
       </div>
-    </div>;
+    </li>;
   };
   return <DesignFrame active="history">
-    <div className={styles.breadcrumb}>Workspace <span>/</span> Riwayat</div>
-    <div className={styles.pageHeading}>
-      <p className={styles.eyebrow}>02 / RIWAYAT</p>
-      <h1>Riwayat analisis</h1>
-      <p className={styles.muted}>Daftar analisis milik akun yang masuk, dengan status terbarui.</p>
+    <PageHead
+      breadcrumb={[{ label: "Workspace", href: "/workspace" }, { label: "Riwayat" }]}
+      title="Riwayat analisis"
+      description="Semua analisis milik akunmu, dengan status terbarui. Buka hasil atau hapus beserta artefaknya."
+      aside={<Button href="/workspace/repositories" size="lg">Analisis baru</Button>}
+    />
+    <div className={css.toolbar}>
+      <Field className={css.search} label="Cari repository, branch, atau SHA" hideLabel type="search" icon={<MaskIcon group="repository" name="imgSearch" size={18} />} value={query} onChange={event => setQuery(event.target.value)} placeholder="Cari repository, branch, atau SHA" />
+      <div className={css.filters} role="group" aria-label="Filter status">
+        <PillButton pressed={status === ""} onClick={() => setStatus("")}>Semua</PillButton>
+        {STATUS_OPTIONS.map(option => <PillButton key={option} pressed={status === option} onClick={() => setStatus(option)}>{analysisStatusBadge(option).label}</PillButton>)}
+      </div>
+      {filtersActive ? <Button variant="link" onClick={clearFilters}>Hapus filter</Button> : null}
     </div>
-    <Panel title="Filter" className={styles.historyPanel}>
-      <label className={styles.searchField}>Cari repository, branch, atau SHA
-        <input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Contoh: report-service" />
-      </label>
-      <label className={styles.searchField}>Status
-        <select value={status} onChange={event => setStatus(event.target.value)}>
-          <option value="">Semua</option>
-          {STATUS_OPTIONS.map(option => <option key={option} value={option}>{statusLabel(option) ?? option}</option>)}
-        </select>
-      </label>
-      {(trimmed || status) ? (
-        <button type="button" className={styles.textAction} onClick={() => { setQuery(""); setStatus(""); }}>Hapus filter</button>
-      ) : null}
-    </Panel>
-    <Panel title="Daftar" className={styles.historyPanel}>
-      {!visibleLoaded ? <div className={styles.loadingRows} role="status" aria-label="Memuat riwayat">{[0, 1].map(index => <div key={index}><span /><span /><span /></div>)}</div> : null}
-      {visibleError ? <div className={styles.historyMessage} role="alert">
-        <AssetIcon group="history-error" name="imgIcon2" />
-        <div><strong>Riwayat gagal dimuat</strong><p>Periksa koneksi lalu muat ulang halaman.</p></div>
-        <button type="button" className={styles.textAction} onClick={() => setReloadKey(key => key + 1)}>Coba lagi</button>
+    <Panel className={css.card}>
+      {!visibleLoaded ? <div className={css.state}><SkeletonRows rows={4} label="Memuat riwayat" /></div> : null}
+      {visibleError ? <div className={css.state}><EmptyState tone="error" role="alert" icon={{ group: "repository", name: "imgRepo" }} title="Riwayat gagal dimuat" action={<Button variant="secondary" onClick={() => setReloadKey(key => key + 1)}>Coba lagi</Button>}>Periksa koneksi lalu muat ulang halaman.</EmptyState></div> : null}
+      {visibleLoaded && !visibleError && visibleItems?.length === 0 && !filtersActive ? <div className={css.state}>
+        <EmptyState icon={{ group: "repository", name: "imgRepo" }} title="Belum ada riwayat analisis" action={<Button href="/workspace/repositories" variant="secondary">Pilih repository</Button>}>Pilih repository untuk memulai analisis pertama.</EmptyState>
       </div> : null}
-      {visibleLoaded && !visibleError && visibleItems?.length === 0 && !trimmed && !status ? <div className={styles.historyMessage}>
-        <AssetIcon group="history-empty" name="imgIcon1" />
-        <div><strong>Belum ada riwayat analisis</strong><p>Pilih repository untuk memulai analisis pertama.</p></div>
-        <Link className={styles.secondaryAction} href="/workspace/repositories">Pilih repository</Link>
-      </div> : null}
-      {visibleLoaded && !visibleError && visibleItems?.length === 0 && (trimmed || status) ? <div className={styles.historyMessage}>
-        <AssetIcon group="history-empty" name="imgIcon" />
-        <div><strong>Tidak ada hasil untuk {trimmed ? `“${trimmed}”` : "filter ini"}</strong><p>Pencarian memeriksa repository, branch, dan SHA.</p></div>
-        <button type="button" className={styles.textAction} onClick={() => { setQuery(""); setStatus(""); }}>Hapus filter</button>
+      {visibleLoaded && !visibleError && visibleItems?.length === 0 && filtersActive ? <div className={css.state}>
+        <EmptyState icon={{ group: "repository", name: "imgSearch" }} title={<>Tidak ada hasil untuk {trimmed ? `“${trimmed}”` : "filter ini"}</>} action={<Button variant="link" onClick={clearFilters}>Hapus filter</Button>}>Pencarian memeriksa repository, branch, dan SHA.</EmptyState>
       </div> : null}
       {visibleLoaded && visibleItems && visibleItems.length > 0 ? <>
-        <div className={styles.historyColumns} aria-hidden="true"><span>Repository dan commit</span><span>Branch</span><span>Bahasa</span><span>Status</span><span>Aksi</span></div>
-        {visibleItems.map(renderRow)}
-        {load ? <button type="button" className={styles.textAction} onClick={() => load()}>Muat lebih banyak</button> : null}
+        <div className={css.columns} aria-hidden="true"><span>Repository</span><span>Commit</span><span>Bahasa</span><span>Durasi</span><span>Tanggal</span><span>Status</span><span>Aksi</span></div>
+        <ul className={css.list} aria-label="Daftar riwayat analisis">{visibleItems.map(renderRow)}</ul>
+        {load ? <div className={css.loadMore}><Button variant="link" onClick={() => load()}>Muat lebih banyak</Button></div> : null}
       </> : null}
     </Panel>
-    <p className={styles.historyFootnote}>Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaruan otomatis.</p>
+    <p className={css.footnote}>Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaruan otomatis.</p>
     <dialog
       ref={deleteDialog}
       className={deletionStyles.dialog}
@@ -174,7 +175,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
           Arsip analisis, graph, dokumentasi, serta ekspor PDF dan Markdown akan dihapus secara permanen. Analisis turunan tetap ada, tetapi tautan ke analisis induk ini mungkin terhapus. Tindakan ini tidak dapat dibatalkan.
         </p>
         <div className={deletionStyles.dialogActions}>
-          <button type="button" className={styles.textAction} onClick={() => setConfirming(null)}>Batalkan</button>
+          <Button variant="secondary" onClick={() => setConfirming(null)}>Batalkan</Button>
           <button
             type="button"
             data-confirm-delete

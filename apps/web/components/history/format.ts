@@ -26,3 +26,9 @@ export function formatDateTime(value: string | Date | null | undefined): string 
   const date = value instanceof Date ? value : new Date(value);
   return Number.isNaN(date.getTime()) ? "—" : formatter.format(date);
 }
+
+/** Label + tone badge status yang sama untuk Riwayat dan Progres (QUEUED tampil "Antre", netral). */
+export function analysisStatusBadge(status: string): { label: string; tone: StatusTone | "neutral" } {
+  if (status === "QUEUED") return { label: "Antre", tone: "neutral" };
+  return { label: statusLabel(status) ?? status, tone: statusTone(status) ?? "neutral" };
+}

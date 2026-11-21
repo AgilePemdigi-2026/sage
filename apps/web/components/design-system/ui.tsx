@@ -140,6 +140,11 @@ export function PillLink({ href, active = false, children }: { href: string; act
   return <a className={styles.pill} href={href} aria-current={active ? "location" : undefined}>{children}</a>;
 }
 
+/** Pill kit sebagai tombol toggle (filter). Gaya sama dengan PillLink. */
+export function PillButton({ pressed, onClick, children, disabled }: { pressed: boolean; onClick: () => void; children: ReactNode; disabled?: boolean }) {
+  return <button type="button" className={styles.pill} aria-pressed={pressed} onClick={onClick} disabled={disabled}>{children}</button>;
+}
+
 /** Id section yang paling banyak terlihat di viewport (default: yang pertama). */
 export function useVisibleSection(ids: readonly string[]): string {
   const [visible, setVisible] = useState(ids[0] ?? "");
@@ -379,8 +384,8 @@ export function Spinner() {
 
 export type BadgeTone = "info" | "success" | "warning" | "error" | "neutral" | "teal";
 
-export function Badge({ tone = "neutral", children }: { tone?: BadgeTone; children: React.ReactNode }) {
-  return <span className={`${styles.badge} ${styles[`badge_${tone}`]}`}>{children}</span>;
+export function Badge({ tone = "neutral", pulse = false, children }: { tone?: BadgeTone; pulse?: boolean; children: React.ReactNode }) {
+  return <span className={`${styles.badge} ${styles[`badge_${tone}`]}`}>{pulse ? <span className={styles.badgePulse} aria-hidden="true" /> : null}{children}</span>;
 }
 
 /* ── RD/Side link ─────────────────────────────────────────────────────── */
@@ -406,18 +411,20 @@ type FieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "children"> & {
   error?: ReactNode;
   optional?: boolean;
   mono?: boolean;
+  /** Label tetap ada untuk pembaca layar, tetapi disembunyikan secara visual. */
+  hideLabel?: boolean;
   /** Ganti <input> bawaan, misalnya dengan <select>. Kontrol harus memakai id yang sama. */
   children?: ReactNode;
 };
 
-export function Field({ label, icon, trailing, hint, error, optional = false, mono = false, children, id, className, ...input }: FieldProps) {
+export function Field({ label, icon, trailing, hint, error, optional = false, mono = false, hideLabel = false, children, id, className, ...input }: FieldProps) {
   const generatedId = useId();
   const controlId = id ?? generatedId;
   const hintId = hint ? `${controlId}-hint` : undefined;
   const errorId = error ? `${controlId}-error` : undefined;
   const describedBy = cx(input["aria-describedby"], hintId, errorId) || undefined;
   return <div className={cx(styles.field, className)}>
-    <label className={styles.fieldLabel} htmlFor={controlId}>{label}{optional ? <>{" "}<span className={styles.fieldOptional}>(opsional)</span></> : null}</label>
+    <label className={hideLabel ? styles.srOnly : styles.fieldLabel} htmlFor={controlId}>{label}{optional ? <>{" "}<span className={styles.fieldOptional}>(opsional)</span></> : null}</label>
     <div className={cx(styles.fieldControl, mono && styles.fieldMono)} data-invalid={error ? "true" : undefined} data-disabled={input.disabled ? "true" : undefined}>
       {icon ? <span className={styles.fieldIcon} aria-hidden="true">{icon}</span> : null}
       {children ?? <input id={controlId} {...input} aria-invalid={error ? true : input["aria-invalid"]} aria-describedby={describedBy} />}
@@ -465,7 +472,7 @@ export function ProgressBar({ value, max, label, indeterminate = false }: { valu
 
 /* ── Util ─────────────────────────────────────────────────────────────── */
 
-export function CopySha({ sha }: { sha: string }) {
+export function CopySha({ sha, label }: { sha: string; /** Teks tampilan (mis. SHA pendek); yang disalin tetap SHA penuh. */ label?: string }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
     try {
@@ -477,7 +484,7 @@ export function CopySha({ sha }: { sha: string }) {
     }
   }
   return <div className={styles.copySha}>
-    <code>{sha}</code>
+    <code title={label ? sha : undefined}>{label ?? sha}</code>
     <button type="button" onClick={() => void copy()} aria-label="Salin SHA lengkap">{copied ? "Tersalin" : "Salin"}</button>
   </div>;
 }
