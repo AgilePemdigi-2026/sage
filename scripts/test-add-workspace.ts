@@ -199,12 +199,12 @@ async function main(): Promise<void> {
     });
     await page.route("https://**/*", route => route.abort());
     await page.goto("/qa-add-workspace");
-    const generateButton = page.getByRole("button", { name: "Generate Phase C baseline" });
+    const generateButton = page.getByRole("button", { name: "Generate ADD baseline" });
     await generateButton.waitFor();
-    const consentCheckbox = page.getByRole("checkbox", { name: /Enable optional LLM narrative assistance/iu });
+    const consentCheckbox = page.getByRole("checkbox", { name: /Bantu narasi dengan LLM kampus/iu });
     assert.equal(await consentCheckbox.isChecked(), false, "LLM assistance is opt-in and disabled by default");
     await generateButton.click();
-    await page.getByRole("heading", { name: "Architecture Definition Document" }).waitFor();
+    await page.getByRole("heading", { level: 1, name: "Architecture Definition Document" }).waitFor();
     await page.getByRole("heading", { name: "Baseline Data Architecture" }).waitFor();
     await page.getByRole("heading", { name: "Application Design (Baseline)" }).waitFor();
     assert.equal(generateCount, 1, "the ADD page generates its baseline without requiring a Code Knowledge visit");
@@ -326,10 +326,10 @@ async function main(): Promise<void> {
     });
     await consentPage.route("https://**/*", route => route.abort());
     await consentPage.goto("/qa-add-workspace");
-    const optIn = consentPage.getByRole("checkbox", { name: /Enable optional LLM narrative assistance/iu });
+    const optIn = consentPage.getByRole("checkbox", { name: /Bantu narasi dengan LLM kampus/iu });
     await optIn.waitFor();
     await optIn.check();
-    await consentPage.getByRole("button", { name: "Generate Phase C baseline" }).click();
+    await consentPage.getByRole("button", { name: "Generate ADD baseline" }).click();
     await consentPage.getByRole("heading", { name: "Baseline Data Architecture" }).waitFor();
     assert.equal(consentReceived, true, "LLM facts are sent only after explicit checkbox consent");
     assert.equal(generateCount, 2);

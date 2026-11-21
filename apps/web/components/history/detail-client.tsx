@@ -1,8 +1,9 @@
 "use client";
 
 import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
+import { AnalysisPageHead } from "../analysis-navigation/analysis-page-head.tsx";
 import { useEffect, useRef, useState } from "react";
-import { AssetIcon, Badge, Button, CopySha, DesignFrame, EmptyState, MaskIcon, PageHead, Panel, PipelineStep, ProgressBar, Stepper, type PipelineStepStatus } from "../design-system/ui.tsx";
+import { Button, DesignFrame, EmptyState, PageHead, Panel, PipelineStep, ProgressBar, type PipelineStepStatus } from "../design-system/ui.tsx";
 import { useHeaderAccount } from "../design-system/account-context.tsx";
 import designStyles from "../design-system/ui.module.css";
 import { analysisStatusBadge, formatDateTime } from "./format.ts";
@@ -200,7 +201,7 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisId, accountKey]);
 
-  const breadcrumb = [{ label: "Workspace", href: "/workspace" }, { label: "Repository", href: "/workspace/repositories" }, { label: "Analisis" }];
+  const breadcrumb = [{ label: "Workspace", href: "/workspace" }, { label: "Riwayat", href: "/workspace/history" }, { label: "Progres" }];
   if (reason === "not-found") return <DesignFrame active="history">
     <PageHead breadcrumb={breadcrumb} title="Analisis tidak tersedia" />
     <EmptyState tone="error" role="alert" icon={{ group: "repository", name: "imgRepo" }} title="Analisis tidak ditemukan" action={<Button href="/workspace/history" variant="secondary">Kembali ke riwayat</Button>}>Record ini bukan milik akun yang masuk, atau sudah dihapus.</EmptyState>
@@ -216,23 +217,11 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
   const active = !isTerminal(detail.status);
   const badge = analysisStatusBadge(detail.status);
   const overallLabel = detail.status === "RUNNING" && runningStage ? `Berjalan · tahap ${runningStage.sequence} dari ${total}` : badge.label;
-  const overallTone = badge.tone;
   const elapsedSeconds = elapsedAnalysisSeconds(detail.timestamps, detail.status, clockNow);
   const duration = elapsedSeconds === null ? "--:--:--" : formatElapsedDuration(elapsedSeconds);
 
   return <DesignFrame active="history">
-    <PageHead
-      breadcrumb={breadcrumb}
-      title={<span className={progressStyles.title}>{detail.context.repositoryFullName}</span>}
-      description={<div className={progressStyles.chips}>
-        <span className={progressStyles.chip}><MaskIcon group="repository" name="imgBranch" size={14} /><span className={designStyles.srOnly}>Branch </span>{detail.context.branchName}</span>
-        <span className={`${progressStyles.chip} ${progressStyles.chipSha}`}><AssetIcon group="progress-v2" name="imgCommit" /><span className={designStyles.srOnly}>Commit </span><CopySha sha={detail.context.commitSha} /></span>
-      </div>}
-      aside={<>
-        <span className={progressStyles.statusLive} aria-live="polite"><Badge tone={overallTone} pulse={detail.status === "RUNNING"}>{overallLabel}</Badge></span>
-        <Stepper steps={["Repository", "Target", "Analisis"]} current={2} label="Langkah analisis" />
-      </>}
-    />
+    <AnalysisPageHead head={{ ...detail.context, status: detail.status }} tab="Progres" badgeLabel={overallLabel} />
     <AnalysisNavigation analysisId={analysisId} active="progress" resultsAvailable={Boolean(detail.results)} />
 
     <div className={progressStyles.layout}>

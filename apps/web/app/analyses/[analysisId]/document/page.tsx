@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { database, resolveSession } from "@sage/database";
+import { readAnalysisHead } from "../../../../lib/analyses/analysis-head.ts";
 import { getUniqueCookie, isValidOpaqueToken, SESSION_COOKIE } from "../../../../lib/auth/handlers.ts";
 import { loginRedirectPath } from "../../../../lib/auth/workspace-context.ts";
 import { DesignFrame } from "../../../../components/design-system/ui.tsx";
@@ -31,7 +32,10 @@ export default async function AnalysisDocumentPage({ params }: { params: Promise
   const user = await db.user.findUnique({ where: { id: session.userId }, select: { githubUserId: true } });
   if (!user) redirect("/login?error=session");
 
+  // Page head bersama memakai detail analisis milik pengguna yang sama (owner-scoped), seperti tab Progres.
+  const context = await readAnalysisHead(db, session.userId, analysisId) ?? undefined;
+
   return <DesignFrame active="history">
-    <AddWorkspace analysisId={analysisId} accountKey={user.githubUserId} />
+    <AddWorkspace analysisId={analysisId} accountKey={user.githubUserId} context={context} />
   </DesignFrame>;
 }

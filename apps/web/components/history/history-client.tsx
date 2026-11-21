@@ -107,7 +107,9 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
       </div>
       <div className={css.commit}><span className={css.chip}><AssetIcon group="progress-v2" name="imgCommit" /><CopySha sha={item.commitSha} label={item.commitSha.slice(0, 7)} /></span></div>
       <span className={css.meta}>
-        <span className={css.languages}>{item.languages?.length ? item.languages.join(", ") : "Belum terdeteksi"}</span>
+        {item.languages?.length
+          ? <span className={css.languages}>{item.languages.join(", ")}</span>
+          : <span className={css.languages} title="Bahasa belum terdeteksi"><span aria-hidden="true">—</span><span className={designStyles.srOnly}>Bahasa belum terdeteksi</span></span>}
         <span className={css.duration}><span className={designStyles.srOnly}>Durasi </span>{formatStageDuration(durationSeconds)}</span>
         <span className={css.date}><span className={designStyles.srOnly}>Diantrekan </span>{formatDateTime(item.queuedAt)}</span>
       </span>
@@ -124,7 +126,8 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
           className={deletionStyles.deleteAction}
           disabled={deletionControls.deleteDisabled}
           aria-label={`${deletionControls.failed ? "Coba hapus lagi" : "Hapus"} analisis ${item.repository.fullName}`}
-          title={item.status === "QUEUED" || item.status === "RUNNING" ? "Analisis yang masih aktif tidak dapat dihapus." : undefined}
+          title={item.status === "QUEUED" || item.status === "RUNNING" ? "Analisis yang masih aktif tidak dapat dihapus."
+            : deletionControls.deleteDisabled ? "Penghapusan sedang diproses." : undefined}
           onClick={() => setConfirming({ item, accountKey })}
         >{deletionControls.failed ? "Coba hapus lagi" : "Hapus"}</button>
       </div>

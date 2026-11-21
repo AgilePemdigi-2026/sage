@@ -54,7 +54,10 @@
   .repo { grid-area: repo; }
   .status { grid-area: status; justify-self: end; }
   .commit { grid-area: commit; }
-  .meta { grid-area: meta; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  /* Meta kartu: satu baris (wrap bila perlu), dipisah "·", baseline sejajar. */
+  .meta { grid-area: meta; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 0; line-height: 1.6; }
+  .meta > * + *::before { content: "·"; margin: 0 8px; color: var(--color-border); font-family: var(--font-sans); }
+  .meta .duration { font-size: var(--text-mono-sm); line-height: 1.6; }
   .actions { grid-area: actions; justify-content: flex-start; }
 }
 

@@ -6,6 +6,8 @@ import { getUniqueCookie, isValidOpaqueToken, SESSION_COOKIE } from "../../../..
 import { loginRedirectPath } from "../../../../lib/auth/workspace-context.ts";
 import { DesignFrame } from "../../../../components/design-system/ui.tsx";
 import { LiveGraphClient } from "../../../../components/live-graph/live-graph-client.tsx";
+import { AnalysisPageHead } from "../../../../components/analysis-navigation/analysis-page-head.tsx";
+import { readAnalysisHead } from "../../../../lib/analyses/analysis-head.ts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,5 +32,9 @@ export default async function AnalysisGraphPage({ params }: { params: Promise<{ 
   const user = await db.user.findUnique({ where: { id: session.userId }, select: { githubUserId: true } });
   if (!user) redirect("/login?error=session");
 
-  return <DesignFrame active="history"><LiveGraphClient analysisId={analysisId} accountKey={user.githubUserId} /></DesignFrame>;
+  const head = await readAnalysisHead(db, session.userId, analysisId);
+  return <DesignFrame active="history">
+    {head ? <AnalysisPageHead head={head} tab="Code Knowledge" /> : null}
+    <LiveGraphClient analysisId={analysisId} accountKey={user.githubUserId} />
+  </DesignFrame>;
 }

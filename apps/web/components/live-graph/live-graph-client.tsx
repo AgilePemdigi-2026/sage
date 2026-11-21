@@ -332,16 +332,16 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
   }
 
   return <div className={styles.graphShell}>
+    <AnalysisNavigation analysisId={analysisId} active="graph" />
+    {/* h1 berada di page head bersama (nama repo); judul tab menjadi h2. */}
     <div className={ui.pageHeading}>
       <p className={ui.eyebrow}>CODE KNOWLEDGE</p>
-      <h1>Struktur source code</h1>
+      <h2>Struktur source code</h2>
       <p className={ui.muted}>Telusuri module, symbol, dependency, dan bukti pada source code di commit yang dianalisis.</p>
     </div>
 
     {!visiblePayload && (busy || payload) ? <p className={ui.loading} role="status">Memeriksa akun dan memuat knowledge graph…</p> : null}
     {error && !visiblePayload ? errorContent() : null}
-
-    <AnalysisNavigation analysisId={analysisId} active="graph" />
 
     {visiblePayload ? <section className={ui.notice} aria-labelledby="open-add-title">
       <strong id="open-add-title">TOGAF Phase C baseline ADD</strong>

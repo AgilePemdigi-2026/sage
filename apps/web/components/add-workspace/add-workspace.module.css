@@ -1,4 +1,5 @@
-.page { width:min(1100px,calc(100% - 40px)); margin:0 auto; padding:30px 0 72px; color:#1f2328; }
+/* Lebar & padding mengikuti <main> DesignFrame (konten 1200 px seperti frame 04/05). */
+.page { width:100%; margin:0 auto; padding:0 0 72px; color:#1f2328; }
 .pageHeader { margin:8px 0 24px; max-width:860px; }
 .pageHeader h1 { margin:5px 0 10px; font-size:clamp(28px,4vw,42px); letter-spacing:-.035em; line-height:1.12; }
 .pageHeader>p:last-child { margin:0; color:#59636e; font-size:16px; line-height:1.6; }
@@ -64,7 +65,7 @@
 .templateStatus { display:inline-flex; align-items:center; width:max-content; border:1px solid #d4a72c; border-radius:999px; padding:5px 10px; background:#fff; color:#7d4e00; font-size:12px; font-weight:650; white-space:nowrap; }
 .documentSubheading { margin:18px 0 8px; font-size:16px; line-height:1.35; }
 .printTocTitle { display:none; }
-@media(max-width:760px) { .page { width:min(100% - 24px,1100px); padding-top:20px; }.exportPanel { flex-direction:column; align-items:stretch; }.baseline,.sectionCard,.emptyPanel,.errorPanel { padding:16px; }.baselineHeading,.sectionTitle { display:grid; }.archimateTag { white-space:normal; }.reviewRow { grid-template-columns:1fr; }.reviewToolbar>span { margin-left:0; }.exportActions>* { flex:1; }.reviewFooter { align-items:stretch; flex-direction:column; }.diagramViewport { max-height:65vh; }.diagram { min-width:980px; }.tocList { grid-template-columns:1fr; }.tocList .tocDocument { grid-column:auto; } }
+@media(max-width:760px) { .page { width:100%; padding-top:0; }.exportPanel { flex-direction:column; align-items:stretch; }.baseline,.sectionCard,.emptyPanel,.errorPanel { padding:16px; }.baselineHeading,.sectionTitle { display:grid; }.archimateTag { white-space:normal; }.reviewRow { grid-template-columns:1fr; }.reviewToolbar>span { margin-left:0; }.exportActions>* { flex:1; }.reviewFooter { align-items:stretch; flex-direction:column; }.diagramViewport { max-height:65vh; }.diagram { min-width:980px; }.tocList { grid-template-columns:1fr; }.tocList .tocDocument { grid-column:auto; } }
 @media print {
   .page { width:100%; max-width:none; margin:0; padding:0; color:#111; font:10pt/1.45 "Times New Roman",serif; }
   .pageHeader,.baseline,.sectionCard { box-shadow:none; margin:0 0 7mm; border-color:#b8c1cc; }

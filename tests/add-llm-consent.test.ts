@@ -52,13 +52,15 @@ test("ADD consent is default-off, collected on the ADD page, and absent from Cod
   const addWorkspace = await readFile(new URL("../apps/web/components/add-workspace/add-workspace.tsx", import.meta.url), "utf8");
   const graphWorkspace = await readFile(new URL("../apps/web/components/live-graph/live-graph-client.tsx", import.meta.url), "utf8");
 
-  assert.match(addWorkspace, /id="add-llm-consent" type="checkbox" aria-describedby="add-llm-consent-details" defaultChecked=\{false\}/u);
+  assert.match(addWorkspace, /id="add-llm-consent" type="checkbox" aria-describedby="add-llm-consent-summary add-llm-consent-details" defaultChecked=\{false\}/u);
+  // The full disclosure stays in the DOM (inside <details>) and is referenced by aria-describedby.
+  assert.match(addWorkspace, /<details className=\{states\.disclosure\}>\s*<summary>Data apa yang dikirim\?<\/summary>\s*<p id="add-llm-consent-details">/u);
   assert.match(addWorkspace, /body: JSON\.stringify\(\{ allowLlm: llmConsentInput\.current\?\.checked === true \}\)/u);
   assert.match(addWorkspace, /onClick=\{\(\) => void generateBaseline\(\)\}/u);
-  assert.match(addWorkspace, /Generate Phase C baseline/u);
-  assert.match(addWorkspace, /With this option unchecked, no LLM request is made\./u);
-  assert.match(addWorkspace, /Source code, file contents, repository file paths, evidence ranges, repository URL, commit SHA, and credentials are not sent\./u);
-  assert.match(addWorkspace, /Interface names may contain an API route when that route is the extracted interface name\./u);
+  assert.match(addWorkspace, /Generate ADD baseline/u);
+  assert.match(addWorkspace, /Tanpa centang, tidak ada permintaan ke LLM\./u);
+  assert.match(addWorkspace, /Source code, isi file, path file repository, rentang evidence, URL repository, SHA commit, dan kredensial tidak dikirim\./u);
+  assert.match(addWorkspace, /Nama interface bisa memuat route API bila route itu nama interface yang diekstrak\./u);
   assert.doesNotMatch(graphWorkspace, /llmConsent|allowLlm|Generate TOGAF Phase C baseline ADD/u);
   assert.match(graphWorkspace, /Open Architecture Definition Document/u);
 });
