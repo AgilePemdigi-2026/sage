@@ -1,5 +1,7 @@
 # Requirements traceability
 
+> **Traceability historis:** status tabel di bawah merekam pemetaan SRS sebelum penerimaan sprint baru. Diagram SED/UML lama tidak termasuk deliverable aktif. Semua story produk perlu dipetakan ulang dan diuji sesuai [rencana sprint baru](RESET_SPRINT.md); bukti lama tidak otomatis lulus ulang.
+
 Status diperbarui 9 November 2026. Tabel ini memuat **72 requirement SRS yang unik** dan requirement lokal hasil keputusan project. Mapping bukan bukti acceptance penuh. Status mengacu bukti pada issue/check record dan menyatakan batas controlled/live; `Planned` berarti belum ada bukti penerimaan yang dicatat. Signoff lokal REL-01 tidak menyatakan deployment Coolify atau kapasitas server bersama sudah teruji.
 
 Dokumen ini mempertahankan traceability SRS historis. SRS requirement Software Engineering Diagram dan UML tidak lagi mendefinisikan keluaran utama. Perombakan aktif menuju TOGAF Phase C baseline ditelusuri terpisah pada [TOGAF ADD traceability](TOGAF_ADD_TRACEABILITY.md) dan issue [#142](https://github.com/AgilePemdigi-2026/sage/issues/142)/[#143](https://github.com/AgilePemdigi-2026/sage/issues/143). Status di sana membedakan implementasi lokal, test yang benar-benar dijalankan, dan acceptance yang masih tertunda.

@@ -4,7 +4,7 @@
 
 <p align="center"><strong>Source-code Architecture Graph Extraction</strong><br />Analisis repository menjadi TOGAF Phase C baseline yang bisa ditelusuri kembali ke source.</p>
 
-<p align="center"><a href="https://sage.caiis.ai.id/">Buka SAGE</a> · <a href="docs/guides/USAGE.md">Panduan penggunaan</a> · <a href="docs/README.md">Dokumentasi</a> · <a href="CONTRIBUTING.md">Kontribusi</a></p>
+<p align="center"><a href="https://sage.caiis.ai.id/">Buka SAGE</a> · <a href="docs/guides/USAGE.md">Panduan penggunaan</a> · <a href="docs/PROJECT_OVERVIEW.md">Project overview</a> · <a href="docs/planning/RESET_SPRINT.md">Rencana sprint aktif</a> · <a href="docs/README.md">Dokumentasi</a> · <a href="CONTRIBUTING.md">Kontribusi</a></p>
 
 ## Fitur dan dukungan
 
@@ -97,6 +97,6 @@ Untuk menghentikan aplikasi tanpa menghapus data, jalankan `docker compose stop`
 | Menjalankan dan menguji | [Setup lokal](docs/guides/LOCAL_SETUP.md) · [Testing](docs/guides/TESTING.md) |
 | Memahami hasil analisis | [Analyzer](docs/reference/ANALYSIS_SPEC.md) · [Semantik](docs/reference/SEMANTIC_ANALYSIS.md) · [Format keluaran](docs/reference/DOCUMENT_PRESENTATION.md) |
 | Mengelola layanan | [Deployment, resource, backup, dan pemulihan](docs/operations/COOLIFY.md) |
-| Meninjau requirement dan bukti | [Planning](docs/planning/README.md) · [Arsip pemeriksaan](docs/archive/README.md) · [Evidence](docs/evidence/) |
+| Meninjau requirement dan bukti | [Rencana sprint aktif](docs/planning/RESET_SPRINT.md) · [Planning](docs/planning/README.md) · [Arsip pemeriksaan](docs/archive/README.md) · [Evidence](docs/evidence/) |
 
 [Buka seluruh dokumentasi](docs/README.md).

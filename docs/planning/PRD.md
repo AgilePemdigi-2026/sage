@@ -1,6 +1,6 @@
 # Product Requirements Document
 
-Status: dokumen ini menyimpan kebutuhan MVP awal dan perlu dibaca bersama [revisi ruang lingkup TOGAF ADD](../reference/TOGAF_ADD.md). Rencana perombakan terbaru menjadikan analisis repository ke baseline ADD sebagai alur utama; Code Knowledge menjadi view pendamping. Status fitur dan bukti pemeriksaan harus dilihat pada catatan bertanggal di [arsip](../archive/README.md), bukan disimpulkan dari target penerimaan di bawah.
+Status saat ini: requirement produk mengikuti alur analisis repository → TOGAF Architecture Definition Document (ADD) sebagai keluaran utama; Code Knowledge adalah tampilan source pendamping. Rencana dan acceptance aktif ada di [rencana sprint baru](RESET_SPRINT.md). Bagian requirement MVP awal di bawah dipertahankan sebagai konteks dan traceability, bukan status bahwa semua sudah lulus pada implementasi frontend terbaru.
 
 ## Masalah dan tujuan
 
@@ -19,14 +19,12 @@ Satu kelas pengguna utama: Developer. Semua analisis memerlukan login GitHub aga
 
 ## Alur utama
 
-1. Login GitHub dan menyelesaikan otorisasi yang diperlukan.
-2. Memilih repository terotorisasi atau memasukkan repository publik, branch, dan commit opsional.
-3. Memvalidasi target; jika commit kosong, resolve HEAD branch sekali saat submission diterima dan simpan full SHA.
-4. Menunggu antrean bila worker sedang memproses analisis lain.
-5. Memantau sembilan tahap pipeline secara berurutan.
-6. Meninjau keterbatasan, Code Knowledge Graph, relasi, dan evidence/source preview.
-7. Meninjau baseline Data Architecture dan Application Architecture, lalu mengunduh Markdown atau PDF.
-8. Membuka hasil sebelumnya melalui history atau menghapus data analisis milik sendiri.
+1. Login dengan GitHub, lalu pilih repository publik atau private yang memang diizinkan.
+2. Pilih branch/commit; saat submission, SAGE memvalidasi target dan mengunci full SHA.
+3. Jalankan pipeline statis dan pantau queue, stage, elapsed time, limitation, atau error yang dapat ditindaklanjuti.
+4. Setelah sukses, buka dan buat TOGAF ADD baseline sebagai hasil utama. Pengguna tidak perlu membuka Code Knowledge terlebih dahulu.
+5. Buka Code Knowledge bila perlu untuk menelusuri graph dan evidence source dari snapshot yang sama.
+6. Review overlay, ekspor Markdown/LaTeX/PDF, dan gunakan history untuk membuka atau menghapus hasil milik sendiri.
 
 ## Cakupan wajib MVP
 
@@ -70,9 +68,7 @@ Detail skenario ada di [test plan](TEST_PLAN.md); aturan lulus di [Definition of
 
 ## Jadwal dan asumsi
 
-Rencana sprint lama tidak menjadi jadwal terpisah untuk perombakan ini. Scope TOGAF ADD digabung dalam satu sprint melalui issue #142 (Iltizam: model, analyzer, API, dan acceptance fixture) serta #143 (Rizqy: workspace, ArchiMate views, katalog/matriks, overlay, ekspor, dan UI regression). Urutannya tetap: tetapkan source/evidence acuan, implementasikan model dan extractor, bangun view serta koreksi, lalu selaraskan ekspor dan evaluasi. Assignment issue bukan bukti bahwa pekerjaan atau review sudah selesai.
-
-Deployment produksi dan anggaran ditentukan dosen. Hardware minimum, batas ukuran repository, timeout, serta target performa masih membutuhkan benchmark. Batas resource tetap harus diterapkan sebelum memproses repository arbitrer; nilai awal ditutup pada backlog ENV-01 dan QA-01.
+Sprint 1–3 dan alokasi yang tercantum pada dokumen lama adalah riwayat, bukan kalender aktif. Pekerjaan dimulai lagi dalam satu sprint dengan tanggal, milestone, issue, serta username/frontend contributor yang perlu disepakati sebelum sprint dibuka. Acceptance produk yang baru dan urutan integrasi tercatat di [RESET_SPRINT](RESET_SPRINT.md). Deployment produksi serta kuota resource Coolify adalah keputusan terpisah; sprint ini berakhir pada kesiapan demo Docker lokal dan tidak melakukan deployment.
 
 ## Acuan
 
