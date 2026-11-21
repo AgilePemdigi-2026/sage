@@ -108,3 +108,7 @@ Domain diarahkan hanya ke web pada port internal 3000; tidak ada public port unt
 Redirect HTTPS Coolify dinonaktifkan pada rollout lanjutan untuk mengatasi redirect loop di jalur Cloudflare. Mode SSL/TLS Cloudflare belum diverifikasi melalui dashboard; HTTPS publik yang berhasil tidak membuktikan enkripsi koneksi Cloudflare–origin. Jangan mengubah aturan global zone/server bersama. Operator domain perlu menilai HTTPS ke origin dan Full (strict) khusus hostname sebelum mewajibkan redirect kembali.
 
 [Beranda operasi](README.md) · [Arsip rollout](../archive/operations/COOLIFY_ROLLOUT_2026-11-10.md)
+
+### Kuota GitHub untuk repository public
+
+Request metadata, branch, commit, dan arsip melalui `api.github.com` memakai token pengguna yang sedang login, termasuk untuk repository public. Ini menghindari ketergantungan pada kuota anonim IP server yang digunakan bersama. Token tidak diteruskan ke host unduhan `codeload.github.com`; pemeriksaan instalasi App dan izin pengguna untuk repository private tetap berlaku. Bila kuota pengguna sendiri habis, aplikasi tetap melaporkan rate limit dan tidak mengulang request lewat kuota anonim. Lihat [ketentuan rate limit GitHub](https://docs.github.com/en/rest/using-the-rest-api/rate-limits-for-the-rest-api).
