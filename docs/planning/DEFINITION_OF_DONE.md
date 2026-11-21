@@ -1,74 +1,52 @@
 # Definition of Done
 
-Status: kriteria penerimaan; belum menjadi laporan hasil pengujian. Gunakan bersama acceptance criteria issue, [traceability](REQUIREMENTS_TRACEABILITY.md), dan [test plan](TEST_PLAN.md).
+Status: kriteria penerimaan, bukan laporan hasil pengujian. Gunakan bersama acceptance per issue dan [rencana sprint baru](RESET_SPRINT.md). Hasil baru dinyatakan selesai setelah langkah, environment, commit, expected/actual, dan bukti run dicatat.
 
-## Done untuk satu paket
+## Done untuk satu issue
 
-- Scope dan requirement terkait jelas; kontrak yang berubah diperbarui sebelum integrasi.
-- File perubahan dan dependensi sesuai paket; diff dapat ditinjau tanpa menimpa pekerjaan lain.
-- Acceptance criteria dijalankan dengan langkah dan hasil aktual yang dicatat.
-- Pengujian yang relevan lulus; command yang tidak tersedia atau belum dijalankan tidak ditulis sebagai pass.
-- Happy path dan error yang termasuk scope berfungsi, dengan pesan UI yang dapat ditindaklanjuti.
-- Pemilik/verifier memeriksa hasil dan melampirkan bukti pada issue/PR.
-- Commit memakai Conventional Commit satu baris/satu kalimat dan identitas pengirim yang benar.
-- PR direview dan terintegrasi; issue baru ditutup setelah deliverable terkait benar-benar tersedia.
-- Dokumentasi, fixture, dan expected output tetap sinkron; keterbatasan yang tersisa dinyatakan jelas.
+- Story dan batas penerimaan dapat ditinjau sebelum implementasi.
+- Perubahan memenuhi alur produk saat ini: analisis repository menghasilkan TOGAF ADD sebagai output utama; Code Knowledge adalah pendamping.
+- Acceptance yang relevan dijalankan pada lapisan yang sesuai: unit/contract, integrasi database/worker, browser, atau provider nyata.
+- Fixture, mock, build, screenshot statis, dan hasil run lama diberi label; tidak menggantikan pemeriksaan yang memakai integrasi sesungguhnya.
+- Happy path, empty/loading/error, izin, dan retry diuji saat berada dalam scope.
+- Evidence menyebut versi aplikasi, repository dan pinned SHA (jika ada), lingkungan, hasil, artefak, serta batas uji.
+- Secret, private source, token, dan data pengguna lain tidak muncul pada diff, log, export, atau screenshot.
+- PR direview, dokumentasi dan fixture diperbarui, dan issue ditutup setelah acceptance benar-benar terpenuhi.
+- Commit memakai Conventional Commit satu baris dan identitas author yang benar.
 
-Paket dokumentasi dapat Done berdasarkan pemeriksaan dokumen/commit tanpa mengklaim runtime aplikasi telah lulus. Paket implementasi tidak dapat Done hanya berdasarkan desain, typecheck, mock, compile, screenshot UI, atau toast keberhasilan.
+Paket dokumentasi dapat selesai berdasarkan pemeriksaan isi/tautan tanpa mengklaim runtime lulus. Paket fitur tidak selesai hanya dari rancangan, typecheck, mock, compile, atau toast keberhasilan.
 
-## Done untuk analyzer
+## Done untuk analyzer dan ADD
 
-- PHP dan JavaScript/TypeScript masing-masing melewati source -> CCM -> CKG pada fixture yang direview.
-- Capability matrix menyatakan kemampuan yang teruji dan keterbatasan per konstruksi.
-- Tidak ada source target yang dieksekusi, install script yang dijalankan, atau plugin project target yang dimuat.
-- Node, relasi, kind, resolution, dan evidence sesuai oracle; Unicode/CRLF/bounds diuji.
-- Dynamic atau ambiguous target yang belum terbukti tetap unresolved; tidak ada inferred relation pada MVP.
-- ID dan canonical content deterministik untuk snapshot/config yang sama; provenance cukup untuk replay.
-- Containment/reference terpisah dan referensi berbeda tidak hilang akibat deduplikasi yang terlalu agresif.
-- Bahasa/file yang dikecualikan dan parse error dicatat; failure total dibedakan dari hasil dengan keterbatasan.
+- Analyzer memproses snapshot repository yang tidak dieksekusi; full commit SHA dan provenance tetap terikat pada hasil.
+- Bahasa, framework, format, dan pola yang didukung dinyatakan sesuai implementasi serta fixture aktual.
+- Data entity, component, interface, relation, CRUD, dan evidence hanya diterbitkan jika aturan source mendukung klaimnya.
+- Nilai yang tidak diketahui tetap unknown/limitation; kode dinamis atau relasi tak pasti tidak ditulis sebagai fakta terbukti.
+- ADD mencakup baseline Data Architecture dan Application Architecture dengan catalog, matrix, ArchiMate views, dan evidence yang relevan.
+- ADD tidak mengarang target state, gap/RAG, business capability, process bisnis, owner, deployment, atau interaksi antar aplikasi tanpa bukti atau input manusia.
+- Koreksi pengguna tetap pada overlay berversi; source facts dan relations tidak berubah; revision stale menghasilkan conflict.
+- LLM hanya digunakan setelah consent eksplisit untuk narasi, tidak menambah fakta dan memiliki fallback deterministik.
 
-## Done untuk pipeline dan data
+## Done untuk pipeline, Code Knowledge, dan history
 
-- Full SHA dibekukan sebelum antrean; source preview dan hasil tidak mengikuti HEAD terbaru.
-- Dua submission dan dua worker percobaan tidak melanggar satu analysis slot global.
-- Sembilan tahap berurutan, progress terbaca, failure menghentikan tahap berikutnya, dan result bundle dipublikasikan atomik.
-- Worker restart/interruption tidak mengubah pekerjaan gagal menjadi Completed; retry membuat record baru dengan SHA yang sama.
-- Hasil, snapshot, dan export bertahan setelah restart Docker; akses antar-user ditolak.
-- Hapus data menghapus seluruh objek turunannya, dengan status pending/failed yang jujur selama cleanup belum selesai.
-- Secret tidak muncul pada diff, browser, error, log, screenshot bukti, atau export.
+- Repository selection memeriksa akses dan target; submission mematok full SHA sebelum worker berjalan.
+- Queue, progress, elapsed time, failure stage, retry, serta terminal status dapat dibaca dan tidak menyamarkan kegagalan sebagai sukses.
+- Code Knowledge menunjukkan graph source dari snapshot yang sama dengan ADD, dengan search/filter/focus/inspector/evidence sesuai UI aktif.
+- Graph tetap terpisah dari ADD dan tidak menghidupkan kembali Software Engineering Diagram atau UML sebagai keluaran utama.
+- History hanya menampilkan hasil akun sendiri; detail, navigasi, dan penghapusan mengikuti owner checks.
+- Hapus terminal membersihkan metadata dan file turunan secara idempotent; job aktif ditolak dan pengujian memakai data disposable.
+- Secret tidak bocor ke UI, error, log, screenshot, history, ataupun export.
 
-## Done untuk graph dan dokumen
+## Done untuk UI dan ekspor
 
-- Query, kategori AST, focus/overview/references, incoming/outgoing, inspector, evidence, dan source preview berfungsi pada hasil nyata.
-- Canonical counts tidak tercampur dengan counts subset tampilan; context repository/branch/SHA konsisten.
-- Code Knowledge adalah visualisasi source pendamping, bukan keluaran arsitektur atau flow aplikasi.
-- ADD memuat baseline Data Architecture dan Application Architecture, katalog, matriks, serta ArchiMate Data Structure dan Application Cooperation views dari snapshot source yang sama.
-- Hubungan ArchiMate harus cocok dengan profile subset yang diterapkan dan memiliki evidence serta confidence; relasi indicated tidak ditulis sebagai proven.
-- Target-state, gap/RAG, business capability, business process, data owner, deployment, dan integrasi antar-aplikasi tidak dibuat tanpa bukti atau input manusia.
-- Relasi unresolved dan batas cakupan analyzer tetap dijelaskan pada hasil yang relevan.
-- Corrections hanya mengubah label/feature group/review status pada versioned overlay; source facts dan relationships tidak berubah.
+- Frontend bekerja dengan API dan state aplikasi yang sebenarnya untuk acceptance utama.
+- Mobile dan desktop, keyboard/focus, label kontrol, loading, empty, permission, failed/retry, dan completed-with-limitations ditinjau.
+- Markdown, LaTeX, dan PDF berasal dari model ADD serta revision yang sama dan memuat limitation/evidence yang sesuai.
+- PDF A4 dan tabel/diagram dibaca dengan pemeriksaan visual; Markdown ringkas, navigable, dan tidak menduplikasi payload source.
+- LLM consent dan penolakan/fallback dapat dibedakan dengan jelas.
 
-## Done untuk ekspor
+## Done untuk sprint baru
 
-- File `.md` dan `.pdf` benar-benar dibuat, diunduh, dapat dibuka, dan memiliki content hash.
-- Kedua format memuat tiga artefak, context target, versi/provenance, evidence, dan limitations yang sesuai document model.
-- Diagram pada PDF terender dan terbaca; Markdown menyediakan representasi diagram yang mandiri.
-- Tidak ada path lokal yang rusak, placeholder palsu, halaman terpotong, atau source private di luar izin.
-- Generating/ready/error/retry teruji; kegagalan export tidak menghapus atau mengubah graph/dokumen sumber.
-- Download dan penghapusan tetap memeriksa pemilik meskipun ID/URL diketahui.
+Semua story US-01 sampai US-09 pada [rencana sprint baru](RESET_SPRINT.md) mempunyai status pass/fail/blocked dan bukti. Defect prioritas tinggi diperbaiki dan dites ulang; issue sisanya memiliki dampak dan owner. Alur login → pilih target → analisis → ADD, Code Knowledge, history, dan export dapat didemonstrasikan pada local Docker environment.
 
-## Done untuk UI
-
-- UI berbahasa Indonesia dan konsisten dengan terminologi yang disepakati.
-- State loading, empty, permission denied, unavailable, failed, retry, serta completed with limitations tersedia sesuai halaman.
-- Viewport 360, 390, 768, 1024, dan 1440 px diperiksa; informasi teknis tetap terbaca.
-- Keyboard, focus, label kontrol, serta pembeda bentuk/teks selain warna diperiksa.
-- Screenshot/bukti menggambarkan hasil nyata, dengan identitas/source sensitif disamarkan bila diperlukan.
-
-## Gate MVP freeze lokal
-
-Seluruh requirement wajib pada traceability telah terverifikasi; sumber uji dan expected output tersedia; integration run bersih Docker, login GitHub nyata, public pihak lain, private berizin, analisis kedua bahasa, history, error, deletion, serta dua format ekspor lulus.
-
-Tidak ada issue yang menghalangi alur inti atau akses data dengan benar. Keterbatasan analyzer yang memang diizinkan didokumentasikan, bukan dianggap mendukung konstruksi tersebut. Panduan setup/demo menggunakan command yang benar-benar telah dijalankan dan data contoh yang dapat direplay.
-
-Target freeze adalah Sprint 2. Baseline planning ini tidak memenuhi gate tersebut dan tidak mencatat hasil runtime sebagai selesai.
+Kriteria ini tidak menyetujui deployment Coolify. Deployment, resource, backup, dan domain memerlukan gate operasional serta keputusan terpisah.

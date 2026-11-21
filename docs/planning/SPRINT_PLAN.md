@@ -1,8 +1,10 @@
 # Sprint plan
 
-> **Status rencana:** jadwal dan pembagian Sprint 1–3 di bawah adalah baseline MVP historis. Perombakan TOGAF ADD dikerjakan sebagai satu sprint gabungan melalui [issue #142](https://github.com/AgilePemdigi-2026/sage/issues/142) (Iltizam: analyzer/model/API/evidence) dan [issue #143](https://github.com/AgilePemdigi-2026/sage/issues/143) (Rizqy: workspace ArchiMate, katalog/matriks, overlay, ekspor, UI). Pembagian issue menunjukkan owner rencana, bukan bukti selesai; traceability dan status verifikasi ada di [TOGAF_ADD_TRACEABILITY](TOGAF_ADD_TRACEABILITY.md).
+> **Rencana aktif per 21 November 2026:** jadwal Sprint 1–3 dan rencana ADD bertanggal di bawah adalah arsip perencanaan. Sprint baru dimulai lagi dari baseline acceptance; lihat [Rencana sprint baru SAGE](RESET_SPRINT.md). Tanggal dan issue aktif belum ditetapkan.
 
-Baseline: 18 Oktober 2026, Asia/Jakarta. Rencana ini menggantikan pembagian fitur 6/7/7 pada PDF awal untuk pelaksanaan mendatang. Histori estimasi awal tetap dicatat di [sumber](SOURCES.md). Pembagian 44 issue berdasarkan bobot dan bukti tiap anggota telah diterapkan pada GitHub; lihat [alokasi sprint](SPRINT_ALLOCATION.md).
+> **Riwayat rencana:** jadwal Sprint 1–3 dan pembagian issue di bawah berasal dari baseline MVP. Rencana satu sprint ADD melalui issue #142/#143 adalah pembagian lama untuk revisi 16–23 November 2026, bukan sprint aktif atau status acceptance saat ini. Lihat [rencana sprint baru](RESET_SPRINT.md) untuk baseline acceptance yang dimulai ulang.
+
+Baseline historis: 18 Oktober 2026, Asia/Jakarta. Rencana ini menggantikan pembagian fitur 6/7/7 pada PDF awal saat disusun. Histori estimasi awal tetap dicatat di [sumber](SOURCES.md); pembagian 44 issue saat itu dirangkum pada [alokasi sprint historis](SPRINT_ALLOCATION.md).
 
 ## Kalender yang disepakati
 

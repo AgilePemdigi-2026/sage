@@ -151,3 +151,8 @@ Heartbeat service diberi lock/statement/transaction timeout lokal; timeout persi
 ### 8 November 2026 — Explainable semantic v2 and static Markdown context
 
 New analyses retain structured relationship explanations and bounded Markdown context in semantic v2, separate from code-resolution certainty. V1 remains readable without backfilled provenance. Documentation links are documentary references, never automatic calls; arbitrary prose conflicts are not guessed. Snapshot and export identities retain documentation hashes; CKG already inventories excluded Markdown. See [contract and limitations](../reference/EXPLAINABLE_ANALYSIS.md).
+
+
+## 21 November 2026 — reset acceptance sprint
+
+Setelah keluaran utama beralih menjadi TOGAF ADD, sprint berikutnya dimulai ulang dari baseline acceptance. Rencana kalender Sprint 1–3, assignment terdahulu, pemetaan 62 issue pada 9 November, serta laporan BDD/QA lama tetap dipertahankan sebagai riwayat; semuanya tidak otomatis menjadi acceptance frontend terbaru. Sprint baru menguji alur repository → analisis → ADD, Code Knowledge pendamping, history/penghapusan, konsistensi ekspor, LLM opt-in, serta local Docker demo. Frontend dikerjakan oleh teman yang ditunjuk pengguna; username dan issue belum ditetapkan. Tanggal sprint, milestone, issue, dan estimate berbobot perlu disepakati sebelum baseline kerja dibuka. Tidak ada deployment Coolify dalam sprint ini. Rincian dan Definition of Done: [RESET_SPRINT](RESET_SPRINT.md).
