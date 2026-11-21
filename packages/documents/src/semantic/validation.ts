@@ -4,6 +4,7 @@ import { isDocumentationContext } from "./documentation-validation.ts";
 const SHA256 = /^[a-f0-9]{64}$/;
 const NODE_KINDS = new Set(["actor", "feature", "concept", "component", "store", "step", "decision", "outcome"]);
 const CONFIDENCE = new Set(["proven", "indicated"]);
+const DATA_OPERATIONS = new Set(["create", "read", "update", "delete", "upsert", "persist"]);
 const EVIDENCE_ROLES = new Set(["declaration", "reference", "context"]);
 
 export interface SemanticValidationContext {
@@ -77,10 +78,12 @@ export function isSemanticModel(value: unknown, context: SemanticValidationConte
   const limitations = dataArray(value.limitations, 30_000);
   if (!nodes || !edges || !features || !frameworks || !limitations) return false;
   const nodeIds = new Set<string>();
+  const nodeKinds = new Map<string, string>();
   const featureIds = new Set<string>();
   const edgeIds = new Set<string>();
   for (const candidate of nodes) {
-    if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds"])) return false;
+    if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds",
+      ...(Object.prototype.hasOwnProperty.call(candidate, "dataIdentity") ? ["dataIdentity"] : [])])) return false;
     const evidence = dataArray(candidate.evidence, 2_000);
     const technicalNodeIds = dataArray(candidate.technicalNodeIds, 30_000);
     if (typeof candidate.id !== "string" || !candidate.id || nodeIds.has(candidate.id) ||
@@ -91,7 +94,15 @@ export function isSemanticModel(value: unknown, context: SemanticValidationConte
         !nonblank(candidate.reason) || candidate.reason.length > 1000 || !evidence || evidence.length === 0 ||
         evidence.some(item => !validEvidence(item, context)) || !technicalNodeIds ||
         technicalNodeIds.some(id => typeof id !== "string" || (context.ckgNodeIds !== undefined && !context.ckgNodeIds.has(id)))) return false;
+    if (Object.prototype.hasOwnProperty.call(candidate, "dataIdentity")) {
+      const identity = candidate.dataIdentity;
+      if (!exact(identity, ["schema", "name", "schemaQuoted", "nameQuoted"]) ||
+          !(identity.schema === null || (typeof identity.schema === "string" && identity.schema.length > 0 && identity.schema.length <= 256)) ||
+          typeof identity.name !== "string" || !identity.name || identity.name.length > 256 ||
+          typeof identity.schemaQuoted !== "boolean" || typeof identity.nameQuoted !== "boolean" || candidate.kind !== "store") return false;
+    }
     nodeIds.add(candidate.id);
+    nodeKinds.set(candidate.id as string, candidate.kind as string);
   }
   for (const candidate of features) {
     if (!exact(candidate, ["id", "label", "entryNodeIds", "nodeIds", "edgeIds", "evidence"])) return false;
@@ -107,12 +118,17 @@ export function isSemanticModel(value: unknown, context: SemanticValidationConte
     featureIds.add(candidate.id);
   }
   for (const candidate of nodes) {
-    if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds"]) ||
+    if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds",
+      ...(Object.prototype.hasOwnProperty.call(candidate, "dataIdentity") ? ["dataIdentity"] : [])]) ||
         (candidate.featureId !== null && (typeof candidate.featureId !== "string" || !featureIds.has(candidate.featureId)))) return false;
   }
   const declaredEdgeIds = new Set(edges.filter(plain).map(edge => edge.id));
   for (const candidate of edges) {
-    if (!exact(candidate, ["id", "source", "target", "label", "confidence", "reason", "evidence", ...(v2 ? ["explanation"] : [])])) return false;
+    if (!exact(candidate, ["id", "source", "target", "label", "confidence", "reason", "evidence",
+      ...(Object.prototype.hasOwnProperty.call(candidate, "dataOperation") ? ["dataOperation"] : []), ...(v2 ? ["explanation"] : [])])) return false;
+    if (Object.prototype.hasOwnProperty.call(candidate, "dataOperation") &&
+        (typeof candidate.dataOperation !== "string" || !DATA_OPERATIONS.has(candidate.dataOperation) ||
+        nodeKinds.get(String(candidate.target)) !== "store" || nodeKinds.get(String(candidate.source)) !== "component")) return false;
     if (v2) {
       const explanation = candidate.explanation;
       if (!exact(explanation, ["kind", "origin", "rule", "summary", "limitations", "sourceEdgeIds"]) ||

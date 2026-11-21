@@ -26,6 +26,10 @@ Baseline: 18 Oktober 2026, Asia/Jakarta. `Disepakati` adalah keputusan project; 
 | D-18 | PR tetap wajib, dengan minimum approval 0 agar penulis dapat merge PR sendiri setelah pemeriksaan | Diterapkan 18 Oktober 2026 | Review/bukti tetap dicatat; resolusi percakapan, pembatasan push/merge, enforcement admin, serta larangan force push/delete tetap berlaku |
 
 | D-19 | Tambahkan UI-02 (Valentina) dan UI-03 (Zarra) pada Sprint 1 berdasarkan Figma MCP | Disepakati 20 Oktober 2026 | Total 41 issue; frontend hasil memakai fixture CCM tervalidasi dengan label eksplisit, integrasi parent Sprint 2 tetap terbuka; README dan status docs diperbarui bersama perubahan |
+| D-20 | Keluaran utama adalah TOGAF Phase C baseline ADD; Code Knowledge hanya visual pendamping, Software Engineering Diagram dihapus | Disepakati 16 November 2026 | ADD berisi baseline data dan aplikasi dari evidence repository; target/gap/business capability tidak disimpulkan tanpa input; scope dicatat pada issue #142/#143 |
+| D-21 | Analyzer berkembang melalui capability yang dibuktikan per bahasa/framework/format, bukan asumsi dari ekstensi file | Disepakati 16 November 2026 | Unsupported/dynamic patterns menjadi limitation; fixture dan source evidence wajib sebelum pola dinyatakan didukung |
+| D-22 | LLM kampus opsional untuk wording narasi ADD setelah consent eksplisit | Disepakati 16 November 2026 | Ekstraksi fakta tetap deterministik; source bytes/rahasia tidak dikirim dan LLM tidak dapat menambahkan node atau relasi |
+| D-23 | Seluruh perombakan ADD dilakukan dalam satu sprint gabungan | Disepakati 16 November 2026 | #142 milik Iltizam untuk model/analyzer/API; #143 milik Rizqy untuk workspace/views/matriks/overlay/ekspor; integrasi dan acceptance bersama |
 
 ## Rancangan teknis awal
 
@@ -38,7 +42,7 @@ Baseline: 18 Oktober 2026, Asia/Jakarta. `Disepakati` adalah keputusan project; 
 | A-05 | Graph JSONB berversi dan artefak tersimpan pada persistent volume | DATA-01 |
 | A-06 | Publish result bundle atomik sesudah sembilan stage; generator gagal berarti analysis gagal | DOC-01 |
 | A-07 | Export job terpisah, deduplikasi per format/document hash, file ready hanya sesudah ditulis | EXP-01, EXP-02 |
-| A-08 | Software Engineering Diagram berupa proyeksi struktur/dependency dari CKG | DOC-02, DOC-01 |
+| A-08 | Software Engineering Diagram berupa proyeksi struktur/dependency dari CKG | DOC-02, DOC-01; keputusan historis, digantikan sebagai keluaran utama oleh D-20 |
 | A-09 | Authenticated encryption untuk credential, key terpisah di environment; session server-side | GH-01, DATA-01 |
 | A-10 | Delete hanya untuk analysis terminal tanpa export aktif; cleanup idempotent dan akses langsung dicabut | DATA-02 |
 | A-11 | Mermaid dipakai DOC-02 untuk proyeksi canonical CKG dan SVG; integrasi ADD serta ekspor Markdown/PDF produk tetap perlu diuji | DOC-02, DOC-01, EXP-01, EXP-02 |
@@ -147,3 +151,8 @@ Heartbeat service diberi lock/statement/transaction timeout lokal; timeout persi
 ### 8 November 2026 — Explainable semantic v2 and static Markdown context
 
 New analyses retain structured relationship explanations and bounded Markdown context in semantic v2, separate from code-resolution certainty. V1 remains readable without backfilled provenance. Documentation links are documentary references, never automatic calls; arbitrary prose conflicts are not guessed. Snapshot and export identities retain documentation hashes; CKG already inventories excluded Markdown. See [contract and limitations](../reference/EXPLAINABLE_ANALYSIS.md).
+
+
+## 21 November 2026 — reset acceptance sprint
+
+Setelah keluaran utama beralih menjadi TOGAF ADD, sprint berikutnya dimulai ulang dari baseline acceptance. Rencana kalender Sprint 1–3, assignment terdahulu, pemetaan 62 issue pada 9 November, serta laporan BDD/QA lama tetap dipertahankan sebagai riwayat; semuanya tidak otomatis menjadi acceptance frontend terbaru. Sprint baru menguji alur repository → analisis → ADD, Code Knowledge pendamping, history/penghapusan, konsistensi ekspor, LLM opt-in, serta local Docker demo. Frontend dikerjakan oleh teman yang ditunjuk pengguna; username dan issue belum ditetapkan. Tanggal sprint, milestone, issue, dan estimate berbobot perlu disepakati sebelum baseline kerja dibuka. Tidak ada deployment Coolify dalam sprint ini. Rincian dan Definition of Done: [RESET_SPRINT](RESET_SPRINT.md).

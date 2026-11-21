@@ -1,3 +1,4 @@
+import { snapshotManifest } from "./snapshot/selection.ts";
 import { createHash } from "node:crypto";
 import { canonicalizeCcm, parseCanonicalCkg } from "@sage/contracts";
 import { database, persistCanonicalDocument } from "@sage/database";
@@ -143,7 +144,7 @@ async function readSourceBytes(
   storageRoot: string,
 ): Promise<Readonly<Record<string, Uint8Array>>> {
   signal.throwIfAborted();
-  const snapshot = context.sourceSnapshot;
+  const snapshot = snapshotManifest(context.sourceSnapshot);
   if (context.target.analysisId !== claim.analysisId ||
       !snapshot || !isRecordWithExactFields(snapshot, ["storageObjectId", "archiveSha256", "archiveBytes", "commitSha", "files", "extractedBytes"]) ||
       typeof snapshot.storageObjectId !== "string" || snapshot.storageObjectId.length === 0 ||

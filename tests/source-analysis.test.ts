@@ -27,7 +27,7 @@ function byPath(result: ReturnType<typeof scanSnapshotSources>, path: string) {
   return result.files.find((file) => file.path === path);
 }
 
-test("source policy recognizes JS, TS and PHP and records conservative exclusions distinctly", () => {
+test("source policy recognizes JS, TS, PHP and Python and records conservative exclusions distinctly", () => {
   const files = [
     snapshotFile("src/app.JS", "export class App {}"),
     snapshotFile("src/types.TSX", "export interface View {}"),
@@ -63,7 +63,11 @@ test("source policy recognizes JS, TS and PHP and records conservative exclusion
     javascript: { recognized: 10, eligible: 1, processed: 0, failed: 0 },
     typescript: { recognized: 4, eligible: 1, processed: 0, failed: 0 },
     php: { recognized: 3, eligible: 1, processed: 0, failed: 0 },
+    python: { recognized: 0, eligible: 0, processed: 0, failed: 0 },
   });
+  const pythonReport = scanSnapshotSources([snapshotFile("src/main.py", "async def home():\n    return {}\n")]);
+  assert.equal(pythonReport.counts.languages.python?.eligible, 1);
+  assert.equal(byPath(pythonReport, "src/main.py")?.language, "python");
   assert.equal(byPath(report, "src/app.min.js")?.reason, "MINIFIED_SOURCE");
   assert.equal(byPath(report, "src/module.min.mjs")?.reason, "MINIFIED_SOURCE");
   assert.equal(byPath(report, "src/module.min.cjs")?.reason, "MINIFIED_SOURCE");
@@ -91,6 +95,17 @@ test("source scanning is deterministic and rejects unsafe, duplicate, or tampere
   assert.equal(scanSnapshotSources([first, { ...second, relativePath: "../outside.php" }]).errorCode, "SNAPSHOT_INVALID");
   assert.equal(scanSnapshotSources([first, snapshotFile("src/a.js/child.ts", "export class Child {}")]).errorCode, "SNAPSHOT_INVALID");
   assert.equal(scanSnapshotSources([first], { maxSourceFileBytes: DEFAULT_LIMIT_FOR_TEST }).errorCode, "INVALID_LIMITS");
+});
+
+test("Python source adapter joins the combined CCM pipeline and retains source-backed FastAPI routes", async () => {
+  const route = snapshotFile("app/routes.py", "@app.get('/books')\nasync def list_books():\n    return []\n");
+  const model = snapshotFile("app/models.py", "class Book(Base):\n    __tablename__ = 'books'\n    id = Column(Integer, primary_key=True)\n");
+  const result = await analyzeSnapshotSources({ snapshot, files: [route, model] });
+  assert.equal(result.status, "partial", "the conservative Python adapter reports its static-analysis limitation");
+  assert.ok(result.ccm);
+  assert.equal(validateCcm(result.ccm, { "app/routes.py": route.bytes, "app/models.py": model.bytes }).ok, true);
+  assert.ok(result.ccm.nodes.some(node => node.attributes.routePath === "/books" && node.attributes.routeMethod === "GET"));
+  assert.ok(result.ccm.nodes.some(node => node.kind === "Class" && node.attributes.dataModel === true));
 });
 
 const DEFAULT_LIMIT_FOR_TEST = 1024 * 1024 + 1;

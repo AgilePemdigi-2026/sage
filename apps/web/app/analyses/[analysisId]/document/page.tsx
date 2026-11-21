@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { database, resolveSession } from "@sage/database";
 import { getUniqueCookie, isValidOpaqueToken, SESSION_COOKIE } from "../../../../lib/auth/handlers.ts";
 import { DesignFrame } from "../../../../components/design-system/ui.tsx";
-import { LiveDocumentClient } from "../../../../components/live-document/live-document-client.tsx";
+import { AddWorkspace } from "../../../../components/add-workspace/add-workspace.tsx";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +30,6 @@ export default async function AnalysisDocumentPage({ params }: { params: Promise
   if (!user) redirect("/login?error=session");
 
   return <DesignFrame active="history">
-    <LiveDocumentClient analysisId={analysisId} accountKey={user.githubUserId} />
+    <AddWorkspace analysisId={analysisId} accountKey={user.githubUserId} />
   </DesignFrame>;
 }

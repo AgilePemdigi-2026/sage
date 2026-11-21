@@ -1,5 +1,7 @@
 # Sprint 2 Cucumber BDD
 
+> **Catatan:** suite dan hasil di halaman ini adalah snapshot Sprint 2 sebelum ADD menjadi keluaran utama. Run 9 November 2026 bukan acceptance untuk frontend atau model terbaru. BDD sprint baru perlu diselaraskan dengan story dan alur pada [rencana sprint baru](../planning/RESET_SPRINT.md); jangan menghapus ID SRS atau menulis ulang requirement tanpa sumber.
+
 Suite ini menguji 14 skenario sumber SRS **B.7.4–B.7.6** dalam Gherkin berbahasa Inggris, dengan parameter berpetik dua. Pemeriksaan teknis pendukung diberi tag terpisah; ID `T-*` pada test plan bukan nomor skenario SRS.
 
 ## Menjalankan suite

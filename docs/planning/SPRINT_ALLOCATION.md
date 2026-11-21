@@ -1,15 +1,17 @@
 # Alokasi pekerjaan per sprint
 
+> **Catatan perencanaan:** alokasi dan assignment di bawah merekam sprint terdahulu. Pembagian sprint baru belum aktif; gunakan [rencana sprint baru](RESET_SPRINT.md) dan tetapkan issue/owner setelah username frontend serta kalender disepakati.
+
 Revisi 20 Oktober 2026 telah diterapkan pada GitHub Issues. Dasar pembagian adalah bobot deliverable dan bukti kontribusi setiap sprint; jumlah issue boleh berbeda. Perubahan ini mempertahankan kalender, target feature-complete 15 November, serta acceptance MVP.
 
-## Pemetaan anggota
+## Pemetaan anggota pada rencana lama
 
-| Penanggung jawab | Akun GitHub | Assignment |
+| Penanggung jawab | Akun GitHub | Assignment historis |
 | --- | --- | --- |
-| Iltizam Muhammad Hasan | `iltizamhasan3` | Aktif; review teknis dan merge PR |
-| Rizqy Fadhil Athallah | `rizqy-fadhil` | Aktif |
-| Valentina Hermawan | `liliks13` | Aktif |
-| Zarra Firdaus Ananda Salia | `zarrrafirdaus` | Aktif; 11 paket sudah di-assign |
+| Iltizam Muhammad Hasan | `iltizamhasan3` | Review teknis dan merge PR sesuai rencana sebelumnya |
+| Rizqy Fadhil Athallah | `rizqy-fadhil` | Workstream sesuai pembagian sprint sebelumnya |
+| Valentina Hermawan | `liliks13` | Workstream sesuai pembagian sprint sebelumnya |
+| Zarra Firdaus Ananda Salia | `zarrrafirdaus` | 11 paket tercatat pada assignment sprint sebelumnya |
 
 ## Deliverable tiap anggota
 

@@ -1,0 +1,143 @@
+name: Pull request checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Verify application and ADD
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17-bookworm@sha256:3645570cccdfa447589da9f57dd740faa29b30938e861289a5574b6ca6b03826
+        env:
+          POSTGRES_USER: sage
+          POSTGRES_PASSWORD: sage-ci-only
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sage -d postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: Check out source
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24.22.3
+          cache: npm
+
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # v2
+        with:
+          php-version: 8.4
+          tools: composer:v2
+          coverage: none
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install PHP analyzer dependencies
+        run: composer install --working-dir=packages/analyzer-php --no-dev --no-interaction --no-plugins --no-scripts --prefer-dist
+
+      - name: Generate database client
+        run: npm run db:generate
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Run unit and contract tests
+        run: npm test
+
+      - name: Run ADD and analyzer tests
+        run: npm run test:semantic
+
+      - name: Install Chromium for ADD browser review
+        run: npx --no-install playwright install --with-deps --only-shell chromium
+
+      - name: Verify ADD workspace, diagrams, and browser print
+        run: npm run test:add:ui
+
+      - name: Build the production web application
+        env:
+          DATABASE_URL: postgresql://sage:sage-ci-only@127.0.0.1:5432/sage_ci_build
+          AUTH_BASE_URL: http://127.0.0.1:3000
+          NEXT_TELEMETRY_DISABLED: "1"
+        run: npm run build
+
+      - name: Create isolated integration databases
+        env:
+          PGPASSWORD: sage-ci-only
+        run: |
+          createdb -h 127.0.0.1 -U sage sage_add_baseline_20261119
+          createdb -h 127.0.0.1 -U sage sage_pipeline16
+
+      - name: Apply ADD persistence schema
+        env:
+          DATABASE_URL: postgresql://sage:sage-ci-only@127.0.0.1:5432/sage_add_baseline_20261119
+        run: npm run db:migrate
+
+      - name: Verify ADD ownership and revision conflicts
+        env:
+          DATABASE_URL: postgresql://sage:sage-ci-only@127.0.0.1:5432/sage_add_baseline_20261119
+          CREDENTIAL_ENCRYPTION_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
+          SAGE_ADD_BASELINE_TESTS: "1"
+        run: npm run test:add:integration
+
+      - name: Apply analysis pipeline schema
+        env:
+          DATABASE_URL: postgresql://sage:sage-ci-only@127.0.0.1:5432/sage_pipeline16
+        run: npm run db:migrate
+
+      - name: Verify worker pipeline through ADD publication
+        env:
+          DATABASE_URL: postgresql://sage:sage-ci-only@127.0.0.1:5432/sage_pipeline16
+          CREDENTIAL_ENCRYPTION_KEY: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
+          SAGE_PIPELINE_TESTS: "1"
+        run: npm run test:pipeline:integration
+
+      - name: Build the production Docker image
+        run: docker build --target web --tag sage-web:ci .
+
+      - name: Prepare pinned ADD benchmark corpora
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/prepare-semantic-corpora.py
+
+      - name: Build the isolated ADD replay image
+        run: docker build --target bdd --tag sage-add-bdd:ci .
+
+      - name: Verify ADD benchmark runner failure handling
+        run: python3 -m unittest discover -s tests -p 'add_benchmark_runner_test.py'
+
+      - name: Replay pinned ADD corpora under fixed Linux limits
+        run: python3 scripts/run-add-container-benchmarks.py artifacts/semantic/add-linux-${{ github.run_id }} --image sage-add-bdd:ci --context default
+
+      - name: Save sanitized ADD replay reports
+        if: always()
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+          name: sage-add-linux-replay-${{ github.run_id }}
+          path: artifacts/semantic/add-linux-${{ github.run_id }}/*
+          if-no-files-found: warn
+          retention-days: 14

@@ -107,7 +107,7 @@ test("route guards and direct ORM mutations produce evidenced decisions and stor
   assert.ok(result.nodes.some(node => node.kind === "decision" && node.label === "Validasi input"));
   assert.ok(result.nodes.some(node => node.kind === "outcome" && node.label.includes("Permintaan ditolak (403)")));
   assert.ok(result.nodes.some(node => node.kind === "store" && node.label === "Loan"));
-  const createEdge = result.edges.find(edge => edge.label === "menyimpan");
+  const createEdge = result.edges.find(edge => edge.label === "creates");
   assert.ok(createEdge);
   assert.equal(createEdge.confidence, "indicated");
   assert.match(createEdge.reason, /binding receiver belum diverifikasi/iu);
@@ -148,7 +148,7 @@ test("database-shaped local objects are never reported as proven ORM access by r
       "}",
     ].join("\n"),
   }));
-  const readEdge = result.edges.find(edge => edge.label === "membaca");
+  const readEdge = result.edges.find(edge => edge.label === "reads");
   assert.ok(readEdge);
   assert.equal(readEdge.confidence, "indicated");
   assert.match(readEdge.reason, /binding receiver belum diverifikasi/iu);
@@ -166,8 +166,8 @@ test("Supabase fluent queries classify reads and writes from terminal operations
       '}',
     ].join("\n"),
   }));
-  const storeEdges = result.edges.filter(edge => edge.source === result.nodes.find(node => node.kind === "component" && node.label === "GET API")?.id && ["membaca", "mengubah", "menghapus"].includes(edge.label));
-  assert.deepEqual(storeEdges.map(edge => edge.label).sort(), ["membaca", "menghapus", "mengubah"]);
+  const storeEdges = result.edges.filter(edge => edge.source === result.nodes.find(node => node.kind === "component" && node.label === "GET API")?.id && ["reads", "updates", "deletes"].includes(edge.label));
+  assert.deepEqual(storeEdges.map(edge => edge.label).sort(), ["deletes", "reads", "updates"]);
   assert.ok(storeEdges.every(edge => edge.confidence === "indicated"));
   assert.equal(result.nodes.some(node => node.kind === "store" && node.label === "Categories"), false);
 });
@@ -190,8 +190,8 @@ test("transaction callback parameters link real table operations and plain busin
   const stores = result.nodes.filter(node => node.kind === "store");
   assert.ok(component);
   assert.deepEqual(stores.map(node => node.label).sort(), ["Book", "Booking"]);
-  assert.ok(result.edges.some(edge => edge.source === component.id && edge.label === "menyimpan" && edge.confidence === "indicated"));
-  assert.ok(result.edges.some(edge => edge.source === component.id && edge.label === "mengubah" && edge.confidence === "indicated"));
+  assert.ok(result.edges.some(edge => edge.source === component.id && edge.label === "creates" && edge.confidence === "indicated"));
+  assert.ok(result.edges.some(edge => edge.source === component.id && edge.label === "updates" && edge.confidence === "indicated"));
   for (const store of stores) assert.ok(store.evidence.length >= 3, `${store.label} should cite the operation, transaction call, and callback parameter`);
   const failure = result.nodes.find(node => node.kind === "outcome" && node.label.startsWith("Gagal Stok buku"));
   assert.ok(failure);
@@ -433,7 +433,7 @@ test("wrapper callbacks stay indicated while statically returned factory handler
   assert.ok(delegated);
   assert.equal(delegated.confidence, "proven");
   assert.equal(delegated.evidence.some(span => span.filePath === "src/lib/factories.ts"), true);
-  assert.ok(result.edges.some(edge => edge.source === delegated.id && edge.label === "membaca"));
+  assert.ok(result.edges.some(edge => edge.source === delegated.id && edge.label === "reads"));
 });
 
 test("Next expands one uniquely exact cross-file call and assigns a helper write to its writer", () => {
@@ -465,9 +465,9 @@ test("Next expands one uniquely exact cross-file call and assigns a helper write
   assert.ok(invocation);
   assert.ok(invocation.evidence.some(span => span.filePath === "src/app/api/submissions/route.ts" && span.role === "reference"));
   assert.ok(invocation.evidence.some(span => span.filePath === "src/lib/submission-service.ts" && span.role === "declaration"));
-  assert.ok(result.edges.some(edge => edge.source === service.id && edge.target === store.id && edge.label === "menyimpan"),
+  assert.ok(result.edges.some(edge => edge.source === service.id && edge.target === store.id && edge.label === "creates"),
     "the called helper that performs the ORM call owns the store edge");
-  assert.equal(result.edges.some(edge => edge.source === caller.id && edge.target === store.id && edge.label === "menyimpan"), false,
+  assert.equal(result.edges.some(edge => edge.source === caller.id && edge.target === store.id && edge.label === "creates"), false,
     "the route caller is not assigned the helper's write");
 });
 

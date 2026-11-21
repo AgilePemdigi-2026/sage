@@ -5,10 +5,10 @@ export const ANALYSIS_STAGE_DEFINITIONS = [
   { sequence: 3, key: "STATIC_ANALYSIS", label: "Menjalankan analisis statis" },
   { sequence: 4, key: "COMMON_CODE_MODEL", label: "Membentuk Common Code Model" },
   { sequence: 5, key: "KNOWLEDGE_GRAPH", label: "Membangun Code Knowledge Graph" },
-  { sequence: 6, key: "INTERFACE_CATALOG", label: "Menghasilkan Interface Catalog" },
-  { sequence: 7, key: "SOFTWARE_ENGINEERING_DIAGRAM", label: "Menghasilkan Software Engineering Diagram" },
-  { sequence: 8, key: "UML_CLASS_DIAGRAM", label: "Menghasilkan UML Class Diagram" },
-  { sequence: 9, key: "ARCHITECTURE_DOCUMENT", label: "Menyusun Architecture Definition Document" },
+  { sequence: 6, key: "INTERFACE_CATALOG", label: "Menyiapkan katalog interface" },
+  { sequence: 7, key: "SOFTWARE_ENGINEERING_DIAGRAM", label: "Memvalidasi proyeksi struktur source" },
+  { sequence: 8, key: "UML_CLASS_DIAGRAM", label: "Memvalidasi relasi class" },
+  { sequence: 9, key: "ARCHITECTURE_DOCUMENT", label: "Menyimpan hasil analisis" },
 ] as const;
 
 export const ANALYSIS_STAGE_KEYS = ANALYSIS_STAGE_DEFINITIONS.map(({ key }) => key);

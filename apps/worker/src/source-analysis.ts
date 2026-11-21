@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { analyzePythonSources } from "./python-adapter.ts";
 import {
   analyzeReferences as analyzeJavaScriptReferences,
   type DeclarationDiagnostic as JavaScriptDiagnostic,
@@ -20,13 +21,13 @@ import {
 import type { SnapshotFile } from "./snapshot/archive.ts";
 
 export const SOURCE_POLICY_VERSION = "sage-source-policy-v1";
-export const SOURCE_ANALYSIS_VERSION = "0.3.0";
+export const SOURCE_ANALYSIS_VERSION = "0.4.0";
 export const DEFAULT_MAX_SOURCE_FILE_BYTES = 1024 * 1024;
 const MAX_SNAPSHOT_FILES = 2_000;
 const MAX_SNAPSHOT_PATH_BYTES = 4_096;
 const MAX_SNAPSHOT_PATH_SEGMENTS = 128;
 
-type SourceLanguage = Extract<Language, "javascript" | "typescript" | "php">;
+type SourceLanguage = Extract<Language, "javascript" | "typescript" | "php" | "python">;
 
 export type SourceExclusionReason =
   | "SUBMODULE_METADATA"
@@ -106,6 +107,7 @@ function emptyLanguageCounts(): Record<SourceLanguage, SourceLanguageCounts> {
     javascript: { recognized: 0, eligible: 0, processed: 0, failed: 0 },
     typescript: { recognized: 0, eligible: 0, processed: 0, failed: 0 },
     php: { recognized: 0, eligible: 0, processed: 0, failed: 0 },
+    python: { recognized: 0, eligible: 0, processed: 0, failed: 0 },
   };
 }
 
@@ -164,6 +166,7 @@ function sourceLanguage(path: string): SourceLanguage | null {
   if ([".js", ".mjs", ".cjs", ".jsx"].includes(extension)) return "javascript";
   if ([".ts", ".mts", ".cts", ".tsx"].includes(extension)) return "typescript";
   if (extension === ".php") return "php";
+  if (extension === ".py") return "python";
   return null;
 }
 
@@ -370,11 +373,12 @@ function buildCombinedCcm(
   report: SourceScanReport,
   jsCcm: CcmV1 | null,
   phpCcm: CcmV1 | null,
+  pythonCcm: CcmV1 | null,
   adapterFailedPaths: readonly string[],
   configHash: string,
 ): CcmV1 {
   const eligibleStatus = new Map<string, CcmFile>();
-  for (const file of [...(jsCcm?.files ?? []), ...(phpCcm?.files ?? [])]) {
+  for (const file of [...(jsCcm?.files ?? []), ...(phpCcm?.files ?? []), ...(pythonCcm?.files ?? [])]) {
     if (eligibleStatus.has(file.path)) throw new Error("DUPLICATE_SOURCE_FILE");
     eligibleStatus.set(file.path, file);
   }
@@ -392,7 +396,7 @@ function buildCombinedCcm(
     if (!analyzed) throw new Error("SOURCE_FILE_STATUS_MISSING");
     return analyzed;
   });
-  const nodes: CcmNode[] = [...(jsCcm?.nodes ?? []), ...(phpCcm?.nodes ?? [])];
+  const nodes: CcmNode[] = [...(jsCcm?.nodes ?? []), ...(phpCcm?.nodes ?? []), ...(pythonCcm?.nodes ?? [])];
   const nodeIds = new Set<string>();
   for (const node of nodes) {
     if (nodeIds.has(node.id)) throw new Error("DUPLICATE_NODE_ID");
@@ -403,6 +407,7 @@ function buildCombinedCcm(
     ...report.limitations.map((item) => ({ path: item.path, stage: "snapshot", reason: item.code })),
     ...(jsCcm?.limitations ?? []),
     ...(phpCcm?.limitations ?? []),
+    ...(pythonCcm?.limitations ?? []),
   ];
   for (const path of adapterFailedPaths) {
     limitations.push({ path, stage: "parse", reason: "The trusted language adapter could not analyze this source file." });
@@ -417,7 +422,7 @@ function buildCombinedCcm(
     },
     files,
     nodes,
-    edges: [...(jsCcm?.edges ?? []), ...(phpCcm?.edges ?? [])],
+    edges: [...(jsCcm?.edges ?? []), ...(phpCcm?.edges ?? []), ...(pythonCcm?.edges ?? [])],
     limitations,
   };
 }
@@ -459,11 +464,14 @@ export async function analyzeSnapshotSources(input: {
     return language === "javascript" || language === "typescript";
   }));
   const phpSources = Object.fromEntries(Object.entries(eligibleSources).filter(([path]) => sourceLanguage(path) === "php"));
+  const pythonSources = Object.fromEntries(Object.entries(eligibleSources).filter(([path]) => sourceLanguage(path) === "python"));
   const diagnostics: SourceAnalysisDiagnostic[] = [];
   let jsCcm: CcmV1 | null = null;
   let phpCcm: CcmV1 | null = null;
+  let pythonCcm: CcmV1 | null = null;
   let jsFailurePaths: string[] = [];
   let phpFailurePaths: string[] = [];
+  let pythonFailurePaths: string[] = [];
   const adapterProvenance: CcmProvenance[] = [];
 
   if (Object.keys(jsSources).length > 0) {
@@ -492,13 +500,24 @@ export async function analyzeSnapshotSources(input: {
     }
     diagnostics.push(...result.diagnostics.map(diagnosticFromPhp));
   }
+  if (Object.keys(pythonSources).length > 0) {
+    input.signal?.throwIfAborted();
+    const result = analyzePythonSources({ snapshot, sources: pythonSources });
+    if (result.ccm) {
+      pythonCcm = result.ccm;
+      adapterProvenance.push(result.ccm.provenance);
+    } else {
+      pythonFailurePaths = Object.keys(pythonSources);
+    }
+    diagnostics.push(...result.diagnostics.map(item => ({ ...item, language: "python" as const })));
+  }
   input.signal?.throwIfAborted();
 
-  const failedAdapterPaths = [...jsFailurePaths, ...phpFailurePaths];
+  const failedAdapterPaths = [...jsFailurePaths, ...phpFailurePaths, ...pythonFailurePaths];
   const configHash = hashConfig(maxSourceFileBytes, adapterProvenance);
   let ccm: CcmV1;
   try {
-    ccm = buildCombinedCcm(snapshot, report, jsCcm, phpCcm, failedAdapterPaths, configHash);
+    ccm = buildCombinedCcm(snapshot, report, jsCcm, phpCcm, pythonCcm, failedAdapterPaths, configHash);
   } catch {
     report.status = "failed";
     report.errorCode = "SNAPSHOT_INVALID";

@@ -259,9 +259,9 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
       </ol>
     </Panel>
     {detail.results ? <Panel title="Hasil" className={styles.historyPanel}>
-      <Link className={styles.primaryAction} href={detail.results.graphUrl}>Buka knowledge graph</Link>
-      <Link className={styles.secondaryAction} href={detail.results.documentUrl}>Buka dokumentasi</Link>
-      <p className={styles.historyFootnote}>Graph dan dokumen membaca hasil canonical tersimpan dari snapshot yang sama setelah analisis sukses.</p>
+      <Link className={styles.primaryAction} href={detail.results.documentUrl}>Buka TOGAF ADD</Link>
+      <Link className={styles.secondaryAction} href={detail.results.graphUrl}>Buka Code Knowledge</Link>
+      <p className={styles.historyFootnote}>TOGAF ADD adalah hasil arsitektur utama. Code Knowledge menjadi visual pendamping dari snapshot source yang sama.</p>
     </Panel> : null}
   </DesignFrame>;
 }

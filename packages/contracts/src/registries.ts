@@ -1,6 +1,6 @@
 /** Browser-safe enum registries; canonical hashing stays in the server entry point. */
 export const SCHEMA_VERSION = 1 as const;
-export const LANGUAGES = ["javascript", "typescript", "php"] as const;
+export const LANGUAGES = ["javascript", "typescript", "php", "python"] as const;
 export const NODE_KINDS = ["Module", "Class", "Interface", "Function", "Method", "Property", "UnresolvedReference"] as const;
 export const EDGE_KINDS = [
   "CONTAINS", "IMPORTS", "EXPORTS", "EXTENDS", "IMPLEMENTS", "TYPE_REFERENCES", "CALLS",

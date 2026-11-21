@@ -1,0 +1,906 @@
+import ts from "typescript";
+import type { EvidenceSpan } from "@sage/contracts";
+import { excludeFromMainFlow, evidenceSpan, emptyFragment, semanticEdgeId, semanticNode } from "./builder.ts";
+import type { SemanticEdge, SemanticFragment, SemanticInput, SemanticNode } from "./model.ts";
+
+const MAX_SOURCE_BYTES = 524_288;
+const SOURCE_PATH = /\.[cm]?[jt]sx?$/iu;
+
+type Source = { path: string; bytes: Uint8Array; text: string; file: ts.SourceFile };
+type SqlOperation = "reads" | "creates" | "updates" | "deletes" | "upserts";
+type SqlIdentifier = { value: string; quoted: boolean };
+type TableOperation = { schema: SqlIdentifier | null; table: SqlIdentifier; operation: SqlOperation };
+type OperationMetadata = "read" | "create" | "update" | "delete" | "upsert";
+
+function scriptKind(path: string): ts.ScriptKind {
+  if (/\.tsx$/iu.test(path)) return ts.ScriptKind.TSX;
+  if (/\.jsx$/iu.test(path)) return ts.ScriptKind.JSX;
+  if (/\.js$/iu.test(path) || /\.mjs$/iu.test(path) || /\.cjs$/iu.test(path)) return ts.ScriptKind.JS;
+  return ts.ScriptKind.TS;
+}
+
+function unwrap(expression: ts.Expression): ts.Expression {
+  let current = expression;
+  while (ts.isParenthesizedExpression(current) || ts.isAsExpression(current) || ts.isTypeAssertionExpression(current) ||
+      ts.isSatisfiesExpression(current) || ts.isAwaitExpression(current) || ts.isNonNullExpression(current)) {
+    current = current.expression;
+  }
+  return current;
+}
+
+function staticString(expression: ts.Expression, constants: ReadonlyMap<string, string>, depth = 0): string | null {
+  if (depth > 8) return null;
+  const value = unwrap(expression);
+  if (ts.isStringLiteralLike(value) || ts.isNoSubstitutionTemplateLiteral(value)) return value.text;
+  if (ts.isIdentifier(value)) return constants.get(value.text) ?? null;
+  if (ts.isTemplateExpression(value)) {
+    let output = value.head.text;
+    for (const span of value.templateSpans) {
+      const substitution = unwrap(span.expression);
+      const resolved = ts.isIdentifier(substitution) ? constants.get(substitution.text) : undefined;
+      if (resolved === undefined) return null;
+      output += resolved;
+      output += span.literal.text;
+    }
+    return output;
+  }
+  return null;
+}
+
+function collectConstants(file: ts.SourceFile, imported: ReadonlyMap<string, string> = new Map()): Map<string, string> {
+  const constants = new Map(imported);
+  const declarations = file.statements.flatMap(statement => ts.isVariableStatement(statement) &&
+    (statement.declarationList.flags & ts.NodeFlags.Const) ? statement.declarationList.declarations : []);
+  for (let pass = 0; pass < 8; pass++) {
+    let changed = false;
+    for (const declaration of declarations) {
+      if (!declaration.initializer || !ts.isIdentifier(declaration.name)) continue;
+      const value = staticString(declaration.initializer, constants);
+      if (value !== null && constants.get(declaration.name.getText(file)) !== value) {
+        constants.set(declaration.name.getText(file), value);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return constants;
+}
+
+function resolveImportedSource(importerPath: string, specifier: string, knownPaths: ReadonlySet<string>): string | null {
+  const paths = new Set<string>();
+  if (specifier.startsWith("@/")) {
+    const suffix = specifier.slice(2);
+    paths.add(`src/${suffix}`);
+    paths.add(suffix);
+    paths.add(`app/${suffix}`);
+  } else if (specifier.startsWith(".")) {
+    const segments = importerPath.split("/");
+    segments.pop();
+    for (const segment of specifier.split("/")) {
+      if (!segment || segment === ".") continue;
+      if (segment === "..") segments.pop();
+      else segments.push(segment);
+    }
+    paths.add(segments.join("/"));
+  } else return null;
+  for (const base of paths) {
+    for (const candidate of [base, ...["ts", "tsx", "js", "jsx", "mjs", "cjs"].map(extension => `${base}.${extension}`),
+      ...["ts", "tsx", "js", "jsx"].map(extension => `${base}/index.${extension}`)]) {
+      if (knownPaths.has(candidate)) return candidate;
+    }
+  }
+  return null;
+}
+
+function importBindings(source: Source, knownPaths: ReadonlySet<string>): Array<{ modulePath: string; imported: string; local: string }> {
+  const bindings: Array<{ modulePath: string; imported: string; local: string }> = [];
+  for (const statement of source.file.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteral(statement.moduleSpecifier) || !statement.importClause || statement.importClause.isTypeOnly) continue;
+    const modulePath = resolveImportedSource(source.path, statement.moduleSpecifier.text, knownPaths);
+    if (!modulePath) continue;
+    const names = statement.importClause.namedBindings;
+    if (names && ts.isNamedImports(names)) for (const element of names.elements) {
+      if (element.isTypeOnly) continue;
+      bindings.push({ modulePath, imported: element.propertyName?.text ?? element.name.text, local: element.name.text });
+    }
+  }
+  return bindings;
+}
+
+function moduleDependencies(source: Source, knownPaths: ReadonlySet<string>): string[] {
+  const dependencies = new Set<string>();
+  const add = (specifier: ts.Expression | undefined) => {
+    if (!specifier || !ts.isStringLiteralLike(specifier)) return;
+    const resolved = resolveImportedSource(source.path, specifier.text, knownPaths);
+    if (resolved) dependencies.add(resolved);
+  };
+  const hasRuntimeImport = (statement: ts.ImportDeclaration): boolean => {
+    const clause = statement.importClause;
+    if (!clause || clause.isTypeOnly) return !clause;
+    const bindings = clause.namedBindings;
+    if (!bindings || ts.isNamespaceImport(bindings)) return true;
+    return Boolean(clause.name) || bindings.elements.some(element => !element.isTypeOnly);
+  };
+  const hasRuntimeReExport = (statement: ts.ExportDeclaration): boolean => {
+    if (statement.isTypeOnly) return false;
+    const clause = statement.exportClause;
+    return !clause || !ts.isNamedExports(clause) || clause.elements.some(element => !element.isTypeOnly);
+  };
+  for (const statement of source.file.statements) {
+    if (ts.isImportDeclaration(statement) && hasRuntimeImport(statement)) add(statement.moduleSpecifier);
+    else if (ts.isExportDeclaration(statement) && hasRuntimeReExport(statement)) add(statement.moduleSpecifier);
+  }
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) add(node.arguments[0]);
+    ts.forEachChild(node, visit);
+  };
+  visit(source.file);
+  return [...dependencies];
+}
+
+function serverOnlySource(source: Source): boolean {
+  return /^\s*["']use server["']/mu.test(source.text) || /\bfrom\s*["']server-only["']/u.test(source.text) ||
+    /\.(?:server)\.[cm]?[jt]sx?$/iu.test(source.path);
+}
+
+function clientReachableSources(sources: Source[]): Set<string> {
+  const byPath = new Map(sources.map(source => [source.path, source]));
+  const knownPaths = new Set(byPath.keys()), reachable = new Set<string>(), queue = sources.filter(source => /^\s*["']use client["']/mu.test(source.text)).map(source => source.path);
+  while (queue.length) {
+    const current = queue.shift()!;
+    if (reachable.has(current)) continue;
+    const source = byPath.get(current);
+    if (!source || serverOnlySource(source)) continue;
+    reachable.add(current);
+    for (const dependency of moduleDependencies(source, knownPaths)) if (!reachable.has(dependency)) queue.push(dependency);
+  }
+  return reachable;
+}
+
+function exportedStringConstants(source: Source, constants: ReadonlyMap<string, string>): Map<string, string> {
+  const exports = new Map<string, string>();
+  for (const statement of source.file.statements) {
+    if (!ts.isVariableStatement(statement) || !(statement.modifiers ?? []).some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword) ||
+        !(statement.declarationList.flags & ts.NodeFlags.Const)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || !declaration.initializer) continue;
+      const value = staticString(declaration.initializer, constants);
+      if (value !== null) exports.set(declaration.name.text, value);
+    }
+  }
+  return exports;
+}
+
+function collectWorkspaceConstants(sources: Source[]): Map<string, Map<string, string>> {
+  const knownPaths = new Set(sources.map(source => source.path));
+  const bindings = new Map(sources.map(source => [source.path, importBindings(source, knownPaths)]));
+  const constants = new Map(sources.map(source => [source.path, new Map<string, string>()]));
+  const exports = new Map(sources.map(source => [source.path, new Map<string, string>()]));
+  for (let pass = 0; pass < 8; pass++) {
+    let changed = false;
+    for (const source of sources) {
+      const imported = new Map<string, string>();
+      for (const binding of bindings.get(source.path) ?? []) {
+        const value = exports.get(binding.modulePath)?.get(binding.imported);
+        if (value !== undefined) imported.set(binding.local, value);
+      }
+      const current = collectConstants(source.file, imported);
+      const currentExports = exportedStringConstants(source, current);
+      const nextConstants = constants.get(source.path)!;
+      const nextExports = exports.get(source.path)!;
+      const changedCurrent = [...current].some(([name, value]) => nextConstants.get(name) !== value) || nextConstants.size !== current.size;
+      const changedExports = [...currentExports].some(([name, value]) => nextExports.get(name) !== value) || nextExports.size !== currentExports.size;
+      if (changedCurrent || changedExports) changed = true;
+      constants.set(source.path, current);
+      exports.set(source.path, currentExports);
+    }
+    if (!changed) break;
+  }
+  return constants;
+}
+
+function bindingContains(name: ts.BindingName, target: string): boolean {
+  if (ts.isIdentifier(name)) return name.text === target;
+  return name.elements.some(element => ts.isBindingElement(element) && bindingContains(element.name, target));
+}
+
+function nearestScope(node: ts.Node, predicate: (candidate: ts.Node) => boolean): ts.Node | null {
+  for (let current: ts.Node | undefined = node; current; current = current.parent) if (predicate(current)) return current;
+  return null;
+}
+
+function runtimeBindingScope(node: ts.Node): ts.Node | null {
+  if (ts.isParameter(node)) return nearestScope(node.parent, ts.isFunctionLike);
+  if (ts.isVariableDeclaration(node)) {
+    const declarationList = node.parent;
+    const declarationContainer = declarationList.parent;
+    if (ts.isVariableDeclarationList(declarationList) && (declarationList.flags & ts.NodeFlags.BlockScoped)) {
+      if (ts.isForStatement(declarationContainer) || ts.isForInStatement(declarationContainer) || ts.isForOfStatement(declarationContainer)) return declarationContainer;
+      return nearestScope(declarationContainer, candidate => ts.isBlock(candidate) || ts.isSourceFile(candidate));
+    }
+    return nearestScope(declarationContainer, candidate => ts.isFunctionLike(candidate) || ts.isSourceFile(candidate));
+  }
+  if (ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node)) {
+    return nearestScope(node.parent, candidate => ts.isBlock(candidate) || ts.isSourceFile(candidate));
+  }
+  if (ts.isCatchClause(node) && node.variableDeclaration) return node;
+  if ((ts.isFunctionExpression(node) || ts.isClassExpression(node)) && node.name) return node;
+  return null;
+}
+
+function hasLocalBinding(source: Source, reference: ts.Node, name: string): boolean {
+  const activeScopes = new Set<ts.Node>();
+  for (let current: ts.Node | undefined = reference.parent; current; current = current.parent) {
+    if (ts.isSourceFile(current) || ts.isBlock(current) || ts.isFunctionLike(current) || ts.isCatchClause(current) ||
+        ts.isForStatement(current) || ts.isForInStatement(current) || ts.isForOfStatement(current)) activeScopes.add(current);
+  }
+  let shadowed = false;
+  const visit = (node: ts.Node): void => {
+    if (shadowed) return;
+    const scope = runtimeBindingScope(node);
+    if (scope && scope !== source.file && activeScopes.has(scope)) {
+      if (ts.isVariableDeclaration(node) || ts.isParameter(node)) shadowed = bindingContains(node.name, name);
+      else if ((ts.isFunctionDeclaration(node) || ts.isClassDeclaration(node) || ts.isFunctionExpression(node) || ts.isClassExpression(node)) && node.name) shadowed = node.name.text === name;
+      else if (ts.isCatchClause(node) && node.variableDeclaration) shadowed = bindingContains(node.variableDeclaration.name, name);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source.file);
+  return shadowed;
+}
+
+function pgImportEvidence(source: Source, localName: string, valueNames: readonly string[]): EvidenceSpan | null {
+  for (const statement of source.file.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteralLike(statement.moduleSpecifier) ||
+        !["pg", "pg-pool"].includes(statement.moduleSpecifier.text) || !statement.importClause?.namedBindings ||
+        !ts.isNamedImports(statement.importClause.namedBindings)) continue;
+    for (const element of statement.importClause.namedBindings.elements) {
+      const imported = element.propertyName?.text ?? element.name.text;
+      if (!statement.importClause.isTypeOnly && !element.isTypeOnly && element.name.text === localName && valueNames.includes(imported)) {
+        return evidenceSpan(source.path, source.bytes, element.getStart(source.file), element.end, "declaration");
+      }
+    }
+  }
+  return null;
+}
+
+function importedTypeEvidence(source: Source, localName: string): EvidenceSpan | null {
+  for (const statement of source.file.statements) {
+    if (!ts.isImportDeclaration(statement) || !ts.isStringLiteralLike(statement.moduleSpecifier) ||
+        !["pg", "pg-pool"].includes(statement.moduleSpecifier.text) || !statement.importClause?.namedBindings ||
+        !ts.isNamedImports(statement.importClause.namedBindings)) continue;
+    for (const element of statement.importClause.namedBindings.elements) {
+      const imported = element.propertyName?.text ?? element.name.text;
+      if (element.name.text === localName && ["Pool", "PoolClient", "Client"].includes(imported)) {
+        return evidenceSpan(source.path, source.bytes, element.getStart(source.file), element.end, "declaration");
+      }
+    }
+  }
+  return null;
+}
+
+function localVariable(source: Source, name: string, offset: number): ts.VariableDeclaration | null {
+  const candidates: Array<{ declaration: ts.VariableDeclaration; scopeWidth: number }> = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isVariableDeclaration(node) && bindingContains(node.name, name)) {
+      const scope = runtimeBindingScope(node);
+      if (scope && scope.getStart(source.file) <= offset && offset <= scope.end) candidates.push({ declaration: node, scopeWidth: scope.end - scope.getStart(source.file) });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source.file);
+  candidates.sort((left, right) => left.scopeWidth - right.scopeWidth || right.declaration.getStart(source.file) - left.declaration.getStart(source.file));
+  return candidates[0]?.declaration ?? null;
+}
+
+function localParameter(source: Source, name: string, offset: number): ts.ParameterDeclaration | null {
+  const containing: ts.FunctionLikeDeclaration[] = [];
+  const findContaining = (node: ts.Node): void => {
+    if (node.getStart(source.file) <= offset && offset < node.end) {
+      if (ts.isFunctionDeclaration(node) || ts.isFunctionExpression(node) || ts.isArrowFunction(node) || ts.isMethodDeclaration(node) ||
+          ts.isConstructorDeclaration(node) || ts.isGetAccessorDeclaration(node) || ts.isSetAccessorDeclaration(node)) containing.push(node);
+      ts.forEachChild(node, findContaining);
+    }
+  };
+  findContaining(source.file);
+  for (const fn of containing.sort((left, right) => left.end - left.getStart(source.file) - (right.end - right.getStart(source.file)))) {
+    const parameter = fn.parameters.find(item => bindingContains(item.name, name));
+    if (parameter) return parameter;
+  }
+  return null;
+}
+
+function localParameterTypeEvidence(source: Source, parameter: ts.ParameterDeclaration): EvidenceSpan[] | null {
+  if (!parameter.type || !ts.isTypeReferenceNode(parameter.type) || !ts.isIdentifier(parameter.type.typeName)) return null;
+  const imported = importedTypeEvidence(source, parameter.type.typeName.text);
+  return imported ? [imported, evidenceSpan(source.path, source.bytes, parameter.type.getStart(source.file), parameter.type.end, "declaration")] : null;
+}
+
+function pgImportEvidenceAt(source: Source, reference: ts.Node, localName: string, valueNames: readonly string[]): EvidenceSpan | null {
+  return hasLocalBinding(source, reference, localName) ? null : pgImportEvidence(source, localName, valueNames);
+}
+
+function exportedCallable(source: Source, name: string): ts.FunctionLikeDeclaration | null {
+  for (const statement of source.file.statements) {
+    if (ts.isFunctionDeclaration(statement) && statement.name?.text === name && (statement.modifiers ?? []).some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)) return statement;
+    if (!ts.isVariableStatement(statement) || !(statement.modifiers ?? []).some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword)) continue;
+    for (const declaration of statement.declarationList.declarations) {
+      if (!ts.isIdentifier(declaration.name) || declaration.name.text !== name || !declaration.initializer) continue;
+      const initializer = unwrap(declaration.initializer);
+      if (ts.isArrowFunction(initializer) || ts.isFunctionExpression(initializer)) return initializer;
+    }
+  }
+  return null;
+}
+
+function localFunctionDeclaration(source: Source, name: string, offset: number): ts.FunctionDeclaration | null {
+  const candidates: Array<{ declaration: ts.FunctionDeclaration; scopeWidth: number }> = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isFunctionDeclaration(node) && node.name?.text === name) {
+      const scope = runtimeBindingScope(node);
+      if (scope && scope.getStart(source.file) <= offset && offset <= scope.end) {
+        candidates.push({ declaration: node, scopeWidth: scope.end - scope.getStart(source.file) });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(source.file);
+  candidates.sort((left, right) => left.scopeWidth - right.scopeWidth || right.declaration.getStart(source.file) - left.declaration.getStart(source.file));
+  return candidates[0]?.declaration ?? null;
+}
+
+function importedFunction(source: Source, name: string, sourcesByPath: ReadonlyMap<string, Source>): { source: Source; callable: ts.FunctionLikeDeclaration; importEvidence: EvidenceSpan } | null {
+  const knownPaths = new Set(sourcesByPath.keys());
+  for (const binding of importBindings(source, knownPaths)) {
+    if (binding.local !== name) continue;
+    const target = sourcesByPath.get(binding.modulePath);
+    const callable = target && exportedCallable(target, binding.imported);
+    const statement = source.file.statements.find(item => ts.isImportDeclaration(item) && ts.isStringLiteralLike(item.moduleSpecifier) &&
+      resolveImportedSource(source.path, item.moduleSpecifier.text, knownPaths) === binding.modulePath && item.importClause?.namedBindings && ts.isNamedImports(item.importClause.namedBindings) &&
+      item.importClause.namedBindings.elements.some(specifier => specifier.name.text === name));
+    if (!target || !callable || !statement || !ts.isImportDeclaration(statement)) continue;
+    const specifier = statement.importClause?.namedBindings;
+    if (!specifier || !ts.isNamedImports(specifier)) continue;
+    const element = specifier.elements.find(item => item.name.text === name);
+    if (element) return { source: target, callable, importEvidence: evidenceSpan(source.path, source.bytes, element.getStart(source.file), element.end, "reference") };
+  }
+  return null;
+}
+
+function returnsNullOrUndefinedOnly(callback: ts.Expression | undefined): boolean {
+  if (!callback || !(ts.isArrowFunction(callback) || ts.isFunctionExpression(callback))) return false;
+  if (!ts.isBlock(callback.body)) return callback.body.kind === ts.SyntaxKind.NullKeyword ||
+    ts.isIdentifier(callback.body) && callback.body.text === "undefined";
+  const returns: ts.Expression[] = [];
+  let unsupported = false;
+  const visit = (node: ts.Node): void => {
+    if (node !== callback.body && ts.isFunctionLike(node)) return;
+    if (ts.isReturnStatement(node)) {
+      if (node.expression) returns.push(node.expression);
+      else unsupported = true;
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(callback.body);
+  return !unsupported && returns.length > 0 && returns.every(value => value.kind === ts.SyntaxKind.NullKeyword || ts.isIdentifier(value) && value.text === "undefined");
+}
+
+function pgQueryBindingEvidence(source: Source, expression: ts.Expression, sourcesByPath: ReadonlyMap<string, Source>, visited = new Set<string>(), depth = 0): EvidenceSpan[] | null {
+  if (depth > 10) return null;
+  const value = unwrap(expression);
+  if (ts.isNewExpression(value) && ts.isIdentifier(value.expression)) {
+    const driver = pgImportEvidenceAt(source, value.expression, value.expression.text, ["Pool", "Client"]);
+    return driver ? [driver, evidenceSpan(source.path, source.bytes, value.getStart(source.file), value.end, "reference")] : null;
+  }
+  if (ts.isIdentifier(value)) {
+    const parameter = localParameter(source, value.text, expression.getStart(source.file));
+    const declaration = localVariable(source, value.text, expression.getStart(source.file));
+    const parameterScope = parameter && runtimeBindingScope(parameter);
+    const declarationScope = declaration && runtimeBindingScope(declaration);
+    const parameterWidth = parameterScope ? parameterScope.end - parameterScope.getStart(source.file) : Number.POSITIVE_INFINITY;
+    const declarationWidth = declarationScope ? declarationScope.end - declarationScope.getStart(source.file) : Number.POSITIVE_INFINITY;
+    if (declaration && (!parameter || declarationWidth <= parameterWidth)) {
+      if (!ts.isIdentifier(declaration.name)) return null;
+      if (!declaration.initializer || !ts.isVariableDeclarationList(declaration.parent) || (declaration.parent.flags & ts.NodeFlags.Const) === 0) return null;
+      return pgQueryBindingEvidence(source, declaration.initializer, sourcesByPath, visited, depth + 1);
+    }
+    if (parameter) return ts.isIdentifier(parameter.name) ? localParameterTypeEvidence(source, parameter) : null;
+    const localFunction = exportedCallable(source, value.text) ?? (() => {
+      const candidate = source.file.statements.find(statement => ts.isFunctionDeclaration(statement) && statement.name?.text === value.text);
+      return candidate && ts.isFunctionDeclaration(candidate) ? candidate : null;
+    })();
+    if (localFunction) return pgFunctionReturnEvidence(source, localFunction, sourcesByPath, visited, depth + 1);
+    return null;
+  }
+  if (ts.isPropertyAccessExpression(value)) {
+    const propertyName = value.getText(source.file);
+    const writes: ts.Expression[] = [];
+    const scan = (node: ts.Node): void => {
+      if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.EqualsToken && node.left.getText(source.file) === propertyName) writes.push(node.right);
+      ts.forEachChild(node, scan);
+    };
+    scan(source.file);
+    if (!writes.length) return null;
+    const evidence = writes.map(write => pgQueryBindingEvidence(source, write, sourcesByPath, visited, depth + 1));
+    if (evidence.some(item => item === null)) return null;
+    return evidence.flatMap(item => item ?? []);
+  }
+  if (ts.isCallExpression(value)) {
+    if (ts.isPropertyAccessExpression(value.expression) && value.expression.name.text === "catch" && returnsNullOrUndefinedOnly(value.arguments[0])) {
+      const promise = pgQueryBindingEvidence(source, value.expression.expression, sourcesByPath, visited, depth + 1);
+      return promise ? [...promise, evidenceSpan(source.path, source.bytes, value.getStart(source.file), value.end, "reference")] : null;
+    }
+    if (ts.isPropertyAccessExpression(value.expression) && value.expression.name.text === "connect") {
+      const pool = pgQueryBindingEvidence(source, value.expression.expression, sourcesByPath, visited, depth + 1);
+      return pool ? [...pool, evidenceSpan(source.path, source.bytes, value.getStart(source.file), value.end, "reference")] : null;
+    }
+    if (!ts.isIdentifier(value.expression)) return null;
+    const calleeName = value.expression.text;
+    const calleeOffset = value.expression.getStart(source.file);
+    const parameter = localParameter(source, calleeName, calleeOffset);
+    const declaration = localVariable(source, calleeName, calleeOffset);
+    const functionDeclaration = localFunctionDeclaration(source, calleeName, calleeOffset);
+    const parameterScope = parameter && runtimeBindingScope(parameter);
+    const declarationScope = declaration && runtimeBindingScope(declaration);
+    const functionScope = functionDeclaration && runtimeBindingScope(functionDeclaration);
+    const parameterWidth = parameterScope ? parameterScope.end - parameterScope.getStart(source.file) : Number.POSITIVE_INFINITY;
+    const declarationWidth = declarationScope ? declarationScope.end - declarationScope.getStart(source.file) : Number.POSITIVE_INFINITY;
+    const functionWidth = functionScope ? functionScope.end - functionScope.getStart(source.file) : Number.POSITIVE_INFINITY;
+    if (parameter && parameterWidth <= declarationWidth && parameterWidth <= functionWidth) return null;
+    if (declaration && declarationWidth <= parameterWidth && declarationWidth <= functionWidth) {
+      if (!ts.isIdentifier(declaration.name) || !declaration.initializer || !ts.isVariableDeclarationList(declaration.parent) ||
+          (declaration.parent.flags & ts.NodeFlags.Const) === 0) return null;
+      const initializer = unwrap(declaration.initializer);
+      if (!ts.isArrowFunction(initializer) && !ts.isFunctionExpression(initializer)) return null;
+      return pgFunctionReturnEvidence(source, initializer, sourcesByPath, visited, depth + 1);
+    }
+    if (functionDeclaration && functionWidth <= parameterWidth && functionWidth <= declarationWidth) {
+      return pgFunctionReturnEvidence(source, functionDeclaration, sourcesByPath, visited, depth + 1);
+    }
+    const imported = importedFunction(source, calleeName, sourcesByPath);
+    if (!imported) return null;
+    return pgFunctionReturnEvidence(imported.source, imported.callable, sourcesByPath, visited, depth + 1,
+      [imported.importEvidence]);
+  }
+  if (ts.isBinaryExpression(value) && [ts.SyntaxKind.QuestionQuestionToken, ts.SyntaxKind.BarBarToken].includes(value.operatorToken.kind)) {
+    const left = pgQueryBindingEvidence(source, value.left, sourcesByPath, visited, depth + 1);
+    const right = pgQueryBindingEvidence(source, value.right, sourcesByPath, visited, depth + 1);
+    return left && right ? [...left, ...right] : null;
+  }
+  if (ts.isConditionalExpression(value)) {
+    const left = pgQueryBindingEvidence(source, value.whenTrue, sourcesByPath, visited, depth + 1);
+    const right = pgQueryBindingEvidence(source, value.whenFalse, sourcesByPath, visited, depth + 1);
+    return left && right ? [...left, ...right] : null;
+  }
+  return null;
+}
+
+function pgFunctionReturnEvidence(source: Source, callable: ts.FunctionLikeDeclaration, sourcesByPath: ReadonlyMap<string, Source>, visited: Set<string>, depth: number, prefix: EvidenceSpan[] = []): EvidenceSpan[] | null {
+  const key = `${source.path}:${callable.getStart(source.file)}`;
+  if (visited.has(key) || !callable.body) return null;
+  const nextVisited = new Set(visited); nextVisited.add(key);
+  if (!ts.isBlock(callable.body)) {
+    const resolved = pgQueryBindingEvidence(source, callable.body, sourcesByPath, nextVisited, depth + 1);
+    return resolved ? [...prefix, ...resolved, evidenceSpan(source.path, source.bytes, callable.getStart(source.file), callable.end, "declaration")] : null;
+  }
+  const returns: ts.ReturnStatement[] = [];
+  const findReturns = (node: ts.Node): void => {
+    if (ts.isReturnStatement(node)) returns.push(node);
+    else if (node !== callable.body && ts.isFunctionLike(node)) return;
+    ts.forEachChild(node, findReturns);
+  };
+  findReturns(callable.body);
+  if (!returns.length) return null;
+  const evidences: EvidenceSpan[] = [...prefix];
+  for (const statement of returns) {
+    if (!statement.expression) return null;
+    const resolved = pgQueryBindingEvidence(source, statement.expression, sourcesByPath, nextVisited, depth + 1);
+    if (resolved) { evidences.push(...resolved); continue; }
+    const property = unwrap(statement.expression);
+    if (!ts.isPropertyAccessExpression(property)) return null;
+    const assignment = pgQueryBindingEvidence(source, property, sourcesByPath, nextVisited, depth + 1);
+    if (!assignment) return null;
+    evidences.push(...assignment);
+  }
+  evidences.push(evidenceSpan(source.path, source.bytes, callable.getStart(source.file), callable.end, "declaration"));
+  return [...new Map(evidences.map(item => [`${item.filePath}:${item.startByte}:${item.endByte}`, item])).values()];
+}
+
+type SqlToken = { kind: "word" | "quotedIdentifier" | "symbol"; value: string; start: number; end: number };
+
+function lexSql(sql: string): SqlToken[] {
+  const tokens: SqlToken[] = [];
+  const quoted = (start: number, close: string, doubled: boolean, backslashEscapes = false): { value: string; end: number } => {
+    let value = "", cursor = start + 1;
+    while (cursor < sql.length) {
+      if (backslashEscapes && sql[cursor] === "\\") { cursor += Math.min(2, sql.length - cursor); continue; }
+      if (doubled && sql.startsWith(close + close, cursor)) { value += close; cursor += 2; continue; }
+      if (sql[cursor] === close) return { value, end: cursor + 1 };
+      value += sql[cursor]!; cursor++;
+    }
+    return { value, end: cursor };
+  };
+  for (let i = 0; i < sql.length;) {
+    const current = sql[i]!;
+    if (/\s/u.test(current)) { i++; continue; }
+    if (sql.startsWith("--", i)) { const end = sql.indexOf("\n", i + 2); i = end < 0 ? sql.length : end + 1; continue; }
+    if (sql.startsWith("/*", i)) {
+      let depth = 1; i += 2;
+      while (i < sql.length && depth > 0) {
+        if (sql.startsWith("/*", i)) { depth++; i += 2; }
+        else if (sql.startsWith("*/", i)) { depth--; i += 2; }
+        else i++;
+      }
+      continue;
+    }
+    if (current === "'") {
+      const escapeString = /[eE]/u.test(sql[i - 1] ?? "") && (i < 2 || !/[\p{L}\p{N}_$]/u.test(sql[i - 2]!));
+      i = quoted(i, "'", true, escapeString).end; continue;
+    }
+    if (current === "$") {
+      const delimiter = sql.slice(i).match(/^\$(?:[A-Za-z_][A-Za-z0-9_]*)?\$/u)?.[0];
+      if (delimiter) { const closing = sql.indexOf(delimiter, i + delimiter.length); i = closing < 0 ? sql.length : closing + delimiter.length; continue; }
+    }
+    if (current === '"' || current === "`") {
+      const part = quoted(i, current, true);
+      tokens.push({ kind: "quotedIdentifier", value: part.value, start: i, end: part.end }); i = part.end; continue;
+    }
+    if (current === "[") {
+      const part = quoted(i, "]", true);
+      tokens.push({ kind: "quotedIdentifier", value: part.value, start: i, end: part.end }); i = part.end; continue;
+    }
+    const word = sql.slice(i).match(/^[\p{L}_][\p{L}\p{N}_$]*/u)?.[0];
+    if (word) { tokens.push({ kind: "word", value: word, start: i, end: i + word.length }); i += word.length; continue; }
+    tokens.push({ kind: "symbol", value: current, start: i, end: i + 1 }); i++;
+  }
+  return tokens;
+}
+
+function isWord(token: SqlToken | undefined, value: string): boolean {
+  return token?.kind === "word" && token.value.toLocaleLowerCase("en-US") === value.toLocaleLowerCase("en-US");
+}
+
+function sqlName(token: SqlToken | undefined): SqlIdentifier | null {
+  return token && (token.kind === "word" || token.kind === "quotedIdentifier") ? { value: token.value, quoted: token.kind === "quotedIdentifier" } : null;
+}
+
+function normalizedIdentifier(identifier: SqlIdentifier): string {
+  return identifier.quoted ? identifier.value : identifier.value.toLocaleLowerCase("en-US");
+}
+
+function skipSqlGroup(tokens: SqlToken[], cursor: number, open = "(", close = ")"): number {
+  if (tokens[cursor]?.value !== open) return cursor;
+  let depth = 1;
+  for (let index = cursor + 1; index < tokens.length; index++) {
+    if (tokens[index]!.value === open) depth++;
+    else if (tokens[index]!.value === close && --depth === 0) return index + 1;
+  }
+  return tokens.length;
+}
+
+function parseSqlTable(tokens: SqlToken[], cursor: number): { schema: SqlIdentifier | null; table: SqlIdentifier; end: number } | null {
+  if (isWord(tokens[cursor], "only")) cursor++;
+  const first = sqlName(tokens[cursor]);
+  if (!first) return null;
+  const second = sqlName(tokens[cursor + 2]);
+  if (tokens[cursor + 1]?.value === "." && second) return { schema: first, table: second, end: cursor + 3 };
+  return { schema: null, table: first, end: cursor + 1 };
+}
+
+function sqlDepths(tokens: SqlToken[]): number[] {
+  const result: number[] = []; let depth = 0;
+  for (const token of tokens) {
+    if (token.value === ")") depth = Math.max(0, depth - 1);
+    result.push(depth);
+    if (token.value === "(") depth++;
+  }
+  return result;
+}
+
+function sqlStatements(tokens: SqlToken[]): SqlToken[][] {
+  const result: SqlToken[][] = []; const start: number[] = []; let depth = 0;
+  for (let index = 0; index < tokens.length; index++) {
+    const token = tokens[index]!;
+    if (token.value === ")") depth = Math.max(0, depth - 1);
+    if (token.value === ";" && depth === 0) { if (index > (start.at(-1) ?? -1) + 1) result.push(tokens.slice((start.at(-1) ?? -1) + 1, index)); start.push(index); }
+    if (token.value === "(") depth++;
+  }
+  const lastStart = (start.at(-1) ?? -1) + 1;
+  if (lastStart < tokens.length) result.push(tokens.slice(lastStart));
+  return result;
+}
+
+function cteNames(tokens: SqlToken[]): Set<string> {
+  const names = new Set<string>();
+  if (!isWord(tokens[0], "with")) return names;
+  let cursor = isWord(tokens[1], "recursive") ? 2 : 1;
+  for (let guard = 0; guard < 100 && cursor < tokens.length; guard++) {
+    const name = sqlName(tokens[cursor]);
+    if (!name) break;
+    names.add(normalizedIdentifier(name)); cursor++;
+    if (tokens[cursor]?.value === "(") cursor = skipSqlGroup(tokens, cursor);
+    if (!isWord(tokens[cursor], "as")) break;
+    cursor++;
+    if (isWord(tokens[cursor], "not") && isWord(tokens[cursor + 1], "materialized")) cursor += 2;
+    else if (isWord(tokens[cursor], "materialized")) cursor++;
+    if (tokens[cursor]?.value !== "(") break;
+    cursor = skipSqlGroup(tokens, cursor);
+    if (tokens[cursor]?.value !== ",") break;
+    cursor++;
+  }
+  return names;
+}
+
+function hasSelectInScope(tokens: SqlToken[], depths: number[], cursor: number): boolean {
+  const depth = depths[cursor]!;
+  for (let index = cursor - 1; index >= 0; index--) {
+    if (depths[index]! < depth) break;
+    if (depths[index] !== depth) continue;
+    if (tokens[index]!.value === ";" || isWord(tokens[index], "where") || isWord(tokens[index], "set")) break;
+    if (isWord(tokens[index], "select")) return true;
+  }
+  return false;
+}
+
+function sqlTableOperations(sql: string): TableOperation[] {
+  const operations: TableOperation[] = [];
+  const push = (operation: SqlOperation, table: { schema: SqlIdentifier | null; table: SqlIdentifier } | null) => {
+    if (table && table.table.value && !/^(?:set|of|nowait|skip|share|key)$/iu.test(table.table.value)) operations.push({ ...table, operation });
+  };
+  for (const statement of sqlStatements(lexSql(sql))) {
+    if (!statement.length || isWord(statement[0], "explain")) continue;
+    const depths = sqlDepths(statement), ctes = cteNames(statement);
+    const insertTargets: Array<{ index: number; end: number; table: { schema: SqlIdentifier | null; table: SqlIdentifier }; upsert: boolean }> = [];
+    for (let index = 0; index < statement.length; index++) {
+      const token = statement[index]!;
+      if (isWord(token, "insert") && isWord(statement[index + 1], "into")) {
+        const parsed = parseSqlTable(statement, index + 2);
+        if (parsed) { const target = { schema: parsed.schema, table: parsed.table }; insertTargets.push({ index, end: parsed.end, table: target, upsert: false }); }
+      } else if (isWord(token, "update") && !isWord(statement[index - 1], "do")) {
+        push("updates", parseSqlTable(statement, index + 1));
+      } else if (isWord(token, "delete") && isWord(statement[index + 1], "from")) {
+        push("deletes", parseSqlTable(statement, index + 2));
+      }
+    }
+    for (let index = 0; index < statement.length; index++) {
+      if (!isWord(statement[index], "from") && !isWord(statement[index], "join")) continue;
+      if (!hasSelectInScope(statement, depths, index)) continue;
+      const baseDepth = depths[index]!;
+      const addRead = (cursor: number): number => {
+        const parsed = parseSqlTable(statement, cursor);
+        if (!parsed) return cursor;
+        if (parsed.schema || !ctes.has(normalizedIdentifier(parsed.table))) push("reads", { schema: parsed.schema, table: parsed.table });
+        return parsed.end;
+      };
+      let cursor = addRead(index + 1);
+      while (cursor < statement.length && depths[cursor] === baseDepth) {
+        const candidate = statement[cursor]!;
+        if (["where", "group", "having", "order", "limit", "offset", "fetch", "union", "except", "intersect", "window", "returning", "for", "set"].some(word => isWord(candidate, word))) break;
+        if (candidate.value === ",") { cursor = addRead(cursor + 1); continue; }
+        cursor++;
+      }
+    }
+    for (const insert of insertTargets) {
+      const insertDepth = depths[insert.index]!;
+      const nextInsert = insertTargets.find(candidate => candidate.index > insert.index && depths[candidate.index] === insertDepth)?.index ?? statement.length;
+      for (let index = insert.end; index < nextInsert; index++) {
+        if (depths[index] !== insertDepth || !isWord(statement[index], "on") || !isWord(statement[index + 1], "conflict")) continue;
+        for (let cursor = index + 2; cursor < nextInsert; cursor++) {
+          if (depths[cursor] === insertDepth && isWord(statement[cursor], "do") && isWord(statement[cursor + 1], "update")) {
+            insert.upsert = true; break;
+          }
+        }
+        break;
+      }
+    }
+    for (const insert of insertTargets) push(insert.upsert ? "upserts" : "creates", insert.table);
+  }
+  return [...new Map(operations.map(item => [`${item.operation}\0${item.schema ? normalizedIdentifier(item.schema) : ""}\0${normalizedIdentifier(item.table)}`, item])).values()];
+}
+
+function queryArgument(source: Source, node: ts.CallExpression, constants: ReadonlyMap<string, string>): string | null {
+  const argument = node.arguments[0];
+  if (!argument) return null;
+  let shadowed = false;
+  const visit = (candidate: ts.Node): void => {
+    if (shadowed) return;
+    if (ts.isIdentifier(candidate) && hasLocalBinding(source, candidate, candidate.text)) shadowed = true;
+    else ts.forEachChild(candidate, visit);
+  };
+  visit(argument);
+  return shadowed ? null : staticString(argument, constants);
+}
+
+function queryConstantEvidence(source: Source, node: ts.CallExpression, sourcesByPath: ReadonlyMap<string, Source>, clientPaths: ReadonlySet<string>): EvidenceSpan[] {
+  const argument = node.arguments[0];
+  if (!argument) return [];
+  const knownPaths = new Set(sourcesByPath.keys());
+  const result = new Map<string, EvidenceSpan>();
+  const visited = new Set<string>();
+  const trace = (owner: Source, name: string, requireExport: boolean): void => {
+    const key = `${owner.path}:${name}`;
+    if (visited.has(key) || clientPaths.has(owner.path)) return;
+    visited.add(key);
+    for (const statement of owner.file.statements) {
+      if (!ts.isVariableStatement(statement) || !(statement.declarationList.flags & ts.NodeFlags.Const)) continue;
+      const exported = (statement.modifiers ?? []).some(modifier => modifier.kind === ts.SyntaxKind.ExportKeyword);
+      if (requireExport && !exported) continue;
+      for (const declaration of statement.declarationList.declarations) {
+        if (!ts.isIdentifier(declaration.name) || declaration.name.text !== name || !declaration.initializer) continue;
+        const span = evidenceSpan(owner.path, owner.bytes, declaration.initializer.getStart(owner.file), declaration.initializer.end, "declaration");
+        result.set(`${span.filePath}:${span.startByte}:${span.endByte}`, span);
+        const scan = (candidate: ts.Node): void => {
+          if (ts.isIdentifier(candidate)) trace(owner, candidate.text, false);
+          ts.forEachChild(candidate, scan);
+        };
+        scan(declaration.initializer);
+        return;
+      }
+    }
+    if (requireExport) return;
+    for (const binding of importBindings(owner, knownPaths)) {
+      if (binding.local !== name) continue;
+      const importedSource = sourcesByPath.get(binding.modulePath);
+      if (importedSource) trace(importedSource, binding.imported, true);
+    }
+  };
+  const scan = (candidate: ts.Node): void => {
+    if (ts.isIdentifier(candidate)) trace(source, candidate.text, false);
+    ts.forEachChild(candidate, scan);
+  };
+  scan(argument);
+  return [...result.values()];
+}
+
+function nearestFunction(components: SemanticNode[], filePath: string, offset: number): SemanticNode | null {
+  const candidates = components.flatMap(node => node.evidence
+    .filter(span => span.filePath === filePath && span.startByte <= offset && offset < span.endByte)
+    .map(span => ({ node, width: span.endByte - span.startByte })));
+  candidates.sort((left, right) => left.width - right.width || left.node.id.localeCompare(right.node.id));
+  return candidates[0]?.node ?? null;
+}
+
+function functionName(declaration: ts.FunctionLikeDeclaration, file: ts.SourceFile): string {
+  const named = (declaration as ts.FunctionLikeDeclaration & { name?: ts.PropertyName }).name;
+  if (named && ts.isIdentifier(named)) return named.text;
+  const parent = declaration.parent;
+  if (ts.isVariableDeclaration(parent) && ts.isIdentifier(parent.name)) return parent.name.text;
+  if (ts.isPropertyAssignment(parent) && (ts.isIdentifier(parent.name) || ts.isStringLiteral(parent.name))) return parent.name.text;
+  if (ts.isPropertyDeclaration(parent) && (ts.isIdentifier(parent.name) || ts.isStringLiteral(parent.name))) return parent.name.text;
+  return `Backend SQL operation at line ${file.getLineAndCharacterOfPosition(declaration.getStart(file)).line + 1}`;
+}
+
+function syntheticBackendFunction(source: Source, call: ts.CallExpression): SemanticNode | null {
+  let current: ts.Node | undefined = call.parent;
+  while (current && !ts.isFunctionLike(current)) current = current.parent;
+  if (!current || !("body" in current) || !current.body) return null;
+  const start = current.getStart(source.file);
+  const end = current.end;
+  const evidence = evidenceSpan(source.path, source.bytes, start, end, "declaration");
+  return semanticNode({ kind: "component", filePath: source.path, startByte: evidence.startByte,
+    key: `static-sql-function:${functionName(current, source.file)}`, label: functionName(current, source.file), featureId: null,
+    confidence: "proven", reason: "Backend function containing a statically resolved SQL query.", evidence: [evidence] });
+}
+
+function statementAlwaysExits(statement: ts.Statement): boolean {
+  if (ts.isReturnStatement(statement) || ts.isThrowStatement(statement)) return true;
+  if (ts.isBlock(statement)) {
+    for (const child of statement.statements) if (statementAlwaysExits(child)) return true;
+    return false;
+  }
+  if (ts.isIfStatement(statement)) {
+    if (!statement.elseStatement) return false;
+    return statementAlwaysExits(statement.thenStatement) && statementAlwaysExits(statement.elseStatement);
+  }
+  return false;
+}
+
+function queryIsUnreachable(call: ts.CallExpression, file: ts.SourceFile): boolean {
+  for (let ancestor: ts.Node | undefined = call.parent; ancestor; ancestor = ancestor.parent) {
+    if (ts.isFunctionLike(ancestor) && ancestor !== call.parent) break;
+    if (!ts.isBlock(ancestor)) continue;
+    const current = ancestor.statements.findIndex(statement => statement.getStart(file) <= call.getStart(file) && statement.end >= call.end);
+    if (current < 0) continue;
+    for (let index = 0; index < current; index++) if (statementAlwaysExits(ancestor.statements[index]!)) return true;
+  }
+  return false;
+}
+
+function gatherSources(input: SemanticInput): Source[] {
+  return Object.entries(input.sources)
+    .filter(([path, bytes]) => SOURCE_PATH.test(path) && !excludeFromMainFlow(path) && bytes.byteLength <= MAX_SOURCE_BYTES)
+    .map(([path, bytes]) => {
+      const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+      return { path, bytes, text, file: ts.createSourceFile(path, text, ts.ScriptTarget.Latest, true, scriptKind(path)) };
+    })
+    .sort((left, right) => left.path.localeCompare(right.path));
+}
+
+function isBackendSource(source: Source, clientReachable: ReadonlySet<string>): boolean {
+  if (clientReachable.has(source.path)) return false;
+  if (/^\s*["']use client["']/mu.test(source.text)) return false;
+  const path = source.path.replaceAll("\\", "/");
+  return /(^|\/)(?:api|backend|server|controllers?|services?|routes?|routers?|handlers?)(\/|$)/iu.test(path) ||
+    /\.(?:server)\.[cm]?[jt]sx?$/iu.test(path) ||
+    /^\s*["']use server["']/mu.test(source.text) ||
+    /\bfrom\s*["']server-only["']/u.test(source.text);
+}
+
+/** Link static backend SQL calls to schema-backed data objects without using UI labels as CRUD evidence. */
+export function extractSqlAccess(input: SemanticInput, schemaStores: SemanticNode[], sourceComponents: SemanticNode[]): SemanticFragment {
+  const fragment = emptyFragment();
+  const sources = gatherSources(input);
+  const sourcesByPath = new Map(sources.map(source => [source.path, source]));
+  const constantsByPath = collectWorkspaceConstants(sources);
+  const clientPaths = clientReachableSources(sources);
+  const stores = schemaStores.filter(node => node.kind === "store" && node.reason.includes("Relational table declared by CREATE TABLE DDL.") && node.dataIdentity);
+  const storesForTable = (table: TableOperation): SemanticNode[] => stores.filter(store => {
+    const identity = store.dataIdentity!;
+    if (identity.name !== normalizedIdentifier(table.table)) return false;
+    if (table.schema) return identity.schema === normalizedIdentifier(table.schema);
+    return true;
+  });
+  const components = sourceComponents.filter(node => node.kind === "component");
+  for (const source of sources) {
+    if (!isBackendSource(source, clientPaths)) continue;
+    // Migration and seed scripts describe schema setup, not application CRUD behavior.
+    if (/(^|\/)(?:migrations?|seeds?)(\/|$)/iu.test(source.path) || /(^|\/)(?:migrate|seed)(?:\.[cm]?[jt]sx?)?$/iu.test(source.path)) continue;
+    const constants = constantsByPath.get(source.path) ?? new Map<string, string>();
+    const visits = (node: ts.Node): void => {
+      if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression) && node.expression.name.text === "query") {
+        if (queryIsUnreachable(node, source.file)) {
+          fragment.limitations.push({ filePath: source.path, reason: "A statically unreachable .query() call follows an unconditional return or throw and is excluded from CRUD evidence." });
+          ts.forEachChild(node, visits);
+          return;
+        }
+        const sql = queryArgument(source, node, constants);
+        if (sql === null) {
+          fragment.limitations.push({ filePath: source.path, reason: "A backend .query() call does not resolve to a literal or unshadowed immutable SQL constant; CRUD was not inferred from its query shape." });
+        } else {
+          const databaseEvidence = pgQueryBindingEvidence(source, node.expression.expression, sourcesByPath);
+          if (!databaseEvidence) {
+            fragment.limitations.push({ filePath: source.path, reason: "A static backend .query() call could not be tied to a locally verified node-postgres Pool, Client, or PoolClient; no CRUD fact was inferred." });
+            ts.forEachChild(node, visits);
+            return;
+          }
+          const tables = sqlTableOperations(sql);
+          if (tables.length) {
+            const start = node.expression.getStart(source.file);
+            const end = Math.max(node.arguments[0]?.end ?? node.end, node.expression.end);
+            const queryEvidence = evidenceSpan(source.path, source.bytes, start, end, "reference");
+            const behavior = nearestFunction(components, source.path, queryEvidence.startByte) ?? syntheticBackendFunction(source, node);
+            if (!behavior) {
+              fragment.limitations.push({ filePath: source.path, reason: "Static SQL was found, but no enclosing backend function could be mapped to it; no application-data matrix relation was asserted." });
+            } else {
+              if (!sourceComponents.some(candidate => candidate.id === behavior.id) && !fragment.nodes.some(candidate => candidate.id === behavior.id)) fragment.nodes.push(behavior);
+              for (const item of tables) {
+                const candidates = storesForTable(item);
+                if (candidates.length !== 1) {
+                  if (item.operation === "reads") continue;
+                  const qualified = item.schema ? `${item.schema.value}.${item.table.value}` : item.table.value;
+                  fragment.limitations.push({ filePath: source.path, reason: `Static SQL ${item.operation} references ${qualified}, but the snapshot has no unique matching schema-backed data object; no CRUD fact was asserted.` });
+                  continue;
+                }
+                const store = candidates[0]!;
+                const evidence = [...behavior.evidence.filter(span => span.filePath === source.path && span.startByte <= queryEvidence.startByte && span.endByte >= queryEvidence.endByte).slice(0, 1),
+                  queryEvidence, ...queryConstantEvidence(source, node, sourcesByPath, clientPaths), ...databaseEvidence, ...store.evidence];
+                const edge: SemanticEdge = {
+                  id: semanticEdgeId(source.path, queryEvidence.startByte, `sql-access:${behavior.id}:${item.operation}:${store.id}`),
+                  source: behavior.id, target: store.id, label: `${item.operation} ${store.label}`, confidence: "proven",
+                  dataOperation: ({ reads: "read", creates: "create", updates: "update", deletes: "delete", upserts: "upsert" } as const satisfies Record<SqlOperation, OperationMetadata>)[item.operation],
+                  reason: `A statically resolved backend .query() call is tied to a node-postgres client imported from pg and contains a ${item.operation} statement naming ${item.schema ? `${item.schema.value}.` : ""}${item.table.value}; its exact identifier uniquely matches the relational object declared in the analyzed schema snapshot. This is source-level access evidence, not proof of successful runtime execution.`,
+                  evidence: [...new Map(evidence.map(span => [`${span.filePath}:${span.startByte}:${span.endByte}`, span])).values()],
+                };
+                fragment.edges.push(edge);
+              }
+            }
+          }
+        }
+      }
+      ts.forEachChild(node, visits);
+    };
+    visits(source.file);
+  }
+  if (fragment.edges.length) fragment.frameworks.push("Static backend SQL access");
+  return fragment;
+}

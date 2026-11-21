@@ -1,0 +1,33 @@
+{
+  "repository": "AgilePemdigi-2026/sage",
+  "commit": "c2dc3d84b220c572fb5b2ce85dd3605e89b11a73",
+  "flows": [
+    {
+      "name": "GitHub login",
+      "evidence": [
+        "apps/web/app/login/page.tsx:33-45",
+        "apps/web/app/auth/github/route.ts:7-15"
+      ],
+      "negative": "OAuth start is not proof of successful authorization."
+    },
+    {
+      "name": "Target dan analisis",
+      "evidence": [
+        "apps/web/lib/github/target-handlers.ts:28-59",
+        "apps/web/lib/github/submission-handlers.ts:17-47",
+        "packages/contracts/src/stages.ts:2-12"
+      ],
+      "negative": "Imports do not prove user interaction order; private access requires authorization."
+    },
+    {
+      "name": "Ekspor",
+      "evidence": [
+        "apps/web/lib/exports/handlers.ts:84-127"
+      ],
+      "negative": "Queued export is not a successful download."
+    }
+  ],
+  "files": 369,
+  "sourceBytes": 3189530,
+  "archiveSha256": "f9a424a264cc935bd762e18c9d9e5f8de42532ecbadd64fedc59ffef88ef5813"
+}

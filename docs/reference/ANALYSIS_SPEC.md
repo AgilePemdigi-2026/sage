@@ -1,10 +1,10 @@
 # Spesifikasi analisis
 
-Kontrak teknis memakai CCM `schemaVersion = 1`, canonical CKG `sage-ckg-v1`, serta ADD `sage-add-v1`. Pipeline dan bukti adapter/resolver tercatat per issue pada [arsip analyzer](../archive/README.md#analyzer). Review oracle tim bertanggal tersedia pada [QA-01](../archive/qa/QA-01_ORACLE_REVIEW.md); penerimaannya terbatas pada fixture yang diperiksa. Perubahan kontrak harus memperbarui API, model data, fixture, dan traceability.
+Kontrak teknis memakai CCM `schemaVersion = 1`, canonical CKG `sage-ckg-v1`, semantic model `sage-semantic-v2`, dan ADD baseline `sage-add-baseline-v1`. `sage-add-v1` adalah model dokumen legacy yang masih ada untuk kompatibilitas dan bukan keluaran ADD aktif. Bukti adapter terdahulu tercatat di [arsip analyzer](../archive/README.md#analyzer); bukti itu tidak otomatis memvalidasi kontrak ADD baru. Perubahan kontrak harus memperbarui API, model data, fixture, dan traceability.
 
 ## Prinsip
 
-Analisis memakai satu snapshot full commit SHA sebagai sumber tetap. Semua fakta teknis berasal dari source yang diproses secara statis. Normalisasi menghasilkan Common Code Model (CCM), kemudian canonical Code Knowledge Graph (CKG). Semua artefak dokumen diproyeksikan dari CKG yang sama.
+Analisis memakai satu snapshot full commit SHA sebagai sumber tetap. Adapter statis menghasilkan Common Code Model (CCM), lalu canonical Code Knowledge Graph (CKG). Semantic model fitur dan data dibangun dari CKG beserta source bytes snapshot yang sama. TOGAF ADD baseline memproyeksikan kedua model canonical tersebut; Code Knowledge adalah view pendamping, bukan dokumen arsitektur utama.
 
 Bedakan jenis relasi dari status resolusinya. `CALLS` adalah jenis relasi; `Exact` atau `Unresolved` menjelaskan tingkat penyelesaiannya. `Inferred` tidak menjadi status MVP. Hubungan arsitektur, HTTP endpoint, cardinality, composition, dan perilaku runtime tidak diciptakan hanya dari nama class atau dugaan framework.
 
@@ -12,18 +12,13 @@ Bedakan jenis relasi dari status resolusinya. `CALLS` adalah jenis relasi; `Exac
 
 Tabel berikut menjelaskan kriteria kontrak, bukan jaminan semua pola source didukung. Dukungan aktual dibatasi fixture dan versi adapter/resolver pada [ANA-03 JS/TS](../archive/analyzer/ANA-03_CHECKS.md), [ANA-04 PHP](../archive/analyzer/ANA-04_CHECKS.md), serta [pemeriksaan resolver](../archive/analyzer/RESOLVER_CHECKS.md).
 
-| Kemampuan | JS/TS | PHP | Kriteria |
-| --- | --- | --- | --- |
-| Struktur module/file dan deklarasi | Wajib | Wajib | Path, nama, kategori, bounds, dan source hash sesuai oracle |
-| Class, function, method, property | Wajib | Wajib | Static/instance dan signature dipertahankan bila tersedia |
-| Interface dan tipe | Wajib untuk syntax yang relevan | Wajib untuk syntax yang relevan | Deklarasi dan penggunaan tipe dapat dibedakan |
-| Import/export dan namespace | ESM, CommonJS statis, alias tsconfig yang dapat dibaca | Namespace, use, pemetaan Composer statis | Resolusi mengikuti bukti dan config non-executable |
-| Extends/implements | Wajib | Wajib | Arah hubungan dan target tepat |
-| Calls dan instantiation | Wajib jika target terselesaikan | Wajib jika target terselesaikan | Symbol/receiver cocok; yang dinamis tetap unresolved |
-| Referensi tipe dan akses member | Wajib pada konstruksi yang dipastikan | Wajib pada konstruksi yang dipastikan | Read/write/type evidence dibedakan |
-| Dynamic import/require/include, reflection, receiver dinamis | Dicatat | Dicatat | Jangan diubah menjadi exact tanpa target yang terbukti |
-| JSX/TSX, type alias, enum, PHP trait/enum | Spike dan fixture khusus | Spike dan fixture khusus | Ekstensi taxonomy dan dukungan parser harus dicatat eksplisit |
-| Semantik framework dan routing | Terbatas pada pola yang dibuktikan fixture | Terbatas pada pola yang dibuktikan fixture | Tidak menyatakan semua framework didukung |
+| Kemampuan | JS/TS | PHP | Python | Kriteria |
+| --- | --- | --- | --- | --- |
+| Struktur module/file dan deklarasi | Parser AST | PHP-Parser | Pemindai line-structured terbatas | Hasil aktual harus dicocokkan dengan fixture; status kolom bukan jaminan kelengkapan bahasa |
+| Class, function, method, property | Didukung sesuai grammar adapter | Didukung sesuai grammar adapter | Deklarasi dasar dan properti terbatas | Signature/source evidence mengikuti bentuk yang berhasil dibaca |
+| Import, inheritance, relasi lokal | Static subset | Static subset | Import/inheritance literal terbatas | Dynamic dispatch tetap unresolved atau menjadi limitation |
+| Routing | Pola framework terpilih | Laravel patterns | FastAPI-style literal decorator | Tidak menganggap seluruh framework atau runtime route terdeteksi |
+| Data/interface contracts | SQL, OpenAPI JSON/YAML, selected JSON Schema | Sama, independen bahasa | Sama, independen bahasa | File format dipindai secara statis dan memiliki limitation saat pola tidak dikenali |
 
 Keluaran adapter PHP dan JS/TS dapat dikembangkan bersamaan setelah contracts disepakati. Dalam satu job, orchestrator memproses adapter sesuai urutan deterministik; tidak ada kewajiban menjalankan kedua parser secara konkuren.
 
@@ -80,11 +75,11 @@ CCM memuat `schemaVersion`, identitas snapshot, provenance analyzer/resolver/con
 
 Canonical serialization mengurutkan file, node, edge, dan limitation dengan aturan tetap. Timestamp/job progress berada di envelope analisis, bukan konten yang dibandingkan untuk replay. Config hash mencakup parser, resolver, exclusion rules, dan taxonomy version.
 
-Implementasi minimum v1 berada di `packages/contracts`: registry PHP/JavaScript/TypeScript, kategori node/edge, origin, resolution/reason, tipe CCM, ID deterministik, JSON/hash canonical, dan validator runtime. Validator menerima byte source secara terpisah dari payload serializable; hash/ukuran file serta setiap evidence diverifikasi terhadap byte tersebut. Offset evidence memakai byte UTF-8 berbasis nol dengan batas akhir eksklusif; baris dan kolom berbasis satu, kolom dihitung dalam Unicode code point, mengikuti konvensi CRLF dan BOM pada fixture QA-01.
+Implementasi minimum v1 berada di `packages/contracts`: registry PHP/JavaScript/TypeScript/Python, kategori node/edge, origin, resolution/reason, tipe CCM, ID deterministik, JSON/hash canonical, dan validator runtime. Validator menerima byte source secara terpisah dari payload serializable; hash/ukuran file serta setiap evidence diverifikasi terhadap byte tersebut. Offset evidence memakai byte UTF-8 berbasis nol dengan batas akhir eksklusif; baris dan kolom berbasis satu, kolom dihitung dalam Unicode code point, mengikuti konvensi CRLF dan BOM pada fixture QA-01.
 
-Hardening ANA-05 menolak array sparse/properti tambahan dan peta source berbasis getter, memeriksa UTF-8 seluruh file processed, serta memvalidasi bounds parent dan konsistensi edge containment yang diberikan. Registry kategori v1 tetap sama; tidak ada kategori atau relasi semantik baru yang diasumsikan. Hasil deklarasi gabungan PHP/JS/TS diuji setelah round-trip JSON bersama byte snapshot aslinya; rincian dan batas acceptance ada pada [ANA-05_CHECKS](../archive/analyzer/ANA-05_CHECKS.md).
+Hardening ANA-05 menolak array sparse/properti tambahan dan peta source berbasis getter, memeriksa UTF-8 seluruh file processed, serta memvalidasi bounds parent dan konsistensi edge containment yang diberikan. Registry kategori v1 tetap sama; tidak ada kategori atau relasi semantik baru yang diasumsikan. Catatan pemeriksaan gabungan PHP/JS/TS di [ANA-05_CHECKS](../archive/analyzer/ANA-05_CHECKS.md) adalah bukti historis untuk fixture saat itu. Adapter Python yang ditambahkan kemudian menggunakan registry bahasa, tetapi belum memiliki validasi oracle setara yang dicatat di arsip.
 
-Status valid hanya menyatakan struktur payload dan konsistensinya dengan byte source yang diberikan. Status ini belum membuktikan kelengkapan temuan adapter, ketepatan semantik resolver, batas resource, persistensi/API, ataupun replay pipeline. Cakupan oracle PHP/JS/TS dan integrasi analyzer dibaca bersama [review oracle](../archive/qa/QA-01_ORACLE_REVIEW.md), bukan disimpulkan dari validasi schema saja.
+Status valid hanya menyatakan struktur payload dan konsistensinya dengan byte source yang diberikan. Status ini belum membuktikan kelengkapan temuan adapter, ketepatan semantik resolver, batas resource, persistensi/API, ataupun replay pipeline. Cakupan oracle PHP/JS/TS pada [review oracle](../archive/qa/QA-01_ORACLE_REVIEW.md) bersifat historis; kemampuan Python dan proyeksi ADD baru memerlukan oracle tersendiri dan tidak boleh disimpulkan dari validasi schema saja.
 
 ## Canonical graph dan proyeksi UI
 
@@ -104,51 +99,44 @@ Tidak ada file didukung yang berhasil, snapshot invalid, pelanggaran resource li
 
 ### Deteksi source dan exclusion ANA-02
 
-Implementasi worker memakai policy `sage-source-policy-v1`, input dari snapshot full SHA tersimpan dan maksimum 1 MiB per source. File individual yang melampaui batas dikecualikan dengan alasan `SOURCE_FILE_TOO_LARGE`; batas seluruh archive/snapshot tetap fatal. Ekstensi JS/TS/PHP, directory dependency/build, source map, nama minified, binary/UTF-8 invalid, dan submodule dilaporkan secara deterministik. Script, konfigurasi, dependency, serta URL submodule target tidak dieksekusi atau diunduh.
+Implementasi worker memakai policy `sage-source-policy-v1`, input dari snapshot full SHA tersimpan dan maksimum 1 MiB per source. File individual yang melampaui batas dikecualikan dengan alasan `SOURCE_FILE_TOO_LARGE`; batas seluruh archive/snapshot tetap fatal. Ekstensi JS/TS/PHP/Python, directory dependency/build, source map, nama minified, binary/UTF-8 invalid, dan submodule dilaporkan secara deterministik. Script, konfigurasi, dependency, serta URL submodule target tidak dieksekusi atau diunduh. SQL/OpenAPI/JSON Schema dibaca sebagai data kontrak; dukungan format ini tidak berarti semua bahasa pemrogramannya didukung.
 
 Tidak ada source eligible menghasilkan `NO_SUPPORTED_SOURCE`; semua source eligible gagal parse menghasilkan `PARSE_FAILED`. Source valid tetap dianalisis ketika ada sibling gagal, dengan hasil parsial dan limitation. Handler LANGUAGE_DETECTION dan STATIC_ANALYSIS dipanggil consumer ANA-07 sebelum pembentukan graph dan ADD. Kontrak dan bukti rinci: [ANA-02_CHECKS.md](../archive/analyzer/ANA-02_CHECKS.md).
 
-## Pembentukan dokumen
+## TOGAF Phase C ADD baseline
 
-Dokumen menyimpan repository, branch, full SHA, versi analyzer/schema/config, source hash, dan daftar limitation.
+ADD aktif memakai `sage-add-baseline-v1`, profile ArchiMate subset versi 3.2, satu snapshot source, source CKG hash, canonical semantic model, provenance, evidence, dan limitations. Ia dibuat setelah pipeline analisis selesai melalui endpoint owner-scoped Generate ADD. Legacy `sage-add-v1` dan stage lama tetap tersedia demi kompatibilitas data, bukan sebagai output aktif.
 
-| Artefak | Isi dan batas |
-| --- | --- |
-| Interface Catalog | Interface/type contract, signature yang diekspor, serta callback yang ditemukan; HTTP URL/method hanya jika ada evidence yang didukung |
-| Software Engineering Diagram | Proyeksi struktur/dependency dari graph; definisi ini dipakai untuk menyelesaikan istilah diagram yang masih umum di SRS |
-| UML Class Diagram | Class, member, signature, extends/implements, dan dependency yang terbukti; composition/cardinality tidak diasumsikan |
+| Bagian baseline | Keluaran | Batas inferensi |
+| --- | --- | --- |
+| Data Architecture | Data entity catalog, Data Structure view, application-data CRUD matrix | Owner, distribusi fisik, runtime schema, dan akses dinamis tidak diasumsikan |
+| Application Architecture | Application portfolio, interface catalog, functional decomposition, Application Cooperation view | Satu repository diproyeksikan sebagai satu scope aplikasi; deployment dan business capability tidak disimpulkan |
+| Application interactions | Matriks komunikasi antar aplikasi | Dibiarkan kosong jika source tidak membuktikan aplikasi terpisah dan mekanisme interaksi |
+| Narrative | Ringkasan baseline data dan aplikasi | Narrative deterministik secara default; LLM opsional hanya setelah consent dan hanya untuk wording |
 
-Relasi unresolved tetap terlihat dan berbeda dari exact pada ketiga artefak yang relevan. Node synthetic projection boleh membantu layout, tetapi tidak menambah canonical fact. Setiap elemen artefak menyimpan `nodeIds`/`edgeIds` dan evidence agar sumbernya dapat ditelusuri.
+`Proven`/`Indicated` adalah kategori evidence untuk ADD relationship; keduanya tidak mengubah resolver status `Exact`/`Unresolved`. ArchiMate view hanya menggunakan tipe elemen/relasi yang diizinkan subset saat ini. Model tidak menyatakan kepatuhan penuh ke ArchiMate metamodel atau menghasilkan native exchange file.
 
-Markdown dan PDF dirender dari document model yang sama. DOC-02 menyediakan source Mermaid mandiri dan SVG melalui `@sage/documents`; DOC-01 menyediakan document model dan halaman hasil; Markdown dan ekspor PDF produk tetap dikerjakan pada EXP-01/EXP-02. Export job tidak menganalisis ulang repository atau mengikuti HEAD terbaru.
+Review user mengubah label, feature group, dan status review melalui append-only overlay berversi. Fakta source canonical tidak ditimpa dan hubungan baru tidak dibuat. Simpan memakai optimistic revision; revisi basi mendapat conflict. Snapshot ADD terikat ke owner, analysis dan source CKG hash.
 
-## Kontrak proyeksi diagram DOC-02
-
-`projectDiagrams(canonicalJson, sourceBytes, expectedSha256?)` memvalidasi ulang canonical CKG dan menghasilkan dua proyeksi deterministik. Diagram struktur mempertahankan seluruh node/edge; `CONTAINS` diberi label ownership, bukan dependency. UML menampilkan Class/Interface, Method/Property langsung, serta EXTENDS/IMPLEMENTS yang terbukti. Jika adapter tidak mencatat parameter method, labelnya menyatakan `parameter tidak tersedia`; ini tidak mengasumsikan parameter kosong. Fakta di luar subset UML tercatat dalam `excludedNodeIds`/`excludedEdgeIds`; visibility, composition, dan cardinality tidak ditebak.
-
-Bundle menyimpan hash CKG, snapshot, provenance, configuration hash, limitation, salinan fakta canonical, serta pemetaan baris Mermaid ke node/edge ID dan evidence. Member UML mempertahankan ID dan relasi containment induknya walaupun tampil di dalam kotak class. Diagram struktur membedakan Exact dengan garis utuh dan Unresolved dengan garis putus-putus serta alasan. UML memakai panah generalization/realization standar untuk relasi exact; relasi unresolved diberi label UNRESOLVED beserta alasan. Label berasal dari data yang di-encode, sedangkan alias berasal dari ID canonical.
-
-`renderDiagramBundle` menerima canonical CKG yang sama, membangkitkan proyeksi sendiri, lalu merender Mermaid lokal di Chromium tanpa akses jaringan. SVG diperiksa terhadap konten aktif dan referensi eksternal. Dua diagram diterbitkan bersama hanya jika keduanya berhasil. Guard per diagram: 50.000 karakter/byte Mermaid, 500 node, 500 edge, dan SVG 4 MiB; timeout default 15 detik, opsi 250–30.000 ms. Batas ini guard renderer, bukan klaim kapasitas repository produk. Input berlebih ditolak tanpa pemotongan fakta.
-
-## Model ADD dan batas publikasi DOC-01
-
-`projectArchitectureDocument` membentuk `sage-add-v1` dari satu canonical CKG dan byte snapshot tervalidasi. Model memuat context repository/branch/full SHA, hash CKG/configuration, provenance, metadata file, counts canonical, limitation, Interface Catalog, Software Engineering Diagram dan UML Class Diagram. JSON/hash deterministik tidak memasukkan ID job, waktu generate atau status antrean. `parseCanonicalArchitectureDocument` meregenerasi proyeksi yang diharapkan dan menolak JSON/hash atau fakta/mapping yang berubah.
-
-Interface Catalog mencatat deklarasi source non-Module beserta signature nullable, ID node/relasi dan evidence. Cakupan ini tidak menyatakan semua deklarasi sebagai API publik. Ekspor hanya ditunjukkan oleh fakta EXPORTS; callback, HTTP method/URL, visibility atau type alias yang tidak direkam CCM tidak dibuat. Seluruh relasi canonical, termasuk CONTAINS serta Unresolved beserta alasan dan evidence, dipertahankan sebagai observasi. Kedua proyeksi diagram memakai kontrak DOC-02 yang sama.
-
-Stage 6–8 menghasilkan artefak terpisah dengan identitas CKG/document dan context yang sama; stage 9 memverifikasi ulang ketiganya lalu menyimpan seluruh dokumen dalam satu transaksi. Penulisan dibatasi owner, attempt/token, lease berdasarkan jam database, tahap aktif, target immutable dan GraphBundle yang cocok. Replay identik boleh diterima; isi berbeda tidak menimpa hasil. Reader hasil hanya mengembalikan dokumen canonical milik akun untuk analisis sukses.
-
-Atomicity DOC-01 berarti ketiga artefak dokumen tersedia bersama dalam satu baris internal. Publikasi GraphBundle + dokumen + resultHash dan status Analysis/Job terminal berhasil merupakan ANA-07 #16. Consumer ANA-07 menjalankan publikasi setelah sembilan tahap selesai; penyelesaian tahap saja tidak mengubah status terminal. Halaman dan API dokumen DOC-01 membaca model canonical hanya setelah status sukses. Diagram dirender Mermaid lokal dengan guard DOC-02 dan SVG diperiksa sebelum ditampilkan sebagai gambar Blob. Batas/kegagalan render terlihat tanpa memotong fakta atau menyatakan diagram sukses. Download Markdown/PDF tetap mengikuti #20/#21.
+Markdown memuat katalog, matriks, view, relationships, confidence/reason, limitations, status review, serta evidence dengan commit dan line range. PDF menggunakan halaman A4 dan SVG melalui print browser. Cache/export harus mengambil snapshot model dan overlay yang sama; renderer/cache key perlu menyertakan identitas model, koreksi, dan renderer. Detail implementasi dan batas saat ini ada di [kontrak TOGAF ADD](TOGAF_ADD.md).
 
 
 ## Lapisan semantik fitur dan alur
 
-Model `sage-semantic-v1` dibangun setelah CCM/CKG tervalidasi, dari byte source snapshot yang sama. Model ini mengenali fitur, aktor, konsep, komponen, penyimpanan, langkah, keputusan, dan hasil; hubungan memiliki evidence, alasan dan kategori `proven`/`indicated`. Kategori tersebut tidak mengubah `Exact`/`Unresolved`. Resolver bahasa dan extractor framework adalah kontrak berbeda. Tidak menjalankan source repository atau menggunakan layanan AI eksternal.
+Model `sage-semantic-v2` dibangun setelah CCM/CKG tervalidasi, dari byte source snapshot yang sama. Model ini mengenali fitur, aktor, konsep, komponen, penyimpanan, langkah, keputusan, dan hasil; hubungan memiliki evidence, alasan dan kategori `proven`/`indicated`. Kategori tersebut tidak mengubah `Exact`/`Unresolved`. Resolver bahasa dan extractor framework adalah kontrak berbeda. Source repository tidak dijalankan. Extractor semantik deterministic tanpa layanan eksternal; hanya wording ADD yang dapat memakai LLM opsional dengan consent.
 
 Next.js App Router dan Laravel adalah pola awal; unsupported/dynamic bindings dicatat sebagai batasan. Source backend saja tidak membuktikan layar frontend. Koreksi tersimpan terpisah dari fakta canonical. Lihat [kontrak semantik](SEMANTIC_ANALYSIS.md) dan [snapshot acuan](../evidence/semantic/oracle.json).
 
 ## Dukungan alur dan keluaran
 
-Model semantik terpisah mengenali pola Next.js App Router dan Laravel yang didukung fixture, serta kandidat guard Node HTTP terbatas. Hubungan memiliki evidence dan confidence Proven/Indicated tanpa mengubah resolution Exact/Unresolved. Struktur lain dapat menghasilkan Code Knowledge tanpa user flow. Import dan kedekatan direktori tidak dipakai sebagai bukti urutan aktivitas. Lihat [kontrak semantik](SEMANTIC_ANALYSIS.md).
+Model semantik terpisah mengenali pola Next.js App Router, Laravel, Node HTTP terbatas, FastAPI-style literal route, serta SQL/OpenAPI/selected JSON Schema contracts. Dukungan berlaku pada pola yang dikenali saja; tidak semua repository dengan framework atau format tersebut otomatis memperoleh alur. Hubungan memiliki evidence dan confidence Proven/Indicated tanpa mengubah resolution Exact/Unresolved. Import dan kedekatan direktori tidak dipakai sebagai bukti urutan aktivitas. Lihat [kontrak semantik](SEMANTIC_ANALYSIS.md) dan [kontrak ADD](TOGAF_ADD.md).
 
 PDF menyajikan ringkasan serta diagram vektor A4; alur besar dibagi agar terbaca. Markdown memuat detail hingga batas 32 MiB. Detail teknis file/metode tidak harus menjadi node utama diagram semantik; lihat [aturan keluaran](DOCUMENT_PRESENTATION.md).
+
+### Snapshot source untuk repository dengan aset besar
+
+Worker memeriksa Git tree pada commit target sebelum mengunduh arsip. Repository sampai 20 MiB tetap memakai arsip lengkap. Untuk repository lebih besar, snapshot mengambil Git blob file reguler yang lolos filter, dengan maksimal 250 file, 1 MiB per file, total source 20 MiB, empat request paralel, dan deadline snapshot 60 detik. Arsip yang disimpan tetap dibatasi 25 MiB; batas resource tidak dinaikkan.
+
+Model biner seperti ONNX, aset gambar/font/media, direktori dependency/generated, symlink, submodule, dan file yang melebihi batas dilewati. Hash Git blob diverifikasi sebelum pengarsipan. Daftar file yang dilewati disimpan pada hasil tahap snapshot dan ditampilkan sebagai batasan analisis; submodule tidak diunduh. Python didukung secara konservatif dengan pemindai line-structured, bukan parser AST penuh. Bahasa/framework lain belum otomatis didukung.
+
+Request API menggunakan token pengguna yang sudah login. Snapshot lama tidak diubah; jalankan ulang analisis yang sebelumnya gagal.

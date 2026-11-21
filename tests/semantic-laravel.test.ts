@@ -5,7 +5,9 @@ import { join } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { SCHEMA_VERSION, type CcmEdge, type CcmNode, type CcmV1 } from "@sage/contracts";
+import { buildAddBaseline } from "../packages/documents/src/baseline-add.ts";
 import { extractLaravel } from "../packages/documents/src/semantic/laravel.ts";
+import { buildSemanticModel } from "../packages/documents/src/semantic/build.ts";
 import type { SemanticInput } from "../packages/documents/src/semantic/model.ts";
 import { isSemanticModel } from "../packages/documents/src/semantic/validation.ts";
 
@@ -169,7 +171,7 @@ class MoodCheckin extends Model {}`,
   assert.equal(stores[0]!.confidence, "proven");
   assert.equal(stores[0]!.featureId, null, "a model used by two features remains shared instead of being owned by the last feature");
   assert.ok(result.features.filter(feature => feature.nodeIds.includes(stores[0]!.id)).length >= 2);
-  assert.ok(result.edges.some(edge => edge.target === stores[0]!.id && edge.label === "membaca" && edge.confidence === "proven"), "the duplicate-check query links to the persisted model");
+  assert.ok(result.edges.some(edge => edge.target === stores[0]!.id && edge.label === "reads" && edge.confidence === "proven"), "the duplicate-check query links to the persisted model");
   assert.ok(result.edges.some(edge => edge.source === stores[0]!.id && edge.target === decision!.id && edge.label === "menguji data" && edge.confidence === "proven"),
     "a model query used directly in an if condition connects the store to its decision");
   assert.ok(result.edges.some(edge => edge.source === decision!.id && edge.target === status!.id && edge.confidence === "proven"));
@@ -289,17 +291,94 @@ class Submission extends Model {}`,
   assert.ok(service && store);
   assert.ok(result.edges.some(edge => edge.source === result.nodes.find(node => node.label === "SubmissionController@submit")?.id && edge.target === service.id && edge.label === "memanggil layanan"),
     "the route caller owns its relationship to the uniquely resolved service method");
-  const write = result.edges.find(edge => edge.source === service.id && edge.target === store.id && edge.label === "menyimpan");
+  const write = result.edges.find(edge => edge.source === service.id && edge.target === store.id && edge.label === "creates");
   assert.ok(write, "the service method that performs the Eloquent operation owns the store relationship");
   assert.ok(write.evidence.some(span => span.filePath === controllerPath && span.role === "reference"), "the source call connecting controller and service is cited");
   assert.ok(write.evidence.some(span => span.filePath === servicePath && span.role === "reference"), "the service's model write is cited");
-  assert.equal(result.edges.some(edge => edge.source === result.nodes.find(node => node.label === "SubmissionController@submit")?.id && edge.target === store.id && edge.label === "menyimpan"), false,
+  assert.equal(result.edges.some(edge => edge.source === result.nodes.find(node => node.label === "SubmissionController@submit")?.id && edge.target === store.id && edge.label === "creates"), false,
     "a caller is not shown as the writer when its called service performs the write");
 
   const withoutExactCall = fixture(overrides);
   const untraced = extractLaravel(withoutExactCall);
   assert.equal(untraced.nodes.some(node => node.kind === "store" && node.label === "Submission"), false,
     "a same-named service source is not expanded without a unique exact CKG CALLS edge");
+});
+
+test("Laravel CRUD matrix distinguishes backend model reads, creates, updates, and deletes", () => {
+  const input = fixture({
+    [ROUTES]: `<?php
+use App\\Http\\Controllers\\TicketController;
+Route::get('/tickets', [TicketController::class, 'index']);
+Route::post('/tickets', [TicketController::class, 'store']);
+Route::put('/tickets/{id}', [TicketController::class, 'update']);
+Route::delete('/tickets/{id}', [TicketController::class, 'destroy']);`,
+    "app/Http/Controllers/TicketController.php": `<?php
+namespace App\\Http\\Controllers;
+use App\\Models\\Ticket;
+class TicketController {
+  public function index() { return Ticket::query()->get(); }
+  public function store() { return Ticket::create([]); }
+  public function update() { return Ticket::query()->update([]); }
+  public function destroy() { return Ticket::query()->delete(); }
+}`,
+    "app/Models/Ticket.php": `<?php
+namespace App\\Models;
+use Illuminate\\Database\\Eloquent\\Model;
+class Ticket extends Model {}`,
+  });
+  const semantic = buildSemanticModel(input);
+  const add = buildAddBaseline({ ccm: input.ccm, semantic, sourceCkgHash: input.sourceCkgHash });
+  const ticket = add.matrices.applicationData.find(row => add.elements.find(element => element.id === row.dataId)?.name === "Ticket");
+  assert.ok(ticket, "the Eloquent model declaration becomes a schema-backed data object");
+  assert.equal(ticket.create, "yes");
+  assert.equal(ticket.read, "yes");
+  assert.equal(ticket.update, "yes");
+  assert.equal(ticket.delete, "yes");
+  assert.ok(ticket.evidence.some(span => span.filePath === "app/Http/Controllers/TicketController.php") &&
+    ticket.evidence.some(span => span.filePath === "app/Models/Ticket.php"), "CRUD evidence includes both the backend operation and its model declaration");
+  assert.ok(semantic.edges.some(edge => edge.label === "creates"));
+  assert.ok(semantic.edges.some(edge => edge.label === "updates"));
+  assert.ok(semantic.edges.some(edge => edge.label === "deletes"));
+});
+
+test("Laravel CRUD follows only terminal model query chains and handles conditional ORM methods conservatively", () => {
+  const controllerPath = "app/Http/Controllers/AccountController.php";
+  const input = fixture({
+    [ROUTES]: `<?php
+use App\\Http\\Controllers\\AccountController;
+Route::post('/accounts/process', [AccountController::class, 'process']);`,
+    [controllerPath]: `<?php
+namespace App\\Http\\Controllers;
+use App\\Models\\Account;
+class AccountController {
+  public function process($cache) {
+    Account::query() && $cache->delete('temporary-key');
+    Account::query()->where('active', true);
+    Account::query()->where('id', 1)->delete();
+    Account::firstOrCreate([]);
+    Account::updateOrCreate([], []);
+    Account::create([]);
+  }
+}`,
+    "app/Models/Account.php": `<?php
+namespace App\\Models;
+use Illuminate\\Database\\Eloquent\\Model;
+class Account extends Model {
+  public static function create($attributes = []) { return null; }
+}`,
+  });
+  const semantic = buildSemanticModel(input);
+  const accountEdges = semantic.edges.filter(edge => edge.target === semantic.nodes.find(node => node.kind === "store" && node.label === "Account")?.id && edge.dataOperation);
+  assert.deepEqual(new Set(accountEdges.map(edge => edge.dataOperation)), new Set(["delete", "read", "create", "upsert"]));
+  assert.equal(accountEdges.filter(edge => edge.dataOperation === "delete").length, 1,
+    "a delete on an unrelated cache receiver is not attached to Account::query()");
+  assert.equal(accountEdges.filter(edge => edge.dataOperation === "read").length, 2,
+    "query builder setup and where-only chains are not reads; firstOrCreate and updateOrCreate include reads");
+  assert.equal(accountEdges.filter(edge => edge.dataOperation === "create").length, 1,
+    "the custom no-op Account::create override is not treated as Eloquent create, while firstOrCreate remains classified");
+  assert.equal(accountEdges.filter(edge => edge.dataOperation === "upsert").length, 1);
+  assert.ok(semantic.limitations.some(item => item.filePath.endsWith("Account.php") && /overrides create/u.test(item.reason)),
+    "custom method overrides are disclosed as a limitation instead of assumed framework behavior");
 });
 
 test("Laravel reports unresolved or inaccessible service calls without inventing traversal edges", () => {
@@ -493,8 +572,8 @@ class Book extends Model {}`,
   const result = extractLaravel(input);
   const store = result.nodes.find(node => node.kind === "store" && node.label === "Book");
   assert.equal(store?.confidence, "indicated");
-  assert.ok(store?.reason.includes("inheritance Eloquent tidak dibuktikan"));
-  assert.ok(result.limitations.some(item => item.filePath === "app/Models/Book.php" && item.reason.includes("parent-nya tidak membuktikan Eloquent")));
+  assert.ok(store?.reason.includes("inheritance Eloquent belum terbukti"));
+  assert.ok(result.limitations.some(item => item.filePath === "app/Models/Book.php" && item.reason.includes("tidak terbukti mewarisi Eloquent")));
   assert.ok(result.edges.some(edge => edge.target === store?.id && edge.confidence === "indicated"));
 });
 
