@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useRef, useState, type AnchorHTMLAttributes, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type AnchorHTMLAttributes, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import assetManifest from "../../public/design/figma/manifest.json";
 import { useHeaderAccount } from "./account-context.tsx";
 import styles from "./ui.module.css";
@@ -100,11 +100,13 @@ export function DesignFrame({ children, active = "none" }: {
 
 type ButtonOwnProps = {
   /** `github` = latar ink + teks putih (tombol GitHub, CLAUDE.md). */
-  variant?: "primary" | "secondary" | "ghost" | "github";
+  variant?: "primary" | "secondary" | "ghost" | "github" | "link";
   size?: "md" | "lg";
   block?: boolean;
   /** Tambahkan panah yang bergeser 4px saat hover. */
   arrow?: boolean;
+  /** Proses berjalan: spinner + label proses, tombol nonaktif. Isi `children` dengan label proses. */
+  loading?: boolean;
   children: ReactNode;
   className?: string;
 };
@@ -112,24 +114,122 @@ type ButtonAsButton = ButtonOwnProps & Omit<ButtonHTMLAttributes<HTMLButtonEleme
 type ButtonAsLink = ButtonOwnProps & Omit<AnchorHTMLAttributes<HTMLAnchorElement>, keyof ButtonOwnProps> & { href: string };
 
 export function Button(props: ButtonAsButton | ButtonAsLink) {
-  const { variant = "primary", size = "md", block = false, arrow = false, children, className, ...rest } = props;
+  const { variant = "primary", size = "md", block = false, arrow = false, loading = false, children, className, ...rest } = props;
   const classes = cx(
     styles.button, styles[`button_${variant}`], size === "lg" && styles.button_lg, block && styles.button_block,
     "hover-lift-button", arrow && "hover-arrow", className,
   );
-  const content = <>{children}{arrow ? <ArrowIcon /> : null}</>;
+  const content = <>{loading ? <Spinner /> : null}{children}{arrow && !loading ? <ArrowIcon /> : null}</>;
   if (typeof rest.href === "string") {
     const { href, ...anchor } = rest as Omit<ButtonAsLink, keyof ButtonOwnProps>;
     return <Link href={href} className={classes} {...anchor}>{content}</Link>;
   }
   const { type = "button", ...button } = rest as Omit<ButtonAsButton, keyof ButtonOwnProps>;
-  return <button type={type} className={classes} {...button}>{content}</button>;
+  return <button type={type} className={classes} {...button} disabled={button.disabled || loading} aria-busy={loading || undefined}>{content}</button>;
 }
 
 export function ArrowIcon() {
   return <svg data-arrow width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
     <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
   </svg>;
+}
+
+/* ── Pill & bagian terlihat ───────────────────────────────────────── */
+
+export function PillLink({ href, active = false, children }: { href: string; active?: boolean; children: ReactNode }) {
+  return <a className={styles.pill} href={href} aria-current={active ? "location" : undefined}>{children}</a>;
+}
+
+/** Id section yang paling banyak terlihat di viewport (default: yang pertama). */
+export function useVisibleSection(ids: readonly string[]): string {
+  const [visible, setVisible] = useState(ids[0] ?? "");
+  const key = ids.join("|");
+  useEffect(() => {
+    if (typeof IntersectionObserver === "undefined") return;
+    const heights = new Map<string, number>();
+    const observer = new IntersectionObserver(entries => {
+      for (const entry of entries) heights.set(entry.target.id, entry.isIntersecting ? entry.intersectionRect.height : 0);
+      let best = ""; let bestHeight = 0;
+      for (const id of key.split("|")) { const height = heights.get(id) ?? 0; if (height > bestHeight) { best = id; bestHeight = height; } }
+      if (best) setVisible(best);
+    }, { threshold: [0, 0.1, 0.25, 0.5, 0.75, 1], rootMargin: "-72px 0px 0px 0px" });
+    for (const id of key.split("|")) { const element = document.getElementById(id); if (element) observer.observe(element); }
+    return () => observer.disconnect();
+  }, [key]);
+  return visible;
+}
+
+/* ── ScrollList ───────────────────────────────────────────────────── */
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+/** Gulir hanya container (bukan halaman) agar elemen terlihat, setara block: "nearest". */
+function scrollWithin(container: HTMLElement, target: Element) {
+  const box = container.getBoundingClientRect();
+  const item = target.getBoundingClientRect();
+  const behavior: ScrollBehavior = prefersReducedMotion() ? "auto" : "smooth";
+  if (item.top < box.top) container.scrollBy({ top: item.top - box.top - 4, behavior });
+  else if (item.bottom > box.bottom) container.scrollBy({ top: item.bottom - box.bottom + 4, behavior });
+}
+
+/**
+ * Daftar dengan tinggi maksimum `maxRows` baris; sisanya di-scroll di dalam container.
+ * Tinggi dihitung dari baris (li) pertama + gap daftar. Fade 24 px hanya saat ada konten tersembunyi.
+ */
+export function ScrollList({ label, children, footer, maxRows = 5 }: { label: string; children: ReactNode; footer?: ReactNode; maxRows?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const lastSelected = useRef<Element | null>(null);
+  const [state, setState] = useState({ scrollable: false, top: false, bottom: false });
+  const update = useCallback(() => {
+    const element = ref.current;
+    if (!element) return;
+    const firstRow = element.querySelector("li");
+    if (firstRow?.parentElement) {
+      const gap = parseFloat(getComputedStyle(firstRow.parentElement).rowGap) || 0;
+      const padding = parseFloat(getComputedStyle(element).paddingTop) * 2;
+      const max = firstRow.getBoundingClientRect().height * maxRows + gap * (maxRows - 1) + padding;
+      element.style.setProperty("--scroll-list-max", `${Math.ceil(max)}px`);
+    }
+    const scrollable = element.scrollHeight > element.clientHeight + 1;
+    const next = {
+      scrollable,
+      top: scrollable && element.scrollTop > 1,
+      bottom: scrollable && element.scrollTop + element.clientHeight < element.scrollHeight - 1,
+    };
+    setState(previous => previous.scrollable === next.scrollable && previous.top === next.top && previous.bottom === next.bottom ? previous : next);
+  }, [maxRows]);
+  useLayoutEffect(() => {
+    update();
+    const element = ref.current;
+    if (!element) return;
+    const selected = element.querySelector('[aria-pressed="true"]');
+    if (selected && selected !== lastSelected.current) scrollWithin(element, selected.closest("li") ?? selected);
+    lastSelected.current = selected;
+  });
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => update());
+    observer.observe(element);
+    for (const child of Array.from(element.children)) observer.observe(child);
+    return () => observer.disconnect();
+  }, [update]);
+  const fade = state.top && state.bottom ? "both" : state.top ? "top" : state.bottom ? "bottom" : undefined;
+  return <div
+    ref={ref}
+    className={styles.scrollList}
+    data-fade={fade}
+    role={state.scrollable ? "region" : undefined}
+    aria-label={state.scrollable ? label : undefined}
+    tabIndex={state.scrollable ? 0 : undefined}
+    onScroll={update}
+    onFocus={event => { if (ref.current && event.target !== ref.current) scrollWithin(ref.current, event.target.closest("li") ?? event.target); }}
+  >
+    {children}
+    {footer ? <div className={styles.scrollListFooter}>{footer}</div> : null}
+  </div>;
 }
 
 /* ── Card ─────────────────────────────────────────────────────────────── */
@@ -206,6 +306,75 @@ export function Reveal({ children, className, as = "div" }: { children: ReactNod
   return <Tag ref={ref as React.RefObject<HTMLDivElement>} className={cx(styles.reveal, className)} data-reveal={state}>{children}</Tag>;
 }
 
+/* ── Page head (frame 02, 251:158) ────────────────────────────────── */
+
+export function PageHead({ breadcrumb, title, description, aside, titleId }: {
+  breadcrumb?: ReadonlyArray<{ label: string; href?: string }>;
+  title: ReactNode;
+  description?: ReactNode;
+  /** Elemen kanan, mis. Stepper atau tombol. */
+  aside?: ReactNode;
+  titleId?: string;
+}) {
+  return <div className={styles.pageHead}>
+    <div className={styles.pageHeadCopy}>
+      {breadcrumb?.length ? <nav aria-label="Breadcrumb"><ol className={styles.breadcrumb}>
+        {breadcrumb.map((item, index) => <li key={item.label} aria-current={index === breadcrumb.length - 1 ? "page" : undefined}>
+          {item.href && index < breadcrumb.length - 1 ? <Link href={item.href}>{item.label}</Link> : item.label}
+        </li>)}
+      </ol></nav> : null}
+      <h1 id={titleId} className={styles.pageTitle}>{title}</h1>
+      {description ? <div className={styles.pageDescription}>{description}</div> : null}
+    </div>
+    {aside ? <div className={styles.pageHeadAside}>{aside}</div> : null}
+  </div>;
+}
+
+/** Stepper pill (frame 02): langkah sebelum/aktif = teal, sesudahnya netral. */
+export function Stepper({ steps, current, label = "Langkah" }: { steps: readonly string[]; current: number; label?: string }) {
+  return <ol className={styles.stepper} aria-label={label}>
+    {steps.map((step, index) => {
+      const state = index < current ? "done" : index === current ? "current" : "upcoming";
+      return <li key={step} className={styles.stepperItem} data-state={state} aria-current={state === "current" ? "step" : undefined}>
+        <span className={styles.stepperNumber} aria-hidden="true">{index + 1}</span>{step}
+      </li>;
+    })}
+  </ol>;
+}
+
+/** Empty / info state gaya kit: border dashed, ikon dalam kotak, satu kalimat, maksimal satu aksi. */
+export function EmptyState({ icon, title, children, action, tone = "neutral", role }: {
+  icon?: { group: string; name: string };
+  title?: ReactNode;
+  children: ReactNode;
+  action?: ReactNode;
+  tone?: "neutral" | "error";
+  role?: "status" | "alert";
+}) {
+  return <div className={styles.emptyState} data-tone={tone} role={role}>
+    {icon ? <span className={styles.emptyIcon}><MaskIcon group={icon.group} name={icon.name} size={18} /></span> : null}
+    <div className={styles.emptyCopy}>
+      {title ? <strong>{title}</strong> : null}
+      <span>{children}</span>
+    </div>
+    {action ? <div className={styles.emptyAction}>{action}</div> : null}
+  </div>;
+}
+
+/** Skeleton baris (pulse 1.6 s, mati saat reduced-motion). */
+export function SkeletonRows({ rows = 3, label, className }: { rows?: number; label: string; className?: string }) {
+  return <div className={cx(styles.skeleton, className)} role="status">
+    <span className={styles.srOnly}>{label}</span>
+    {Array.from({ length: rows }, (_, index) => <div key={index} className={styles.skeletonRow} aria-hidden="true">
+      <span className={styles.skeletonIcon} /><span className={styles.skeletonLines}><span /><span /></span>
+    </div>)}
+  </div>;
+}
+
+export function Spinner() {
+  return <span className={styles.spinner} aria-hidden="true" />;
+}
+
 /* ── RD/Badge ─────────────────────────────────────────────────────────── */
 
 export type BadgeTone = "info" | "success" | "warning" | "error" | "neutral" | "teal";
@@ -248,7 +417,7 @@ export function Field({ label, icon, trailing, hint, error, optional = false, mo
   const errorId = error ? `${controlId}-error` : undefined;
   const describedBy = cx(input["aria-describedby"], hintId, errorId) || undefined;
   return <div className={cx(styles.field, className)}>
-    <label className={styles.fieldLabel} htmlFor={controlId}>{label}{optional ? <span className={styles.fieldOptional}>(opsional)</span> : null}</label>
+    <label className={styles.fieldLabel} htmlFor={controlId}>{label}{optional ? <>{" "}<span className={styles.fieldOptional}>(opsional)</span></> : null}</label>
     <div className={cx(styles.fieldControl, mono && styles.fieldMono)} data-invalid={error ? "true" : undefined} data-disabled={input.disabled ? "true" : undefined}>
       {icon ? <span className={styles.fieldIcon} aria-hidden="true">{icon}</span> : null}
       {children ?? <input id={controlId} {...input} aria-invalid={error ? true : input["aria-invalid"]} aria-describedby={describedBy} />}

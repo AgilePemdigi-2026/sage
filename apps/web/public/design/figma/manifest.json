@@ -206,5 +206,43 @@
       "height": "24",
       "viewBox": "0 0 24 24"
     }
+  },
+  "repository": {
+    "imgBranch": {
+      "src": "/design/figma/repository-imgBranch.svg",
+      "width": "18",
+      "height": "18",
+      "viewBox": "0 0 18 18"
+    },
+    "imgCheck": {
+      "src": "/design/figma/repository-imgCheck.svg",
+      "width": "13",
+      "height": "13",
+      "viewBox": "0 0 13 13"
+    },
+    "imgChevronRight": {
+      "src": "/design/figma/repository-imgChevronRight.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    },
+    "imgRepo": {
+      "src": "/design/figma/repository-imgRepo.svg",
+      "width": "18",
+      "height": "18",
+      "viewBox": "0 0 18 18"
+    },
+    "imgSearch": {
+      "src": "/design/figma/repository-imgSearch.svg",
+      "width": "18",
+      "height": "18",
+      "viewBox": "0 0 18 18"
+    },
+    "imgValidated": {
+      "src": "/design/figma/repository-imgValidated.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
   }
 }
