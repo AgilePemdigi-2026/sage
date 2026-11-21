@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { readWorkspaceContext } from "../../lib/auth/server-session.ts";
+import { loginRedirectPath, readWorkspaceContextCached } from "../../lib/auth/workspace-context.ts";
 import Link from "next/link";
 import { DesignFrame, Panel } from "../../components/design-system/ui.tsx";
 
@@ -18,11 +18,11 @@ export default async function WorkspacePage({ searchParams }: WorkspacePageProps
   const logoutFailed = params?.error === "logout";
   let workspace;
   try {
-    workspace = await readWorkspaceContext();
+    workspace = await readWorkspaceContextCached();
   } catch {
     redirect("/login?error=unavailable");
   }
-  if (!workspace) redirect("/login?error=session");
+  if (!workspace) redirect(await loginRedirectPath("workspace"));
 
   const label = workspace.displayName?.trim() || workspace.login;
   const sessionExpiry = new Intl.DateTimeFormat("id-ID", {

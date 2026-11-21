@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { parseGitHubAuthConfig, safeAuthErrorMessage } from "../../lib/auth/config.ts";
+import { authRequiredMessage, parseGitHubAuthConfig, safeAuthErrorMessage } from "../../lib/auth/config.ts";
 import { DesignFrame, Panel } from "../../components/design-system/ui.tsx";
 
 export const metadata: Metadata = {
@@ -16,6 +16,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const message = safeAuthErrorMessage(params?.error);
   const loggedOut = params?.status === "logged-out";
+  const authRequired = message ? null : authRequiredMessage(params?.reason, params?.from);
   const ready = parseGitHubAuthConfig(process.env) !== null;
 
   return (
@@ -29,6 +30,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           Sesi lokal berakhir paling lambat dalam delapan jam; setelah itu, masuk lagi untuk mengotorisasi ulang.
         </p>
         {loggedOut ? <p role="status" className="mt-6 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-900">Kamu sudah keluar dari SAGE.</p> : null}
+        {authRequired ? <p role="status" className="mt-6 rounded-control bg-info-fill px-4 py-3 text-sm text-info">{authRequired}</p> : null}
         {message ? <p role="alert" className="mt-6 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-950">{message}</p> : null}
         <form className="mt-8" action="/auth/github" method="post">
           <button

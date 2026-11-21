@@ -120,5 +120,21 @@
       "height": "16",
       "viewBox": "0 0 16 16"
     }
+  },
+  "header": {
+    "imgIconChevronDown": {
+      "src": "/design/figma/header-imgIconChevronDown.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
+  },
+  "pipeline": {
+    "imgIconCheck": {
+      "src": "/design/figma/pipeline-imgIconCheck.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
   }
 }
