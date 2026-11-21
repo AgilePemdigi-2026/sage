@@ -441,7 +441,8 @@ export function PipelineStep({ status, title, meta, aside, className, ...rest }:
   className?: string;
 } & Omit<React.LiHTMLAttributes<HTMLLIElement>, "title">) {
   return <li className={cx(styles.step, className)} data-status={status} aria-current={status === "active" ? "step" : undefined} {...rest}>
-    <span className={styles.stepIndicator} aria-hidden="true">
+    {/* key per status: ikon di-remount saat status berubah sehingga crossfade + scale .8→1 berjalan. */}
+    <span key={status} className={styles.stepIndicator} aria-hidden="true">
       {status === "done" ? <AssetIcon group="pipeline" name="imgIconCheck" /> : null}
     </span>
     <span className={styles.stepText}>
@@ -450,6 +451,16 @@ export function PipelineStep({ status, title, meta, aside, className, ...rest }:
     </span>
     {aside ? <span className={styles.stepAside}>{aside}</span> : null}
   </li>;
+}
+
+/* ── Progress bar ─────────────────────────────────────────────────── */
+
+export function ProgressBar({ value, max, label, indeterminate = false }: { value: number; max: number; label: string; indeterminate?: boolean }) {
+  const percent = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  return <div className={styles.progress} role="progressbar" aria-label={label} aria-valuemin={0} aria-valuemax={max} aria-valuenow={value}>
+    <span className={styles.progressFill} style={{ width: `${percent}%` }} />
+    {indeterminate && percent < 100 ? <span className={styles.progressPending} style={{ left: `calc(${percent}% + 6px)` }} /> : null}
+  </div>;
 }
 
 /* ── Util ─────────────────────────────────────────────────────────────── */

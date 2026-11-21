@@ -104,6 +104,10 @@ body {
 ::selection { background: var(--color-teal-100); color: var(--color-ink); }
 
 /* Hover yang bergerak (CLAUDE.md "Keputusan navigasi & landing"): 200 ms, dimatikan saat reduced-motion. */
+/* Tanda baca di heading ExtraBold (letter-spacing negatif): glyph titik/koma Plus Jakarta Sans punya side-bearing kiri
+   lebar sehingga terbaca "Demo ." / "Halo ,". Bungkus tanda baca dengan .punct untuk merapatkannya tanpa mengubah teks. */
+.punct { margin-left: -0.12em; }
+
 /* Sengaja CSS biasa (bukan @utility): CSS module tidak berlayer sehingga mengalahkan layer utilities;
    selector :hover di sini lebih spesifik daripada class module sehingga border/bayangan hover tetap menang. */
 .hover-lift-card, .hover-lift-button {

@@ -276,6 +276,8 @@ test("login hanya merender alasan auth-required dari allowlist", () => {
   assert.equal(authRequiredMessage("auth-required", "repository"), "Masuk dulu untuk membuka Repository.");
   assert.equal(authRequiredMessage("auth-required", "history"), "Masuk dulu untuk membuka Riwayat.");
   assert.equal(authRequiredMessage("auth-required", "workspace"), "Masuk dulu untuk membuka Workspace.");
+  assert.equal(authRequiredMessage("auth-required", "analysis"), "Masuk dulu untuk membuka hasil analisis.");
+  assert.equal(authRequiredMessage("auth-required", "/analyses/abc"), "Masuk dulu untuk melanjutkan.");
   assert.equal(authRequiredMessage("auth-required", "https://evil.example/"), "Masuk dulu untuk melanjutkan.");
   assert.equal(authRequiredMessage("auth-required", ["repository", "history"]), "Masuk dulu untuk melanjutkan.");
   assert.equal(authRequiredMessage("expired", "repository"), null);

@@ -9,8 +9,6 @@
 .title { margin: 0; color: var(--color-ink); font-size: var(--text-display); line-height: var(--text-display--line-height); font-weight: 800; letter-spacing: var(--text-display--letter-spacing); }
 .title > span { display: block; }
 .title > span + span { color: var(--color-teal-700); }
-/* Titik Plus Jakarta Sans 800 punya side-bearing kiri lebar (~0.2em di 46 px); rapatkan agar tidak terbaca "buktinya ." */
-.stop { margin-left: -0.12em; }
 .lead { max-width: 576px; margin: 0; color: var(--color-muted); font-size: 17px; line-height: 1.7; }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .trust { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 0; padding: 0; list-style: none; }

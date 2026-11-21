@@ -41,7 +41,7 @@ export default function Home() {
     <section className={styles.hero} aria-labelledby="hero-heading">
       <div className={styles.copy}>
         <p className={styles.label}>Dokumentasi arsitektur berbasis source code</p>
-        <h1 id="hero-heading" className={styles.title}><span>Pahami arsitektur<span className={styles.stop}>.</span></span> <span>Telusuri buktinya<span className={styles.stop}>.</span></span></h1>
+        <h1 id="hero-heading" className={styles.title}><span>Pahami arsitektur<span className="punct">.</span></span> <span>Telusuri buktinya<span className="punct">.</span></span></h1>
         <p className={styles.lead}>SAGE menganalisis satu snapshot repository dan menyusun TOGAF Phase C baseline untuk Data dan Application Architecture. Setiap klaim tertaut ke file, baris, dan commit yang dianalisis.</p>
         <div className={styles.actions}>
           <Button href="/workspace/repositories" size="lg">Mulai analisis</Button>

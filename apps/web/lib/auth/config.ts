@@ -71,13 +71,14 @@ export function safeAuthErrorMessage(value: string | string[] | undefined): stri
 }
 
 /** Halaman terlindungi yang boleh disebut di /login. Nilai di luar daftar ini tidak pernah dirender. */
-export const LOGIN_FROM_PAGES = ["workspace", "repository", "history"] as const;
+export const LOGIN_FROM_PAGES = ["workspace", "repository", "history", "analysis"] as const;
 export type LoginFromPage = typeof LOGIN_FROM_PAGES[number];
 
 const LOGIN_FROM_LABELS: Record<LoginFromPage, string> = {
   workspace: "Workspace",
   repository: "Repository",
   history: "Riwayat",
+  analysis: "hasil analisis",
 };
 
 /** Pesan info untuk ?reason=auth-required. Parameter `from` hanya label, tidak pernah dipakai sebagai URL tujuan. */

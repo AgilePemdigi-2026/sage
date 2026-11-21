@@ -319,3 +319,31 @@ button.navPill:disabled { cursor: not-allowed; opacity: .6; }
 .scrollList[data-fade="top"] { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24px); mask-image: linear-gradient(to bottom, transparent, #000 24px); }
 .scrollList[data-fade="both"] { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to bottom, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
 .scrollListFooter { margin-top: 8px; }
+
+/* ── PipelineStep: konektor, spinner, transisi status (frame 03) ──── */
+.step { position: relative; }
+.step:not(:last-child)::after {
+  content: ""; position: absolute; left: 15px; top: 46px; bottom: -6px; width: 2px; border-radius: 1px; background: var(--color-border);
+  transition: background-color var(--duration-slow) var(--ease-out-soft);
+}
+.step[data-status="done"]:not(:last-child)::after { background: var(--color-teal-500); }
+.step[data-status="active"]:not(:last-child)::after { background: linear-gradient(var(--color-teal-500), var(--color-border)); animation: stepPulse 1.6s ease-in-out infinite; }
+.step[data-status="failed"]:not(:last-child)::after { background: var(--color-error-fill); }
+.stepIndicator { animation: stepIn var(--duration-base) var(--ease-out-soft); }
+.step[data-status="done"] .stepIndicator { animation: stepIn var(--duration-base) var(--ease-out-soft); }
+.step[data-status="active"] .stepIndicator { border-color: var(--color-teal-100); }
+.step[data-status="active"] .stepIndicator::before {
+  content: ""; position: absolute; inset: -2px; border: 2px solid transparent; border-top-color: var(--color-teal-500); border-right-color: var(--color-teal-500);
+  border-radius: 50%; animation: spin .9s linear infinite;
+}
+.step + .step { margin-top: 4px; }
+@keyframes stepIn { from { opacity: 0; transform: scale(.8); } to { opacity: 1; transform: none; } }
+
+/* ── Progress bar ─────────────────────────────────────────────────── */
+.progress { position: relative; height: 6px; overflow: hidden; border-radius: var(--radius-pill); background: var(--color-subtle-bg); }
+.progressFill { position: absolute; inset: 0 auto 0 0; border-radius: var(--radius-pill); background: var(--color-teal-500); transition: width var(--duration-slow) var(--ease-out-soft); }
+.progressPending { position: absolute; top: 0; bottom: 0; width: 80px; border-radius: var(--radius-pill); background: var(--color-teal-500); opacity: .35; animation: pulse 1.6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .step:not(:last-child)::after, .stepIndicator, .step[data-status="active"] .stepIndicator::before, .progressPending { animation: none; }
+}

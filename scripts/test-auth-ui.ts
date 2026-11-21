@@ -254,6 +254,12 @@ try {
     await expectAuthRequired(page, "history", "Masuk dulu untuk membuka Riwayat.");
     await page.goto(new URL("/workspace/repositories", browserOrigin).toString(), { waitUntil: "domcontentloaded" });
     await expectAuthRequired(page, "repository", "Masuk dulu untuk membuka Repository.");
+    await page.goto(new URL("/analyses/anonymous-check-01", browserOrigin).toString(), { waitUntil: "domcontentloaded" });
+    await expectAuthRequired(page, "analysis", "Masuk dulu untuk membuka hasil analisis.");
+    for (const suffix of ["graph", "document"]) {
+      await page.goto(new URL(`/analyses/anonymous-check-01/${suffix}`, browserOrigin).toString(), { waitUntil: "domcontentloaded" });
+      await expectAuthRequired(page, "analysis", "Masuk dulu untuk membuka hasil analisis.");
+    }
     assert.equal(await page.getByRole("banner").getByRole("link", { name: "Masuk", exact: true }).count(), 0,
       "header login button should be hidden on /login");
     await assertNoHorizontalOverflow(page);

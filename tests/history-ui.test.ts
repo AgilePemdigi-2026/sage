@@ -405,3 +405,14 @@ test("poll detail reads the body then verifies the active account before applyin
   assert.equal(state.fetchError, false);
   poller.stop();
 });
+
+test("durasi tahap memakai startedAt/finishedAt dan tidak mengarang tanpa data", async () => {
+  const { formatStageDuration, stageDurationSeconds } = await import("../apps/web/components/history/stage-duration.ts");
+  const start = "2026-11-21T10:00:00.000Z";
+  assert.equal(formatStageDuration(stageDurationSeconds({ status: "COMPLETED", startedAt: start, finishedAt: "2026-11-21T10:00:12.000Z" }, 0)), "12 dtk");
+  assert.equal(formatStageDuration(stageDurationSeconds({ status: "FAILED", startedAt: start, finishedAt: "2026-11-21T10:01:04.000Z" }, 0)), "1 mnt 4 dtk");
+  assert.equal(formatStageDuration(stageDurationSeconds({ status: "RUNNING", startedAt: start, finishedAt: null }, Date.parse("2026-11-21T10:02:00.000Z"))), "2 mnt");
+  assert.equal(formatStageDuration(stageDurationSeconds({ status: "PENDING", startedAt: null, finishedAt: null }, Date.now())), "—");
+  assert.equal(formatStageDuration(stageDurationSeconds({ status: "COMPLETED", startedAt: null, finishedAt: "2026-11-21T10:00:12.000Z" }, 0)), "—");
+  assert.equal(formatStageDuration(3725), "1 j 2 mnt");
+});

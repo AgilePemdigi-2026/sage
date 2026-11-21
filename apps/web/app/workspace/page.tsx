@@ -34,7 +34,7 @@ export default async function WorkspacePage({ searchParams }: WorkspacePageProps
     <div className="mx-auto w-full max-w-[880px] py-6 sm:py-10">
       <PageHead
         breadcrumb={[{ label: "Workspace" }]}
-        title={<>Halo, {label}<span className="-ml-[0.12em]">.</span></>}
+        title={<>Halo<span className="punct">,</span> {label}<span className="punct">.</span></>}
         description={<>Terhubung sebagai <span className="font-semibold text-ink">@{workspace.connectionLogin}</span>.</>}
         aside={<form action="/auth/logout" method="post"><Button type="submit" variant="secondary">Keluar</Button></form>}
       />
