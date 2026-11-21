@@ -354,3 +354,24 @@ button.pill { font: inherit; font-size: var(--text-caption); font-weight: 600; c
 .pill[aria-pressed="true"] { border-color: var(--color-teal-100); color: var(--color-teal-700); background: var(--color-teal-50); }
 button.pill:disabled { cursor: not-allowed; opacity: .6; }
 @media (prefers-reduced-motion: reduce) { .badgePulse { animation: none; } }
+
+/* Cetak: latar putih, tanpa padding layar. */
+@media print {
+  .frame { background: #fff; }
+  .main { max-width: none; padding: 0; animation: none; }
+}
+
+/* ── OverflowX (tabel lebar) ──────────────────────────────────────── */
+.overflowX { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; scrollbar-color: var(--color-border) transparent; }
+.overflowX:focus-visible { outline: 2px solid var(--color-teal-500); outline-offset: 2px; }
+.overflowX[data-fade="right"] { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+.overflowX[data-fade="left"] { -webkit-mask-image: linear-gradient(to right, transparent, #000 24px); mask-image: linear-gradient(to right, transparent, #000 24px); }
+.overflowX[data-fade="both"] { -webkit-mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, transparent, #000 24px, #000 calc(100% - 24px), transparent); }
+@media print { .overflowX { overflow: visible; -webkit-mask-image: none !important; mask-image: none !important; } }
+
+/* Breadcrumb ringkas di layar sempit */
+.breadcrumbBack { display: none; color: var(--color-teal-700); font-size: var(--text-caption); line-height: 1.5; font-weight: 600; text-decoration: none; }
+@media (max-width: 480px) {
+  .breadcrumbBack { display: inline-flex; gap: 6px; }
+  .breadcrumbFull { display: none; }
+}

@@ -76,7 +76,7 @@ export function DesignFrame({ children, active = "none" }: {
 
   return <div className={styles.frame}>
     <a className={styles.skip} href="#main-content">Lewati navigasi</a>
-    <header className={styles.header}>
+    <header className={styles.header} data-print-hide>
       <Link className={styles.brand} href="/" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link>
       <nav className={styles.nav} aria-label="Navigasi utama">
         {navigation.map(item => <Link
@@ -145,22 +145,33 @@ export function PillButton({ pressed, onClick, children, disabled }: { pressed: 
   return <button type="button" className={styles.pill} aria-pressed={pressed} onClick={onClick} disabled={disabled}>{children}</button>;
 }
 
-/** Id section yang paling banyak terlihat di viewport (default: yang pertama). */
-export function useVisibleSection(ids: readonly string[]): string {
+/** Scrollspy: section aktif = section terakhir yang tepi atasnya sudah melewati garis aktivasi
+ *  (header sticky + 30% tinggi viewport). Diperbarui oleh IntersectionObserver dan scroll (rAF). */
+export function useVisibleSection(ids: readonly string[], enabled = true): string {
   const [visible, setVisible] = useState(ids[0] ?? "");
   const key = ids.join("|");
   useEffect(() => {
-    if (typeof IntersectionObserver === "undefined") return;
-    const heights = new Map<string, number>();
-    const observer = new IntersectionObserver(entries => {
-      for (const entry of entries) heights.set(entry.target.id, entry.isIntersecting ? entry.intersectionRect.height : 0);
-      let best = ""; let bestHeight = 0;
-      for (const id of key.split("|")) { const height = heights.get(id) ?? 0; if (height > bestHeight) { best = id; bestHeight = height; } }
-      if (best) setVisible(best);
-    }, { threshold: [0, 0.1, 0.25, 0.5, 0.75, 1], rootMargin: "-72px 0px 0px 0px" });
-    for (const id of key.split("|")) { const element = document.getElementById(id); if (element) observer.observe(element); }
-    return () => observer.disconnect();
-  }, [key]);
+    if (!enabled || typeof window === "undefined") return;
+    const list = key.split("|");
+    let frame = 0;
+    const compute = () => {
+      frame = 0;
+      const line = 72 + window.innerHeight * 0.3;
+      let current = list[0] ?? "";
+      for (const id of list) {
+        const element = document.getElementById(id);
+        if (element && element.getBoundingClientRect().top <= line) current = id;
+      }
+      setVisible(current);
+    };
+    const schedule = () => { if (!frame) frame = window.requestAnimationFrame(compute); };
+    const observer = typeof IntersectionObserver === "undefined" ? null : new IntersectionObserver(schedule, { threshold: [0, 0.25, 0.5, 0.75, 1] });
+    for (const id of list) { const element = document.getElementById(id); if (element) observer?.observe(element); }
+    window.addEventListener("scroll", schedule, { passive: true });
+    window.addEventListener("resize", schedule);
+    compute();
+    return () => { observer?.disconnect(); window.removeEventListener("scroll", schedule); window.removeEventListener("resize", schedule); if (frame) window.cancelAnimationFrame(frame); };
+  }, [key, enabled]);
   return visible;
 }
 
@@ -235,6 +246,40 @@ export function ScrollList({ label, children, footer, maxRows = 5 }: { label: st
     {children}
     {footer ? <div className={styles.scrollListFooter}>{footer}</div> : null}
   </div>;
+}
+
+/* ── OverflowX: kontainer scroll horizontal (tabel lebar) ───────── */
+
+/** Pola sama dengan ScrollList: fade 24 px hanya di sisi yang masih menyembunyikan konten; region + tabIndex hanya saat bisa digulir. */
+export function OverflowX({ label, className, children }: { label: string; className?: string; children: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState({ scrollable: false, left: false, right: false });
+  const update = useCallback(() => {
+    const element = ref.current;
+    if (!element) return;
+    const scrollable = element.scrollWidth > element.clientWidth + 1;
+    const next = { scrollable, left: scrollable && element.scrollLeft > 1, right: scrollable && element.scrollLeft + element.clientWidth < element.scrollWidth - 1 };
+    setState(previous => previous.scrollable === next.scrollable && previous.left === next.left && previous.right === next.right ? previous : next);
+  }, []);
+  useLayoutEffect(() => { update(); });
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => update());
+    observer.observe(element);
+    for (const child of Array.from(element.children)) observer.observe(child);
+    return () => observer.disconnect();
+  }, [update]);
+  const fade = state.left && state.right ? "both" : state.left ? "left" : state.right ? "right" : undefined;
+  return <div
+    ref={ref}
+    className={cx(styles.overflowX, className)}
+    data-fade={fade}
+    role={state.scrollable ? "region" : undefined}
+    aria-label={state.scrollable ? label : undefined}
+    tabIndex={state.scrollable ? 0 : undefined}
+    onScroll={update}
+  >{children}</div>;
 }
 
 /* ── Card ─────────────────────────────────────────────────────────────── */
@@ -313,8 +358,10 @@ export function Reveal({ children, className, as = "div" }: { children: ReactNod
 
 /* ── Page head (frame 02, 251:158) ────────────────────────────────── */
 
-export function PageHead({ breadcrumb, title, description, aside, titleId }: {
+export function PageHead({ breadcrumb, title, description, aside, titleId, backLink }: {
   breadcrumb?: ReadonlyArray<{ label: string; href?: string }>;
+  /** Di layar ≤480 px breadcrumb diringkas menjadi satu tautan kembali (mis. "← Riwayat"). */
+  backLink?: { label: string; href: string };
   title: ReactNode;
   description?: ReactNode;
   /** Elemen kanan, mis. Stepper atau tombol. */
@@ -323,7 +370,9 @@ export function PageHead({ breadcrumb, title, description, aside, titleId }: {
 }) {
   return <div className={styles.pageHead}>
     <div className={styles.pageHeadCopy}>
-      {breadcrumb?.length ? <nav aria-label="Breadcrumb"><ol className={styles.breadcrumb}>
+      {breadcrumb?.length ? <nav aria-label="Breadcrumb">
+        {backLink ? <Link className={styles.breadcrumbBack} href={backLink.href}><span aria-hidden="true">←</span> {backLink.label}</Link> : null}
+        <ol className={cx(styles.breadcrumb, backLink && styles.breadcrumbFull)}>
         {breadcrumb.map((item, index) => <li key={item.label} aria-current={index === breadcrumb.length - 1 ? "page" : undefined}>
           {item.href && index < breadcrumb.length - 1 ? <Link href={item.href}>{item.label}</Link> : item.label}
         </li>)}

@@ -12,8 +12,9 @@ export function AnalysisPageHead({ head, tab, badgeLabel }: {
   badgeLabel?: string;
 }) {
   const badge = analysisStatusBadge(head.status);
-  return <PageHead
+  return <div data-print-hide><PageHead
     breadcrumb={[{ label: "Workspace", href: "/workspace" }, { label: "Riwayat", href: "/workspace/history" }, { label: head.repositoryFullName }, { label: tab }]}
+    backLink={{ label: "Riwayat", href: "/workspace/history" }}
     title={<span className={styles.title}>{head.repositoryFullName}</span>}
     description={<div className={styles.meta}>
       <span className={styles.chip}><MaskIcon group="repository" name="imgBranch" size={14} /><span className={designStyles.srOnly}>Branch </span>{head.branchName}</span>
@@ -21,5 +22,5 @@ export function AnalysisPageHead({ head, tab, badgeLabel }: {
       <span className={styles.status} aria-live="polite"><Badge tone={badge.tone} pulse={head.status === "RUNNING"}>{badgeLabel ?? badge.label}</Badge></span>
     </div>}
     aside={<Stepper steps={["Repository", "Target", "Analisis"]} current={2} label="Langkah analisis" />}
-  />;
+  /></div>;
 }

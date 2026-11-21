@@ -134,3 +134,9 @@ body {
   .hover-lift-card:hover, .hover-lift-card:focus-visible, .hover-lift-button:hover:not(:disabled), .hover-lift-button:active:not(:disabled),
   .hover-arrow:hover [data-arrow], .hover-arrow:focus-visible [data-arrow] { transform: none; }
 }
+
+/* Cetak: hanya isi dokumen. Elemen chrome (header, page head, daftar isi, panel) diberi data-print-hide. */
+@media print {
+  [data-print-hide] { display: none !important; }
+  body { background: #fff; }
+}
