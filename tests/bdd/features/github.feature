@@ -7,7 +7,7 @@ Feature: GitHub connection denial and retry
   @US_GH_01 @SAGE_FR_GH_08 @SAGE_FR_GH_10
   Scenario: [SRS B.7.1 | SAGE-FR-GH-08 Permission Denial Handling + SAGE-FR-GH-10 Retry Connection] The developer denies GitHub access permission (controlled)
     Given I am on "/"
-    When I press "Hubungkan GitHub"
+    When I press "Masuk"
     Then I should be on "/login"
     And I should see "Masuk dengan GitHub"
     And the button "Masuk dengan GitHub" is enabled

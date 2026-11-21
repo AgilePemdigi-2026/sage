@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useState, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type AnchorHTMLAttributes, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import assetManifest from "../../public/design/figma/manifest.json";
 import { useHeaderAccount } from "./account-context.tsx";
 import styles from "./ui.module.css";
@@ -99,7 +99,8 @@ export function DesignFrame({ children, active = "none" }: {
 /* ── RD/Button ────────────────────────────────────────────────────────── */
 
 type ButtonOwnProps = {
-  variant?: "primary" | "secondary" | "ghost";
+  /** `github` = latar ink + teks putih (tombol GitHub, CLAUDE.md). */
+  variant?: "primary" | "secondary" | "ghost" | "github";
   size?: "md" | "lg";
   block?: boolean;
   /** Tambahkan panah yang bergeser 4px saat hover. */
@@ -144,6 +145,65 @@ export function Panel({ title, children, className, interactive = false }: {
     {title ? <h2 className={styles.panelTitle}>{title}</h2> : null}
     {children}
   </section>;
+}
+
+/* ── Feature card (frame 01, 251:112) ───────────────────────────────── */
+
+/** Ikon aset Figma yang bisa diwarnai ulang (mask + currentColor), mis. saat hover kartu. */
+export function MaskIcon({ group, name, size, className }: { group: string; name: string; size?: number; className?: string }) {
+  const record = assets[group]?.[name];
+  if (!record) return null;
+  const width = size ?? Number(record.width);
+  const height = size ?? Number(record.height);
+  const style = { width, height, "--icon": `url(${record.src})` } as CSSProperties;
+  return <span className={cx(styles.maskIcon, className)} style={style} aria-hidden="true" />;
+}
+
+export function FeatureCard({ icon, number, title, children, href, linkLabel, headingLevel = 3 }: {
+  icon: { group: string; name: string };
+  number?: string;
+  title: ReactNode;
+  children: ReactNode;
+  /** Jika diisi, seluruh kartu menjadi link (eksternal dibuka di tab baru). */
+  href?: string;
+  linkLabel?: string;
+  headingLevel?: 2 | 3;
+}) {
+  const Heading = headingLevel === 2 ? "h2" : "h3";
+  const body = <>
+    <span className={styles.featureIcon}><MaskIcon group={icon.group} name={icon.name} size={22} /></span>
+    {number ? <span className={styles.featureNumber}>{number}</span> : null}
+    <Heading className={styles.featureTitle}>{title}</Heading>
+    <p className={styles.featureText}>{children}</p>
+    {href && linkLabel ? <span className={styles.featureLink}>{linkLabel}<ArrowIcon /></span> : null}
+  </>;
+  if (!href) return <article className={cx(styles.featureCard, "hover-lift-card")}>{body}</article>;
+  const external = /^https?:\/\//.test(href);
+  return <a
+    className={cx(styles.featureCard, "hover-lift-card", "hover-arrow")}
+    href={href}
+    {...(external ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+  >{body}{external ? <span className={styles.srOnly}> (membuka tab baru)</span> : null}</a>;
+}
+
+/** Fade-up saat masuk viewport, stagger 60 ms per anak langsung. Konten tetap terlihat tanpa JS / reduced-motion. */
+export function Reveal({ children, className, as = "div" }: { children: ReactNode; className?: string; as?: "div" | "ol" | "ul" }) {
+  const ref = useRef<HTMLElement>(null);
+  const [state, setState] = useState<"idle" | "hidden" | "shown">("idle");
+  useEffect(() => {
+    const element = ref.current;
+    if (!element || typeof IntersectionObserver === "undefined") return;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (element.getBoundingClientRect().top < window.innerHeight * 0.9) return;
+    setState("hidden");
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry?.isIntersecting) { setState("shown"); observer.disconnect(); }
+    }, { rootMargin: "0px 0px -10% 0px" });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+  const Tag = as as "div";
+  return <Tag ref={ref as React.RefObject<HTMLDivElement>} className={cx(styles.reveal, className)} data-reveal={state}>{children}</Tag>;
 }
 
 /* ── RD/Badge ─────────────────────────────────────────────────────────── */

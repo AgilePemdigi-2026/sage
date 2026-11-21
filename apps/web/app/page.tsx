@@ -1,44 +1,110 @@
 import Link from "next/link";
-import { DesignFrame, Panel } from "../components/design-system/ui.tsx";
+import { AssetIcon, Badge, Button, DesignFrame, FeatureCard, Reveal } from "../components/design-system/ui.tsx";
+import styles from "../components/landing/landing.module.css";
 
-const outputs = [
-  ["01", "Baseline Data Architecture", "Tinjau logical data objects, hubungan, katalog, dan CRUD yang didukung bukti repository."],
-  ["02", "Baseline Application Architecture", "Baca application portfolio, API contracts, fungsi utama, dan relasi source yang dikenali."],
-  ["03", "ArchiMate views", "Buka Data Structure dan Application Cooperation views dengan evidence pada commit yang sama."],
-];
+const DOCS_BASE = "https://github.com/AgilePemdigi-2026/sage/blob/main/docs";
+
+const trust = [
+  { icon: "imgTrustStatic", label: "Analisis statis, kode tidak dijalankan" },
+  { icon: "imgTrustToken", label: "Token hanya di server" },
+  { icon: "imgTrustSha", label: "Terkunci ke full SHA" },
+] as const;
+
+const dataObjects = [
+  { name: "Buku", table: "Buku", tone: "teal", status: "Exact" },
+  { name: "Anggota", table: "Anggota", tone: "teal", status: "Exact" },
+  { name: "Transaksi", table: "Transaksi", tone: "warning", status: "Perlu cek" },
+] as const;
+
+const features = [
+  { number: "01", icon: "imgFeatureData", title: "Baseline Data Architecture", text: "Data object, relasi, katalog, dan CRUD yang didukung bukti repository." },
+  { number: "02", icon: "imgFeatureApplication", title: "Baseline Application Architecture", text: "Portofolio komponen, interface API, dan relasi source yang dikenali." },
+  { number: "03", icon: "imgFeatureGraph", title: "Code Knowledge", text: "Graph struktur kode untuk menelusuri node, relasi, dan source preview." },
+] as const;
+
+const steps = [
+  { number: "01", icon: "imgGithub", title: "Masuk GitHub", text: "Hubungkan akun lewat GitHub App. Token disimpan dan dipakai hanya di server." },
+  { number: "02", icon: "imgTrustSha", title: "Pilih repo & commit", text: "Tentukan repository dan branch. Commit di-resolve ke full SHA agar hasil dapat ditelusuri ulang." },
+  { number: "03", icon: "imgTrustStatic", title: "Analisis 9 tahap", text: "Snapshot dibaca secara statis tanpa menjalankan kode. Pantau status setiap tahap sampai selesai." },
+  { number: "04", icon: "imgFeatureData", title: "Baca & ekspor ADD", text: "Tinjau TOGAF Phase C baseline beserta evidence-nya, lalu ekspor ke PDF atau Markdown." },
+] as const;
+
+const guides: ReadonlyArray<{ icon: string; group?: string; title: string; text: string; href: string }> = [
+  { icon: "imgFeatureApplication", title: "Panduan penggunaan", text: "Alur dari masuk, memilih repository, sampai membaca dan mengekspor hasil.", href: `${DOCS_BASE}/guides/USAGE.md` },
+  { icon: "imgGithub", title: "Setup GitHub App", text: "Membuat dan menghubungkan GitHub App untuk menjalankan SAGE secara lokal.", href: `${DOCS_BASE}/guides/GITHUB_APP_SETUP.md` },
+  { icon: "code", group: "icons", title: "Batas analyzer", text: "Bahasa dan pola yang didukung, serta yang masih dapat belum terpetakan.", href: `${DOCS_BASE}/reference/ANALYSIS_SPEC.md` },
+  { icon: "imgFeatureData", title: "Isi TOGAF ADD", text: "Struktur Architecture Definition Document yang disusun dari hasil analisis.", href: `${DOCS_BASE}/reference/TOGAF_ADD.md` },
+] as const;
 
 export default function Home() {
-  return <DesignFrame>
-    <div className="grid gap-8 pt-8 lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,.8fr)] lg:pt-12">
-      <section className="max-w-3xl py-2">
-        <p className="font-mono text-xs font-medium tracking-[.16em] text-[#0b7a6c]">DOKUMENTASI ARSITEKTUR SOURCE CODE</p>
-        <h1 className="mt-4 max-w-3xl text-[32px] font-semibold leading-[1.2] tracking-tight sm:text-[40px]">Pahami arsitektur.<br />Telusuri buktinya.</h1>
-        <p className="mt-5 max-w-2xl text-sm leading-6 text-[#52637b] sm:text-base sm:leading-7">SAGE menganalisis repository untuk menyusun TOGAF Phase C Baseline Architecture Definition Document. Code Knowledge menjadi visual tambahan untuk menelusuri source dan evidence.</p>
-        <div className="mt-7 flex flex-wrap gap-3">
-          <Link className="inline-flex min-h-11 items-center rounded-md bg-[#2ac6ae] px-4 py-2 text-sm font-semibold text-[#061e42] hover:bg-[#25b59f]" href="/login">Hubungkan GitHub</Link>
-          <Link className="inline-flex min-h-11 items-center rounded-md border border-[#b8c6d3] bg-white px-4 py-2 text-sm font-semibold text-[#061e42] hover:bg-[#f2f6f8]" href="/workspace/history">Buka riwayat</Link>
+  return <DesignFrame active="home">
+    <section className={styles.hero} aria-labelledby="hero-heading">
+      <div className={styles.copy}>
+        <p className={styles.label}>Dokumentasi arsitektur berbasis source code</p>
+        <h1 id="hero-heading" className={styles.title}><span>Pahami arsitektur<span className={styles.stop}>.</span></span> <span>Telusuri buktinya<span className={styles.stop}>.</span></span></h1>
+        <p className={styles.lead}>SAGE menganalisis satu snapshot repository dan menyusun TOGAF Phase C baseline untuk Data dan Application Architecture. Setiap klaim tertaut ke file, baris, dan commit yang dianalisis.</p>
+        <div className={styles.actions}>
+          <Button href="/workspace/repositories" size="lg">Mulai analisis</Button>
+          <Button href="/workspace/history" variant="secondary" size="lg">Buka riwayat</Button>
         </div>
-        <p className="mt-3 text-xs leading-5 text-[#63738a]">Kamu akan melanjutkan ke GitHub untuk meninjau akses repository.</p>
-      </section>
-      <Panel title="Bukti terlebih dahulu">
-        <p className="text-sm leading-6 text-[#52637b]">Fakta teknis dapat ditelusuri ke file sumber, rentang baris, dan commit yang dianalisis.</p>
-        <ol className="mt-6 grid gap-4 text-sm leading-6 text-[#243b57]">
-          <li><strong className="text-[#0b7a6c]">01 · Hubungkan</strong><br />Pilih repository public atau private yang kamu izinkan.</li>
-          <li><strong className="text-[#0b7a6c]">02 · Analisis</strong><br />Ikuti tahap analisis dari snapshot hingga dokumen.</li>
-          <li><strong className="text-[#0b7a6c]">03 · Jelajahi</strong><br />Buka graph, telusuri file sumber, dan ekspor PDF atau Markdown.</li>
-        </ol>
-      </Panel>
-    </div>
-    <section className="mt-10" aria-labelledby="outputs-heading">
-      <h2 id="outputs-heading" className="mb-4 text-xl font-semibold">Dari source code ke pemahaman arsitektur</h2>
-      <div className="grid gap-4 md:grid-cols-3">
-        {outputs.map(([number, title, description]) => <Panel key={number}>
-          <span className="font-mono text-xs text-[#0b7a6c]">{number}</span>
-          <h3 className="mt-3 text-base font-semibold">{title}</h3>
-          <p className="mt-2 text-sm leading-6 text-[#52637b]">{description}</p>
-        </Panel>)}
+        <ul className={styles.trust}>
+          {trust.map(item => <li key={item.icon}><AssetIcon group="landing" name={item.icon} />{item.label}</li>)}
+        </ul>
+      </div>
+
+      <div className={styles.illustration} aria-hidden="true">
+        <span className={styles.glow} />
+        <div className={styles.window}>
+          <div className={styles.windowBar}>
+            <span className={styles.dot} /><span className={styles.dot} /><span className={styles.dot} />
+            <span className={styles.fileName}>add-baseline.md</span>
+          </div>
+          <div className={styles.windowBody}>
+            <p className={styles.label}>3 · Business Data Model</p>
+            {dataObjects.map(item => <div key={item.name} className={styles.dataRow}>
+              <span className={styles.dataIcon}><AssetIcon group="landing" name="imgDataObject" /></span>
+              <span className={styles.dataName}>{item.name}</span>
+              <span className={styles.dataTable}>{item.table}</span>
+              <Badge tone={item.tone}>{item.status}</Badge>
+            </div>)}
+          </div>
+        </div>
+        <span className={`${styles.chip} ${styles.chipEvidence}`}><AssetIcon group="landing" name="imgEvidence" />app/api/buku/route.ts:31</span>
+        <span className={`${styles.chip} ${styles.chipSha}`}><AssetIcon group="landing" name="imgBranch" />main · 08dbdd2</span>
       </div>
     </section>
-    <p className="mt-6 text-xs leading-5 text-[#63738a]">Analyzer awal mendukung JavaScript/TypeScript, PHP, dan subset statis Python untuk route FastAPI-style dan model SQLAlchemy-style. SQL, OpenAPI, dan JSON Schema dibaca sebagai contract data; pola dinamis dapat tetap belum terpetakan.</p>
+
+    <section className={`${styles.block} ${styles.section}`} aria-labelledby="fitur-heading">
+      <h2 id="fitur-heading" className={styles.blockTitle}>Dari source code ke dokumen arsitektur</h2>
+      <Reveal className={styles.grid3}>
+        {features.map(item => <FeatureCard key={item.number} icon={{ group: "landing", name: item.icon }} number={item.number} title={item.title}>{item.text}</FeatureCard>)}
+      </Reveal>
+    </section>
+
+    <section id="cara-kerja" className={`${styles.block} ${styles.section}`} aria-labelledby="cara-kerja-heading">
+      <div className={styles.blockHead}>
+        <p className={styles.label}>Cara kerja</p>
+        <h2 id="cara-kerja-heading" className={styles.blockTitle}>Empat langkah dari repository ke ADD</h2>
+      </div>
+      <Reveal as="ol" className={styles.grid4}>
+        {steps.map(item => <li key={item.number}><FeatureCard icon={{ group: "landing", name: item.icon }} number={item.number} title={item.title}>{item.text}</FeatureCard></li>)}
+      </Reveal>
+    </section>
+
+    <section id="dokumentasi" className={`${styles.block} ${styles.section}`} aria-labelledby="dokumentasi-heading">
+      <div className={styles.blockHead}>
+        <p className={styles.label}>Dokumentasi</p>
+        <h2 id="dokumentasi-heading" className={styles.blockTitle}>Panduan dan referensi</h2>
+        <p className={styles.blockLead}>Dokumentasi lengkap tersedia di repository GitHub SAGE.</p>
+      </div>
+      <Reveal as="ul" className={styles.grid4}>
+        {guides.map(item => <li key={item.title}><FeatureCard icon={{ group: item.group ?? "landing", name: item.icon }} title={item.title} href={item.href} linkLabel="Baca di GitHub">{item.text}</FeatureCard></li>)}
+      </Reveal>
+    </section>
+
+    <footer className={styles.footer}>
+      <Link className={styles.wordmark} href="/" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link>
+      <span>Source-code Architecture Graph Extraction · AgilePemdigi 2026</span>
+    </footer>
   </DesignFrame>;
 }
