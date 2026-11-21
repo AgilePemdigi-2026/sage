@@ -16,6 +16,7 @@ import {
   sourceRangeForEvidence,
 } from "./inspector-data.ts";
 import { EvidenceLink } from "../live-document/evidence-links.tsx";
+import { Badge } from "../design-system/ui.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
 
 type DetailState =
@@ -306,6 +307,24 @@ export function NodeInspector({
     setSourceTarget({ key, file, evidence, label, requested });
   }
 
+  /** showModal membuat halaman inert, tetapi Tab setelah elemen terakhir bisa keluar ke UI browser; putar fokus di dalam dialog. */
+  function trapSourceFocus(event: React.KeyboardEvent<HTMLDialogElement>) {
+    if (event.key !== "Tab") return;
+    const focusable = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), summary, [tabindex]:not([tabindex="-1"])'))
+      .filter((element) => element.getClientRects().length > 0);
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (event.shiftKey && (active === first || !event.currentTarget.contains(active))) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && (active === last || !event.currentTarget.contains(active))) {
+      event.preventDefault();
+      first.focus();
+    }
+  }
+
   function closeSource() {
     if (sourceDialog.current?.open) sourceDialog.current.close();
     else handleSourceDialogClose();
@@ -394,11 +413,17 @@ export function NodeInspector({
   return <>
     <section className={styles.nodeInspector} aria-labelledby="node-inspector-title" data-testid="node-inspector" data-node-id={nodeId}>
       <div className={styles.inspectorHeader}>
-        <div>
-          <p className={styles.inspectorEyebrow}>INSPEKTOR NODE · GRAPH KANONIK</p>
+        <p className={styles.inspectorEyebrow}>Inspector · graph kanonik</p>
+        <button type="button" data-testid="node-inspector-close" className={styles.inspectorClose} onClick={onClose} aria-label="Tutup inspektor node" title="Tutup">
+          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+        </button>
+      </div>
+      <div className={styles.inspectorIdentity}>
+        <div className={styles.inspectorTitleRow}>
           <h2 id="node-inspector-title" data-testid="node-inspector-title">{node?.name ?? "Detail node"}</h2>
+          {node ? <Badge tone={node.origin === "unresolved" || node.kind === "UnresolvedReference" ? "error" : "info"}>{node.kind}</Badge> : null}
         </div>
-        <button type="button" data-testid="node-inspector-close" className={styles.inspectorClose} onClick={onClose} aria-label="Tutup inspektor node">Tutup</button>
+        {node?.filePath ? <p className={styles.inspectorPath}>{node.filePath}{node.location ? <> · baris {node.location.startLine}{node.location.endLine !== node.location.startLine ? `–${node.location.endLine}` : ""}</> : null}</p> : null}
       </div>
 
       {detail.kind === "loading" ? <p className={styles.inspectorStatus} role="status">Memuat detail dan relasi langsung node…</p> : null}
@@ -452,16 +477,19 @@ export function NodeInspector({
       data-testid="node-source-dialog"
       aria-labelledby="node-source-dialog-title"
       onCancel={(event) => { event.preventDefault(); closeSource(); }}
+      onKeyDown={trapSourceFocus}
       onClose={handleSourceDialogClose}
     >
       {sourceTarget ? <div className={styles.sourceDialogContent}>
         <div className={styles.sourceDialogHeader}>
           <div>
-            <p className={styles.inspectorEyebrow}>SOURCE EVIDENCE</p>
+            <p className={styles.inspectorEyebrow}>Source evidence</p>
             <h2 id="node-source-dialog-title">{sourceTarget.label}</h2>
             <code>{sourceTarget.file.path}</code>
           </div>
-          <button type="button" className={styles.inspectorClose} onClick={closeSource} aria-label="Tutup source evidence">Tutup</button>
+          <button type="button" className={styles.inspectorClose} onClick={closeSource} aria-label="Tutup source evidence" title="Tutup">
+            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+          </button>
         </div>
         <dl className={styles.sourceContext}>
           <div><dt>Repository · branch</dt><dd><code>{formatSnapshot(snapshot)}</code></dd></div>

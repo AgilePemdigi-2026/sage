@@ -244,7 +244,7 @@
 .emptyCopy { display: grid; gap: 2px; flex: 1 1 220px; min-width: 0; font-size: var(--text-body-sm); line-height: 1.6; }
 .emptyCopy strong { color: var(--color-ink); font-weight: 700; }
 .emptyState[data-tone="error"] .emptyCopy strong { color: var(--color-error); }
-.emptyAction { flex: 0 0 auto; }
+.emptyAction { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
 .skeleton { display: grid; gap: 8px; }
 .skeletonRow { display: flex; align-items: center; gap: 14px; min-height: var(--skeleton-row-height, auto); padding: 14px 16px; border: 1px solid var(--color-border-soft); border-radius: 14px; }
 .skeletonIcon { flex: 0 0 36px; width: 36px; height: 36px; border-radius: var(--radius-control); background: var(--color-subtle-bg); animation: pulse 1.6s ease-in-out infinite; }

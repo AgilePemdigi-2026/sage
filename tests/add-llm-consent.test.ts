@@ -62,7 +62,7 @@ test("ADD consent is default-off, collected on the ADD page, and absent from Cod
   assert.match(addWorkspace, /Source code, isi file, path file repository, rentang evidence, URL repository, SHA commit, dan kredensial tidak dikirim\./u);
   assert.match(addWorkspace, /Nama interface bisa memuat route API bila route itu nama interface yang diekstrak\./u);
   assert.doesNotMatch(graphWorkspace, /llmConsent|allowLlm|Generate TOGAF Phase C baseline ADD/u);
-  assert.match(graphWorkspace, /Open Architecture Definition Document/u);
+  assert.match(graphWorkspace, /Buka dokumen TOGAF ADD/u);
 });
 
 test("consented LLM receives bounded ADD facts without source, evidence, repository, or commit data", async () => {

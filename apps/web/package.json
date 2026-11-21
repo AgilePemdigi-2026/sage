@@ -10,7 +10,6 @@
     "typecheck": "tsc --noEmit --incremental false"
   },
   "dependencies": {
-    "@fontsource/inter": "5.3.0",
     "@fontsource/jetbrains-mono": "5.3.0",
     "@fontsource/plus-jakarta-sans": "5.3.0",
     "@sage/contracts": "0.1.0",
