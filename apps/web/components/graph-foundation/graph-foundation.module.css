@@ -181,7 +181,7 @@
 .sourceContext > div { display: grid; gap: 3px; min-width: 0; }
 .sourcePreviewHeader { display: grid; gap: 4px; color: var(--color-subtle); font-size: 12px; line-height: 1.6; }
 .sourcePreviewHeader p { margin: 0; }
-.sourcePreview { max-height: 48vh; overflow: auto; border-radius: 14px; background: var(--color-ink); }
+.sourcePreview { max-height: 48vh; overflow: auto; overscroll-behavior-x: contain; border-radius: 14px; background: var(--color-ink); }
 .sourceLines { list-style: decimal; min-width: max-content; margin: 0; padding: 14px 14px 14px 52px; color: var(--color-surface); font: 12px/1.75 var(--font-mono); tab-size: 2; }
 .sourceLines li { padding: 0 10px; white-space: pre; }
 .sourceLines li::marker { color: var(--color-subtle); font-size: 12px; }

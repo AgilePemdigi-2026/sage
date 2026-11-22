@@ -16,7 +16,7 @@ import {
   sourceRangeForEvidence,
 } from "./inspector-data.ts";
 import { EvidenceLink } from "../live-document/evidence-links.tsx";
-import { Badge } from "../design-system/ui.tsx";
+import { Badge, OverflowX } from "../design-system/ui.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
 
 type DetailState =
@@ -511,9 +511,10 @@ export function NodeInspector({
             <p>Batas AST tetap {sourceTarget.evidence.startLine}:{sourceTarget.evidence.startColumn}–{sourceTarget.evidence.endLine}:{sourceTarget.evidence.endColumn}.</p>
           </div>
           {!sourceFullyCoversEvidence ? <p className={styles.inspectorUnavailable} role="note">Rentang source yang ditampilkan hanya mencakup bagian bukti yang ada pada baris {currentSource.startLine}–{currentSource.endLine}; batas AST lengkap tetap dicantumkan di atas.</p> : null}
-          <div className={styles.sourcePreview}>
+          {/* Baris kode tidak di-wrap; OverflowX memberi scroll horizontal + fade di sisi yang masih tersembunyi. */}
+          <OverflowX className={styles.sourcePreview} label="Pratinjau source; geser ke samping untuk melihat baris panjang">
             <SourceLines payload={currentSource} evidence={sourceTarget.evidence} />
-          </div>
+          </OverflowX>
           <p className={styles.sourceDialogNote}>Baris yang beririsan dengan bukti disorot utuh; kolom dan rentang byte menunjukkan batas AST. Pratinjau tidak mengeksekusi source.</p>
         </> : null}
       </div> : null}
