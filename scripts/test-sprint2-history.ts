@@ -134,8 +134,10 @@ try {
       .waitFor();
     await search.focus();
     await page.keyboard.press("Tab");
+    // Filter status redesain = grup pill (bukan <select>); Tab dari pencarian masuk ke filter status.
     assert.ok(
-      await page.evaluate(() => document.activeElement?.tagName === "SELECT"),
+      await page.evaluate(() => document.activeElement?.tagName === "BUTTON" &&
+        Boolean(document.activeElement.closest('[role="group"][aria-label="Filter status"]'))),
     );
     await page.screenshot({
       path: resolve(output, `history-${width}.png`),
@@ -152,11 +154,11 @@ try {
   await page.getByRole("link", { name: "Buka", exact: true }).first().click();
   await page.waitForURL(`${base}/analyses/${analyses.at(-1)}`);
   await page
-    .getByRole("link", { name: "Buka knowledge graph", exact: true })
+    .getByRole("link", { name: "Buka Code Knowledge", exact: true })
     .waitFor();
   assert.ok(
     await page
-      .getByRole("link", { name: "Buka dokumentasi", exact: true })
+      .getByRole("link", { name: "Buka TOGAF ADD", exact: true })
       .isVisible(),
   );
   checks.push(
