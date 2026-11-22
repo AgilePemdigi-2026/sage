@@ -10,7 +10,7 @@ Feature: Read and export Architecture Definition Document
   @B7_5_1 @browser_document
   Scenario: [SRS B.7.5.1] Open Architecture Definition Document
     When I open the completed analysis results
-    And I follow the link "Buka dokumentasi"
+    And I follow the link "Buka TOGAF ADD"
     Then I should see the heading "Architecture Definition Document"
     And I should see the heading "Interface Catalog"
     When I open documentation section "Software Engineering Diagram"

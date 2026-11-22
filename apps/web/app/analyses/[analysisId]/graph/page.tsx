@@ -3,8 +3,11 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { database, resolveSession } from "@sage/database";
 import { getUniqueCookie, isValidOpaqueToken, SESSION_COOKIE } from "../../../../lib/auth/handlers.ts";
+import { loginRedirectPath } from "../../../../lib/auth/workspace-context.ts";
 import { DesignFrame } from "../../../../components/design-system/ui.tsx";
 import { LiveGraphClient } from "../../../../components/live-graph/live-graph-client.tsx";
+import { AnalysisPageHead } from "../../../../components/analysis-navigation/analysis-page-head.tsx";
+import { readAnalysisHead } from "../../../../lib/analyses/analysis-head.ts";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,12 +24,17 @@ export default async function AnalysisGraphPage({ params }: { params: Promise<{ 
 
   const requestHeaders = await headers();
   const token = getUniqueCookie(requestHeaders.get("cookie"), SESSION_COOKIE);
-  if (!token || !isValidOpaqueToken(token)) redirect("/login?error=session");
+  // Tanpa cookie sesi → auth-required (from di-allowlist); cookie ada tapi tidak valid lagi → error=session di bawah.
+  if (!token || !isValidOpaqueToken(token)) redirect(await loginRedirectPath("analysis"));
   const db = database();
   const session = await resolveSession(db, token, new Date());
   if (!session) redirect("/login?error=session");
   const user = await db.user.findUnique({ where: { id: session.userId }, select: { githubUserId: true } });
   if (!user) redirect("/login?error=session");
 
-  return <DesignFrame active="history"><LiveGraphClient analysisId={analysisId} accountKey={user.githubUserId} /></DesignFrame>;
+  const head = await readAnalysisHead(db, session.userId, analysisId);
+  return <DesignFrame active="history">
+    {head ? <AnalysisPageHead head={head} tab="Code Knowledge" /> : null}
+    <LiveGraphClient analysisId={analysisId} accountKey={user.githubUserId} />
+  </DesignFrame>;
 }

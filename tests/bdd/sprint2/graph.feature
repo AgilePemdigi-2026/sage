@@ -10,7 +10,7 @@ Feature: Explore Code Knowledge from a completed analysis
   @B7_4_1 @browser_graph
   Scenario: [SRS B.7.4.1] Display Code Knowledge Graph
     When I open the completed analysis results
-    And I follow the link "Buka knowledge graph"
+    And I follow the link "Buka Code Knowledge"
     Then I should see the heading "Struktur source code"
     And I should see a graph canvas with source nodes and relationships
 

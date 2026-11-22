@@ -6,58 +6,98 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { GraphViewModel } from "./graph-projection";
 import styles from "./graph-foundation.module.css";
 
-const stylesheet: StylesheetJson = [
-  { selector: "node", style: {
-    label: "data(label)",
-    color: "#243b57",
-    "font-family": "Inter, sans-serif",
-    "font-size": 9,
-    "font-weight": 500,
-    "text-wrap": "wrap",
-    "text-max-width": "104px",
-    "text-valign": "bottom",
-    "text-halign": "center",
-    "text-margin-y": 20,
-    "text-background-color": "#ffffff",
-    "text-background-opacity": 0.92,
-    "text-background-padding": "2px",
-    "background-color": "#e6f0ff",
-    "border-width": 1.5,
-    "border-color": "#5885bf",
-    shape: "ellipse",
-    width: "data(size)",
-    height: "data(size)",
-    padding: "2px",
-  } },
-  { selector: 'node[category = "Struktur"]', style: { "background-color": "#f0e9ff", "border-color": "#8363bd" } },
-  { selector: 'node[category = "Simbol"]', style: { "background-color": "#dff6f0", "border-color": "#278b78", shape: "ellipse" } },
-  { selector: 'node[category = "Belum terpecahkan"]', style: { "background-color": "#fff0e8", "border-color": "#c86a50", color: "#812839" } },
-  { selector: "node.sage-selected", style: { "border-width": 3.5, "border-color": "#08796e", "overlay-color": "#2ac6ae", "overlay-opacity": 0.25, "overlay-padding": 6, width: "data(focusSize)", height: "data(focusSize)", "font-size": 12, "font-weight": 700, "text-margin-y": 31, "z-index": 10 } },
-  { selector: "node.sage-neighbor", style: { "border-width": 2.5, "border-color": "#278b78", width: "data(neighborSize)", height: "data(neighborSize)", "font-size": 10, "font-weight": 600, "text-margin-y": 24, "z-index": 5 } },
-  { selector: "node.sage-dimmed", style: { opacity: 0.18 } },
-  { selector: "edge", style: {
-    width: 1.5,
-    "line-color": "#a9bac6",
-    "target-arrow-color": "#849dac",
-    "target-arrow-shape": "triangle",
-    "curve-style": "bezier",
-    label: "",
-    color: "#415b70",
-    "font-family": "Inter, sans-serif",
-    "font-size": 8,
-    "font-weight": 600,
-    "text-rotation": "autorotate",
-    "text-background-color": "#ffffff",
-    "text-background-opacity": 0.95,
-    "text-background-padding": "2px",
-    "text-border-width": 0,
-  } },
-  { selector: 'edge[kind = "CONTAINS"]', style: { "line-style": "dotted", "line-color": "#c3d0d7", "target-arrow-shape": "none", width: 1 } },
-  { selector: 'edge[resolution = "Unresolved"]', style: { "line-style": "dashed", "line-color": "#c96754", "target-arrow-color": "#c96754", color: "#812839", "width": 2 } },
-  { selector: "edge.sage-connected", style: { label: "data(label)", width: 2.8, "line-color": "#278b78", "target-arrow-color": "#278b78", "z-index": 5 } },
-  { selector: 'edge.sage-connected[resolution = "Unresolved"]', style: { "line-color": "#c96754", "target-arrow-color": "#c96754", color: "#812839" } },
-  { selector: "edge.sage-dimmed", style: { opacity: 0.12 } },
-];
+/** Warna graph diambil dari token @theme (apps/web/app/globals.css) saat kanvas dibuat; nilai cadangan = token yang sama.
+ *  Kategori: Berkas = info, Struktur = ink, Simbol = teal, Belum terpecahkan = error. Legend memakai token yang sama. */
+function themeTokens() {
+  const root = typeof document === "undefined" ? null : getComputedStyle(document.documentElement);
+  const read = (name: string, fallback: string) => root?.getPropertyValue(name).trim() || fallback;
+  return {
+    ink: read("--color-ink", "#061e42"),
+    muted: read("--color-muted", "#4a5b73"),
+    subtle: read("--color-subtle", "#66788f"),
+    surface: read("--color-surface", "#ffffff"),
+    subtleBg: read("--color-subtle-bg", "#eef3f7"),
+    teal50: read("--color-teal-50", "#e6faf6"),
+    teal500: read("--color-teal-500", "#2ac6ae"),
+    teal700: read("--color-teal-700", "#0b7a6c"),
+    info: read("--color-info", "#1d5fa8"),
+    infoFill: read("--color-info-fill", "#e8f1fb"),
+    error: read("--color-error", "#b42318"),
+    errorFill: read("--color-error-fill", "#fdecea"),
+    sans: read("--font-sans", '"Plus Jakarta Sans", sans-serif'),
+  };
+}
+
+function prefersReducedMotion(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function graphStylesheet(): StylesheetJson {
+  const t = themeTokens();
+  // Sorot hover/tetangga 150 ms (motion spec); tanpa transisi saat prefers-reduced-motion.
+  const transition = prefersReducedMotion() ? {} : {
+    "transition-property": "opacity, border-width, border-color, line-color, width",
+    "transition-duration": 150,
+    "transition-timing-function": "ease-out" as const,
+  };
+  return [
+    { selector: "node", style: {
+      label: "data(label)",
+      color: t.ink,
+      "font-family": t.sans,
+      "font-size": 9,
+      "font-weight": 600,
+      "text-wrap": "wrap",
+      "text-max-width": "104px",
+      "text-valign": "bottom",
+      "text-halign": "center",
+      "text-margin-y": 20,
+      "text-background-color": t.surface,
+      "text-background-opacity": 0.92,
+      "text-background-padding": "2px",
+      "text-background-shape": "roundrectangle",
+      "background-color": t.infoFill,
+      "border-width": 1.5,
+      "border-color": t.info,
+      shape: "ellipse",
+      width: "data(size)",
+      height: "data(size)",
+      padding: "2px",
+      ...transition,
+    } },
+    { selector: 'node[category = "Struktur"]', style: { "background-color": t.subtleBg, "border-color": t.ink } },
+    { selector: 'node[category = "Simbol"]', style: { "background-color": t.teal50, "border-color": t.teal700, shape: "ellipse" } },
+    { selector: 'node[category = "Belum terpecahkan"]', style: { "background-color": t.errorFill, "border-color": t.error, color: t.error } },
+    { selector: "node.sage-selected", style: { "border-width": 3.5, "border-color": t.teal700, "overlay-color": t.teal500, "overlay-opacity": 0.25, "overlay-padding": 6, width: "data(focusSize)", height: "data(focusSize)", "font-size": 12, "font-weight": 700, "text-margin-y": 31, "z-index": 10 } },
+    { selector: "node.sage-neighbor", style: { "border-width": 2.5, "border-color": t.teal700, width: "data(neighborSize)", height: "data(neighborSize)", "font-size": 10, "font-weight": 700, "text-margin-y": 24, "z-index": 5 } },
+    // Motion spec: node di luar sorotan opacity .25.
+    { selector: "node.sage-dimmed", style: { opacity: 0.25 } },
+    { selector: "edge", style: {
+      width: 1.5,
+      "line-color": t.subtle,
+      "line-opacity": 0.55,
+      "target-arrow-color": t.subtle,
+      "target-arrow-shape": "triangle",
+      "curve-style": "bezier",
+      label: "",
+      color: t.muted,
+      "font-family": t.sans,
+      "font-size": 8,
+      "font-weight": 600,
+      "text-rotation": "autorotate",
+      "text-background-color": t.surface,
+      "text-background-opacity": 0.95,
+      "text-background-padding": "2px",
+      "text-border-width": 0,
+      ...transition,
+    } },
+    { selector: 'edge[kind = "CONTAINS"]', style: { "line-style": "dotted", "line-opacity": 0.4, "target-arrow-shape": "none", width: 1 } },
+    { selector: 'edge[resolution = "Unresolved"]', style: { "line-style": "dashed", "line-color": t.error, "line-opacity": 0.75, "target-arrow-color": t.error, color: t.error, "width": 2 } },
+    { selector: "edge.sage-connected", style: { label: "data(label)", width: 2.8, "line-color": t.teal700, "line-opacity": 1, "target-arrow-color": t.teal700, color: t.ink, "z-index": 5 } },
+    { selector: 'edge.sage-connected[resolution = "Unresolved"]', style: { "line-color": t.error, "target-arrow-color": t.error, color: t.error } },
+    { selector: "edge.sage-dimmed", style: { opacity: 0.18 } },
+  ];
+}
 
 function compactLabel(value: string): string {
   return value.length > 26 ? `${value.slice(0, 25)}…` : value;
@@ -112,8 +152,10 @@ function focusNeighborhood(core: Core, selectedId: string | null): void {
   incident.connectedNodes().not(selected).removeClass("sage-dimmed").addClass("sage-neighbor");
 }
 
-export function GraphCanvas({ graph, selectedId, onSelect }: {
+export function GraphCanvas({ graph, selectedId, onSelect, collapsed = false }: {
   graph: GraphViewModel;
+  /** Graph kosong/tanpa hasil: region kanvas disembunyikan; kontrol zoom tetap ada (nonaktif) tetapi tidak terlihat. */
+  collapsed?: boolean;
   selectedId: string | null;
   onSelect: (id: string) => void;
 }) {
@@ -130,7 +172,7 @@ export function GraphCanvas({ graph, selectedId, onSelect }: {
     const core = cytoscape({
       container: host,
       elements,
-      style: stylesheet,
+      style: graphStylesheet(),
       minZoom: 0.1,
       maxZoom: 2.5,
       wheelSensitivity: 0.18,
@@ -182,6 +224,8 @@ export function GraphCanvas({ graph, selectedId, onSelect }: {
       if (core.nodes().length > 0) core.fit(undefined, 32);
       updateZoom();
     });
+    // Label kanvas digambar dengan font token; gambar ulang setelah webfont siap (tidak mengubah layout).
+    void document.fonts?.ready.then(() => { if (!core.destroyed()) core.style().update(); });
 
     return () => {
       resizeObserver.disconnect();
@@ -219,18 +263,18 @@ export function GraphCanvas({ graph, selectedId, onSelect }: {
 
   const displayedZoom = graph.nodes.length > 0 ? zoom : 100;
 
-  return <div className={styles.canvasArea}>
-    <div className={styles.canvasToolbar} aria-label="Kontrol kanvas">
-      <div className={styles.canvasActions}>
-        <button type="button" className={styles.graphControl} onClick={() => scaleBy(1.2)} aria-label="Perbesar" disabled={!graph.nodes.length}>Perbesar</button>
-        <button type="button" className={styles.graphControl} onClick={() => scaleBy(1 / 1.2)} aria-label="Perkecil" disabled={!graph.nodes.length}>Perkecil</button>
-        <button type="button" className={styles.graphControl} onClick={fitGraph} aria-label="Sesuaikan tampilan" disabled={!graph.nodes.length}>Sesuaikan tampilan</button>
-      </div>
-      <output className={styles.zoomOutput} aria-live="polite" aria-label="Tingkat zoom">{displayedZoom}%</output>
-    </div>
+  return <div className={styles.canvasArea} data-collapsed={collapsed || undefined}>
     <div className={styles.canvasFrame}>
-      <div ref={hostRef} role="region" aria-label="Kanvas knowledge graph" aria-describedby="graph-canvas-help" className={styles.canvas} />
+      <div ref={hostRef} role="region" aria-label="Kanvas knowledge graph" aria-describedby="graph-canvas-help" className={styles.canvas} hidden={collapsed} />
+      <div className={styles.canvasToolbar} aria-label="Kontrol kanvas">
+        <div className={styles.canvasActions}>
+          <button type="button" className={styles.zoomButton} onClick={() => scaleBy(1.2)} aria-label="Perbesar" title="Perbesar" disabled={!graph.nodes.length}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></button>
+          <button type="button" className={styles.zoomButton} onClick={() => scaleBy(1 / 1.2)} aria-label="Perkecil" title="Perkecil" disabled={!graph.nodes.length}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg></button>
+          <button type="button" className={styles.zoomButton} onClick={fitGraph} aria-label="Sesuaikan tampilan" title="Sesuaikan tampilan" disabled={!graph.nodes.length}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" /></svg></button>
+        </div>
+        <output className={styles.zoomOutput} aria-live="polite" aria-label="Tingkat zoom">{displayedZoom}%</output>
+      </div>
     </div>
-    <p id="graph-canvas-help" className={styles.canvasHelp}>Arahkan pointer ke node untuk menyorot tetangganya dan melihat jenis relasi. Pilih node untuk membuka fokus serta detail lengkapnya. Label panjang dipersingkat di kanvas. Gunakan roda mouse atau tombol zoom; untuk keyboard, pilih node lewat kontrol di atas.</p>
+    <p id="graph-canvas-help" className={styles.canvasHelp} hidden={collapsed}>Arahkan pointer ke node untuk menyorot tetangganya dan melihat jenis relasi. Pilih node untuk membuka fokus serta detail lengkapnya. Label panjang dipersingkat di kanvas. Geser kanvas untuk berpindah, gunakan roda mouse atau tombol zoom; untuk keyboard, pilih node lewat daftar “Pilih node fokus”.</p>
   </div>;
 }

@@ -12,14 +12,16 @@ import { chromium, request, type APIRequestContext, type Locator, type Page, typ
  *
  * Run only against the isolated `sage_cleanup23` database, a real Next server
  * and worker sharing the supplied private temporary STORAGE_ROOT, and the
- * fixed loopback browser origin:
+ * loopback browser origin:
  *   SAGE_CLEANUP_TESTS=1 \
  *   DATABASE_URL=postgresql://sage@127.0.0.1:5432/sage_cleanup23 \
  *   CREDENTIAL_ENCRYPTION_KEY=<test-only-32-byte-base64> \
  *   STORAGE_ROOT=/tmp/sage-cleanup23-storage \
- *   SAGE_CLEANUP_BASE_URL=http://127.0.0.1:3000 \
+ *   SAGE_TEST_BASE_URL=http://127.0.0.1:3000 \
  *   npx tsx scripts/test-analysis-cleanup.ts
  *
+ * SAGE_TEST_BASE_URL defaults to http://127.0.0.1:3000 and only accepts a
+ * loopback http://127.0.0.1:<port> origin (SAGE_CLEANUP_BASE_URL still works).
  * Optional: SAGE_CLEANUP_ARTIFACT_DIR=/tmp/sage-cleanup23-artifacts
  *
  * The fixtures are synthetic and deletion-only. This checks live HTTP routes,
@@ -48,10 +50,22 @@ function requireDedicatedDatabase(): void {
 
 requireDedicatedDatabase();
 
-const baseURL = process.env.SAGE_CLEANUP_BASE_URL ?? "http://127.0.0.1:3000";
-if (baseURL !== "http://127.0.0.1:3000") {
-  throw new Error("SAGE_CLEANUP_BASE_URL must be exactly http://127.0.0.1:3000.");
+// SAGE_TEST_BASE_URL (atau SAGE_CLEANUP_BASE_URL lama) hanya boleh mengganti port; host tetap loopback 127.0.0.1.
+function requireLoopbackBaseURL(): string {
+  const raw = process.env.SAGE_TEST_BASE_URL ?? process.env.SAGE_CLEANUP_BASE_URL ?? "http://127.0.0.1:3000";
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new Error("SAGE_TEST_BASE_URL must be a valid http://127.0.0.1:<port> origin.");
+  }
+  const originOnly = parsed.pathname === "/" && !parsed.search && !parsed.hash && !parsed.username && !parsed.password;
+  if (parsed.protocol !== "http:" || parsed.hostname !== "127.0.0.1" || !originOnly) {
+    throw new Error("SAGE_TEST_BASE_URL must be a loopback origin http://127.0.0.1:<port> without path, query or credentials.");
+  }
+  return parsed.origin;
 }
+const baseURL = requireLoopbackBaseURL();
 const browserOrigin = new URL(baseURL);
 const projectRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const artifactDirectory = resolve(process.env.SAGE_CLEANUP_ARTIFACT_DIR ?? join(projectRoot, "artifacts/analysis-cleanup-live"));
@@ -629,9 +643,9 @@ async function assertNoHorizontalOverflow(target: Page): Promise<void> {
 }
 
 function historyRowForCommit(target: Page, commitSha: string): Locator {
-  // The short SHA is a unique, visible identifier in the fixture row. Its
-  // grandparent is the history row containing that row's action buttons.
-  return target.getByText(commitSha.slice(0, 7), { exact: true }).locator("xpath=../..");
+  // The short SHA is a unique, visible identifier in the fixture row; the
+  // history row (listitem) containing it also holds that row's action buttons.
+  return target.getByRole("listitem").filter({ has: target.getByText(commitSha.slice(0, 7), { exact: true }) });
 }
 
 async function capture(target: Page, name: string): Promise<void> {

@@ -13,8 +13,8 @@ import { filterGraph } from "./graph-filters.ts";
 import { parseLiveGraphPayload } from "./graph-data.ts";
 import { AnalysisQuality } from "../analysis-quality/analysis-quality.tsx";
 import { NodeInspector } from "./node-inspector.tsx";
+import { AssetIcon, Button, EmptyState, Field, MaskIcon, PillButton, SkeletonRows } from "../design-system/ui.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
-import ui from "../ui-foundation/ui-foundation.module.css";
 
 type RequestError = { status: number | null; message: string };
 type SessionIdentity = { accountKey?: string };
@@ -25,6 +25,9 @@ const modes: { id: GraphMode; label: string }[] = [
   { id: "focus", label: "Fokus node" },
   { id: "all-references", label: "Semua referensi" },
 ];
+
+const ERROR_ICON = { group: "repository", name: "imgRepo" } as const;
+const SEARCH_ICON = { group: "repository", name: "imgSearch" } as const;
 
 function responseMessage(value: unknown): string | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -325,127 +328,155 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
 
   function errorContent() {
     if (!error) return null;
-    if (error.status === 404) return <div className={`${ui.notice} ${ui.error}`} role="alert"><strong>Analisis tidak ditemukan.</strong><p>Graph ini tidak tersedia untuk akun yang sedang aktif.</p></div>;
-    if (error.status === 409) return <div className={`${ui.notice} ${ui.warning}`} role="alert"><strong>Graph belum tersedia.</strong><p>{error.message} Selesaikan analisis terlebih dahulu, lalu buka kembali graph.</p><p className={ui.noticeAction}><Link href={`/analyses/${encodeURIComponent(analysisId)}`}>Kembali ke progres analisis</Link></p><button type="button" className={styles.graphControl} onClick={() => refreshRef.current?.()}>Coba lagi</button></div>;
-    if (error.status === 503) return <div className={`${ui.notice} ${ui.error}`} role="alert"><strong>Code Knowledge sementara tidak tersedia.</strong><p>{error.message}</p><button type="button" className={styles.graphControl} onClick={() => refreshRef.current?.()}>Coba lagi</button></div>;
-    return <div className={`${ui.notice} ${ui.error}`} role="alert"><strong>Code Knowledge tidak dapat dimuat.</strong><p>{error.message}</p><button type="button" className={styles.graphControl} onClick={() => refreshRef.current?.()}>Coba lagi</button></div>;
+    const retry = <Button variant="secondary" onClick={() => refreshRef.current?.()}>Coba lagi</Button>;
+    if (error.status === 404) return <EmptyState tone="error" role="alert" icon={ERROR_ICON} title="Analisis tidak ditemukan.">Graph ini tidak tersedia untuk akun yang sedang aktif.</EmptyState>;
+    if (error.status === 409) return <EmptyState role="alert" icon={ERROR_ICON} title="Graph belum tersedia." action={<><Button href={`/analyses/${encodeURIComponent(analysisId)}`} variant="secondary" arrow>Kembali ke progres analisis</Button>{retry}</>}>{error.message} Selesaikan analisis terlebih dahulu, lalu buka kembali graph.</EmptyState>;
+    if (error.status === 503) return <EmptyState tone="error" role="alert" icon={ERROR_ICON} title="Code Knowledge sementara tidak tersedia." action={retry}>{error.message}</EmptyState>;
+    return <EmptyState tone="error" role="alert" icon={ERROR_ICON} title="Code Knowledge tidak dapat dimuat." action={retry}>{error.message}</EmptyState>;
   }
 
+  const documentHref = `/analyses/${encodeURIComponent(analysisId)}/document`;
+  const kindCounts = new Map<NodeKind, number>();
+  for (const node of visiblePayload?.graph.nodes ?? []) kindCounts.set(node.kind, (kindCounts.get(node.kind) ?? 0) + 1);
+  const graphLegend = <div className={styles.legend} aria-label="Kategori node dan jenis relasi">
+    <span className={styles.legendItem}><i className={`${styles.categoryMark} ${styles.categoryFile}`} aria-hidden="true" />Berkas</span>
+    <span className={styles.legendItem}><i className={`${styles.categoryMark} ${styles.categoryStructure}`} aria-hidden="true" />Struktur</span>
+    <span className={styles.legendItem}><i className={`${styles.categoryMark} ${styles.categorySymbol}`} aria-hidden="true" />Simbol</span>
+    <span className={styles.legendItem}><i className={`${styles.categoryMark} ${styles.categoryUnresolved}`} aria-hidden="true" />Belum terpecahkan</span>
+    <span className={styles.legendDivider} aria-hidden="true" />
+    <span className={styles.legendItem}><i className={styles.exactMark} aria-hidden="true" />Exact</span>
+    <span className={styles.legendItem}><i className={styles.unresolvedMark} aria-hidden="true" />Unresolved</span>
+  </div>;
+  const filtersActive = Boolean(query) || selectedKinds.length > 0;
+  const emptyMessage = !visiblePayload || !filterResult || !projection ? null
+    : visiblePayload.graph.nodes.length === 0 ? "Graph tidak memiliki node untuk ditampilkan."
+      : filterResult.graph.nodes.length === 0 ? "Tidak ada node yang sesuai dengan kueri dan jenis node yang dipilih."
+        : projection.graph.nodes.length === 0 ? "Mode ini tidak memiliki node untuk ditampilkan." : null;
+  const showInspector = Boolean(visiblePayload && filterResult && selectedId && filterResult.graph.nodes.some((node) => node.id === selectedId));
+
   return <div className={styles.graphShell}>
-    <div className={ui.pageHeading}>
-      <p className={ui.eyebrow}>CODE KNOWLEDGE</p>
-      <h1>Struktur source code</h1>
-      <p className={ui.muted}>Telusuri module, symbol, dependency, dan bukti pada source code di commit yang dianalisis.</p>
-    </div>
-
-    {!visiblePayload && (busy || payload) ? <p className={ui.loading} role="status">Memeriksa akun dan memuat knowledge graph…</p> : null}
-    {error && !visiblePayload ? errorContent() : null}
-
     <AnalysisNavigation analysisId={analysisId} active="graph" />
+    {/* h1 berada di page head bersama (nama repo); judul tab menjadi h2. */}
+    <header className={styles.tabHead}>
+      <div className={styles.tabHeadCopy}>
+        <p className={styles.label}>Code Knowledge</p>
+        <h2>Struktur source code</h2>
+        <p className={styles.lead}>Telusuri module, symbol, dependency, dan bukti pada source code di commit yang dianalisis.</p>
+      </div>
+      {visiblePayload ? <Button href={documentHref} variant="secondary" arrow>Buka dokumen TOGAF ADD</Button> : null}
+    </header>
 
-    {visiblePayload ? <section className={ui.notice} aria-labelledby="open-add-title">
-      <strong id="open-add-title">TOGAF Phase C baseline ADD</strong>
-      <p>Code Knowledge menampilkan struktur source. Buka Architecture Definition Document untuk melihat atau membuat baseline arsitektur.</p>
-      <p className={ui.noticeAction}><Link href={`/analyses/${encodeURIComponent(analysisId)}/document`}>Open Architecture Definition Document</Link></p>
-    </section> : null}
+    {!visiblePayload && (busy || payload) ? <div className={styles.workspace}>
+      <section className={styles.graphCard} aria-label="Memuat knowledge graph">
+        <SkeletonRows rows={1} label="Memeriksa akun dan memuat knowledge graph…" />
+        <div className={styles.canvasSkeleton} aria-hidden="true" />
+      </section>
+      <aside className={styles.inspectorRail} aria-hidden="true">
+        <div className={styles.inspectorPlaceholder}><div className={styles.lineSkeleton} /><div className={styles.lineSkeleton} /><div className={styles.blockSkeleton} /></div>
+      </aside>
+    </div> : null}
+    {error && !visiblePayload ? <section className={styles.stateCard}>{errorContent()}</section> : null}
 
     {visiblePayload && filterResult && projection && canonicalCounts ? <>
-      <section className={styles.graphCard} aria-label="Knowledge graph analisis">
-        <div className={styles.graphCardHeader}>
-          <div>
-            <h2>Repository structure</h2>
+      <div className={styles.workspace}>
+        <section className={styles.graphCard} aria-label="Knowledge graph analisis">
+          <div className={styles.graphCardHeader}>
+            <h3>Knowledge graph</h3>
             <p className={styles.repositoryPath}>{visiblePayload.graph.repository}<span aria-hidden="true"> · </span>{visiblePayload.graph.branch ?? "branch tidak diketahui"}</p>
           </div>
 
-        </div>
+          <div className={styles.toolbar}>
+            <section className={styles.filterControls} aria-label="Pencarian dan filter node">
+              <Field id="graph-node-query" className={styles.searchField} label="Cari node" hideLabel type="search" icon={<MaskIcon group="repository" name="imgSearch" size={18} />} value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="Cari node, berkas, atau simbol" aria-describedby="graph-node-query-help" />
+              {/* <details> asli mengatur buka/tutup (keyboard, atribut open); panel saudara ditampilkan lewat CSS [open] ~ panel agar selebar toolbar. */}
+              <details className={styles.kindDisclosure} data-testid="graph-kind-filters-disclosure">
+                <summary aria-controls="graph-kind-panel">Filter jenis node AST{selectedKinds.length ? ` · ${selectedKinds.length} dipilih` : ""}</summary>
+              </details>
+              <Button variant="secondary" className={styles.resetButton} onClick={resetFilters} disabled={!filtersActive}>Atur ulang filter</Button>
+              <div id="graph-kind-panel" className={styles.kindPopover}>
+                <p id="graph-node-query-help" className={styles.filterHelp}>Pencarian cocok dengan teks di nama, jenis node, nama lengkap, atau path berkas.</p>
+                <fieldset className={styles.kindFilters}>
+                  <legend>Jenis node AST</legend>
+                  {availableKinds.length ? availableKinds.map((kind) => <label key={kind}>
+                    <input type="checkbox" checked={selectedKinds.includes(kind)} onChange={() => toggleKind(kind)} />
+                    {/* Jumlah node per jenis lewat CSS (data-count) agar teks label tetap persis nama jenis. */}
+                    <span className={styles.kindName} data-count={kindCounts.get(kind) ?? 0}>{kind}</span>
+                  </label>) : <p className={styles.filterHelp}>Graph tidak memiliki jenis node untuk difilter.</p>}
+                </fieldset>
+              </div>
+            </section>
 
-        <div className={styles.legend} aria-label="Kategori node dan jenis relasi">
-          <div className={styles.categoryLegend}>
-            <span className={styles.legendItem}><i className={`${styles.categoryMark} ${styles.categoryFile}`} aria-hidden="true" />Berkas</span>
-            <span className={styles.legendItem}><i className={`${styles.categoryMark} ${styles.categoryStructure}`} aria-hidden="true" />Struktur</span>
-            <span className={styles.legendItem}><i className={`${styles.categoryMark} ${styles.categorySymbol}`} aria-hidden="true" />Simbol</span>
-            <span className={styles.legendItem}><i className={`${styles.categoryMark} ${styles.categoryUnresolved}`} aria-hidden="true" />Belum terpecahkan</span>
+            <section className={styles.modeControls} aria-label="Mode graph">
+              <div className={styles.modeButtons}>
+                {modes.map((item) => <PillButton key={item.id} pressed={mode === item.id} onClick={() => setMode(item.id)}>{item.label}</PillButton>)}
+              </div>
+              <div className={styles.nodePickerControls}>
+                <Field id="graph-node-picker" className={styles.nodePickerField} label="Pilih node fokus" hideLabel trailing={<AssetIcon group="header" name="imgIconChevronDown" />}>
+                  <select id="graph-node-picker" ref={nodePickerRef} aria-label="Pilih node fokus" data-testid="graph-node-picker" value={selectedId ?? projection.anchorId ?? ""} onChange={(event) => chooseNode(event.target.value)}>
+                    {!projection.anchorId ? <option value="">Graph tidak memiliki node</option> : null}
+                    {[...filterResult.graph.nodes].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)).map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
+                  </select>
+                </Field>
+                <Button variant="secondary" data-testid="open-node-inspector" onClick={openProjectionAnchor} disabled={!projection.anchorId} aria-expanded={selectedId === projection.anchorId}>Buka inspector node</Button>
+              </div>
+            </section>
           </div>
-          <div className={styles.edgeLegend}>
-            <span className={styles.legendItem}><i className={styles.exactMark} aria-hidden="true" />Exact</span>
-            <span className={styles.legendItem}><i className={styles.unresolvedMark} aria-hidden="true" />Unresolved</span>
-          </div>
-        </div>
 
-        <section className={styles.filterControls} aria-label="Pencarian dan filter node">
-          <label className={styles.searchLabel} htmlFor="graph-node-query">Cari node
-            <input id="graph-node-query" className={styles.searchInput} type="search" value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="Nama, jenis, nama lengkap, atau berkas" aria-describedby="graph-node-query-help" />
-          </label>
-          <details className={styles.kindDisclosure} data-testid="graph-kind-filters-disclosure">
-            <summary>Filter jenis node AST{selectedKinds.length ? ` · ${selectedKinds.length} dipilih` : ""}</summary>
-            <p id="graph-node-query-help" className={styles.filterHelp}>Pencarian cocok dengan teks di nama, jenis node, nama lengkap, atau path berkas.</p>
-            <fieldset className={styles.kindFilters}>
-              <legend>Jenis node AST</legend>
-              {availableKinds.length ? availableKinds.map((kind) => <label key={kind}>
-                <input type="checkbox" checked={selectedKinds.includes(kind)} onChange={() => toggleKind(kind)} />
-                {kind}
-              </label>) : <p className={styles.filterHelp}>Graph tidak memiliki jenis node untuk difilter.</p>}
-            </fieldset>
-          </details>
-          <div>
-            <button type="button" className={styles.graphControl} onClick={resetFilters} disabled={!query && selectedKinds.length === 0}>Atur ulang filter</button>
+          {busy ? <p className={styles.inlineStatus} role="status">Memeriksa akun sebelum memuat ulang graph…</p> : null}
+          {emptyMessage ? <EmptyState
+            role="status"
+            icon={visiblePayload.graph.nodes.length === 0 ? ERROR_ICON : SEARCH_ICON}
+            action={filtersActive ? <Button variant="secondary" onClick={resetFilters} aria-label="Atur ulang filter dan kueri">Atur ulang filter</Button> : undefined}
+          >{emptyMessage}</EmptyState> : null}
+          {/* Saat kosong: legend + region kanvas disembunyikan (hidden), tetap di DOM; kontrol zoom tetap ada dan nonaktif. */}
+          <div className={styles.canvasBlock}>
+            <div hidden={Boolean(emptyMessage)}>{graphLegend}</div>
+            <GraphCanvas graph={projection.graph} selectedId={selectedId} onSelect={setSelectedId} collapsed={Boolean(emptyMessage)} />
           </div>
+
+          <section className={styles.graphCounts} role="group" aria-label="Ringkasan jumlah graph">
+            <div className={styles.countLine}>
+              <p data-testid="visible-counts">{mode === "essential" ? "Tampilan proyeksi esensial" : "Tampilan"}: {projection.visibleCounts.nodes} node · {projection.visibleCounts.edges} relasi</p>
+              <p data-testid="canonical-counts">Kanonik: {canonicalCounts.nodes} node · {canonicalCounts.edges} relasi</p>
+            </div>
+            <details className={styles.compactGraphDetails}>
+              <summary>Rincian jumlah dan filter</summary>
+              <p className={styles.countDetails}>CONTAINS {canonicalCounts.containmentEdges} · Referensi {canonicalCounts.referenceEdges} · Exact {canonicalCounts.exactEdges} · Unresolved {canonicalCounts.unresolvedEdges}</p>
+              <p data-testid="query-filter-counts" aria-live="polite">Hasil pencarian dan jenis node: {filterResult.counts.nodes} node · {filterResult.counts.edges} relasi</p>
+              <p data-testid="filtered-counts">{mode === "essential" ? "Proyeksi esensial" : "Hasil mode"}: {projection.filteredCounts.nodes} node · {projection.filteredCounts.edges} relasi</p>
+              <p className={styles.countDetails}>{mode === "essential" ? "Proyeksi esensial" : "Hasil mode"} · CONTAINS {projection.filteredCounts.containmentEdges} · Referensi {projection.filteredCounts.referenceEdges} · Exact {projection.filteredCounts.exactEdges} · Unresolved {projection.filteredCounts.unresolvedEdges}</p>
+              <p className={styles.countDetails}>Tampilan · CONTAINS {projection.visibleCounts.containmentEdges} · Referensi {projection.visibleCounts.referenceEdges} · Exact {projection.visibleCounts.exactEdges} · Unresolved {projection.visibleCounts.unresolvedEdges}</p>
+            </details>
+            {mode === "essential" ? <p className={styles.projectionNote} role="note">Esensial merangkum source Module, Class, Interface, dan fungsi tingkat atas. Metode/properti diringkas ke pemilik; relasi Exact lintas pemilik digabung. “Detail AST” membuka deklarasi kanonik dengan batas render yang ditampilkan.</p> : null}
+            {projection.omittedCounts.nodes > 0 || projection.omittedCounts.edges > 0 ? <p className={styles.subsetNotice} role="note">Batas render antarmuka: maksimal {renderLimits.nodes} node dan {renderLimits.edges} relasi. Mode ini memuat {projection.visibleCounts.nodes} dari {projection.filteredCounts.nodes} node dan {projection.visibleCounts.edges} dari {projection.filteredCounts.edges} relasi.</p> : null}
+          </section>
+          <AnalysisQuality edges={visiblePayload.graph.edges} />
+          <p className={styles.modeDescription} aria-live="polite">
+            {mode === "essential" ? "Esensial menampilkan ringkasan node arsitektural dan dependency Exact lintas pemilik." : null}
+            {mode === "overview" ? "Detail AST menampilkan node kanonik sebagai jaringan. Relasi CONTAINS menjadi garis titik-titik; arahkan pointer ke node untuk melihat jenis relasi lainnya." : null}
+            {mode === "focus" ? "Fokus menampilkan node terpilih, tetangga langsung, dan relasi yang bersentuhan dengan node terpilih." : null}
+            {mode === "all-references" ? "Semua referensi menampilkan endpoint dari relasi selain CONTAINS, termasuk referensi yang belum terpecahkan." : null}
+          </p>
         </section>
 
-        <section className={styles.modeControls} aria-label="Mode graph">
-          <div className={styles.modeButtons}>
-            {modes.map((item) => <button key={item.id} type="button" className={styles.modeButton} aria-pressed={mode === item.id} onClick={() => setMode(item.id)}>{item.label}</button>)}
-          </div>
-          <div className={styles.nodePickerControls}>
-            <label className={styles.nodePickerLabel}>Pilih node fokus
-              <select ref={nodePickerRef} className={styles.nodePicker} aria-label="Pilih node fokus" data-testid="graph-node-picker" value={selectedId ?? projection.anchorId ?? ""} onChange={(event) => chooseNode(event.target.value)}>
-                {!projection.anchorId ? <option value="">Graph tidak memiliki node</option> : null}
-                {[...filterResult.graph.nodes].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)).map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}
-              </select>
-            </label>
-            <button type="button" className={styles.graphControl} data-testid="open-node-inspector" onClick={openProjectionAnchor} disabled={!projection.anchorId} aria-expanded={selectedId === projection.anchorId}>Buka inspector node</button>
-          </div>
-        </section>
-
-        <section className={styles.graphCounts} role="group" aria-label="Ringkasan jumlah graph">
-          <p data-testid="canonical-counts">Kanonik: {canonicalCounts.nodes} node · {canonicalCounts.edges} relasi</p>
-          <p data-testid="visible-counts">{mode === "essential" ? "Tampilan proyeksi esensial" : "Tampilan"}: {projection.visibleCounts.nodes} node · {projection.visibleCounts.edges} relasi</p>
-          <details className={styles.compactGraphDetails}>
-            <summary>Rincian jumlah dan filter</summary>
-          <p className={styles.countDetails}>CONTAINS {canonicalCounts.containmentEdges} · Referensi {canonicalCounts.referenceEdges} · Exact {canonicalCounts.exactEdges} · Unresolved {canonicalCounts.unresolvedEdges}</p>
-          <p data-testid="query-filter-counts" aria-live="polite">Hasil pencarian dan jenis node: {filterResult.counts.nodes} node · {filterResult.counts.edges} relasi</p>
-          <p data-testid="filtered-counts">{mode === "essential" ? "Proyeksi esensial" : "Hasil mode"}: {projection.filteredCounts.nodes} node · {projection.filteredCounts.edges} relasi</p>
-          <p className={styles.countDetails}>{mode === "essential" ? "Proyeksi esensial" : "Hasil mode"} · CONTAINS {projection.filteredCounts.containmentEdges} · Referensi {projection.filteredCounts.referenceEdges} · Exact {projection.filteredCounts.exactEdges} · Unresolved {projection.filteredCounts.unresolvedEdges}</p>
-          <p className={styles.countDetails}>Tampilan · CONTAINS {projection.visibleCounts.containmentEdges} · Referensi {projection.visibleCounts.referenceEdges} · Exact {projection.visibleCounts.exactEdges} · Unresolved {projection.visibleCounts.unresolvedEdges}</p>
-          </details>
-          {mode === "essential" ? <p className={styles.subsetNotice} role="note">Esensial merangkum source Module, Class, Interface, dan fungsi tingkat atas. Metode/properti diringkas ke pemilik; relasi Exact lintas pemilik digabung. “Detail AST” membuka deklarasi kanonik dengan batas render yang ditampilkan.</p> : null}
-          {projection.omittedCounts.nodes > 0 || projection.omittedCounts.edges > 0 ? <p className={styles.subsetNotice} role="note">Batas render antarmuka: maksimal {renderLimits.nodes} node dan {renderLimits.edges} relasi. Mode ini memuat {projection.visibleCounts.nodes} dari {projection.filteredCounts.nodes} node dan {projection.visibleCounts.edges} dari {projection.filteredCounts.edges} relasi.</p> : null}
-        </section>
-
-        <AnalysisQuality edges={visiblePayload.graph.edges} />
-        {busy ? <p className={ui.loading} role="status">Memeriksa akun sebelum memuat ulang graph…</p> : null}
-        {visiblePayload.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Graph tidak memiliki node untuk ditampilkan.</p> : null}
-        {visiblePayload.graph.nodes.length > 0 && filterResult.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Tidak ada node yang sesuai dengan kueri dan jenis node yang dipilih.</p> : null}
-        {filterResult.graph.nodes.length > 0 && projection.graph.nodes.length === 0 ? <p className={styles.emptySelection} role="status">Mode ini tidak memiliki node untuk ditampilkan.</p> : null}
-        <GraphCanvas graph={projection.graph} selectedId={selectedId} onSelect={setSelectedId} />
-        {visiblePayload && selectedId && filterResult.graph.nodes.some((node) => node.id === selectedId) ? <NodeInspector
-          key={`${analysisId}:${accountKey}:${visiblePayload.ckgSha256}:${visiblePayload.configurationHash}:${visiblePayload.snapshot.repository}:${visiblePayload.snapshot.branch ?? ""}:${visiblePayload.snapshot.commitSha}:${selectedId}`}
-          analysisId={analysisId}
-          accountKey={accountKey}
-          ckgSha256={visiblePayload.ckgSha256}
-          configurationHash={visiblePayload.configurationHash}
-          snapshot={visiblePayload.snapshot}
-          nodeId={selectedId}
-          onClose={closeInspector}
-          onIdentityFailure={handleInspectorIdentityFailure}
-        /> : null}
-        <p className={styles.modeDescription} aria-live="polite">
-          {mode === "essential" ? "Esensial menampilkan ringkasan node arsitektural dan dependency Exact lintas pemilik." : null}
-          {mode === "overview" ? "Detail AST menampilkan node kanonik sebagai jaringan. Relasi CONTAINS menjadi garis titik-titik; arahkan pointer ke node untuk melihat jenis relasi lainnya." : null}
-          {mode === "focus" ? "Fokus menampilkan node terpilih, tetangga langsung, dan relasi yang bersentuhan dengan node terpilih." : null}
-          {mode === "all-references" ? "Semua referensi menampilkan endpoint dari relasi selain CONTAINS, termasuk referensi yang belum terpecahkan." : null}
-        </p>
-      </section>
+        {/* Panel detail: sticky di kanan (≥1060 px), di bawah graph pada layar sempit. Dipasang ulang per node → animasi masuk. */}
+        <aside className={styles.inspectorRail} aria-label="Detail node">
+          {showInspector && visiblePayload && selectedId ? <NodeInspector
+            key={`${analysisId}:${accountKey}:${visiblePayload.ckgSha256}:${visiblePayload.configurationHash}:${visiblePayload.snapshot.repository}:${visiblePayload.snapshot.branch ?? ""}:${visiblePayload.snapshot.commitSha}:${selectedId}`}
+            analysisId={analysisId}
+            accountKey={accountKey}
+            ckgSha256={visiblePayload.ckgSha256}
+            configurationHash={visiblePayload.configurationHash}
+            snapshot={visiblePayload.snapshot}
+            nodeId={selectedId}
+            onClose={closeInspector}
+            onIdentityFailure={handleInspectorIdentityFailure}
+          /> : <div className={styles.inspectorPlaceholder}>
+            <p className={styles.label}>Inspector</p>
+            <p className={styles.placeholderText}>Pilih node di kanvas atau lewat daftar “Pilih node fokus” untuk melihat jenis, lokasi deklarasi, relasi langsung, dan bukti source.</p>
+          </div>}
+        </aside>
+      </div>
       <p className={styles.liveGraphFooter}><Link href={`/analyses/${encodeURIComponent(analysisId)}`}>Kembali ke progres analisis</Link></p>
     </> : null}
   </div>;

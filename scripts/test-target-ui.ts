@@ -26,6 +26,8 @@ try {
   const session = await createSession(db, user.id, { ttlMs: 180_000 }); sessionId = session.session.sessionId;
   const ownedPublicRepo = { id: "101", fullName: `${user.login}/public-one`, private: false, defaultBranch: "main" };
   const secondOwnedPublicRepo = { id: "102", fullName: `${user.login}/public-two`, private: false, defaultBranch: "main" };
+  // More than five rows so the list must scroll inside its card.
+  const extraPublicRepos = Array.from({ length: 7 }, (_, index) => ({ id: String(110 + index), fullName: `${user.login}/public-extra-${index + 1}`, private: false, defaultBranch: "main" }));
   await mkdir(output, { recursive: true });
   for (const width of [360, 390, 768, 1024, 1440]) {
     const context = await browser.newContext({ viewport: { width, height: 1000 } });
@@ -45,7 +47,7 @@ try {
       if (url.pathname === "/api/auth/session") data = { accountKey: user.githubUserId, login: user.login };
       else if (url.pathname === "/api/repositories/public") {
         if (providerUnauthorized) return route.fulfill({ status: 401, json: { error: { message: "GitHub credential expired." } } });
-        data = { items: url.searchParams.get("page") === "2" ? [secondOwnedPublicRepo] : [ownedPublicRepo], nextPage: url.searchParams.get("page") === "2" ? null : 2 };
+        data = { items: url.searchParams.get("page") === "2" ? [secondOwnedPublicRepo] : [ownedPublicRepo, ...extraPublicRepos], nextPage: url.searchParams.get("page") === "2" ? null : 2 };
       }
       else if (url.pathname === "/api/github/installations") {
         if (installationMode === "error") return route.fulfill({ status: 503, json: { error: { message: "Instalasi belum tersedia." } } });
@@ -74,6 +76,21 @@ try {
     await page.getByRole("button", { name: "Repository public berikutnya", exact: true }).click();
     await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).waitFor();
     await page.getByText(secondOwnedPublicRepo.fullName, { exact: true }).waitFor();
+    const publicList = page.getByRole("region", { name: "Daftar repository public", exact: true });
+    await publicList.waitFor();
+    assert.equal(await publicList.getAttribute("tabindex"), "0", "a scrollable repository list is reachable by keyboard");
+    assert.ok(await publicList.evaluate(el => el.scrollHeight > el.clientHeight + 1), "more than five repositories scroll inside the card");
+    await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).focus();
+    for (let step = 0; step < 6; step++) await page.keyboard.press("Tab");
+    const seventh = extraPublicRepos[5];
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute("aria-label")), `Pilih ${seventh.fullName}`, "keyboard reaches the seventh repository row");
+    await page.waitForTimeout(400);
+    assert.ok(await publicList.evaluate((list, name) => {
+      const row = list.querySelector(`[aria-label="${name}"]`)!.getBoundingClientRect(); const box = list.getBoundingClientRect();
+      return row.top >= box.top - 1 && row.bottom <= box.bottom + 1;
+    }, `Pilih ${seventh.fullName}`), "the focused sixth-plus row is scrolled into view inside the list");
+    await page.keyboard.press("Enter");
+    await page.getByRole("heading", { name: `Siapkan analisis: ${seventh.fullName}`, exact: true }).waitFor();
     await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).click();
     const selectedPublicHeading = page.getByRole("heading", { name: `Siapkan analisis: ${ownedPublicRepo.fullName}`, exact: true });
     await selectedPublicHeading.waitFor();
@@ -88,7 +105,8 @@ try {
       const heading = document.querySelector<HTMLElement>("#analysis-target-heading");
       return document.activeElement === heading && Boolean(heading && heading.getBoundingClientRect().top >= 0 && heading.getBoundingClientRect().top < innerHeight);
     });
-    assert.equal(await page.getByRole("heading", { name: `Repository public milik @${user.login}`, exact: true }).count(), 0, "after selection the target step replaces the long repository list");
+    assert.equal(await page.getByRole("heading", { name: `Repository public milik @${user.login}`, exact: true }).count(), 1, "the repository list stays beside the target panel after selection");
+    assert.equal(await page.getByRole("button", { name: `Pilih ${ownedPublicRepo.fullName}`, exact: true }).getAttribute("aria-pressed"), "true", "the chosen repository row is marked as selected");
     await page.getByRole("button", { name: "Periksa target", exact: true }).click();
     await page.getByText("Target tervalidasi", { exact: true }).waitFor();
     assert.deepEqual(submittedTargets.at(-1), { repository: ownedPublicRepo.fullName, branch: "main", commit: null });

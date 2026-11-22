@@ -24,7 +24,7 @@ Given("I am viewing the completed analysis on {string}", async function (this: S
 When("I open the completed analysis results", async function (this: SrsWorld) {
   const f = current(this);
   await f.page.goto(`${f.base}/analyses/${f.analysisId}`);
-  await f.page.getByRole("link", { name: "Buka knowledge graph", exact: true }).waitFor();
+  await f.page.getByRole("link", { name: "Buka Code Knowledge", exact: true }).waitFor();
 });
 When("I follow the link {string}", async function (this: SrsWorld, label: string) {
   await current(this).page.getByRole("link", { name: label, exact: true }).click();

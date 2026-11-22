@@ -8,6 +8,6 @@ Feature: Protect workspace access for unauthenticated sessions
   Scenario: [Supporting check | APP-01 / NFR-05 | SRS 5.3] An unauthenticated user is redirected away from the workspace
     Given the browser has no SAGE session cookie
     When I open "/workspace"
-    Then I should be on "/login?error=session"
-    And I should see "Sesi SAGE berakhir. Masuk lagi dengan GitHub."
+    Then I should be on "/login?reason=auth-required&from=workspace"
+    And I should see "Masuk dulu untuk membuka Workspace."
     And no external request was made

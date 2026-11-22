@@ -1,66 +1,58 @@
-.elapsedCard {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 14px;
-  padding: 14px 16px;
-  border: 1px solid #cfe4df;
-  border-radius: 8px;
-  background: linear-gradient(110deg, #eef9f5, #f5f9fc 72%);
-}
+/* Layar 03 Progres analisis — Figma frame 03 (252:51). Komponen dasar: PageHead, Panel, Badge, PipelineStep, ProgressBar, CopySha, Button. */
 
-.activityMark {
-  flex: 0 0 18px;
-  width: 18px;
-  height: 18px;
-  border: 2px solid #b8d8d0;
-  border-top-color: #168675;
-  border-radius: 50%;
-}
+.layout { display: grid; gap: 24px; align-items: start; }
+.column { display: grid; gap: 20px; min-width: 0; }
+.side { display: grid; gap: 20px; min-width: 0; }
 
-.elapsedCard[data-active="true"] .activityMark {
-  animation: activitySpin 1s linear infinite;
-}
+/* Kartu tahap */
+.cardHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; margin-bottom: 8px; }
+.cardTitle { flex: 1 1 auto; margin: 0; color: var(--color-ink); font-size: var(--text-h3); line-height: var(--text-h3--line-height); font-weight: 700; letter-spacing: var(--text-h3--letter-spacing); }
+.count { color: var(--color-teal-700); font-family: var(--font-mono); font-size: var(--text-mono-sm); font-weight: 500; }
+.steps { margin: 0; padding: 0; list-style: none; }
 
-.elapsedCopy {
-  display: grid;
-  gap: 1px;
-}
+/* Blok status selesai / gagal / batasan */
+.banner { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; padding: 18px 20px; border-radius: 16px; animation: bannerIn var(--duration-base) var(--ease-out-soft); }
+.banner[data-tone="success"] { color: var(--color-success); background: var(--color-success-fill); }
+.banner[data-tone="warning"] { color: var(--color-warning); background: var(--color-warning-fill); }
+.banner[data-tone="error"] { color: var(--color-error); background: var(--color-error-fill); }
+.bannerCopy { display: grid; gap: 4px; flex: 1 1 280px; min-width: 0; font-size: var(--text-body-sm); line-height: 1.6; }
+.bannerCopy strong { font-size: 15px; font-weight: 700; }
+.bannerCopy p { margin: 0; color: var(--color-ink); }
+.bannerCopy code { font-family: var(--font-mono); font-size: var(--text-mono-sm); overflow-wrap: anywhere; }
+.limitations { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+@keyframes bannerIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
-.elapsedCopy small {
-  color: #526b6b;
-  font-size: 10px;
-  line-height: 15px;
-  font-weight: 600;
-  letter-spacing: .8px;
-}
+/* Ringkasan */
+.label { margin: 0; color: var(--color-subtle); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); text-transform: uppercase; }
+.summary { display: grid; gap: 18px; }
+.facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 16px; margin: 0; font-size: var(--text-caption); line-height: 1.5; }
+.facts dt { color: var(--color-subtle); font-weight: 500; }
+.facts dd { margin: 0; color: var(--color-ink); font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.progressHead { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; color: var(--color-muted); font-size: var(--text-caption); font-weight: 600; }
+.progressHead span:last-child { color: var(--color-teal-700); font-family: var(--font-mono); font-size: var(--text-mono-sm); font-weight: 500; }
+.actions { display: grid; gap: 10px; }
+.note { margin: 0; color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
+.retryError { margin: 0; padding: 10px 12px; border-radius: var(--radius-control); color: var(--color-error); background: var(--color-error-fill); font-size: var(--text-caption); font-weight: 600; }
 
-.elapsedCopy strong {
-  color: #092b3c;
-  font-family: "JetBrains Mono", monospace;
-  font-size: 20px;
-  line-height: 28px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
+/* Timer (role="timer"; aria-label & strong dipakai test) */
+.elapsedCard { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px 12px; }
+.activityMark { grid-row: span 2; width: 18px; height: 18px; border: 2px solid var(--color-teal-100); border-top-color: var(--color-teal-500); border-radius: 50%; }
+.elapsedCard[data-active="true"] .activityMark { animation: activitySpin 1s linear infinite; }
+.elapsedCard[data-active="false"] .activityMark { border-color: var(--color-teal-500); }
+.elapsedCopy { display: grid; gap: 2px; min-width: 0; }
+.elapsedCopy small { color: var(--color-subtle); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); }
+.elapsedCopy strong { color: var(--color-ink); font-family: var(--font-mono); font-size: 32px; line-height: 1.2; font-weight: 600; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.elapsedHint { grid-column: 2; color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
+@keyframes activitySpin { to { transform: rotate(360deg); } }
 
-.elapsedHint {
-  margin-left: auto;
-  color: #63738a;
-  font-size: 11px;
-  line-height: 17px;
-  text-align: right;
+@media (min-width: 1060px) {
+  .layout { grid-template-columns: minmax(0, 1fr) 380px; }
+  .side { position: sticky; top: 96px; }
 }
-
-@keyframes activitySpin {
-  to { transform: rotate(360deg); }
-}
-
 @media (max-width: 480px) {
-  .elapsedCard { align-items: flex-start; }
-  .elapsedHint { max-width: 120px; }
+  .elapsedCopy strong { font-size: 26px; }
 }
-
 @media (prefers-reduced-motion: reduce) {
   .elapsedCard[data-active="true"] .activityMark { animation: none; }
+  .banner { animation: none; }
 }

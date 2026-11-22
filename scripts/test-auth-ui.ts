@@ -142,6 +142,16 @@ async function expectLogin(page: Page, error?: string): Promise<void> {
   if (error) assert.equal(location.searchParams.get("error"), error, "login should expose only the expected safe error code");
 }
 
+async function expectAuthRequired(page: Page, from: string, message: string): Promise<void> {
+  const location = new URL(page.url());
+  assert.equal(location.origin, browserOrigin.origin, "redirect must stay on the local app origin");
+  assert.equal(location.pathname, "/login", "protected route must redirect to login");
+  assert.equal(location.searchParams.get("reason"), "auth-required", "anonymous access should use the neutral reason");
+  assert.equal(location.searchParams.get("from"), from, "login should only name the allowlisted origin page");
+  assert.equal(location.searchParams.get("error"), null, "anonymous access must not be reported as an expired session");
+  await page.getByRole("status").getByText(message, { exact: true }).waitFor();
+}
+
 async function assertNoHorizontalOverflow(page: Page): Promise<void> {
   assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true,
     "page should fit the selected viewport width");
@@ -238,10 +248,20 @@ try {
     page.on("pageerror", () => { pageErrors++; });
 
     await page.goto(new URL("/workspace", browserOrigin).toString(), { waitUntil: "domcontentloaded" });
-    await expectLogin(page, "session");
+    await expectAuthRequired(page, "workspace", "Masuk dulu untuk membuka Workspace.");
     await assertNoHorizontalOverflow(page);
+    await page.goto(new URL("/workspace/history", browserOrigin).toString(), { waitUntil: "domcontentloaded" });
+    await expectAuthRequired(page, "history", "Masuk dulu untuk membuka Riwayat.");
     await page.goto(new URL("/workspace/repositories", browserOrigin).toString(), { waitUntil: "domcontentloaded" });
-    await expectLogin(page, "session");
+    await expectAuthRequired(page, "repository", "Masuk dulu untuk membuka Repository.");
+    await page.goto(new URL("/analyses/anonymous-check-01", browserOrigin).toString(), { waitUntil: "domcontentloaded" });
+    await expectAuthRequired(page, "analysis", "Masuk dulu untuk membuka hasil analisis.");
+    for (const suffix of ["graph", "document"]) {
+      await page.goto(new URL(`/analyses/anonymous-check-01/${suffix}`, browserOrigin).toString(), { waitUntil: "domcontentloaded" });
+      await expectAuthRequired(page, "analysis", "Masuk dulu untuk membuka hasil analisis.");
+    }
+    assert.equal(await page.getByRole("banner").getByRole("link", { name: "Masuk", exact: true }).count(), 0,
+      "header login button should be hidden on /login");
     await assertNoHorizontalOverflow(page);
     await page.screenshot({ path: saveScreenshotName(`anonymous-${width}.png`), fullPage: true });
     assert.equal(pageErrors, 0, "anonymous protected-route redirects should not produce browser errors");

@@ -1,0 +1,62 @@
+/* Tab TOGAF ADD saat dokumen ada — Figma frame 05 (253:143). Tiga kolom di desktop, satu kolom di bawah 1060 px. */
+
+.layout { display: grid; gap: 24px; align-items: start; min-width: 0; font-family: var(--font-sans); }
+.content { min-width: 0; }
+.rail { display: grid; gap: 20px; min-width: 0; }
+
+/* Daftar isi */
+.toc { display: none; }
+.tocTitle { margin: 0 0 10px; padding: 0 20px; color: var(--color-ink); font-size: var(--text-h3); line-height: var(--text-h3--line-height); font-weight: 700; }
+.tocList { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.tocGroup { padding: 14px 20px 6px; }
+.tocGroup a, .tocGroup span { color: var(--color-subtle); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); text-transform: uppercase; text-decoration: none; }
+.tocLink { height: auto; min-height: 36px; padding-block: 6px; font-size: var(--text-caption); line-height: 1.45; transition-duration: var(--duration-fast); }
+.tocMobile { margin: 0 0 20px; border: 1px solid var(--color-border-soft); border-radius: 16px; background: var(--color-surface); box-shadow: var(--shadow-soft); }
+.tocMobile > summary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 14px 18px; color: var(--color-ink); font-size: 14px; font-weight: 700; cursor: pointer; }
+.tocCurrent { color: var(--color-teal-700); font-size: var(--text-caption); font-weight: 600; }
+.tocMobile > nav { max-height: 60vh; overflow-y: auto; padding: 0 0 12px; border-top: 1px solid var(--color-border-soft); }
+
+/* Metrik */
+.metrics { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 0 0 24px; padding: 0; list-style: none; }
+.metrics li { display: grid; gap: 2px; padding: 16px 18px; border: 1px solid var(--color-border-soft); border-radius: 16px; background: var(--color-surface); }
+.metrics strong { color: var(--color-ink); font-size: 26px; line-height: 1.3; font-weight: 700; letter-spacing: -0.02em; }
+.metrics span { color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
+
+/* Panel bagian aktif */
+.panel { display: grid; gap: 16px; padding: 24px; border: 1px solid var(--color-border-soft); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-pop); }
+.panelHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.label { margin: 0; color: var(--color-subtle); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); text-transform: uppercase; }
+.reviewStatus { display: inline-flex; animation: statusIn var(--duration-base) var(--ease-out-soft); }
+@keyframes statusIn { from { transform: scale(.92); opacity: .4; } to { transform: none; opacity: 1; } }
+.panelBody { display: grid; gap: 12px; animation: fadeIn var(--duration-base) var(--ease-out-soft); }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.panelTitle { margin: 0; color: var(--color-ink); font-size: var(--text-h3); line-height: var(--text-h3--line-height); font-weight: 700; letter-spacing: var(--text-h3--letter-spacing); }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.stats div { padding: 10px 12px; border-radius: 12px; background: var(--color-canvas); }
+.stats dt { color: var(--color-subtle); font-size: var(--text-caption); font-weight: 500; }
+.stats dd { margin: 2px 0 0; color: var(--color-ink); font-size: 18px; font-weight: 700; }
+.note { margin: 0; color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
+.progress { display: grid; gap: 8px; }
+.progressHead { display: flex; justify-content: space-between; gap: 8px; color: var(--color-muted); font-size: var(--text-caption); font-weight: 500; }
+.progressHead span:last-child { color: var(--color-teal-700); font-family: var(--font-mono); font-size: var(--text-mono-sm); }
+.progressTrack { height: 6px; overflow: hidden; border-radius: var(--radius-pill); background: var(--color-subtle-bg); }
+.progressTrack > span { display: block; height: 100%; border-radius: inherit; background: var(--color-teal-500); transition: width var(--duration-slow) var(--ease-out-soft); }
+.reviewLink { color: var(--color-teal-700); font-size: var(--text-button); font-weight: 600; text-underline-offset: 3px; }
+
+@media (min-width: 720px) {
+  .metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (min-width: 1060px) {
+  .layout { grid-template-columns: 248px minmax(0, 1fr) 300px; }
+  .toc { display: block; position: sticky; top: 96px; max-height: calc(100dvh - 120px); overflow-y: auto; padding: 20px 0; border: 1px solid var(--color-border-soft); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-soft); }
+  .tocMobile { display: none; }
+  .rail { position: sticky; top: 96px; max-height: calc(100dvh - 120px); overflow-y: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .reviewStatus, .panelBody { animation: none; }
+}
+
+@media print {
+  .layout { display: block; }
+  .content { max-width: none; }
+}
