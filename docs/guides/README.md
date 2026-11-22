@@ -6,7 +6,7 @@
 - [Troubleshooting](TROUBLESHOOTING.md)
 - [Testing](TESTING.md)
 - [BDD Sprint 1](BDD_SPRINT1.md)
-- [BDD Sprint 2](BDD_SPRINT2.md)
+- [BDD Sprint 2 historis](BDD_SPRINT2.md)
 - [Demo dan replay](FINAL_DEMO.md)
 
 [Beranda dokumentasi](../README.md)

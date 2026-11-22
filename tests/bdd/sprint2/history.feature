@@ -24,8 +24,8 @@ Feature: Search and navigate analysis history
     Given I am on "/workspace/history"
     When I follow the link "Buka"
     Then I should be on the completed analysis detail page
-    And the link "Buka knowledge graph" should be available
-    And the link "Buka dokumentasi" should be available
+    And the link "Buka Code Knowledge" should be available
+    And the link "Buka TOGAF ADD" should be available
 
   @B7_6_4 @browser_history
   Scenario: Analysis history not found

@@ -1619,12 +1619,14 @@ async function runLiveGraphRegression(): Promise<void> {
     const emptyPage = await emptyContext.newPage();
     emptyPage.on("pageerror", error => pageErrors.push(`empty graph: ${error.message}`));
     await emptyPage.goto(graphPageUrl(base, empty.analysisId), { waitUntil: "networkidle" });
-    await emptyPage.getByRole("region", { name: "Kanvas knowledge graph", exact: true }).waitFor();
+    // Graph kosong: region kanvas tetap di DOM (disembunyikan), digantikan empty state yang terlihat.
+    await emptyPage.locator('[aria-label="Kanvas knowledge graph"]').waitFor({ state: "attached" });
+    await emptyPage.getByRole("status").filter({ hasText: "Graph tidak memiliki node untuk ditampilkan." }).waitFor();
     await emptyPage.getByTestId("canonical-counts").waitFor();
     assert.match(await emptyPage.getByTestId("canonical-counts").innerText(), /Kanonik:\s*0 node\s*·\s*0 relasi/);
     await takeScreenshot(emptyPage, "graph-empty-390.png");
     await emptyContext.close();
-    checks.push("390px empty graph: zero-node canonical graph renders without a client error");
+    checks.push("390px empty graph: zero-node canonical graph shows the empty state without a client error");
 
     assert.deepEqual(pageErrors, [], "all graph browser pages should complete without uncaught errors");
     assert.deepEqual(providerRequests, [], "no browser path should contact GitHub or provider routes");

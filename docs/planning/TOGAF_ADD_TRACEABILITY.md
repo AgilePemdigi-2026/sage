@@ -1,5 +1,7 @@
 # TOGAF ADD implementation and acceptance traceability
 
+> **Bukti bertanggal, bukan signoff sprint baru:** tabel dan angka di bawah merekam pemeriksaan pada November 2026 untuk commit dan corpus yang disebutkan. Sprint dimulai ulang; jalankan ulang acceptance yang terkena perubahan dan simpan laporan baru. Riwayat bukti lama dipertahankan apa adanya.
+
 Baseline: 19 November 2026. This page tracks the one-sprint replacement scope for TOGAF Phase C baseline output. GitHub ownership is [#142](https://github.com/AgilePemdigi-2026/sage/issues/142) for Iltizam and [#143](https://github.com/AgilePemdigi-2026/sage/issues/143) for Rizqy. Assignment is not completion evidence. The old SRS mapping remains available as historical traceability in [REQUIREMENTS_TRACEABILITY](REQUIREMENTS_TRACEABILITY.md).
 
 ## Scope and evidence map

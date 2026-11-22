@@ -60,6 +60,9 @@ services:
     environment:
       <<: *database-environment
       SAGE_PRIVACY_CONTACT_EMAIL: ${SAGE_PRIVACY_CONTACT_EMAIL:-}
+      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_API_KEY: ${LLM_API_KEY:-}
+      LLM_MODEL: ${LLM_MODEL:-}
       NEXT_TELEMETRY_DISABLED: "1"
       STORAGE_ROOT: /app/storage
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?Set CREDENTIAL_ENCRYPTION_KEY in the operator environment or private env file}

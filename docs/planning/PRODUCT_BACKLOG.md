@@ -1,8 +1,10 @@
 # Product backlog
 
+> **Snapshot historis:** angka issue dan status di halaman ini berasal dari 9 November 2026. Backlog sprint baru dimulai ulang; daftar issue lama bukan daftar acceptance terkini. Lihat [rencana sprint baru](RESET_SPRINT.md).
+
 Status per 9 November 2026: **62 GitHub Issues** tercatat, dengan tiga milestone Sprint; Sprint 2 **22/22 closed** setelah review dan merge PR #127. Revisi pembagian memakai bobot pekerjaan serta bukti kontribusi tiap sprint; jumlah issue tidak harus sama. Penanggung jawab paket mengikuti [alur kontribusi](../../CONTRIBUTING.md); Iltizam melakukan review teknis dan merge PR.
 
-Seluruh akun sudah dipetakan dan assignment aktif: Iltizam (`iltizamhasan3`), Rizqy (`rizqy-fadhil`), Valentina (`liliks13`), serta Zarra (`zarrrafirdaus`). Sebelas paket Zarra sudah di-assign ke akunnya. Ringkasan lintas anggota ada di [alokasi sprint](SPRINT_ALLOCATION.md).
+Pemetaan akun dan assignment yang dicatat di bawah berasal dari sprint lama; itu bukan penetapan owner untuk sprint baru. Lihat [alokasi historis](SPRINT_ALLOCATION.md) dan [rencana sprint baru](RESET_SPRINT.md).
 
 ## Prioritas, estimasi, dan fase
 

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseGitHubAuthConfig } from "../apps/web/lib/auth/config.ts";
+import { authRequiredMessage, parseGitHubAuthConfig, safeAuthErrorMessage } from "../apps/web/lib/auth/config.ts";
 import {
   createGitHubCallbackHandler,
   createGitHubLogoutHandler,
@@ -270,4 +270,17 @@ test("duplicate cookies are rejected rather than selecting an attacker-controlle
   assert.equal(getUniqueCookie(`sage_oauth_browser=${browserToken}; sage_oauth_browser=${"x".repeat(43)}`, "sage_oauth_browser"), null);
   assert.equal(getUniqueCookie(`sage_oauth_browser=bad; sage_oauth_browser=${browserToken}`, "sage_oauth_browser"), null);
   assert.equal(getUniqueCookie(`other=value; sage_oauth_browser=${browserToken}`, "sage_oauth_browser"), browserToken);
+});
+
+test("login hanya merender alasan auth-required dari allowlist", () => {
+  assert.equal(authRequiredMessage("auth-required", "repository"), "Masuk dulu untuk membuka Repository.");
+  assert.equal(authRequiredMessage("auth-required", "history"), "Masuk dulu untuk membuka Riwayat.");
+  assert.equal(authRequiredMessage("auth-required", "workspace"), "Masuk dulu untuk membuka Workspace.");
+  assert.equal(authRequiredMessage("auth-required", "analysis"), "Masuk dulu untuk membuka hasil analisis.");
+  assert.equal(authRequiredMessage("auth-required", "/analyses/abc"), "Masuk dulu untuk melanjutkan.");
+  assert.equal(authRequiredMessage("auth-required", "https://evil.example/"), "Masuk dulu untuk melanjutkan.");
+  assert.equal(authRequiredMessage("auth-required", ["repository", "history"]), "Masuk dulu untuk melanjutkan.");
+  assert.equal(authRequiredMessage("expired", "repository"), null);
+  assert.equal(authRequiredMessage(undefined, undefined), null);
+  assert.equal(safeAuthErrorMessage("session"), "Sesi SAGE berakhir. Masuk lagi dengan GitHub.");
 });

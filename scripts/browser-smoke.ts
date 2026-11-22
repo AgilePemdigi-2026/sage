@@ -8,7 +8,7 @@ const baseOrigin = new URL(baseUrl).origin;
 const output = process.env.BROWSER_SMOKE_EVIDENCE_DIR ?? join(process.env.STORAGE_ROOT ?? "artifacts", "environment");
 const assetTypes = new Set(["font", "image", "script", "stylesheet"]);
 const outputScope =
-  "Real landing, login CTA destination, removed preview routes, responsive assets and overflow, browser errors, and API health; full acceptance not run.";
+  "Real landing, start CTA redirect to login, removed preview routes, responsive assets and overflow, browser errors, and API health; full acceptance not run.";
 
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
@@ -67,11 +67,18 @@ try {
     assert.ok(loadedAssetTypes.has("font"), "Landing font assets did not load");
     assert.deepEqual(failedAssets, [], "App assets failed to load");
 
-    const loginCta = page.getByRole("link", { name: "Hubungkan GitHub", exact: true });
-    assert.equal(await loginCta.getAttribute("href"), "/login");
-    await loginCta.click();
+    const headerLogin = page.getByRole("banner").getByRole("link", { name: "Masuk", exact: true });
+    assert.equal(await headerLogin.getAttribute("href"), "/login");
+    const startCta = page.getByRole("link", { name: "Mulai analisis", exact: true });
+    assert.equal(await startCta.getAttribute("href"), "/workspace/repositories");
+    await startCta.click();
     await page.waitForURL((url) => url.pathname === "/login");
+    const loginUrl = new URL(page.url());
+    assert.equal(loginUrl.searchParams.get("reason"), "auth-required");
+    assert.equal(loginUrl.searchParams.get("from"), "repository");
     assert.equal(await page.getByRole("heading", { level: 1 }).innerText(), "Masuk dengan GitHub");
+    await page.getByRole("status").getByText("Masuk dulu untuk membuka Repository.", { exact: true }).waitFor();
+    assert.equal(await page.getByRole("banner").getByRole("link", { name: "Masuk", exact: true }).count(), 0);
     await assertNoHorizontalOverflow(page, "login");
 
     await page.goto(baseUrl, { waitUntil: "networkidle" });
@@ -93,7 +100,7 @@ try {
     checks.push({
       width,
       status: "PASS",
-      loginCta: "navigated to /login",
+      loginCta: "Mulai analisis redirected to /login (auth-required, repository)",
       previewRoutes: "all six removed routes return 404",
       loadedAssetTypes: [...loadedAssetTypes].sort(),
       horizontalOverflow: false,
