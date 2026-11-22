@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { AssetIcon, Badge, Button, CopySha, EmptyState, Field, MaskIcon, PageHead, Panel, PillLink, ScrollList, SkeletonRows, Spinner, Stepper, useVisibleSection } from "../design-system/ui.tsx";
 import design from "../design-system/ui.module.css";
+import css from "./repositories.module.css";
 
 type Installation = { id: string; accountLogin: string };
 type Repository = { id: string; fullName: string; private: boolean; defaultBranch: string | null };
@@ -10,6 +12,8 @@ type Branch = { name: string; commitSha: string };
 type ValidatedTarget = { repository: Repository; branch: string; commitSha: string; branchHeadSha: string };
 type AccountIdentity = { accountKey: string; login: string };
 type EnqueuedAnalysis = { analysisId: string };
+
+const SOURCE_SECTIONS = ["sumber-public", "sumber-app"] as const;
 
 class AccountChangedError extends Error {
   constructor() { super("Akun GitHub berubah. Memuat ulang sesi…"); }
@@ -43,6 +47,9 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
   const [target, setTarget] = useState<ValidatedTarget | null>(null);
   const [scopeVerified, setScopeVerified] = useState(false);
   const [scopeError, setScopeError] = useState("");
+  // Presentational only: which action shows a spinner on its own button (busy stays the single source of truth).
+  const [pending, setPending] = useState<"validate" | "start" | null>(null);
+  const visibleSource = useVisibleSection(SOURCE_SECTIONS);
   const generation = useRef(0);
   const reloadStarted = useRef(false);
   const submissionKey = useRef<{ target: string; key: string } | null>(null);
@@ -148,10 +155,9 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
   useEffect(() => {
     let active = true;
     let identityCheckRunning = false;
-    async function verifyIdentity(hideUntilVerified: boolean) {
+    async function verifyIdentity() {
       if (identityCheckRunning) return;
       identityCheckRunning = true;
-      if (hideUntilVerified) { setScopeVerified(false); setScopeError(""); }
       try {
         const identity = await request<AccountIdentity>("/api/auth/session");
         if (!active) return;
@@ -162,13 +168,13 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
         setScopeError(cause instanceof Error ? cause.message : "Sesi belum dapat diperiksa.");
       } finally { identityCheckRunning = false; }
     }
-    void verifyIdentity(false);
+    void verifyIdentity();
     const interval = window.setInterval(() => {
-      if (document.visibilityState === "visible") void verifyIdentity(false);
+      if (document.visibilityState === "visible") void verifyIdentity();
     }, 15_000);
-    const onFocus = () => { if (document.visibilityState === "visible") void verifyIdentity(true); };
-    const onPageShow = () => void verifyIdentity(true);
-    const onVisibility = () => { if (document.visibilityState === "visible") void verifyIdentity(true); };
+    const onFocus = () => { if (document.visibilityState === "visible") void verifyIdentity(); };
+    const onPageShow = () => void verifyIdentity();
+    const onVisibility = () => { if (document.visibilityState === "visible") void verifyIdentity(); };
     window.addEventListener("focus", onFocus);
     window.addEventListener("pageshow", onPageShow);
     document.addEventListener("visibilitychange", onVisibility);
@@ -327,82 +333,143 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
       }
     } finally { if (generation.current === requestGeneration) setBusy(false); }
   }
-  function repoCard(item: Repository) {
-    return <li key={item.id} className={`${design.repositoryCard} break-words`}>
-      <strong>{item.fullName}</strong><span className="ml-2 text-xs">{item.private ? "Private · berizin" : "Public"}</span>
-      <p className="mt-2 text-sm">Branch default: {item.defaultBranch || "Belum ada commit"}</p>
-      <button type="button" aria-label={`Pilih ${item.fullName}`} disabled={busy || !scopeVerified} onClick={() => void choose(item)} className="mt-3 rounded border border-ink/40 px-4 py-2">Pilih repository</button>
+  function repoRow(item: Repository) {
+    const selected = chosen?.id === item.id;
+    return <li key={item.id}>
+      <button type="button" className={css.row} aria-label={`Pilih ${item.fullName}`} aria-pressed={selected} disabled={busy || !scopeVerified} onClick={() => void choose(item)}>
+        <span className={css.rowIcon}><MaskIcon group="repository" name="imgRepo" size={18} /></span>
+        <span className={css.rowCopy}>
+          <span className={css.rowName} title={item.fullName}>{item.fullName}</span>
+          <span className={css.rowMeta}>Branch default: {item.defaultBranch || "Belum ada commit"}</span>
+        </span>
+        <Badge tone="neutral">{item.private ? "Private · berizin" : "Public"}</Badge>
+        <span className={css.rowEnd} aria-hidden="true">
+          {selected ? <span className={css.check}><AssetIcon group="repository" name="imgCheck" /></span> : <AssetIcon group="repository" name="imgChevronRight" className={css.chevron} />}
+        </span>
+      </button>
     </li>;
   }
-  if (!scopeVerified) return <div className={design.accessPanel} role="status">
-    <p>{scopeError || "Memeriksa akun GitHub dan memuat daftar repository…"}</p>
-    {scopeError ? <button type="button" className="mt-3 underline" onClick={() => window.location.reload()}>Muat ulang sesi</button> : null}
-  </div>;
+  const step = !chosen ? 0 : target ? 2 : 1;
+  const head = <PageHead
+    breadcrumb={[{ label: "Workspace", href: "/workspace" }, { label: "Repository" }]}
+    title="Pilih repository"
+    description={<>Pilih repository yang ingin dianalisis, lalu tentukan branch dan commit. Terhubung sebagai @{accountLogin}. Izin selalu diperiksa kembali melalui GitHub.</>}
+    aside={<><Button href="/workspace" variant="link">Kembali ke workspace</Button><Stepper steps={["Repository", "Target", "Analisis"]} current={step} label="Langkah analisis" /></>}
+  />;
+  if (!scopeVerified) return <>
+    {head}
+    <Panel>
+      {scopeError
+        ? <EmptyState tone="error" role="status" icon={{ group: "repository", name: "imgRepo" }} action={<Button variant="secondary" onClick={() => window.location.reload()}>Muat ulang sesi</Button>}>{scopeError}</EmptyState>
+        : <SkeletonRows rows={4} label="Memeriksa akun GitHub dan memuat daftar repository…" />}
+    </Panel>
+  </>;
   const filteredPublic = publicRepositories.filter(item => item.fullName.toLowerCase().includes(publicQuery.trim().toLowerCase()));
-  return <div className={design.accessPanel} aria-busy={busy || publicBusy}>
-    {error ? <p role="alert" className="rounded-lg border border-red-700 p-4 text-red-900">{error}</p> : null}
-    {busy && !chosen ? <p role="status">Memeriksa GitHub…</p> : null}
-    {reauthRequired ? <form action="/auth/logout" method="post" className="mb-4"><button className="rounded border border-ink/40 px-4 py-2" type="submit">Keluar untuk menyambungkan ulang GitHub</button></form> : null}
-    {!chosen ? <>
-    <p className="font-mono text-xs tracking-wide text-[#0b7a6c]">LANGKAH 1 DARI 2</p>
-    <section className="rounded-xl border border-ink/20 bg-white p-5">
-      <h2 ref={repositoryListHeading} tabIndex={-1} className="text-xl font-semibold">Repository public milik @{accountLogin}</h2>
-      <p className="mt-2 text-sm">Daftar repository public yang dimiliki akun GitHub-mu. Pilih repository untuk memuat branch.</p>
-      {publicError ? <p role="alert" className="mt-3 rounded-lg border border-red-700 p-4 text-red-900">{publicError} <button type="button" className="ml-2 underline" onClick={() => void loadPublicRepositories()}>Coba lagi</button></p> : null}
-      {publicBusy && !publicLoaded ? <p role="status" className="mt-3">Memuat repository publik…</p> : null}
-      {publicLoaded && publicRepositories.length === 0 ? <p className="mt-3">Akun ini belum memiliki repository public. Repository public orang lain bisa dicari di bagian bawah.</p> : null}
-      {publicLoaded && publicRepositories.length > 0 ? <>
-        <label className="mt-4 block text-sm">Cari repository public milikmu<input value={publicQuery} onChange={event => setPublicQuery(event.target.value)} className="mt-2 block w-full rounded border border-ink/40 px-3 py-2" placeholder="Cari nama repository" /></label>
-        {filteredPublic.length === 0 ? <p className="mt-4">Tidak ada hasil pencarian. Coba kata lain.</p> : null}
-        <ul className="mt-4 space-y-3">{filteredPublic.map(repoCard)}</ul>
-      </> : null}
-      {publicPage ? <button type="button" disabled={publicBusy} onClick={() => void loadPublicRepositories(publicPage)} className="mt-3 underline">Repository public berikutnya</button> : null}
-      {publicLoaded ? <button type="button" disabled={publicBusy} onClick={() => void loadPublicRepositories()} className="mt-3 underline">Muat ulang repository public</button> : null}
-    </section>
-    <section className="rounded-xl border border-ink/20 bg-white p-5">
-      <h2 className="text-xl font-semibold">Repository yang dapat diakses lewat GitHub App</h2>
-      <p className="mt-2 text-sm">Daftar ini bisa memuat repository milik organisasi atau repository tempat akunmu menjadi kolaborator. Private hanya bisa dibaca jika akunmu dan App sama-sama mendapat izin Contents read.</p>
-      <button type="button" disabled={busy} onClick={() => void loadInstallations()} className="mt-4 rounded border border-ink/40 px-4 py-2 disabled:opacity-50">Muat ulang instalasi</button>
-      {loaded && installations.length === 0 ? <p className="mt-4">Belum ada instalasi yang dapat diakses lewat App.</p> : null}
-      {installUrl ? <a href={installUrl} target="_blank" rel="noreferrer" className="ml-3 inline-block py-2 underline">Atur akses App di GitHub</a> : null}
-      <ul className="mt-4 flex flex-wrap gap-3">{installations.map(item => <li key={item.id}><button type="button" disabled={busy} onClick={() => void loadRepositories(item.id)} className="rounded border border-ink/40 px-4 py-2" aria-pressed={selectedInstallation === item.id}>{item.accountLogin}</button></li>)}</ul>
-      {installationPage ? <button type="button" disabled={busy} onClick={() => void loadInstallations(installationPage)} className="mt-3 underline">Instalasi berikutnya</button> : null}
-      {selectedInstallation && !busy && !error && repositories.length === 0 ? <p className="mt-4">Tidak ada repository yang dapat dibaca pada instalasi ini.</p> : null}
-      <label className="mt-4 block text-sm">Cari pada repository App yang sudah dimuat<input value={query} onChange={event => setQuery(event.target.value)} className="mt-2 block w-full rounded border border-ink/40 px-3 py-2" placeholder="Cari nama repository" /></label>
-      {repositories.length > 0 && !repositories.some(item => item.fullName.toLowerCase().includes(query.trim().toLowerCase())) ? <p className="mt-4">Tidak ada hasil pencarian pada halaman yang dimuat.</p> : null}
-      <ul className="mt-4 space-y-3">{repositories.filter(item => item.fullName.toLowerCase().includes(query.trim().toLowerCase())).map(repoCard)}</ul>
-      {repoPage ? <button type="button" disabled={busy} onClick={() => void loadRepositories(selectedInstallation, repoPage)} className="mt-3 underline">Repository berikutnya</button> : null}
-    </section>
-    <section className="rounded-xl border border-ink/20 bg-white p-5">
-      <h2 className="text-xl font-semibold">Repository publik milik pihak lain</h2>
-      <form onSubmit={resolve} className="mt-4 flex flex-col gap-3 sm:flex-row">
-        <label className="flex-1">Nama atau URL GitHub<input disabled={busy} required maxLength={300} value={repository} onChange={e => setRepository(e.target.value)} placeholder="owner/repository" className="mt-2 block w-full rounded border border-ink/40 px-3 py-2" /></label>
-        <button type="submit" disabled={busy} className="self-start rounded bg-ink px-4 py-2 text-white disabled:opacity-50 sm:self-end">Periksa repository</button>
-      </form>
-      <p className="mt-3 text-sm">Memasukkan URL private tidak menambah izin. Hanya github.com yang diterima.</p>
-      {resolved ? <ul className="mt-4">{repoCard(resolved)}</ul> : null}
-    </section>
-    </> : <section ref={targetSection} aria-labelledby="analysis-target-heading" style={{ gridColumn: "1 / -1", width: "100%", maxWidth: 760, justifySelf: "center" }} className="rounded-xl border border-ink/20 bg-white p-5">
-      <p className="font-mono text-xs tracking-wide text-[#0b7a6c]">LANGKAH 2 DARI 2</p>
-      <h2 id="analysis-target-heading" ref={targetHeading} tabIndex={-1} className="mt-1 text-xl font-semibold">Siapkan analisis: {chosen.fullName}</h2>
-      <p className="mt-2 text-sm text-[#52637b]">{chosen.private ? "Private · berizin melalui GitHub App" : "Public · dapat dianalisis"}. Pilih branch dan commit yang akan dianalisis.</p>
-      <div className={design.targetActions}>
-        <button type="button" disabled={busy} onClick={() => { setChosen(null); setBranches([]); setBranchPage(null); setBranchLoaded(false); setBranch(""); setCommit(""); setTarget(null); setError(""); setTimeout(() => repositoryListHeading.current?.focus(), 0); }} className={design.secondaryButton}>Pilih repository lain</button>
-        <button type="button" disabled={busy} onClick={() => void choose(chosen)} className={design.secondaryButton}>Muat ulang branch</button>
+  const filteredApp = repositories.filter(item => item.fullName.toLowerCase().includes(query.trim().toLowerCase()));
+  const publicCount = `${publicRepositories.length}${publicPage ? "+" : ""}`;
+  const appCount = `${repositories.length}${repoPage ? "+" : ""}`;
+  return <>
+    {head}
+    {error ? <p role="alert" className={css.alert}>{error}</p> : null}
+    {busy && !chosen ? <p role="status" className={design.srOnly}>Memeriksa GitHub…</p> : null}
+    {reauthRequired ? <form action="/auth/logout" method="post" className={css.reauth}><Button type="submit" variant="secondary">Keluar untuk menyambungkan ulang GitHub</Button></form> : null}
+    <div className={css.layout} aria-busy={busy || publicBusy}>
+      <div className={css.column}>
+        <Panel>
+          <div className={css.cardHead}>
+            <h2 className={css.cardTitle}>Repository kamu</h2>
+            <nav className={css.sourcePills} aria-label="Sumber repository">
+              <PillLink href="#sumber-public" active={visibleSource === "sumber-public"}>Public · {publicCount}</PillLink>
+              <PillLink href="#sumber-app" active={visibleSource === "sumber-app"}>GitHub App · {appCount}</PillLink>
+            </nav>
+          </div>
+
+          <section id="sumber-public" className={css.source} aria-labelledby="sumber-public-heading">
+            <h3 id="sumber-public-heading" ref={repositoryListHeading} tabIndex={-1} className={css.sourceTitle}>Repository public milik @{accountLogin}</h3>
+            <p className={css.sourceLead}>Daftar repository public yang dimiliki akun GitHub-mu. Pilih repository untuk memuat branch.</p>
+            {publicError ? <EmptyState tone="error" role="alert" icon={{ group: "repository", name: "imgRepo" }} action={<Button variant="secondary" onClick={() => void loadPublicRepositories()}>Coba lagi</Button>}>{publicError}</EmptyState> : null}
+            {publicBusy && !publicLoaded ? <SkeletonRows rows={5} className={css.skeletonRows} label="Memuat repository publik…" /> : null}
+            {publicLoaded && publicRepositories.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgRepo" }}>Akun ini belum memiliki repository public. Repository public orang lain bisa dicari di bagian bawah.</EmptyState> : null}
+            {publicLoaded && publicRepositories.length > 0 ? <>
+              <Field label="Cari repository public milikmu" icon={<MaskIcon group="repository" name="imgSearch" size={18} />} value={publicQuery} onChange={event => setPublicQuery(event.target.value)} placeholder="Cari repository…" type="search" />
+              {filteredPublic.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgSearch" }} action={<Button variant="ghost" onClick={() => setPublicQuery("")}>Reset pencarian</Button>}>Tidak ada hasil pencarian. Coba kata lain.</EmptyState> : null}
+              <ScrollList label="Daftar repository public" footer={publicPage ? <Button variant="link" disabled={publicBusy} onClick={() => void loadPublicRepositories(publicPage)}>Repository public berikutnya</Button> : undefined}>
+                {filteredPublic.length > 0 ? <ul className={css.list}>{filteredPublic.map(repoRow)}</ul> : null}
+              </ScrollList>
+            </> : null}
+            {publicPage && !(publicLoaded && publicRepositories.length > 0) ? <div className={css.inlineActions}><Button variant="link" disabled={publicBusy} onClick={() => void loadPublicRepositories(publicPage)}>Repository public berikutnya</Button></div> : null}
+            {publicLoaded ? <div className={css.inlineActions}><Button variant="link" disabled={publicBusy} onClick={() => void loadPublicRepositories()}>Muat ulang repository public</Button></div> : null}
+          </section>
+
+          <section id="sumber-app" className={css.source} aria-labelledby="sumber-app-heading">
+            <h3 id="sumber-app-heading" className={css.sourceTitle}>Repository yang dapat diakses lewat GitHub App</h3>
+            <p className={css.sourceLead}>Daftar ini bisa memuat repository milik organisasi atau repository tempat akunmu menjadi kolaborator. Private hanya bisa dibaca jika akunmu dan App sama-sama mendapat izin Contents read.</p>
+            <div className={css.inlineActions}>
+              <Button variant="link" disabled={busy} onClick={() => void loadInstallations()}>Muat ulang instalasi</Button>
+              {installUrl && installations.length > 0 ? <a href={installUrl} target="_blank" rel="noreferrer" className={css.textButton}>Atur akses App di GitHub</a> : null}
+            </div>
+            {loaded && installations.length === 0 ? <EmptyState icon={{ group: "landing", name: "imgGithub" }} action={installUrl ? <Button href={installUrl} variant="secondary" target="_blank" rel="noreferrer">Atur akses App di GitHub</Button> : undefined}>Belum ada instalasi yang dapat diakses lewat App.</EmptyState> : null}
+            {installations.length > 0 ? <ul className={css.installations}>{installations.map(item => <li key={item.id}><button type="button" className={design.navPill} disabled={busy} onClick={() => void loadRepositories(item.id)} aria-pressed={selectedInstallation === item.id}>{item.accountLogin}</button></li>)}</ul> : null}
+            {installationPage ? <div className={css.inlineActions}><Button variant="link" disabled={busy} onClick={() => void loadInstallations(installationPage)}>Instalasi berikutnya</Button></div> : null}
+            {selectedInstallation && busy && repositories.length === 0 && !error ? <SkeletonRows rows={5} className={css.skeletonRows} label="Memuat repository instalasi…" /> : null}
+            {selectedInstallation && !busy && !error && repositories.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgRepo" }}>Tidak ada repository yang dapat dibaca pada instalasi ini.</EmptyState> : null}
+            <Field label="Cari pada repository App yang sudah dimuat" icon={<MaskIcon group="repository" name="imgSearch" size={18} />} value={query} onChange={event => setQuery(event.target.value)} placeholder="Cari repository…" type="search" />
+            {repositories.length > 0 && filteredApp.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgSearch" }} action={<Button variant="ghost" onClick={() => setQuery("")}>Reset pencarian</Button>}>Tidak ada hasil pencarian pada halaman yang dimuat.</EmptyState> : null}
+            {repositories.length > 0 ? <ScrollList label="Daftar repository GitHub App" footer={repoPage ? <Button variant="link" disabled={busy} onClick={() => void loadRepositories(selectedInstallation, repoPage)}>Repository berikutnya</Button> : undefined}>
+              {filteredApp.length > 0 ? <ul className={css.list}>{filteredApp.map(repoRow)}</ul> : null}
+            </ScrollList> : null}
+            {repoPage && repositories.length === 0 ? <div className={css.inlineActions}><Button variant="link" disabled={busy} onClick={() => void loadRepositories(selectedInstallation, repoPage)}>Repository berikutnya</Button></div> : null}
+          </section>
+        </Panel>
+
+        <Panel title="Repository publik milik pihak lain">
+          <form onSubmit={resolve} className={css.resolveForm}>
+            <Field label="Nama atau URL GitHub" disabled={busy} required maxLength={300} value={repository} onChange={e => setRepository(e.target.value)} placeholder="owner/repository" hint="Memasukkan URL private tidak menambah izin. Hanya github.com yang diterima." />
+            <Button type="submit" variant="secondary" disabled={busy}>Periksa repository</Button>
+          </form>
+          {resolved ? <ul className={`${css.list} ${css.resolved}`}>{repoRow(resolved)}</ul> : null}
+        </Panel>
+        {!chosen ? <p className={css.caption}>Pemeriksaan akses tidak menjalankan job. Job dibuat setelah target tervalidasi dan tombol Mulai analisis dipilih.</p> : null}
       </div>
-      {busy && !branchLoaded ? <p className="mt-4" role="status">Memuat branch untuk {chosen.fullName}…</p> : null}
-      {branchLoaded && branches.length === 0 ? <p className="mt-4">Repository ini belum memiliki branch. Tambahkan commit di GitHub sebelum memilih target.</p> : null}
-      <form onSubmit={validate} className="mt-4 space-y-4">
-        <label className="block" htmlFor="target-branch">Branch</label><select id="target-branch" disabled={busy || branches.length === 0} value={branch} onChange={e => { setBranch(e.target.value); setCommit(""); setTarget(null); }} className="mt-2 block w-full rounded border border-ink/40 px-3 py-2"><option value="" disabled>Pilih branch</option>{branches.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select>
-        {branchPage ? <button type="button" disabled={busy} onClick={() => void choose(chosen, branchPage)} className="underline">Muat branch berikutnya</button> : null}
-        <label className="block">Commit (opsional)<input disabled={busy} value={commit} maxLength={64} onChange={e => { setCommit(e.target.value); setTarget(null); }} placeholder="Kosongkan untuk commit terbaru branch" className="mt-2 block w-full rounded border border-ink/40 px-3 py-2 font-mono" /></label>
-        <p className="text-sm">Commit harus berada dalam riwayat branch yang dipilih. Branch dan izin diperiksa kembali saat memeriksa target.</p>
-        <button type="submit" disabled={busy || !branch} className={design.primaryButton}>Periksa target</button>
-      </form>
-      {target ? <div role="status" className="mt-5 rounded border border-green-700 p-4"><strong>Target tervalidasi</strong><p className="mt-2 break-all font-mono text-sm">{target.repository.fullName} · {target.branch}<br />{target.commitSha}</p><p className="mt-2 text-sm">Analisis akan disimpan untuk full SHA ini.</p><button type="button" disabled={busy || !scopeVerified} onClick={() => void startAnalysis()} className={`${design.primaryButton} mt-4`}>{busy ? "Mengantrekan analisis…" : "Mulai analisis"}</button></div> : null}
-    </section>}
-    {!chosen ? <>
-    <p className="text-sm text-ink/70">Pemeriksaan akses tidak menjalankan job. Job dibuat setelah target tervalidasi dan tombol Mulai analisis dipilih.</p>
-    </> : null}
-  </div>;
+
+      <section ref={targetSection} className={`${design.panel} ${css.target}`} aria-labelledby={chosen ? "analysis-target-heading" : "target-placeholder-heading"}>
+        {chosen ? <div key={chosen.id} className={css.targetBody}>
+          <p className={css.label}>Target analisis</p>
+          <h2 id="analysis-target-heading" ref={targetHeading} tabIndex={-1} className={css.targetName}>
+            <span className={design.srOnly}>Siapkan analisis: </span>
+            <MaskIcon group="repository" name="imgRepo" size={18} className={css.maskTeal} />
+            <span>{chosen.fullName}</span>
+          </h2>
+          <p className={css.visibility}><Badge tone={chosen.private ? "neutral" : "teal"}>{chosen.private ? "Private" : "Public"}</Badge>{chosen.private ? "Berizin melalui GitHub App" : "Dapat dianalisis"}. Pilih branch dan commit yang akan dianalisis.</p>
+          <div className={design.targetActions}>
+            <Button variant="secondary" disabled={busy} onClick={() => { setChosen(null); setBranches([]); setBranchPage(null); setBranchLoaded(false); setBranch(""); setCommit(""); setTarget(null); setError(""); setTimeout(() => repositoryListHeading.current?.focus(), 0); }}>Pilih repository lain</Button>
+            <Button variant="secondary" disabled={busy} onClick={() => void choose(chosen)}>Muat ulang branch</Button>
+          </div>
+          {busy && !branchLoaded ? <p className={css.status} role="status"><Spinner /> Memuat branch untuk {chosen.fullName}…</p> : null}
+          {branchLoaded && branches.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgBranch" }}>Repository ini belum memiliki branch. Tambahkan commit di GitHub sebelum memilih target.</EmptyState> : null}
+          <form onSubmit={event => { setPending("validate"); void validate(event).finally(() => setPending(null)); }} className={css.form}>
+            <Field id="target-branch" label="Branch" icon={<MaskIcon group="repository" name="imgBranch" size={18} />} trailing={<AssetIcon group="header" name="imgIconChevronDown" />} mono>
+              <select id="target-branch" disabled={busy || branches.length === 0} value={branch} onChange={e => { setBranch(e.target.value); setCommit(""); setTarget(null); }}><option value="" disabled>Pilih branch</option>{branches.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select>
+            </Field>
+            {branchPage ? <button type="button" disabled={busy} onClick={() => void choose(chosen, branchPage)} className={css.textButton}>Muat branch berikutnya</button> : null}
+            <Field id="target-commit" label="Commit" optional mono disabled={busy} value={commit} maxLength={64} onChange={e => { setCommit(e.target.value); setTarget(null); }} placeholder="Kosongkan untuk commit terbaru" hint="Commit harus berada dalam riwayat branch yang dipilih. Branch dan izin diperiksa kembali saat memeriksa target." />
+            <Button type="submit" variant={target ? "secondary" : "primary"} block disabled={busy || !branch} loading={pending === "validate"}>{pending === "validate" ? "Memeriksa target…" : "Periksa target"}</Button>
+          </form>
+          {target ? <>
+            <div role="status" className={css.validated}>
+              <span className={css.validatedTitle}><AssetIcon group="repository" name="imgValidated" /><strong>Target tervalidasi</strong></span>
+              <p className={css.validatedMeta}>{target.repository.fullName} · {target.branch}</p>
+              <CopySha sha={target.commitSha} />
+              <p className={css.validatedNote}>Analisis akan disimpan untuk full SHA ini.</p>
+            </div>
+            <Button size="lg" block disabled={busy || !scopeVerified} loading={pending === "start"} onClick={() => { setPending("start"); void startAnalysis().finally(() => setPending(null)); }}>{pending === "start" || busy ? "Mengantrekan analisis…" : "Mulai analisis"}</Button>
+          </> : null}
+        </div> : <div className={css.placeholder}>
+          <p className={css.label}>Target analisis</p>
+          <h2 id="target-placeholder-heading" className={css.sourceTitle}>Belum ada repository dipilih</h2>
+          <EmptyState icon={{ group: "repository", name: "imgBranch" }}>Pilih repository di daftar untuk menentukan branch dan commit.</EmptyState>
+        </div>}
+      </section>
+    </div>
+  </>;
 }

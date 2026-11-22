@@ -59,7 +59,14 @@ COPY packages/analyzer-php/package.json packages/analyzer-php/package.json
 COPY packages/documents/package.json packages/documents/package.json
 RUN npm ci --omit=dev --workspace @sage/worker --include-workspace-root=false --cache /tmp/npm-cache && rm -rf /tmp/npm-cache /root/.npm
 
+FROM node-base AS latex-engine
+ARG TARGETARCH
+RUN case "$TARGETARCH" in amd64) arch=x86_64 ;; arm64) arch=aarch64 ;; *) exit 1 ;; esac \
+    && node -e 'fetch(process.argv[1]).then(async r => { if (!r.ok) throw new Error(String(r.status)); require("fs").writeFileSync("/tmp/tectonic.tar.gz", Buffer.from(await r.arrayBuffer())); })' "https://github.com/tectonic-typesetting/tectonic/releases/download/tectonic%400.15.0/tectonic-0.15.0-${arch}-unknown-linux-musl.tar.gz" \
+    && tar -xzf /tmp/tectonic.tar.gz -C /usr/local/bin tectonic
+
 FROM node-base AS web
+COPY --from=latex-engine /usr/local/bin/tectonic /usr/local/bin/tectonic
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
 COPY --from=build --chown=node:node /app/apps/web/.next/standalone /app
 COPY --from=build --chown=node:node /app/apps/web/.next/static /app/apps/web/.next/static

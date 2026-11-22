@@ -1,18 +1,28 @@
 "use client";
 
-import Link from "next/link";
 import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
+import { AnalysisPageHead } from "../analysis-navigation/analysis-page-head.tsx";
 import { useEffect, useRef, useState } from "react";
-import { AssetIcon, Badge, DesignFrame, Panel } from "../design-system/ui.tsx";
-import { formatDateTime, statusLabel, statusTone } from "./format.ts";
+import { Button, DesignFrame, EmptyState, PageHead, Panel, PipelineStep, ProgressBar, type PipelineStepStatus } from "../design-system/ui.tsx";
+import { useHeaderAccount } from "../design-system/account-context.tsx";
+import designStyles from "../design-system/ui.module.css";
+import { analysisStatusBadge, formatDateTime } from "./format.ts";
 import { createDetailPoller, elapsedAnalysisSeconds, formatElapsedDuration, shouldPollAnalysisDetail } from "./detail-data.ts";
 import type { AnalysisDetailView } from "../../lib/analyses/presenters.ts";
-import styles from "../design-system/workspace.module.css";
 import progressStyles from "./detail.module.css";
+import { formatStageDuration, stageDurationSeconds } from "./stage-duration.ts";
 
 /** Bentuk payload server (presenters.ts) — di-derive, tidak ditulis manual. */
 export type DetailView = AnalysisDetailView;
 export type StageView = DetailView["stages"][number];
+
+const STEP_STATUS: Record<string, PipelineStepStatus> = { COMPLETED: "done", RUNNING: "active", FAILED: "failed", PENDING: "pending" };
+const STAGE_META: Record<string, string> = { COMPLETED: "Selesai", RUNNING: "Sedang berjalan", FAILED: "Gagal", PENDING: "Menunggu" };
+const timeFormatter = new Intl.DateTimeFormat("id-ID", { timeStyle: "short", timeZone: "Asia/Jakarta" });
+function formatTime(value: string): string {
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "—" : `${timeFormatter.format(date)} WIB`;
+}
 
 function isTerminal(status: string) {
   return !shouldPollAnalysisDetail(status);
@@ -43,6 +53,7 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
   const retryKeyRef = useRef("");
   const retrySequenceRef = useRef(0);
   const reloadStarted = useRef(false);
+  const account = useHeaderAccount();
 
   function reloadForSessionChange() {
     if (reloadStarted.current) return;
@@ -190,78 +201,106 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [analysisId, accountKey]);
 
-  if (reason === "not-found") return <DesignFrame>
-    <div className={styles.breadcrumb}>Workspace <span>/</span> <Link href="/workspace/history">Riwayat</Link></div>
-    <div className={styles.historyMessage} role="alert">
-      <AssetIcon group="history-error" name="imgIcon2" />
-      <div><strong>Analisis tidak ditemukan</strong><p>Record ini bukan milik akun yang masuk, atau sudah dihapus.</p></div>
-      <Link className={styles.secondaryAction} href="/workspace/history">Kembali ke riwayat</Link>
-    </div>
+  const breadcrumb = [{ label: "Workspace", href: "/workspace" }, { label: "Riwayat", href: "/workspace/history" }, { label: "Progres" }];
+  if (reason === "not-found") return <DesignFrame active="history">
+    <PageHead breadcrumb={breadcrumb} title="Analisis tidak tersedia" />
+    <EmptyState tone="error" role="alert" icon={{ group: "repository", name: "imgRepo" }} title="Analisis tidak ditemukan" action={<Button href="/workspace/history" variant="secondary">Kembali ke riwayat</Button>}>Record ini bukan milik akun yang masuk, atau sudah dihapus.</EmptyState>
   </DesignFrame>;
-  if (!detail) return <DesignFrame>
-    <div className={styles.historyMessage} role="status"><AssetIcon group="history-empty" name="imgIcon1" /><div><strong>Memuat detail analisis</strong><p>Tunggu sesaat.</p></div></div>
+  if (!detail) return <DesignFrame active="history">
+    <EmptyState role="status" icon={{ group: "repository", name: "imgRepo" }} title="Memuat detail analisis">Tunggu sesaat.</EmptyState>
   </DesignFrame>;
-  return <DesignFrame>
+
+  const total = detail.stages.length;
+  const completedStages = detail.stages.filter(stage => stage.status === "COMPLETED").length;
+  const runningStage = detail.stages.find(stage => stage.status === "RUNNING");
+  const failedStage = detail.stages.find(stage => stage.status === "FAILED");
+  const active = !isTerminal(detail.status);
+  const badge = analysisStatusBadge(detail.status);
+  const overallLabel = detail.status === "RUNNING" && runningStage ? `Berjalan · tahap ${runningStage.sequence} dari ${total}` : badge.label;
+  const elapsedSeconds = elapsedAnalysisSeconds(detail.timestamps, detail.status, clockNow);
+  const duration = elapsedSeconds === null ? "--:--:--" : formatElapsedDuration(elapsedSeconds);
+
+  return <DesignFrame active="history">
+    <AnalysisPageHead head={{ ...detail.context, status: detail.status }} tab="Progres" badgeLabel={overallLabel} />
     <AnalysisNavigation analysisId={analysisId} active="progress" resultsAvailable={Boolean(detail.results)} />
-    <div className={styles.breadcrumb}>Workspace <span>/</span> <Link href="/workspace/history">Riwayat</Link> <span>/</span> Progres analisis</div>
-    <div className={styles.pageHeading}>
-      <p className={styles.eyebrow}>03 / PROGRES</p>
-      <h1>{detail.context.repositoryFullName}</h1>
-      <p className={styles.muted}>Branch {detail.context.branchName} · commit {detail.context.commitSha}</p>
-    </div>
-    <Panel title="Ringkasan" className={styles.historyPanel}>
-      <div className={styles.historyRow}>
-        <div><strong>Status</strong><small>Diantrekan {formatDateTime(detail.timestamps.queuedAt)}{detail.timestamps.completedAt ? ` · Selesai ${formatDateTime(detail.timestamps.completedAt)}` : ""}</small></div>
-        <Badge tone={statusTone(detail.status) ?? "neutral"}>{statusLabel(detail.status) ?? detail.status}</Badge>
-        <span aria-hidden="true" />
-      </div>
-      {(() => {
-        const elapsedSeconds = elapsedAnalysisSeconds(detail.timestamps, detail.status, clockNow);
-        const active = !isTerminal(detail.status);
-        const duration = elapsedSeconds === null ? "--:--:--" : formatElapsedDuration(elapsedSeconds);
-        return <div className={progressStyles.elapsedCard} data-active={active} role="timer" aria-label={`${active ? "Waktu berjalan" : "Durasi analisis"}: ${duration}`}>
-          <span className={progressStyles.activityMark} aria-hidden="true" />
-          <span className={progressStyles.elapsedCopy}>
-            <small>{active ? "WAKTU BERJALAN" : "DURASI TOTAL"}</small>
-            <strong aria-live="off">{duration}</strong>
+
+    <div className={progressStyles.layout}>
+      <div className={progressStyles.column}>
+        {detail.status === "FAILED" || detail.errorCode ? <div className={progressStyles.banner} data-tone="error" role="alert">
+          <span className={progressStyles.bannerCopy}>
+            <strong>Analisis gagal{failedStage ? ` di tahap ${failedStage.sequence}` : ""}</strong>
+            <p>{detail.errorCode ? <><code>{detail.errorCode}</code> — </> : null}{failedStage ? `${failedStage.label} tidak selesai; ` : ""}tahap berikutnya tetap menunggu. Ulangi dari snapshot target yang sama.</p>
           </span>
-          <span className={progressStyles.elapsedHint}>{active ? "Dihitung sejak analisis dikirim" : "Waktu berhenti mengikuti status akhir"}</span>
-        </div>;
-      })()}
-      {detail.errorCode ? <div className={styles.historyMessage} role="alert">
-        <AssetIcon group="history-error" name="imgIcon2" />
-        <div><strong>Analisis gagal</strong><p><code>{detail.errorCode}</code> — tahap berikutnya tetap menunggu. Ulangi dari snapshot target yang sama.</p></div>
-      </div> : null}
-      {detail.status === "FAILED" ? <div className={styles.historyRetry}>
-        <button className={styles.secondaryAction} type="button" disabled={retryBusy} onClick={() => void retryFailedAnalysis()}>
-          {retryBusy ? "Mengantrekan…" : "Ulangi analisis"}
-        </button>
-        {retryError ? <p className={styles.historyRetryError} role="alert">{retryError}</p> : null}
-      </div> : null}
-      {detail.limitations.length > 0 ? <div className={styles.historyMessage} role="note">
-        <AssetIcon group="progress-complete" name="imgIcon2" />
-        <div><strong>Batasan</strong>{detail.limitations.map((limitation, index) => (
-          <p key={index}><code>{limitation.stageKey}</code> {limitation.code}: {limitation.safeExplanation}</p>
-        ))}</div>
-      </div> : null}
-      {!isTerminal(detail.status) ? <p className={styles.historyFootnote} role="status">Halaman diperbarui otomatis setiap 3 detik sampai analisis selesai.</p> : null}
-      {fetchError ? <p className={styles.historyFootnote} role="status">Pembaruan otomatis gagal sementara; mencoba lagi pada interval berikutnya.</p> : null}
-    </Panel>
-    <Panel title="Sembilan tahap" className={styles.historyPanel}>
-      <ol>
-        {detail.stages.map(stage => (
-          <li key={stage.key} className={styles.historyRow}>
-            <div><strong>{stage.sequence}. {stage.label}</strong><small>{stage.startedAt ? `Mulai ${formatDateTime(stage.startedAt)}` : ""}{stage.finishedAt ? ` · Selesai ${formatDateTime(stage.finishedAt)}` : ""}{stage.errorCode ? " · " + stage.errorCode : ""}</small></div>
-            <Badge tone={statusTone(stage.status) ?? "neutral"}>{statusLabel(stage.status) ?? stage.status}</Badge>
-            <span aria-hidden="true" />
-          </li>
-        ))}
-      </ol>
-    </Panel>
-    {detail.results ? <Panel title="Hasil" className={styles.historyPanel}>
-      <Link className={styles.primaryAction} href={detail.results.documentUrl}>Buka TOGAF ADD</Link>
-      <Link className={styles.secondaryAction} href={detail.results.graphUrl}>Buka Code Knowledge</Link>
-      <p className={styles.historyFootnote}>TOGAF ADD adalah hasil arsitektur utama. Code Knowledge menjadi visual pendamping dari snapshot source yang sama.</p>
-    </Panel> : null}
+        </div> : null}
+        {detail.results ? <div className={progressStyles.banner} data-tone={detail.status === "COMPLETED_WITH_LIMITATIONS" ? "warning" : "success"} role="status">
+          <span className={progressStyles.bannerCopy}>
+            <strong>{detail.status === "COMPLETED_WITH_LIMITATIONS" ? "Analisis selesai dengan batasan" : "Analisis selesai"}</strong>
+            <p>Buka Code Knowledge untuk melihat hasil analisis.</p>
+          </span>
+          <Button href={detail.results.graphUrl} arrow>Buka Code Knowledge</Button>
+        </div> : null}
+        {detail.limitations.length > 0 ? <div className={progressStyles.banner} data-tone="warning" role="note">
+          <span className={progressStyles.bannerCopy}>
+            <strong>Batasan</strong>
+            <ul className={progressStyles.limitations}>{detail.limitations.map((limitation, index) => (
+              <li key={index}>{limitation.safeExplanation}</li>
+            ))}</ul>
+          </span>
+        </div> : null}
+
+        <Panel>
+          <div className={progressStyles.cardHead}>
+            <h2 className={progressStyles.cardTitle}>Tahap analisis</h2>
+            <span className={progressStyles.count}>{completedStages} / {total} selesai</span>
+          </div>
+          <ol className={progressStyles.steps} aria-label="Tahap analisis">
+            {detail.stages.map(stage => {
+              const status = STEP_STATUS[stage.status] ?? "pending";
+              const meta = [STAGE_META[stage.status] ?? stage.status, stage.startedAt ? `mulai ${formatTime(stage.startedAt)}` : null, stage.errorCode].filter(Boolean).join(" · ");
+              return <PipelineStep
+                key={stage.key}
+                status={status}
+                title={`${stage.sequence}. ${stage.label}`}
+                meta={meta}
+                aside={<><span className={designStyles.srOnly}>Durasi </span>{formatStageDuration(stageDurationSeconds(stage, clockNow))}</>}
+              />;
+            })}
+          </ol>
+        </Panel>
+      </div>
+
+      <aside className={progressStyles.side} aria-label="Ringkasan analisis">
+        <Panel>
+          <div className={progressStyles.summary}>
+            <p className={progressStyles.label}>Ringkasan</p>
+            <div className={progressStyles.elapsedCard} data-active={active} role="timer" aria-label={`${active ? "Waktu berjalan" : "Durasi analisis"}: ${duration}`}>
+              <span className={progressStyles.activityMark} aria-hidden="true" />
+              <span className={progressStyles.elapsedCopy}>
+                <small>{active ? "WAKTU BERJALAN" : "DURASI TOTAL"}</small>
+                <strong aria-live="off">{duration}</strong>
+              </span>
+              <span className={progressStyles.elapsedHint}>{active ? "Dihitung sejak analisis dikirim" : "Waktu berhenti mengikuti status akhir"}</span>
+            </div>
+            <div>
+              <div className={progressStyles.progressHead}><span>Progres tahap</span><span>{completedStages}/{total}</span></div>
+              <ProgressBar value={completedStages} max={total} label={`${completedStages} dari ${total} tahap selesai`} indeterminate={detail.status === "RUNNING"} />
+            </div>
+            <dl className={progressStyles.facts}>
+              <dt>Diantrekan</dt><dd>{formatDateTime(detail.timestamps.queuedAt)}</dd>
+              <dt>Dimulai</dt><dd>{formatDateTime(detail.timestamps.startedAt)}</dd>
+              <dt>Selesai</dt><dd>{formatDateTime(detail.timestamps.completedAt)}</dd>
+              {account ? <><dt>Akun</dt><dd>@{account.login}</dd></> : null}
+            </dl>
+            {detail.status === "FAILED" ? <div className={progressStyles.actions}>
+              <Button block loading={retryBusy} onClick={() => void retryFailedAnalysis()}>{retryBusy ? "Mengantrekan…" : "Ulangi analisis"}</Button>
+              {retryError ? <p className={progressStyles.retryError} role="alert">{retryError}</p> : null}
+              <Button href="/workspace/repositories" variant="link">Kembali ke repository</Button>
+            </div> : null}
+            {active ? <p className={progressStyles.note} role="status">Halaman diperbarui otomatis setiap 3 detik sampai analisis selesai.</p> : null}
+            {fetchError ? <p className={progressStyles.note} role="status">Pembaruan otomatis gagal sementara; mencoba lagi pada interval berikutnya.</p> : null}
+          </div>
+        </Panel>
+      </aside>
+    </div>
   </DesignFrame>;
 }

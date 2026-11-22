@@ -1,0 +1,9 @@
+/* Page head bersama tab analisis (Figma frame 03/04/05). */
+.title { font-family: var(--font-mono); font-size: 26px; letter-spacing: -0.02em; overflow-wrap: anywhere; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 4px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; padding: 5px 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 500; }
+.chip code { color: var(--color-muted); font-size: var(--text-mono-sm); }
+.chipSha > div { flex: 1 1 auto; gap: 8px; }
+.chip button { padding: 2px 8px; font-size: 11px; }
+.status { display: inline-flex; }
+@media (max-width: 480px) { .title { font-size: 22px; } }

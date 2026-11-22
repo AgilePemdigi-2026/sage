@@ -69,3 +69,21 @@ export function safeAuthErrorMessage(value: string | string[] | undefined): stri
     default: return null;
   }
 }
+
+/** Halaman terlindungi yang boleh disebut di /login. Nilai di luar daftar ini tidak pernah dirender. */
+export const LOGIN_FROM_PAGES = ["workspace", "repository", "history", "analysis"] as const;
+export type LoginFromPage = typeof LOGIN_FROM_PAGES[number];
+
+const LOGIN_FROM_LABELS: Record<LoginFromPage, string> = {
+  workspace: "Workspace",
+  repository: "Repository",
+  history: "Riwayat",
+  analysis: "hasil analisis",
+};
+
+/** Pesan info untuk ?reason=auth-required. Parameter `from` hanya label, tidak pernah dipakai sebagai URL tujuan. */
+export function authRequiredMessage(reason: string | string[] | undefined, from: string | string[] | undefined): string | null {
+  if (reason !== "auth-required") return null;
+  const page = typeof from === "string" && (LOGIN_FROM_PAGES as readonly string[]).includes(from) ? from as LoginFromPage : null;
+  return page ? `Masuk dulu untuk membuka ${LOGIN_FROM_LABELS[page]}.` : "Masuk dulu untuk melanjutkan.";
+}

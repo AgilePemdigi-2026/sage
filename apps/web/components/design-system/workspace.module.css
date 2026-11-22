@@ -14,7 +14,7 @@
 .progressGrid { display: grid; gap: 20px; align-items: start; }
 .contextList { display: grid; grid-template-columns: minmax(120px, .7fr) minmax(0, 1.3fr); gap: 13px 18px; align-items: center; }
 .contextList > span { color: #61738a; font-size: 12px; line-height: 18px; }
-.contextList > strong, .contextList > code { min-width: 0; color: #263d58; font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.contextList > strong, .contextList > code { min-width: 0; color: #263d58; font-family: var(--font-mono); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
 .contextList :global(code) { overflow-wrap: anywhere; }
 .statusHeading { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin: 0 0 15px; }
 .statusHeading > span { color: #63738a; font-size: 11px; }
@@ -34,7 +34,7 @@
 .pipelineStage[data-stage-key="COMMON_CODE_MODEL"] { background: #eef6fc; }
 .stageCopy { display: grid; gap: 2px; min-width: 0; }
 .stageCopy strong { color: #263d58; font-size: 12px; line-height: 17px; font-weight: 500; overflow-wrap: anywhere; }
-.stageCopy code { color: #728198; font-family: "JetBrains Mono", monospace; font-size: 9px; line-height: 13px; overflow-wrap: anywhere; }
+.stageCopy code { color: #728198; font-family: var(--font-mono); font-size: 9px; line-height: 13px; overflow-wrap: anywhere; }
 .pipelineStage > .badge { min-width: 60px; justify-content: center; padding: 2px 6px; font-size: 9px; }
 .pipelineDisclaimer { margin-top: 11px !important; color: #63738a; font-size: 10px; line-height: 15px; }
 .snapshotPanel .contextList { align-items: start; }
@@ -49,10 +49,10 @@
 .historyColumns { display: none; }
 .historyRow { display: grid; gap: 12px; align-items: center; margin-top: 16px; padding: 14px 12px; border: 1px solid #dce5ec; border-radius: 6px; background: #fff; }
 .historyRow > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; align-items: center; min-width: 0; }
-.historyRow > div > strong { min-width: 0; color: #243b57; font-family: "JetBrains Mono", monospace; font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
-.shaShort { color: #52637b; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+.historyRow > div > strong { min-width: 0; color: #243b57; font-family: var(--font-mono); font-size: 12px; font-weight: 500; overflow-wrap: anywhere; }
+.shaShort { color: #52637b; font-family: var(--font-mono); font-size: 11px; }
 .historyRow small { grid-column: 1 / -1; color: #63738a; font-size: 11px; line-height: 16px; }
-.historyRow code { color: #314968; font-family: "JetBrains Mono", monospace; font-size: 12px; }
+.historyRow code { color: #314968; font-family: var(--font-mono); font-size: 12px; }
 .historyLanguages { color: #314968; font-size: 12px; overflow-wrap: anywhere; }
 .historyRow a { display: inline-flex; align-items: center; width: fit-content; min-height: 32px; color: #075f55; font-size: 12px; font-weight: 600; }
 .historyMessage { display: flex; align-items: flex-start; gap: 11px; margin-top: 16px; padding: 14px 12px; border: 1px solid #dce5ec; border-radius: 6px; background: #f8fafb; color: #334a66; font-size: 12px; }
@@ -105,7 +105,7 @@
 .nodeOption small { color: #63738a; font-size: 10px; line-height: 14px; overflow-wrap: anywhere; }
 .inspector { min-width: 0; }
 .inspector > section { padding: 16px; }
-.inspectorName { margin: 0 0 5px !important; font-family: "JetBrains Mono", monospace; font-size: 13px !important; line-height: 20px !important; overflow-wrap: anywhere; }
+.inspectorName { margin: 0 0 5px !important; font-family: var(--font-mono); font-size: 13px !important; line-height: 20px !important; overflow-wrap: anywhere; }
 .nodeMeta { margin: 0 0 14px !important; color: #63738a; font-size: 11px; line-height: 17px; }
 .detailGrid { display: grid; grid-template-columns: minmax(80px, .65fr) minmax(0, 1.35fr); gap: 8px 10px; margin: 0 0 10px; font-size: 11px; }
 .detailGrid dt { color: #63738a; }
@@ -126,8 +126,8 @@
 .dialogHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding-bottom: 14px; border-bottom: 1px solid #e1e8ee; }
 .dialogHeader h2 { font-size: 18px !important; line-height: 25px !important; overflow-wrap: anywhere; }
 .closeButton { min-height: 34px; padding: 6px 9px; border: 1px solid #c8d3df; border-radius: 5px; color: #344b68; background: #fff; font-size: 11px; cursor: pointer; }
-.sourcePath { margin: 14px 0 10px !important; color: #63738a; font-family: "JetBrains Mono", monospace; font-size: 11px; line-height: 16px; overflow-wrap: anywhere; }
-.sourceCode { min-height: 80px; overflow: auto; margin: 0; padding: 10px 0; border: 1px solid #e1e8ee; border-radius: 6px; color: #203854; background: #f8fafc; font-family: "JetBrains Mono", monospace; font-size: 12px; line-height: 22px; tab-size: 2; }
+.sourcePath { margin: 14px 0 10px !important; color: #63738a; font-family: var(--font-mono); font-size: 11px; line-height: 16px; overflow-wrap: anywhere; }
+.sourceCode { min-height: 80px; overflow: auto; margin: 0; padding: 10px 0; border: 1px solid #e1e8ee; border-radius: 6px; color: #203854; background: #f8fafc; font-family: var(--font-mono); font-size: 12px; line-height: 22px; tab-size: 2; }
 .sourceCode > span { display: block; min-width: max-content; padding: 0 12px; white-space: pre; }
 .sourceCode i { display: inline-block; width: 40px; margin-right: 12px; color: #8391a3; font-style: normal; text-align: right; user-select: none; }
 .highlightLine { background: #e5f5ef; }

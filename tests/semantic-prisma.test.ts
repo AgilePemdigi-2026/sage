@@ -129,7 +129,7 @@ test("pinned SAGE route and Prisma source flow through analysis into the ADD bas
   assert.ok(analyzed.ccm);
   assert.equal(add.snapshot.repository, metadata.repository);
   assert.equal(add.snapshot.commitSha, expectedCommit);
-  assert.equal(add.generation.extractorVersion, "0.6.6");
+  assert.equal(add.generation.extractorVersion, semantic.extractorVersion);
   assert.equal(semantic.sourceCkgHash, add.sourceCkgHash);
   assert.equal(add.catalogs.dataEntities.length, 17, "all source-declared Prisma models appear in the ADD data catalog");
   assert.ok(add.relationships.some(edge => edge.type === "AssociationRelationship"), "declared model references reach the Data Structure relationships");

@@ -178,6 +178,15 @@ function buildUmlDiagram(allNodes: CcmNode[], allEdges: CcmEdge[]): DiagramProje
   const unresolved = nodes.filter(node => node.kind === "UnresolvedReference");
   const unresolvedIds = new Set(unresolved.map(node => node.id));
   const membersByParent = new Map<string, CcmNode[]>();
+  const containmentByParent = new Map<string, Map<string, string[]>>();
+  for (const edge of allEdges) {
+    if (edge.kind !== "CONTAINS") continue;
+    const children = containmentByParent.get(edge.sourceId) ?? new Map<string, string[]>();
+    const ids = children.get(edge.targetId) ?? [];
+    ids.push(edge.id);
+    children.set(edge.targetId, ids);
+    containmentByParent.set(edge.sourceId, children);
+  }
   for (const member of members) {
     const parentId = member.parentId!;
     const items = membersByParent.get(parentId) ?? [];
@@ -209,9 +218,7 @@ function buildUmlDiagram(allNodes: CcmNode[], allEdges: CcmEdge[]): DiagramProje
           : mermaidText(member.signature, true)
         : mermaidText(member.signature ?? member.name);
       mermaid.push(`    ${category} ${memberText}`);
-      const parentContainmentEdgeIds = allEdges
-        .filter(edge => edge.kind === "CONTAINS" && edge.sourceId === classifier.id && edge.targetId === member.id)
-        .map(edge => edge.id);
+      const parentContainmentEdgeIds = containmentByParent.get(classifier.id)?.get(member.id) ?? [];
       nodeMappings.push({ nodeId: member.id, mermaidId: null, mermaidLine: mermaid.length, parentMermaidId: alias,
         parentContainmentEdgeIds, evidence: member.location });
     }

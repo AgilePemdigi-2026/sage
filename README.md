@@ -4,7 +4,7 @@
 
 <p align="center"><strong>Source-code Architecture Graph Extraction</strong><br />Analisis repository menjadi TOGAF Phase C baseline yang bisa ditelusuri kembali ke source.</p>
 
-<p align="center"><a href="https://sage.caiis.ai.id/">Buka SAGE</a> · <a href="docs/guides/USAGE.md">Panduan penggunaan</a> · <a href="docs/README.md">Dokumentasi</a> · <a href="CONTRIBUTING.md">Kontribusi</a></p>
+<p align="center"><a href="https://sage.caiis.ai.id/">Buka SAGE</a> · <a href="docs/guides/USAGE.md">Panduan penggunaan</a> · <a href="docs/PROJECT_OVERVIEW.md">Project overview untuk AI agent</a> · <a href="docs/README.md">Dokumentasi</a> · <a href="CONTRIBUTING.md">Kontribusi</a></p>
 
 ## Fitur dan dukungan
 

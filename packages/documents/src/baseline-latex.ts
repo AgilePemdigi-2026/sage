@@ -1,7 +1,7 @@
 import type { EvidenceSpan } from "@sage/contracts";
 import { applyAddReviewOverlay, type AddReviewOverlay } from "./add-overlay.ts";
 import type { AddBaselineModel, AddElement, AddRelationship } from "./baseline-add.ts";
-import { addExportGeneratedDate, addExportModelHash, PHASE_C_ADD, type AddExportMetadata } from "./phase-c-add.ts";
+import { logicalSchemaRows, baselineCatalogMappings, addAnalyzerCoverageNotes, addExportGeneratedDate, addExportModelHash, includedAddSections, PHASE_C_ADD, sourceBackedApplicationPortfolio, type AddExportMetadata } from "./phase-c-add.ts";
 import { addViewNarratives, type AddViewKind } from "./baseline-narratives.ts";
 import { coreRelationshipLabel, projectCoreBaselineView, type BaselineViewName, type CoreBaselineView } from "./baseline-core-views.ts";
 
@@ -34,14 +34,6 @@ function breakableTex(value: string): string {
 
 function breakableHash(value: string): string {
   return `\\texttt{\\seqsplit{${tex(value)}}}`;
-}
-
-function reviewLabel(review: AddElement["review"]): string {
-  return review === "unreviewed" ? "Pending" : review === "confirmed" ? "Confirmed" : "Rejected";
-}
-
-function crudMark(value: "yes" | "no" | "unknown"): string {
-  return value === "yes" ? "Y" : value === "no" ? "N" : "?";
 }
 
 function texUrl(value: string): string {
@@ -229,7 +221,7 @@ function conciseRelationshipRows(view: CoreBaselineView, elements: ReadonlyMap<s
     const label = coreRelationshipLabel(edge);
     return [
       breakableTex(elements.get(edge.sourceId)?.name ?? edge.sourceId),
-      `\\textbf{${breakableTex(edge.type.replace(/Relationship$/u, ""))}}${label ? `\\newline ${breakableTex(label)}` : ""}\\newline {\\scriptsize ${edge.confidence === "proven" ? "Proven" : "Indicated"} · ${reviewLabel(edge.review)}}`,
+      `\\textbf{${breakableTex(edge.type.replace(/Relationship$/u, ""))}}${label ? `\\newline ${breakableTex(label)}` : ""}\\newline {\\scriptsize ${edge.confidence === "proven" ? "Proven" : "Indicated"}}`,
       breakableTex(elements.get(edge.targetId)?.name ?? edge.targetId), evidence(edge.evidence, makeUrl),
     ];
   });
@@ -243,28 +235,33 @@ function coreViewNote(): string {
 export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverlay, makeEvidenceUrl: LatexEvidenceUrlBuilder, metadata?: AddExportMetadata): string {
   model = applyAddReviewOverlay(model, overlay);
   const modelHash = addExportModelHash(metadata);
+  const included = includedAddSections(model);
+  const section = (id: string, title: string) => `\\section{${tex(title)}}\\label{${id}}`;
   const elements = new Map(model.elements.map(element => [element.id, element]));
+  const mapping = baselineCatalogMappings(model);
   const dataView = projectCoreBaselineView(model, "dataStructure");
   const applicationView = projectCoreBaselineView(model, "applicationCooperation");
   const entities = model.catalogs.dataEntities.flatMap(row => {
     const element = elements.get(row.elementId);
-    return element ? [[breakableTex(element.name), breakableTex(element.featureGroup ?? "Unassigned"), breakableTex(row.owner ?? "Unknown"), "Not established", breakableTex(row.description ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl)]] : [];
+    return element ? [[breakableTex(element.name), breakableTex(element.featureGroup ?? ""), breakableTex(mapping("dataAccess", element.id)), breakableTex(row.description ?? ""), evidence(element.evidence, makeEvidenceUrl)]] : [];
   });
-  const crud = model.matrices.applicationData.map(row => [
-    breakableTex(elements.get(row.applicationId)?.name ?? row.applicationId), breakableTex(elements.get(row.dataId)?.name ?? row.dataId),
-    crudMark(row.create), crudMark(row.read), crudMark(row.update), crudMark(row.delete), evidence(row.evidence, makeEvidenceUrl),
-  ]);
-  const portfolio = model.catalogs.applicationPortfolio.flatMap(row => {
+  const crud = model.matrices.applicationData.map(row => ({
+    application: breakableTex(elements.get(row.applicationId)?.name ?? row.applicationId),
+    data: breakableTex(elements.get(row.dataId)?.name ?? row.dataId),
+    operations: [row.create === "yes" ? "Create" : "", row.read === "yes" ? "Read" : "", row.update === "yes" ? "Update" : "", row.delete === "yes" ? "Delete" : ""].filter(Boolean).join(", "),
+    evidence: evidence(row.evidence, makeEvidenceUrl),
+  })).filter(row => row.operations).map(row => [row.application, row.data, breakableTex(row.operations), row.evidence]);
+  const portfolio = sourceBackedApplicationPortfolio(model).flatMap(row => {
     const element = elements.get(row.elementId);
-    return element ? [[breakableTex(element.name), "Baseline", breakableTex(row.description ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl)]] : [];
+    return element ? [[breakableTex(element.name), "Baseline", breakableTex(row.description ?? ""), evidence(element.evidence, makeEvidenceUrl)]] : [];
   });
   const functions = model.elements.filter(element => element.type === "ApplicationFunction" || element.type === "ApplicationService").map(element => [
-    element.type === "ApplicationFunction" ? "Function" : "Service", breakableTex(element.name), breakableTex(element.featureGroup ?? "Unassigned"),
-    breakableTex(element.description ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl),
+    breakableTex(mapping("application", element.id)), breakableTex(element.featureGroup ?? ""), breakableTex(element.name),
+    breakableTex(element.description ?? ""), evidence(element.evidence, makeEvidenceUrl),
   ]);
   const interfaces = model.catalogs.interfaces.flatMap(row => {
     const element = elements.get(row.elementId);
-    return element ? [[breakableTex(element.name), breakableTex(row.protocol ?? "Not identified"), breakableTex(row.contract ?? ""), reviewLabel(element.review), evidence(element.evidence, makeEvidenceUrl)]] : [];
+    return element ? [[breakableTex(element.name), breakableTex(row.protocol ?? ""), breakableTex(row.contract ?? ""), breakableTex(mapping("provider", element.id)), breakableTex(mapping("consumer", element.id)), evidence(element.evidence, makeEvidenceUrl)]] : [];
   });
   const interactions = model.matrices.applicationInteractions.map(row => [
     breakableTex(elements.get(row.sourceApplicationId)?.name ?? row.sourceApplicationId), breakableTex(elements.get(row.targetApplicationId)?.name ?? row.targetApplicationId),
@@ -272,8 +269,6 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
   ]);
   const outline = PHASE_C_ADD;
   const generatedDate = addExportGeneratedDate(metadata);
-  const dataViewNarratives = addViewNarratives(model, "dataStructure");
-  const applicationViewNarratives = addViewNarratives(model, "applicationCooperation");
   const diagramInterpretation = (view: AddViewKind, projection: CoreBaselineView, narrative: string) => {
     const count = diagramPageCount(projection);
     if (!count) return `\\noindent ${tex(narrative)}`;
@@ -281,7 +276,67 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
     const figureRange = count > 1 ? `Gambar~${first} sampai Gambar~\\ref{fig:${view}-${count}}` : `Gambar~${first}`;
     return `\\noindent ${figureRange} memperlihatkan bahwa ${tex(narrative)}`;
   };
-  const noRows = (text: string, columns: number) => [[`\\multicolumn{${columns}}{l}{\\emph{${tex(text)}}}`]];
+  const dataSections: string[] = [];
+  if (included.has(PHASE_C_ADD.sections.dataBaseline.id)) dataSections.push(
+    section(PHASE_C_ADD.sections.dataBaseline.id, PHASE_C_ADD.sections.dataBaseline.title),
+    `\\noindent ${tex(model.narratives.dataBaseline)}`,
+  );
+  if (included.has(PHASE_C_ADD.sections.businessDataModel.id)) dataSections.push(
+    section(PHASE_C_ADD.sections.businessDataModel.id, PHASE_C_ADD.sections.businessDataModel.title),
+    table(["Data entity", "Group", "Application access", "Description", "Evidence"], entities, ["2.5cm", "2cm", "2.3cm", "3.2cm", "4.5cm"]),
+  );
+  if (included.has(PHASE_C_ADD.sections.logicalSchema.id)) dataSections.push(
+    section(PHASE_C_ADD.sections.logicalSchema.id, PHASE_C_ADD.sections.logicalSchema.title),
+    "Declared Prisma attributes and relation fields. Multiplicity describes the field from its declaring entity. See Visual Paradigm's logical data modeling guide and Prisma's relation documentation.",
+    table(["Entity", "Field", "Kind", "Type / target", "Multiplicity", "Evidence"], logicalSchemaRows(model).map(row =>
+      [row.entity, row.name, row.kind, row.type, row.multiplicity].map(breakableTex).concat(evidence([row.evidence], makeEvidenceUrl))),
+    ["2.3cm", "2.2cm", "1.7cm", "2.6cm", "2.1cm", "2.6cm"]),
+  );
+  if (included.has(PHASE_C_ADD.sections.logicalDataModel.id)) dataSections.push(
+    "\\Needspace{13cm}", section(PHASE_C_ADD.sections.logicalDataModel.id, PHASE_C_ADD.sections.logicalDataModel.title),
+    `\\noindent ${tex(addViewNarratives(model, "dataStructure").introduction)}`,
+    "\\par\\smallskip{\\footnotesize The view shows source-supported data objects and associations.}",
+    "\\setcounter{figure}{0}", `\\noindent{\\footnotesize ${tex(coreViewNote())}}`,
+    diagramPages(dataView, "dataStructure", "Information Structure Viewpoint"),
+    diagramInterpretation("dataStructure", dataView, addViewNarratives(model, "dataStructure").interpretation),
+    "\\medskip\\noindent The compact register lists only the relationships shown in this view.", "\\Needspace{6cm}",
+    table(["Source", "Relationship", "Target", "Evidence"], conciseRelationshipRows(dataView, elements, makeEvidenceUrl), ["2.4cm", "4.7cm", "2.4cm", "3.5cm"]),
+  );
+  if (crud.length) dataSections.push(
+    section(PHASE_C_ADD.sections.dataCrudMatrix.id, PHASE_C_ADD.sections.dataCrudMatrix.title),
+    "\\noindent Only operations supported by source evidence are listed; a missing operation is not represented as a negative fact.",
+    table(["Application component", "Data entity", "Detected operations", "Evidence"], crud, ["3.5cm", "3cm", "3.2cm", "4.8cm"]),
+  );
+  const appSections: string[] = [];
+  if (included.has(PHASE_C_ADD.sections.applicationDesign.id)) appSections.push(
+    "\\Needspace{13cm}", section(PHASE_C_ADD.sections.applicationDesign.id, PHASE_C_ADD.sections.applicationDesign.title),
+    `\\noindent ${tex(model.narratives.applicationBaseline)}`, "\\medskip",
+    `\\noindent ${tex(addViewNarratives(model, "applicationCooperation").introduction)}`,
+    "\\par\\smallskip{\\footnotesize The view shows source-supported application components and relationships.}",
+    "\\setcounter{figure}{0}", `\\noindent{\\footnotesize ${tex(coreViewNote())}}`,
+    diagramPages(applicationView, "applicationCooperation", "Application Cooperation Viewpoint"),
+    diagramInterpretation("applicationCooperation", applicationView, addViewNarratives(model, "applicationCooperation").interpretation),
+    "\\medskip\\noindent The compact register lists only the relationships shown in this view.", "\\Needspace{6cm}",
+    table(["Source", "Relationship", "Target", "Evidence"], conciseRelationshipRows(applicationView, elements, makeEvidenceUrl), ["2.4cm", "4.7cm", "2.4cm", "3.5cm"]),
+  );
+  if (included.has(PHASE_C_ADD.sections.applicationCatalog.id)) appSections.push(
+    section(PHASE_C_ADD.sections.applicationCatalog.id, PHASE_C_ADD.sections.applicationCatalog.title),
+    table(["Application component", "State", "Description", "Evidence"], portfolio, ["3.3cm", "1.7cm", "4.3cm", "4.8cm"]),
+  );
+  if (included.has(PHASE_C_ADD.sections.logicalApplicationComponents.id)) appSections.push(
+    section(PHASE_C_ADD.sections.logicalApplicationComponents.id, PHASE_C_ADD.sections.logicalApplicationComponents.title),
+    table(["Application", "Feature group", "Function / service", "Description", "Evidence"], functions, ["1.8cm", "3.1cm", "2.4cm", "3.1cm", "3.7cm"]),
+  );
+  if (included.has(PHASE_C_ADD.sections.interfaceCatalog.id)) appSections.push(
+    section(PHASE_C_ADD.sections.interfaceCatalog.id, PHASE_C_ADD.sections.interfaceCatalog.title),
+    table(["Interface", "Protocol", "Contract", "Provider", "Consumer", "Evidence"], interfaces, ["2.6cm", "1.4cm", "2.5cm", "2.3cm", "2.3cm", "2.6cm"]),
+  );
+  if (included.has(PHASE_C_ADD.sections.applicationInteractions.id)) appSections.push(
+    section(PHASE_C_ADD.sections.applicationInteractions.id, PHASE_C_ADD.sections.applicationInteractions.title),
+    "\\noindent Communication between separately identified applications is shown only when the source establishes the mechanism.",
+    table(["Source application", "Target application", "Mechanism", "Evidence"], interactions, ["3.2cm", "3.2cm", "3.2cm", "4.5cm"]),
+  );
+  const coverageNotes = addAnalyzerCoverageNotes(model);
   return [
     "\\documentclass[12pt,a4paper,oneside]{report}",
     "\\PassOptionsToPackage{table}{xcolor}",
@@ -295,53 +350,8 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
     "\\pagestyle{fancy}", "\\fancyhf{}", `\\fancyhead[L]{\\small\\shortstack[l]{SAGE\\\\${tex(outline.document.title)}}}`, `\\fancyhead[R]{\\small ${tex(generatedDate)}}`, "\\fancyfoot[C]{\\thepage}", "\\renewcommand{\\headrulewidth}{0.8pt}",
     "\\begin{document}", "\\begin{titlepage}", "\\thispagestyle{empty}", "\\centering", "\\vspace*{3.2cm}", `{\\parbox{0.92\\textwidth}{\\centering\\fontsize{25}{30}\\selectfont\\bfseries ${tex(outline.document.title)}\\par}}`, "\\vspace{1.4cm}", "{\\Large\\bfseries Baseline Data and Application Architecture\\par}", "\\vfill", `{\\large Repository: ${tex(model.snapshot.repository)}\\par}`, `{\\large Source commit: ${breakableHash(model.snapshot.commitSha)}\\par}`, `{\\large Branch: ${tex(model.snapshot.branch ?? "Not recorded")}\\par}`, `{\\large ArchiMate profile: ${tex(model.archimateVersion)}\\par}`, "\\vspace{1cm}", "{\\large Generated from repository evidence\\par}", "\\phantomsection", `\\label{${outline.document.id}}`, "\\end{titlepage}",
     "\\pagenumbering{roman}", "\\tableofcontents", "\\clearpage", "\\pagenumbering{arabic}", "\\setcounter{section}{0}",
-    `\\phantomsection\\section*{${tex(outline.dataArchitecture.title)}}\\addcontentsline{toc}{section}{${tex(outline.dataArchitecture.title)}}\\label{${outline.dataArchitecture.id}}`,
-    `\\section{${tex(outline.sections.dataPrinciples.title)}}\\label{${outline.sections.dataPrinciples.id}}`,
-    "\\noindent\\textbf{Architect input required.} Approved data principles were not supplied and are not inferred from repository source.",
-    `\\section{${tex(outline.sections.dataBaseline.title)}}\\label{${outline.sections.dataBaseline.id}}`,
-    `\\noindent ${tex(model.narratives.dataBaseline)}`, "\\medskip", "\\noindent Only the baseline is included; no target architecture is generated from this repository snapshot.",
-    `\\section{${tex(outline.sections.businessDataModel.title)}}\\label{${outline.sections.businessDataModel.id}}`,
-    "\\noindent Logical data objects found in the analyzed snapshot. Ownership and physical distribution require enterprise confirmation.",
-    "\\subsection*{Data Entity Catalog}",
-    table(["Data entity", "Feature group", "Owner", "Location", "Description", "Review", "Evidence"], entities.length ? entities : noRows("No data entity was identified", 7), ["2.1cm", "1.9cm", "1.5cm", "1.9cm", "2.1cm", "1.3cm", "2.2cm"]),
-    "\\Needspace{13cm}", `\\section{${tex(outline.sections.logicalDataModel.title)}}\\label{${outline.sections.logicalDataModel.id}}`,
-    `\\noindent ${tex(dataViewNarratives.introduction)}`,
-    "\\par\\smallskip{\\footnotesize ArchiMate line styles and end markers identify relationship types. Evidence confidence and review state appear in the register.}",
-    "\\setcounter{figure}{0}",
-    `\\noindent{\\footnotesize ${tex(coreViewNote())}}`,
-    diagramPages(dataView, "dataStructure", "Information Structure Viewpoint"),
-    diagramInterpretation("dataStructure", dataView, dataViewNarratives.interpretation),
-    "\\medskip\\noindent The compact register lists only the relationships shown in this view.",
-    "\\Needspace{6cm}",
-    table(["Source", "Relationship", "Target", "Evidence"], conciseRelationshipRows(dataView, elements, makeEvidenceUrl).length ? conciseRelationshipRows(dataView, elements, makeEvidenceUrl) : noRows("No explicit data-to-data relationship was identified", 4), ["2.4cm", "4.7cm", "2.4cm", "3.5cm"]),
-    `\\section{${tex(outline.sections.dataManagementProcess.title)}}\\label{${outline.sections.dataManagementProcess.id}}`,
-    "\\noindent\\textbf{Not assessed.} Data governance, stewardship, retention, and operational procedures are not established by code declarations alone.",
-    `\\section{${tex(outline.sections.dataFunctionMatrix.title)}}\\label{${outline.sections.dataFunctionMatrix.id}}`,
-    "\\noindent\\textbf{Not assessed.} No approved Phase B business-function catalog or mapping was supplied; this matrix is intentionally omitted.",
-    `\\section{${tex(outline.sections.dataCrudMatrix.title)}}\\label{${outline.sections.dataCrudMatrix.id}}`,
-    "\\noindent This source-based matrix uses application components. An application component is not assumed to be a business function. C = Create, R = Read, U = Update, D = Delete; Y = confirmed, N = explicitly absent, ? = unknown.",
-    table(["Application component", "Data entity", "C", "R", "U", "D", "Evidence"], crud.length ? crud : noRows("No confirmed application-data operation", 7), ["3.1cm", "2.6cm", "0.55cm", "0.55cm", "0.55cm", "0.55cm", "5.1cm"]),
-    `\\phantomsection\\section*{${tex(outline.applicationArchitecture.title)}}\\addcontentsline{toc}{section}{${tex(outline.applicationArchitecture.title)}}\\label{${outline.applicationArchitecture.id}}`,
-    "\\Needspace{13cm}", `\\section{${tex(outline.sections.applicationDesign.title)}}\\label{${outline.sections.applicationDesign.id}}`, `\\noindent ${tex(model.narratives.applicationBaseline)}`,
-    "\\medskip", `\\noindent ${tex(applicationViewNarratives.introduction)}`,
-    "\\par\\smallskip{\\footnotesize ArchiMate line styles and end markers identify relationship types. Evidence confidence and review state appear in the register.}",
-    "\\setcounter{figure}{0}",
-    `\\noindent{\\footnotesize ${tex(coreViewNote())}}`,
-    diagramPages(applicationView, "applicationCooperation", "Application Cooperation Viewpoint"),
-    diagramInterpretation("applicationCooperation", applicationView, applicationViewNarratives.interpretation),
-    "\\medskip\\noindent The compact register lists only the relationships shown in this view.",
-    "\\Needspace{6cm}",
-    table(["Source", "Relationship", "Target", "Evidence"], conciseRelationshipRows(applicationView, elements, makeEvidenceUrl).length ? conciseRelationshipRows(applicationView, elements, makeEvidenceUrl) : noRows("No application cooperation relationship was extracted", 4), ["2.4cm", "4.7cm", "2.4cm", "3.5cm"]),
-    `\\section{${tex(outline.sections.applicationCatalog.title)}}\\label{${outline.sections.applicationCatalog.id}}`,
-    "\\noindent Current application components are listed from the analyzed repository. No target or planned application portfolio was supplied.",
-    table(["Application component", "State", "Description", "Review", "Evidence"], portfolio.length ? portfolio : noRows("No application component was identified", 5), ["2.8cm", "1.4cm", "3.2cm", "1.4cm", "4.1cm"]),
-    `\\section{${tex(outline.sections.logicalApplicationComponents.title)}}\\label{${outline.sections.logicalApplicationComponents.id}}`,
-    table(["Type", "Logical component", "Feature group", "Description", "Review", "Evidence"], functions.length ? functions : noRows("No logical application component was identified", 6), ["2.2cm", "2.2cm", "2.0cm", "2.2cm", "1.4cm", "3.1cm"]),
-    `\\section{${tex(outline.sections.interfaceCatalog.title)}}\\label{${outline.sections.interfaceCatalog.id}}`,
-    table(["Interface", "Protocol", "Contract", "Review", "Evidence"], interfaces.length ? interfaces : noRows("No interface was identified", 5), ["2.4cm", "1.7cm", "3.8cm", "1.5cm", "3.7cm"]),
-    `\\section{${tex(outline.sections.applicationInteractions.title)}}\\label{${outline.sections.applicationInteractions.id}}`,
-    "\\noindent Only communication between separately identified applications is recorded as an application interaction. Internal source calls are not presented as external integrations.",
-    table(["Source application", "Target application", "Mechanism", "Evidence"], interactions.length ? interactions : noRows("No inter-application interaction was confirmed from this repository snapshot", 4), ["2.5cm", "2.5cm", "3.2cm", "5.0cm"]),
+    ...(dataSections.length ? [`\\phantomsection\\section*{${tex(outline.dataArchitecture.title)}}\\addcontentsline{toc}{section}{${tex(outline.dataArchitecture.title)}}\\label{${outline.dataArchitecture.id}}`, ...dataSections] : []),
+    ...(appSections.length ? [`\\phantomsection\\section*{${tex(outline.applicationArchitecture.title)}}\\addcontentsline{toc}{section}{${tex(outline.applicationArchitecture.title)}}\\label{${outline.applicationArchitecture.id}}`, ...appSections] : []),
     "\\phantomsection\\section*{Source and analysis notes}\\addcontentsline{toc}{section}{Source and analysis notes}",
     table(["Item", "Value"], [
       ["Repository", tex(model.snapshot.repository)], ["Branch", tex(model.snapshot.branch ?? "Not recorded")],
@@ -349,10 +359,8 @@ export function createAddLatex(model: AddBaselineModel, overlay: AddReviewOverla
       ["ADD model SHA-256", breakableHash(modelHash)],
       ["Analyzer version", tex(model.generation.extractorVersion)],
       ["Narrative assistance", tex(model.generation.llmOutcome + (model.generation.llmModel ? " · " + model.generation.llmModel : ""))],
-      ["Review overlay", tex(`${overlay.status}, revision ${overlay.revision}`)],
     ], ["3.8cm", "9.7cm"]),
-    "\\noindent\\textbf{Items requiring confirmation}",
-    ...(model.limitations.length ? model.limitations.map(item => `\\par\\noindent\\textbullet\\ ${tex(item)}`) : ["\\par\\noindent No additional analyzer limitation was recorded."]),
+    ...(coverageNotes.length ? ["\\noindent\\textbf{Analyzer coverage}", ...coverageNotes.map(item => `\\par\\noindent\\textbullet\\ ${tex(item)}`)] : []),
     "\\end{document}", "",
   ].join("\n\n");
 }

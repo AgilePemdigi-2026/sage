@@ -1,20 +1,176 @@
 @import "tailwindcss";
 
-@theme {
-  --color-ink: #1f2328;
-  --color-accent: #f78166;
-  --font-sans: "Inter", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
-  --color-canvas: #f6f8fa;
+/* SAGE redesign tokens — sumber: Figma "Redesign kit" (250:23), frame 01 (251:6), 02 (251:138), "00 Motion spec" (254:1578). */
+@theme static {
+  /* Font */
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-sans);
+
+  /* Brand */
+  --color-teal-*: initial;
+  --color-teal-50: #e6faf6;
+  --color-teal-100: #c9f6f0;
+  --color-teal-500: #2ac6ae;
+  --color-teal-600: #22b19b; /* hover tombol primer: teal-500 sedikit lebih gelap (motion spec) */
+  --color-teal-700: #0b7a6c;
+  --color-ink: #061e42;
+  --color-ink-hover: #0d2a55;
+  --color-error-hover: #912018; /* hover tombol hapus permanen */ /* hover tombol GitHub (ink sedikit lebih terang) */
+
+  /* Surface & teks */
+  --color-canvas: #f2f7f8;
   --color-surface: #ffffff;
-  --color-border: #d1d9e0;
-  --color-muted: #59636e;
-  --radius-panel: 8px;
-  --type-body-size: 14px;
-  --type-body-line-height: 22px;
-  --type-h1-size: 28px;
-  --type-h1-line-height: 36px;
+  --color-subtle-bg: #eef3f7;
+  --color-border: #dde5ec;
+  --color-border-soft: #edf2f7;
+  --color-muted: #4a5b73;
+  --color-subtle: #66788f;
+
+  /* Status (teks / isi) */
+  --color-success: #1b6b3a;
+  --color-success-fill: #e7f6ec;
+  --color-warning: #8a5a00;
+  --color-warning-fill: #fff4db;
+  --color-info: #1d5fa8;
+  --color-info-fill: #e8f1fb;
+  --color-error: #b42318;
+  --color-error-fill: #fdecea;
+
+  /* Radius */
+  --radius-control: 12px;
+  --radius-card: 20px;
+  --radius-pill: 999px;
+
+  /* Shadow */
+  --shadow-soft: 0 2px 6px rgb(15 23 42 / 4%);
+  --shadow-header: 0 2px 10px rgb(15 23 42 / 5%);
+  --shadow-teal: 0 4px 12px rgb(42 198 174 / 30%);
+  --shadow-pop: 0 12px 32px rgb(6 30 66 / 10%); /* rd/shadow-pop */
+
+  /* Tipografi (rd/*) */
+  --text-display: 46px;
+  --text-display--line-height: 1.08;
+  --text-display--letter-spacing: -0.045em;
+  --text-display--font-weight: 800;
+  --text-label: 11px;
+  --text-label--line-height: 1.4;
+  --text-label--letter-spacing: 0.08em;
+  --text-label--font-weight: 700;
+  --text-h2: 22px;
+  --text-h2--line-height: 1.3;
+  --text-h2--letter-spacing: -0.02em;
+  --text-h2--font-weight: 700;
+  --text-h1: 30px;
+  --text-h1--line-height: 1.25;
+  --text-h1--letter-spacing: -0.035em;
+  --text-h1--font-weight: 800;
+  --text-h3: 17px;
+  --text-h3--line-height: 1.4;
+  --text-h3--letter-spacing: -0.01em;
+  --text-h3--font-weight: 700;
+  --text-body: 15px;
+  --text-body--line-height: 1.7;
+  --text-body-sm: 14px;
+  --text-body-sm--line-height: 1.6;
+  --text-body-strong: 14px;
+  --text-body-strong--line-height: 1.6;
+  --text-body-strong--font-weight: 600;
+  --text-button: 14px;
+  --text-button--line-height: 1.4;
+  --text-button--font-weight: 600;
+  --text-caption: 13px;
+  --text-caption--line-height: 1.5;
+  --text-caption--font-weight: 500;
+  --text-mono: 13px;
+  --text-mono--line-height: 1.55;
+  --text-mono-sm: 12px;
+  --text-mono-sm--line-height: 1.4;
+  --text-mono-sm--font-weight: 500;
+
+  /* Motion */
+  --ease-out-soft: cubic-bezier(.2, .8, .2, 1);
+  --duration-fast: 150ms;
+  --duration-base: 200ms;
+  --duration-slow: 300ms;
 }
 
-body { margin: 0; background: #f6f8fa; color: #1f2328; font-family: "Inter", sans-serif; }
-::selection { background: #f78166; color: #1f2328; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--color-teal-100); color: var(--color-ink); }
+
+/* Hover yang bergerak (CLAUDE.md "Keputusan navigasi & landing"): 200 ms, dimatikan saat reduced-motion. */
+/* Tanda baca di heading ExtraBold (letter-spacing negatif): glyph titik/koma Plus Jakarta Sans punya side-bearing kiri
+   lebar sehingga terbaca "Demo ." / "Halo ,". Bungkus tanda baca dengan .punct untuk merapatkannya tanpa mengubah teks. */
+.punct { margin-left: -0.12em; }
+
+/* Sengaja CSS biasa (bukan @utility): CSS module tidak berlayer sehingga mengalahkan layer utilities;
+   selector :hover di sini lebih spesifik daripada class module sehingga border/bayangan hover tetap menang. */
+.hover-lift-card, .hover-lift-button {
+  transition-property: transform, background-color, border-color, color, box-shadow;
+  transition-duration: var(--duration-base);
+  transition-timing-function: var(--ease-out-soft);
+}
+.hover-lift-card:hover, .hover-lift-card:focus-visible { transform: translateY(-4px); border-color: var(--color-teal-500); box-shadow: var(--shadow-pop); }
+.hover-lift-button:hover:not(:disabled) { transform: translateY(-2px); }
+.hover-lift-button:active:not(:disabled) { transform: scale(.98); }
+/* Pasang di link/tombol; panah diberi atribut data-arrow. */
+.hover-arrow [data-arrow] { transition: transform var(--duration-base) var(--ease-out-soft); }
+.hover-arrow:hover [data-arrow], .hover-arrow:focus-visible [data-arrow] { transform: translateX(4px); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-property: opacity !important;
+    scroll-behavior: auto !important;
+  }
+  .hover-lift-card:hover, .hover-lift-card:focus-visible, .hover-lift-button:hover:not(:disabled), .hover-lift-button:active:not(:disabled),
+  .hover-arrow:hover [data-arrow], .hover-arrow:focus-visible [data-arrow] { transform: none; }
+}
+
+/* Cetak: hanya isi dokumen. Elemen chrome (header, page head, daftar isi, panel) diberi data-print-hide. */
+@media print {
+  [data-print-hide] { display: none !important; }
+  body { background: #fff; }
+}
+
+.sage-policies {
+  max-inline-size: 72ch;
+  margin-inline: auto;
+  padding: clamp(1rem, 5vw, 3rem);
+  color: #172b45;
+  line-height: 1.65;
+}
+.sage-policies h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; text-wrap: balance; }
+.sage-policies h2 { font-size: 1.25rem; font-weight: 700; }
+.sage-policies p, .sage-policies nav, .sage-policies section { margin-block-start: 1rem; }
+.sage-policies a { color: #005f55; text-decoration: underline; text-underline-offset: .2em; }
+.sage-policies a:focus-visible { outline: 2px solid #005f55; outline-offset: 4px; }
+
+.sage-policy-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .5rem 1rem;
+  padding: .75rem max(1rem, env(safe-area-inset-right)) max(.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  background: #eef5f5;
+  color: #172b45;
+  border-top: 1px solid #c6d7df;
+  font-size: .875rem;
+}
+.sage-policy-bar a {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 44px;
+  color: #005f55;
+  text-decoration: underline;
+  text-underline-offset: .2em;
+}
+.sage-policy-bar a:focus-visible { outline: 2px solid #005f55; outline-offset: 3px; }

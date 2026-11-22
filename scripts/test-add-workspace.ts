@@ -38,7 +38,7 @@ function fixtureModel() {
   const edges: SemanticEdge[] = [
     { id: "edge:feature-route", source: "feature:catalog", target: "route:books", label: "has entry point", confidence: "proven", reason: "Feature and route are directly linked.", evidence: [fixtureEvidence] },
     { id: "edge:route-handler", source: "route:books", target: "component:list-books", label: "invokes handler", confidence: "proven", reason: "Route points to its handler.", evidence: [fixtureEvidence] },
-    { id: "edge:handler-data", source: "component:list-books", target: "store:book", label: "reads records", confidence: "proven", reason: "Handler reads the data object.", evidence: [fixtureEvidence] },
+    { id: "edge:handler-data", source: "component:list-books", target: "store:book", label: "reads records", confidence: "proven", reason: "Handler reads the data object.", dataOperation: "read", evidence: [fixtureEvidence] },
     { id: "edge:book-author", source: "store:book", target: "store:author", label: "references data object", confidence: "proven", reason: "An explicit schema reference links books to authors.", evidence: [fixtureEvidence] },
     { id: "edge:actor-route", source: "actor:member", target: "route:books", label: "requests", confidence: "proven", reason: "Actor uses the declared route.", evidence: [fixtureEvidence] },
   ];
@@ -47,7 +47,13 @@ function fixtureModel() {
   const feature: SemanticFeature = { id: "feature:catalog", label: "Book catalog", entryNodeIds: ["route:books"], nodeIds: nodes.map(node => node.id), edgeIds: edges.map(edge => edge.id), evidence: [fixtureEvidence] };
   const semantic: SemanticModel = { schemaVersion: "sage-semantic-v2", extractorVersion: "test-fixture", sourceCkgHash, snapshot, nodes, edges, features: [feature], frameworks: ["Next.js App Router"], limitations: [] };
   const model = buildAddBaseline({ ccm, semantic, sourceCkgHash });
-  const applicationId = model.catalogs.applicationPortfolio[0]!.elementId;
+  const applicationId = model.elements.find(element => element.type === "ApplicationComponent")!.id;
+  const legacyRepositoryScope = model.elements.find(element => element.type === "ApplicationComponent" && element.evidence.length === 0)!;
+  // Simulate an older persisted ADD model, which included the metadata-only
+  // repository scope component in its application portfolio catalog.
+  model.catalogs.applicationPortfolio.push({ elementId: legacyRepositoryScope.id, planned: false, description: legacyRepositoryScope.description });
+  const authorId = model.elements.find(element => element.type === "DataObject" && element.name === "Author")!.id;
+  model.matrices.applicationData.push({ applicationId, dataId: authorId, create: "unknown", read: "unknown", update: "unknown", delete: "unknown", evidence: [fixtureEvidence] });
   const apiComponentId = "fixture-application-component-application";
   const applicationRelationshipId = "fixture-application-composition";
   model.elements.push({ id: apiComponentId, type: "ApplicationComponent", name: "Application", description: "Connected application component in the ReqFlow view fixture.", origin: "source", featureGroup: "Book catalog", evidence: [fixtureEvidence], review: "unreviewed" });
@@ -71,6 +77,9 @@ function fixtureModel() {
     model.relationships.push({ id: relationId, type: "CompositionRelationship", sourceId: applicationId, targetId: interfaceId, label: "has interface", origin: "source", confidence: "proven", reason: "Large-fixture interface relationship.", evidence: [fixtureEvidence], review: "unreviewed" });
     model.views.applicationCooperation.relationshipIds.push(relationId);
   }
+  const incompleteInterfaceId = "fixture-interface-incomplete-metadata";
+  model.elements.push({ id: incompleteInterfaceId, type: "ApplicationInterface", name: "GET /api/books/custom", description: null, origin: "source", featureGroup: "Book catalog", evidence: [fixtureEvidence], review: "unreviewed" });
+  model.catalogs.interfaces.push({ elementId: incompleteInterfaceId, protocol: null, contract: null });
   return model;
 }
 
@@ -193,22 +202,39 @@ async function main(): Promise<void> {
       patchCount += 1;
       if (delayPatch) { resolvePatchStarted(); await patchGate; }
       const request = route.request().postDataJSON() as { expectedRevision: number; overlay: Omit<typeof overlay, "revision"> };
-      assert.equal(request.expectedRevision, overlay.revision, "review update uses optimistic revision");
+      assert.equal(request.expectedRevision, overlay.revision, "correction update uses optimistic revision");
       overlay = { ...request.overlay, revision: overlay.revision + 1 };
       await fulfill(route, 201, { data: { id: "revision-fixture-01", accountKey, revision: overlay.revision, overlay, contentHash: "f".repeat(64) } });
     });
     await page.route("https://**/*", route => route.abort());
     await page.goto("/qa-add-workspace");
-    const generateButton = page.getByRole("button", { name: "Generate Phase C baseline" });
+    const generateButton = page.getByRole("button", { name: "Generate ADD baseline" });
     await generateButton.waitFor();
-    const consentCheckbox = page.getByRole("checkbox", { name: /Enable optional LLM narrative assistance/iu });
+    const consentCheckbox = page.getByRole("checkbox", { name: /Bantu narasi dengan LLM kampus/iu });
     assert.equal(await consentCheckbox.isChecked(), false, "LLM assistance is opt-in and disabled by default");
     await generateButton.click();
-    await page.getByRole("heading", { name: "Architecture Definition Document" }).waitFor();
+    await page.getByRole("heading", { name: "Architecture Definition Documents", exact: true }).waitFor();
     await page.getByRole("heading", { name: "Baseline Data Architecture" }).waitFor();
-    await page.getByRole("heading", { name: "Application Design (Baseline)" }).waitFor();
-    assert.equal(generateCount, 1, "the ADD page generates its baseline without requiring a Code Knowledge visit");
+    await page.getByRole("heading", { name: "Baseline Application Architecture" }).waitFor();
+    assert.equal(generateCount, 1, "the Architecture Definition Document screen generates from the analyzed source snapshot");
     assert.equal(consentReceived, false, "unchecked LLM consent is sent as allowLlm:false");
+    assert.equal(await page.locator("#optional-corrections").evaluate(element => (element as HTMLDetailsElement).open), false, "optional corrections are collapsed after generation");
+    assert.equal(await page.getByRole("button", { name: "Download Markdown" }).isVisible(), true, "export is immediately available without opening corrections");
+    const reviewHeaders = await page.locator("table thead th:visible").allTextContents();
+    assert.ok(!reviewHeaders.some(label => label.trim() === "Review"), "artifact tables do not require per-row review status");
+    assert.equal(await page.getByRole("heading", { name: "Application Portfolio Catalog" }).count(), 1, "source-backed application components remain in the portfolio");
+    assert.equal(await page.locator('#application-catalog').innerText().then(text => text.includes("System-level scope represented by the analyzed repository snapshot.")), false, "the synthetic repository scope node does not masquerade as an extracted portfolio item");
+    const functionalTable = page.locator('#logical-application-components table');
+    assert.match((await functionalTable.locator("thead").innerText()).toLocaleLowerCase(), /description/u, "a missing service description does not hide descriptions available for source functions");
+    assert.ok((await functionalTable.innerText()).includes("Handler in test fixture."), "the source-derived function description remains visible in mixed catalogs");
+    const interfaceTable = page.locator('#interface-catalog table');
+    const interfaceHeaders = (await interfaceTable.locator("thead").innerText()).toLocaleLowerCase();
+    assert.ok(interfaceHeaders.includes("protocol"), "a missing protocol on one interface does not hide protocol values on other rows");
+    assert.ok(interfaceHeaders.includes("contract"), "a missing contract on one interface does not hide contracts on other rows");
+    const incompleteInterface = interfaceTable.locator('tr').filter({ hasText: "GET /api/books/custom" });
+    const incompleteCells = await incompleteInterface.locator("td").allTextContents();
+    assert.equal(incompleteCells[0]?.trim(), "", "unknown protocol stays blank");
+    assert.equal(incompleteCells[1]?.trim(), "", "unknown contract stays blank");
     assert.ok(await page.locator('#logical-data-model svg g[data-relationship-id] > path').count() > 0, "Data Structure view renders source relationships");
     assert.ok(await page.locator('#application-design svg g[data-relationship-id] > path').count() > 0, "Application Cooperation view renders source relationships");
     const prominentNames = await page.locator('#application-design svg [class*="diagramNodeName"]').evaluateAll(nodes => nodes.map(node => node.textContent?.replace(/\s+/gu, " ").trim()));
@@ -244,6 +270,7 @@ async function main(): Promise<void> {
     assert.equal(await page.locator('#business-data-model [class*="screenDataCatalog"]').evaluate(node => getComputedStyle(node).display), "none", "the filtered screen catalog is excluded from print");
     assert.equal(await page.locator('#business-data-model [class*="printDataCatalog"]').evaluate(node => getComputedStyle(node).display), "block", "the full data entity catalog is enabled in print");
     assert.equal(await page.locator('#review [class*="reviewRows"]').evaluate(node => getComputedStyle(node).display), "none", "review controls are excluded from print output");
+    assert.equal(await page.locator("#optional-corrections").evaluate(node => getComputedStyle(node).display), "none", "the optional corrections container is excluded when collapsed");
     await page.emulateMedia({ media: "screen" });
     await page.getByRole("searchbox", { name: "Search data" }).fill("");
     assert.ok(await page.getByRole("link", { name: /route.ts:1–1/ }).count() > 0, "source evidence links include line ranges");
@@ -256,50 +283,71 @@ async function main(): Promise<void> {
     assert.equal(await diagramRegion.getAttribute("tabindex"), "0", "diagram can be focused and scrolled with a keyboard");
     await page.screenshot({ path: resolve(reportDirectory, "add-workspace-mobile.png"), fullPage: true });
 
+    await page.locator("#optional-corrections > summary").click();
     const review = page.locator("#review");
     const displayName = review.getByLabel("Display name").first();
     assert.equal(await displayName.inputValue(), "ReqFlow", "the repository name is the prominent application component label");
-    await review.getByRole("button", { name: "Confirm" }).first().click();
-    await review.getByRole("button", { name: "Mark document reviewed" }).click();
+    await displayName.fill("Temporary label");
+    await review.getByRole("button", { name: "Reset" }).first().click();
+    assert.equal(await displayName.inputValue(), "ReqFlow", "reset restores the source-derived label before saving a correction");
+    await displayName.fill("ReqFlow application");
+    await review.getByLabel("Feature group").nth(1).selectOption("Book catalog");
     delayPatch = true;
     await review.getByRole("button", { name: "Save review" }).click();
     await patchStarted;
-    assert.equal(await displayName.isDisabled(), true, "review edits are frozen while optimistic save is pending");
-    assert.equal(await review.getByRole("button", { name: "Reopen as draft" }).isDisabled(), true);
+    assert.equal(await displayName.isDisabled(), true, "correction controls are frozen while optimistic save is pending");
     releasePatch();
     await review.getByRole("status").filter({ hasText: "revision 1" }).waitFor();
-    assert.equal(await displayName.inputValue(), "ReqFlow", "review state does not replace the repository name with an element-type label");
-    assert.equal(patchCount, 1, "review was persisted through the versioned PATCH contract");
+    assert.equal(await displayName.inputValue(), "ReqFlow application", "the saved display-name correction is retained");
+    assert.equal(patchCount, 1, "optional corrections were persisted through the versioned PATCH contract");
+    await page.emulateMedia({ media: "print" });
+    assert.equal(await page.locator("#optional-corrections").evaluate(node => getComputedStyle(node).display), "none", "the optional corrections container remains excluded when expanded");
+    await page.emulateMedia({ media: "screen" });
     const downloadPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download Markdown" }).click();
     const download = await downloadPromise;
-    const markdownPath = resolve(reportDirectory, "add-workspace-reviewed.md");
+    assert.equal(download.suggestedFilename(), "ReqFlow-architecture-definition-document.md", "download uses the product document name instead of an internal phase label");
+    const markdownPath = resolve(reportDirectory, "add-workspace-corrected.md");
     await download.saveAs(markdownPath);
     const markdown = await readFile(markdownPath, "utf8");
-    assert.ok(["ReqFlow", "Application", "NLP"].every(name => markdown.includes(name)), "the human-readable application names remain the prominent names in the export");
-    assert.ok(markdown.includes("Review overlay | reviewed, revision 1"), "Markdown export uses the saved review revision");
+    assert.ok(["ReqFlow application", "Application", "NLP", "Book catalog"].every(name => markdown.includes(name)), "the optional name and group corrections appear in the export");
+    assert.ok(!markdown.includes("Review overlay") && !markdown.includes("Not assessed") && !markdown.includes("Requires confirmation"), "Markdown does not require a review sign-off or show unassessed placeholders");
     assert.ok(markdown.includes(`ADD model SHA-256 | ${addModelHash}`), "Markdown export identifies the canonical ADD model");
     const latexPromise = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download LaTeX" }).click();
     const latexDownload = await latexPromise;
-    const latexPath = resolve(reportDirectory, "add-workspace-reviewed.tex");
+    assert.equal(latexDownload.suggestedFilename(), "ReqFlow-architecture-definition-document.tex", "LaTeX download uses the same product document name");
+    const latexPath = resolve(reportDirectory, "add-workspace-corrected.tex");
     await latexDownload.saveAs(latexPath);
     const latex = await readFile(latexPath, "utf8");
     assert.ok(latex.includes(addModelHash), "LaTeX export identifies the canonical ADD model");
-    assert.ok(latex.includes("reviewed, revision 1"), "LaTeX export uses the saved review revision");
+    assert.ok(latex.includes("ReqFlow application") && latex.includes("Book catalog"), "LaTeX includes optional label and group corrections");
+    assert.ok(!latex.includes("Review overlay") && !latex.includes("Not assessed") && !latex.includes("Requires confirmation"), "LaTeX does not require a review sign-off or show unassessed placeholders");
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.emulateMedia({ media: "screen" });
-    await page.getByRole("button", { name: "Print / Save as PDF" }).click();
-    assert.equal(await page.evaluate(() => (window as unknown as { __printCount: number }).__printCount), 1, "PDF print action uses the current reviewed page snapshot");
+    let pdfRequested = false;
+    await page.route("**/add/pdf", async route => {
+      pdfRequested = true;
+      await route.fulfill({ status: 200, contentType: "application/pdf", body: "%PDF-1.4\n%%EOF" });
+    });
+    const pdfDownloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download PDF" }).click();
+    const pdfDownload = await pdfDownloadPromise;
+    assert.ok(pdfRequested && pdfDownload.suggestedFilename().endsWith(".pdf"), "PDF download requests the server export endpoint");
     await page.emulateMedia({ media: "print" });
     const printableSourceNotes = await page.locator("#source-notes").innerText();
     assert.ok(printableSourceNotes.includes(addModelHash), "PDF print view identifies the canonical ADD model");
-    assert.ok(printableSourceNotes.includes("reviewed, revision 1"), "PDF print view uses the saved review revision");
     const crudHeaders = await page.locator('[class*="crudTable"] thead th').allTextContents();
     assert.deepEqual(crudHeaders.map(value => value.trim()), ["Application component", "Data entity", "C", "R", "U", "D", "Evidence"], "CRUD headers use the standard compact notation instead of wrapping operation names");
+    const crudRows = page.locator('[class*="crudTable"] tbody tr');
+    assert.equal(await crudRows.count(), 1, "CRUD matrix omits app-data pairs with no proven operation");
+    assert.equal((await crudRows.first().innerText()).includes("Author"), false, "an unknown-only data pair is not presented as an analyzed CRUD fact");
+    const crudCells = await crudRows.first().locator("td").allTextContents();
+    assert.deepEqual(crudCells.slice(1, 5).map(value => value.trim()), ["", "✓", "", ""], "CRUD marks only the source-proven Read operation and leaves unknown operations blank");
+    assert.ok(await crudRows.first().getByRole("link", { name: /route.ts:1–1/ }).count() > 0, "each CRUD row links to source evidence");
     const crudOperationWidths = await page.locator('[class*="crudTable"] thead th:nth-child(n+3):nth-child(-n+6)').evaluateAll(nodes => nodes.map(node => node.getBoundingClientRect().width));
     assert.ok(crudOperationWidths.every(width => width >= 36), `CRUD operation columns remain readable in print: ${crudOperationWidths.join(", ")}`);
-    const pdfPath = resolve(reportDirectory, "add-workspace-reviewed.pdf");
+    const pdfPath = resolve(reportDirectory, "add-workspace-corrected.pdf");
     await page.pdf({ path: pdfPath, format: "A4", printBackground: true, preferCSSPageSize: true });
     const pdfBytes = await readFile(pdfPath);
     assert.ok(pdfBytes.subarray(0, 5).toString("ascii") === "%PDF-", "browser produces a real PDF artifact");
@@ -326,17 +374,17 @@ async function main(): Promise<void> {
     });
     await consentPage.route("https://**/*", route => route.abort());
     await consentPage.goto("/qa-add-workspace");
-    const optIn = consentPage.getByRole("checkbox", { name: /Enable optional LLM narrative assistance/iu });
+    const optIn = consentPage.getByRole("checkbox", { name: /Bantu narasi dengan LLM kampus/iu });
     await optIn.waitFor();
     await optIn.check();
-    await consentPage.getByRole("button", { name: "Generate Phase C baseline" }).click();
+    await consentPage.getByRole("button", { name: "Generate ADD baseline" }).click();
     await consentPage.getByRole("heading", { name: "Baseline Data Architecture" }).waitFor();
     assert.equal(consentReceived, true, "LLM facts are sent only after explicit checkbox consent");
     assert.equal(generateCount, 2);
     await consentPage.close();
     assert.deepEqual(pageErrors, [], "browser must not report uncaught client exceptions");
     await context.close();
-    process.stdout.write(`ADD workspace Playwright passed: primary ADD generation and LLM opt-in, 2 ArchiMate views with relationships, compact core relationship views, evidence links, mobile/keyboard, optimistic review save, model/revision-consistent Markdown/LaTeX/PDF, and A4 PDF artifact; artifacts=${reportDirectory}\n`);
+    process.stdout.write(`ADD workspace Playwright passed: fixture generation and LLM opt-in, optional corrections, diagrams, evidence links, mobile/keyboard, Markdown/LaTeX downloads, and PDF endpoint request. A4 browser-print artifact saved; artifacts=${reportDirectory}\n`);
     process.stdout.write("Scope: real AddWorkspace and CSS on a disposable Next dev page; API responses are intercepted fixtures. This does not test PostgreSQL persistence, export worker, OAuth, or production pipeline integration.\n");
   } finally {
     if (browser) await browser.close();

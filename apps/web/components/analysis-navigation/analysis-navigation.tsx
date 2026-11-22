@@ -10,11 +10,11 @@ export function AnalysisNavigation({ analysisId, active, resultsAvailable = true
   const base = `/analyses/${encodeURIComponent(analysisId)}`;
   const items = [
     { id: "progress", label: "Progres", href: base, glyph: "01" },
-    { id: "document", label: "TOGAF ADD", href: `${base}/document`, glyph: "02" },
-    { id: "graph", label: "Code Knowledge", href: `${base}/graph`, glyph: "03" },
+    { id: "graph", label: "Code Knowledge", href: `${base}/graph`, glyph: "02" },
+    { id: "document", label: "Architecture Definition Document", href: `${base}/document`, glyph: "03" },
   ];
   return <nav className={styles.navigation} aria-label="Navigasi hasil analisis">
-    {items.map(item => item.id !== "progress" && !resultsAvailable
+    {items.filter(item => !(item.id === "document" && active === "progress")).map(item => item.id !== "progress" && !resultsAvailable
       ? <span key={item.id} className={styles.pending} aria-disabled="true"><span aria-hidden="true">{item.glyph}</span>{item.label}<small>Menunggu hasil</small></span>
       : <Link key={item.id} href={item.href} prefetch={false} aria-current={item.id === active ? "page" : undefined}>
         <span aria-hidden="true">{item.glyph}</span>{item.label}

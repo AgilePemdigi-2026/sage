@@ -5,6 +5,7 @@ import type { AddBaselineModel } from "../packages/documents/src/baseline-add-mo
 import { createAddLatex } from "../packages/documents/src/baseline-latex.ts";
 import { createAddMarkdown } from "../packages/documents/src/baseline-markdown.ts";
 import { coreRelationshipLabel, projectCoreBaselineView } from "../packages/documents/src/baseline-core-views.ts";
+import { includedAddSections, PHASE_C_ADD, sourceBackedApplicationPortfolio } from "../packages/documents/src/phase-c-add.ts";
 
 const modelHash = "c".repeat(64);
 const commitSha = "a".repeat(40);
@@ -49,7 +50,7 @@ const model: AddBaselineModel = {
 const evidenceUrl = (span: { filePath: string; startLine: number; endLine: number }, fileOnly = false) =>
   `https://github.com/sample/library/blob/${commitSha}/${span.filePath}${fileOnly ? "" : `#L${span.startLine}-L${span.endLine}`}`;
 
-test("Markdown and LaTeX render the same canonical hash, review revision, and overlay corrections", () => {
+test("Markdown and LaTeX render source-backed facts, pinned evidence, and optional label corrections", () => {
   const overlay = {
     ...emptyAddReviewOverlay(),
     revision: 7,
@@ -64,21 +65,21 @@ test("Markdown and LaTeX render the same canonical hash, review revision, and ov
 
   for (const output of [markdown, latex]) {
     assert.ok(output.includes(modelHash), "export identifies the persisted canonical ADD model");
-    assert.ok(output.includes("revision 7"), "export identifies the same review overlay revision");
     assert.ok(output.includes("Customer record"), "export includes the corrected data label");
     assert.ok(output.includes("Customer data"), "export includes the corrected feature group");
-    assert.ok(output.includes("confirmed"), "export carries the review status");
     assert.ok(output.includes("src/models/customer.ts"), "export retains source evidence path");
     assert.ok(output.includes(commitSha), "export keeps the pinned commit identity");
   }
   assert.ok(!markdown.includes("#L") && !latex.includes("#L"), "ADD exports link to the pinned file without line anchors to keep dense tables readable");
-  assert.ok(markdown.includes("| Review overlay | reviewed, revision 7 |"));
-  assert.ok(latex.includes("Review overlay") && latex.includes("reviewed, revision 7"));
+  assert.ok(!markdown.includes("Review overlay") && !latex.includes("Review overlay"), "exports do not require the reader to confirm every generated item");
+  assert.ok(!markdown.includes("Not assessed") && !latex.includes("Not assessed"), "exports omit artifacts that source cannot establish");
+  assert.ok(!markdown.includes("Requires confirmation") && !latex.includes("Requires confirmation"), "exports do not contain manual-verification placeholders");
+  assert.ok(!markdown.includes("| Review |") && !latex.includes("Review"), "published tables omit per-row review state");
+  assert.ok(markdown.includes("Detected operations") && markdown.includes("Create") && !markdown.includes("Unknown` means"), "CRUD reports only source-evidenced operations rather than filling unknown cells");
   assert.equal(model.elements.find(element => element.id === "data:customer")?.name, "Customer", "rendering an overlay does not mutate canonical source facts");
   assert.ok(latex.includes("a4paper"), "LaTeX output declares A4 paper");
   assert.ok(latex.indexOf("\\PassOptionsToPackage{table}{xcolor}") < latex.indexOf("\\usepackage{tikz}"), "table colors are passed before TikZ loads xcolor");
-  assert.ok(latex.includes("C = Create, R = Read, U = Update, D = Delete") && latex.includes("Y = confirmed, N = explicitly absent, ? = unknown"), "compact CRUD matrix declares its legend");
-  assert.ok(latex.includes(" & Y &") && latex.includes(" & ? &"), "CRUD cells use compact, unambiguous marks");
+  assert.ok(latex.includes("Detected operations") && latex.includes("Create") && !latex.includes(" & ? &"), "CRUD output lists source-evidenced operations without unknown filler cells");
   assert.ok(latex.includes("\\renewcommand{\\thesection}{\\arabic{section}}"), "LaTeX uses the agreed simple section numbering");
   assert.ok(latex.includes("ARCHITECTURE DEFINITION DOCUMENTS") && latex.includes("Baseline Data and Application Architecture"), "cover uses the requested ADD title and baseline subtitle");
   assert.ok(latex.includes("\\addto\\captionsindonesian{\\renewcommand{\\contentsname}{DAFTAR ISI}}") && latex.includes("\\cfttoctitlefont}{\\hfill\\Large\\bfseries}"), "contents title is uppercase and centered at the top");
@@ -104,9 +105,31 @@ test("Markdown and LaTeX render the same canonical hash, review revision, and ov
   const dataInterpretation = latex.indexOf("Gambar~\\ref{fig:dataStructure-1} memperlihatkan bahwa", dataCaption);
   assert.ok(dataIntro >= 0 && dataIntro < firstDiagram && firstDiagram < dataCaption && dataCaption < dataInterpretation, "PDF order is short introduction, diagram, caption, then an interpretation that cites the figure");
   assert.ok(latex.includes("Gambar~\\ref{fig:applicationCooperation-1} memperlihatkan bahwa"), "application view interpretation cites its printed figure");
-  assert.ok(markdown.includes("Data view short introduction.") && markdown.includes("**Interpretation of the data view:** data view reading explanation."), "Markdown exposes the same bounded view narratives");
+  assert.ok(markdown.includes("Data view short introduction.") && markdown.includes("**Interpretation:** data view reading explanation."), "Markdown exposes the same bounded view narratives");
   assert.ok(!markdown.includes("| Reason | Evidence |"), "Markdown keeps the PDF's compact relationship register instead of repeating verbose reasoning");
   assert.ok(!latex.includes("BAB 4"));
+});
+
+test("legacy stored portfolio metadata is omitted from the ADD view and exports", () => {
+  const legacy = structuredClone(model);
+  const repositoryScope = { id: "app:legacy-scope", type: "ApplicationComponent" as const, name: "library",
+    description: "System-level scope represented by the analyzed repository snapshot.", origin: "source" as const,
+    featureGroup: null, evidence: [], review: "unreviewed" as const };
+  legacy.elements.push(repositoryScope);
+  legacy.catalogs.applicationPortfolio = [{ elementId: repositoryScope.id, planned: false, description: repositoryScope.description }];
+
+  const portfolio = sourceBackedApplicationPortfolio(legacy);
+  const markdown = createAddMarkdown(legacy, emptyAddReviewOverlay(), evidenceUrl, { modelHash });
+  const latex = createAddLatex(legacy, emptyAddReviewOverlay(), evidenceUrl, { modelHash, generatedAt: "2026-11-19T02:00:00.000Z" });
+
+  assert.deepEqual(portfolio, []);
+  assert.ok(!includedAddSections(legacy).has(PHASE_C_ADD.sections.applicationCatalog.id));
+  for (const output of [markdown, latex]) {
+    assert.ok(!output.includes("System-level scope represented by the analyzed repository snapshot."));
+    assert.ok(!output.includes("No source evidence"));
+    assert.ok(!output.includes("Application Portfolio Catalog"));
+  }
+  assert.equal(legacy.catalogs.applicationPortfolio.length, 1, "projection leaves the canonical stored model untouched");
 });
 
 test("ReqFlow application names lead ArchiMate component labels", () => {
@@ -148,6 +171,31 @@ test("old verbose narratives and repeated generic relationship labels do not con
   }
   assert.ok(!markdown.includes("references data object"), "repeated generic data association labels are removed from the compact register");
   assert.equal(coreRelationshipLabel({ ...model.relationships[0]!, label: "contains application component" }), null, "composition is already conveyed by its ArchiMate end marker, so a generic text label is omitted");
+});
+
+test("exports include only populated source-backed artifacts and omit manual-review placeholders", () => {
+  const sparse = structuredClone(model);
+  sparse.catalogs.dataEntities = [];
+  sparse.catalogs.applicationPortfolio = [];
+  sparse.catalogs.interfaces = [];
+  sparse.matrices.applicationData = [];
+  sparse.matrices.applicationInteractions = [];
+  sparse.views.dataStructure = { elementIds: [], relationshipIds: [] };
+  sparse.views.applicationCooperation = { elementIds: [], relationshipIds: [] };
+  sparse.relationships = [];
+  sparse.elements = [];
+  sparse.narratives.dataBaseline = "No source objects in this test fixture.";
+  const markdown = createAddMarkdown(sparse, emptyAddReviewOverlay(), evidenceUrl, { modelHash });
+  const latex = createAddLatex(sparse, emptyAddReviewOverlay(), evidenceUrl, { modelHash });
+
+  for (const output of [markdown, latex]) {
+    assert.doesNotMatch(output, /Not assessed|requires confirmation|not supplied|Items requiring confirmation|Owner requires confirmation/iu);
+    assert.doesNotMatch(output, /Data Entity Catalog|Logical Data Model|CRUD Matrix|Application Cooperation|Interface Catalog|Application Interaction Matrix/u);
+    assert.match(output, /ARCHITECTURE DEFINITION DOCUMENTS/iu);
+    assert.match(output, /Baseline Data and Application Architecture/u);
+  }
+  assert.match(markdown, /Baseline Data Architecture/u);
+  assert.doesNotMatch(markdown, /<a id="application-architecture"><\/a>/u, "no empty application group is listed when no application artifact exists");
 });
 
 test("PDF keeps dense evidence rows within a readable compact table", () => {
@@ -192,8 +240,8 @@ test("Application Cooperation PDF shows a connected high-level view without endp
 
   const latex = createAddLatex(expanded, emptyAddReviewOverlay(), evidenceUrl, { modelHash });
   const core = projectCoreBaselineView(expanded, "applicationCooperation");
-  const diagramStart = latex.indexOf("\\section{Application Design (Baseline)}");
-  const diagramEnd = latex.indexOf("\\section{Catalog Design}", diagramStart);
+  const diagramStart = latex.indexOf("\\section{Baseline Application Architecture}");
+  const diagramEnd = latex.indexOf("\\section{Application Portfolio Catalog}", diagramStart);
   const diagrams = latex.slice(diagramStart, diagramEnd);
   assert.equal(core.relationships.length, 7, "the stakeholder view caps core relationships at seven");
   assert.equal((diagrams.match(/\\draw\[/gu) ?? []).length, 7, "only selected core relationships are drawn");
@@ -230,8 +278,8 @@ test("Information Structure PDF keeps only connected, source-confirmed data rela
   }
 
   const latex = createAddLatex(expanded, emptyAddReviewOverlay(), evidenceUrl, { modelHash });
-  const diagramStart = latex.indexOf("\\section{Logical Data Model (Baseline)}");
-  const diagramEnd = latex.indexOf("\\section{Data Management Process Model (Baseline)}", diagramStart);
+  const diagramStart = latex.indexOf(`\\section{${PHASE_C_ADD.sections.logicalDataModel.title}}`);
+  const diagramEnd = latex.indexOf("\\section{Data Entity/Application Component CRUD Matrix}", diagramStart);
   const diagrams = latex.slice(diagramStart, diagramEnd);
   const core = projectCoreBaselineView(expanded, "dataStructure");
   assert.ok(core.relationships.length > 0 && core.relationships.length <= 7, "the view caps output while preserving source relationships");

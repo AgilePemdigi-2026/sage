@@ -120,5 +120,137 @@
       "height": "16",
       "viewBox": "0 0 16 16"
     }
+  },
+  "header": {
+    "imgIconChevronDown": {
+      "src": "/design/figma/header-imgIconChevronDown.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
+  },
+  "pipeline": {
+    "imgIconCheck": {
+      "src": "/design/figma/pipeline-imgIconCheck.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
+  },
+  "landing": {
+    "imgBranch": {
+      "src": "/design/figma/landing-imgBranch.svg",
+      "width": "14",
+      "height": "14",
+      "viewBox": "0 0 14 14"
+    },
+    "imgDataObject": {
+      "src": "/design/figma/landing-imgDataObject.svg",
+      "width": "13",
+      "height": "13",
+      "viewBox": "0 0 13 13"
+    },
+    "imgEvidence": {
+      "src": "/design/figma/landing-imgEvidence.svg",
+      "width": "14",
+      "height": "14",
+      "viewBox": "0 0 14 14"
+    },
+    "imgFeatureApplication": {
+      "src": "/design/figma/landing-imgFeatureApplication.svg",
+      "width": "22",
+      "height": "22",
+      "viewBox": "0 0 22 22"
+    },
+    "imgFeatureData": {
+      "src": "/design/figma/landing-imgFeatureData.svg",
+      "width": "22",
+      "height": "22",
+      "viewBox": "0 0 22 22"
+    },
+    "imgFeatureGraph": {
+      "src": "/design/figma/landing-imgFeatureGraph.svg",
+      "width": "22",
+      "height": "22",
+      "viewBox": "0 0 22 22"
+    },
+    "imgGithub": {
+      "src": "/design/figma/landing-imgGithub.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    },
+    "imgTrustSha": {
+      "src": "/design/figma/landing-imgTrustSha.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    },
+    "imgTrustStatic": {
+      "src": "/design/figma/landing-imgTrustStatic.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    },
+    "imgTrustToken": {
+      "src": "/design/figma/landing-imgTrustToken.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
+  },
+  "icons": {
+    "code": {
+      "src": "/design/icons/code.svg",
+      "width": "24",
+      "height": "24",
+      "viewBox": "0 0 24 24"
+    }
+  },
+  "repository": {
+    "imgBranch": {
+      "src": "/design/figma/repository-imgBranch.svg",
+      "width": "18",
+      "height": "18",
+      "viewBox": "0 0 18 18"
+    },
+    "imgCheck": {
+      "src": "/design/figma/repository-imgCheck.svg",
+      "width": "13",
+      "height": "13",
+      "viewBox": "0 0 13 13"
+    },
+    "imgChevronRight": {
+      "src": "/design/figma/repository-imgChevronRight.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    },
+    "imgRepo": {
+      "src": "/design/figma/repository-imgRepo.svg",
+      "width": "18",
+      "height": "18",
+      "viewBox": "0 0 18 18"
+    },
+    "imgSearch": {
+      "src": "/design/figma/repository-imgSearch.svg",
+      "width": "18",
+      "height": "18",
+      "viewBox": "0 0 18 18"
+    },
+    "imgValidated": {
+      "src": "/design/figma/repository-imgValidated.svg",
+      "width": "16",
+      "height": "16",
+      "viewBox": "0 0 16 16"
+    }
+  },
+  "progress-v2": {
+    "imgCommit": {
+      "src": "/design/figma/progress-imgCommit.svg",
+      "width": "14",
+      "height": "14",
+      "viewBox": "0 0 14 14"
+    }
   }
 }

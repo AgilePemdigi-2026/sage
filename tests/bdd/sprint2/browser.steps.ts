@@ -1,12 +1,39 @@
-import { Given, When, Then, After, AfterAll } from "@cucumber/cucumber";
+import { Given, When, Then, Before, After, AfterAll } from "@cucumber/cucumber";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { projectCcmForGraph } from "../../../apps/web/components/graph-foundation/graph-projection.ts";
 import type { IWorld } from "@cucumber/cucumber";
 import { createFixture, setArchiveFault, exportRecord, stopFixtureServer, pauseFixtureWorker, type ScenarioFixture } from "./browser-fixture.ts";
-interface SrsWorld extends IWorld { fixture: ScenarioFixture; pendingFault?: boolean; downloaded?: { format: string; bytes: Buffer } }
+interface SrsWorld extends IWorld { fixture: ScenarioFixture; emptyHistory?: boolean; pendingFault?: boolean; downloaded?: { format: string; bytes: Buffer } }
 const current = (world: SrsWorld) => { assert.ok(world.fixture, "Initialize the scenario's synthetic owner first"); return world.fixture; };
+
+Before({ tags: "@empty_history" }, function (this: SrsWorld) {
+  this.emptyHistory = true;
+});
+Given("I am on {string}", async function (this: SrsWorld, path: string) {
+  const screens = new Map([
+    ["/analyses/{analysisId}", "results"],
+    ["/analyses/{analysisId}/graph", "graph"],
+    ["/analyses/{analysisId}/document", "document"],
+    ["/workspace/history", "history"],
+  ]);
+  const screen = screens.get(path);
+  assert.ok(screen, "The scenario must name a supported application page");
+  this.fixture = await createFixture(this.emptyHistory ?? false);
+  const f = current(this);
+  if (path.includes("{analysisId}")) assert.ok(f.analysisId);
+  const destination = path.replace("{analysisId}", f.analysisId ?? "");
+  await f.page.goto(`${f.base}${destination}`);
+  await f.page.waitForURL(`${f.base}${destination}`);
+  if (screen === "results") await f.page.getByRole("link", { name: "Buka knowledge graph", exact: true }).waitFor();
+  else await f.page.getByRole("heading", { name: screen === "graph" ? "Struktur source code" : screen === "document" ? "Architecture Definition Document" : "Riwayat analisis", exact: true }).waitFor();
+  if (screen === "document") await f.page.getByRole("button", { name: "Ekspor PDF", exact: true }).waitFor();
+});
+Given("I have no saved analysis", async function (this: SrsWorld) {
+  assert.equal(this.emptyHistory, true);
+  await current(this).page.getByText("Belum ada riwayat analisis", { exact: true }).waitFor();
+});
 
 Given("I am signed in as a synthetic owner with a completed analysis", async function (this: SrsWorld) {
   this.fixture = await createFixture(false);
@@ -27,7 +54,9 @@ When("I open the completed analysis results", async function (this: SrsWorld) {
   await f.page.getByRole("link", { name: "Buka knowledge graph", exact: true }).waitFor();
 });
 When("I follow the link {string}", async function (this: SrsWorld, label: string) {
-  await current(this).page.getByRole("link", { name: label, exact: true }).click();
+  const page = current(this).page;
+  const scope = label === "Riwayat" ? page.getByRole("navigation", { name: "Navigasi utama" }) : page;
+  await scope.getByRole("link", { name: label, exact: true }).click();
 });
 When("I press the button {string}", async function (this: SrsWorld, label: string) {
   const f = current(this);
@@ -149,19 +178,21 @@ Then("I should be on the completed analysis detail page", async function (this: 
 Then("the link {string} should be available", async function (this: SrsWorld, label: string) {
   await current(this).page.getByRole("link", { name: label, exact: true }).waitFor();
 });
-Given("the export worker will encounter an invalid test archive checksum", function (this: SrsWorld) {
+Given("the next {string} export will fail", function (this: SrsWorld, format: string) {
+  assert.equal(format, "PDF");
   current(this);
   pauseFixtureWorker(true);
   this.pendingFault = true;
 });
-Then("the PDF export should fail with a retry action", async function (this: SrsWorld) {
+Then("the {string} export should fail with a retry action", async function (this: SrsWorld, format: string) {
+  assert.equal(format, "PDF");
   const f = current(this);
   await f.page.getByRole("button", { name: "Coba ekspor PDF lagi", exact: true }).waitFor();
   const row = await exportRecord(f, "PDF");
   assert.equal(row.status, "FAILED");
   assert.equal(row.errorCode, "EXPORT_FAILED");
 });
-When("the test archive checksum is restored", async function (this: SrsWorld) {
+When("the export failure is resolved", async function (this: SrsWorld) {
   await setArchiveFault(current(this), false);
 });
 Then("the {string} download should become available", async function (this: SrsWorld, format: string) {

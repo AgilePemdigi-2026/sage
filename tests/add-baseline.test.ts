@@ -6,6 +6,7 @@ import { emptyAddReviewOverlay } from "../packages/documents/src/add-overlay.ts"
 import { createAddMarkdown } from "../packages/documents/src/baseline-markdown.ts";
 import { enrichAddNarrative } from "../packages/documents/src/baseline-llm.ts";
 import { extractDataArtifacts } from "../packages/documents/src/semantic/data-artifacts.ts";
+import { baselineCatalogMappings } from "../packages/documents/src/phase-c-add.ts";
 import type { SemanticEdge, SemanticFeature, SemanticModel, SemanticNode } from "../packages/documents/src/semantic/model.ts";
 
 const evidence: EvidenceSpan = {
@@ -58,6 +59,21 @@ function fixture(): { ccm: CcmV1; semantic: SemanticModel; sourceCkgHash: string
   };
 }
 
+test("ADD lists a consumer only for a proven call matching the declared method and path", () => {
+  const input = fixture();
+  input.semantic.nodes.push(node("step:submit", "step", "Submit book", "feature:catalog"));
+  input.semantic.edges.push(edge("e:submit", "step:submit", "route:create-book", "GET /books"));
+  const consumers = () => {
+    const model = buildAddBaseline(input);
+    return baselineCatalogMappings(model)("consumer", model.catalogs.interfaces[0]!.elementId);
+  };
+  assert.equal(consumers(), "");
+  input.semantic.edges.push(edge("e:submit-matching", "step:submit", "route:create-book", "POST /books", "indicated"));
+  assert.equal(consumers(), "");
+  input.semantic.edges.push(edge("e:submit-proven", "step:submit", "route:create-book", "POST /books"));
+  assert.notEqual(consumers(), "");
+});
+
 test("ADD projection produces distinct baseline views and source-backed ArchiMate relationships", () => {
   const input = fixture();
   const model = buildAddBaseline(input);
@@ -66,6 +82,7 @@ test("ADD projection produces distinct baseline views and source-backed ArchiMat
 
   assert.equal(model.schemaVersion, "sage-add-baseline-v1");
   assert.equal(model.snapshot.commitSha, input.ccm.snapshot.commitSha);
+  assert.ok(model.catalogs.interfaces.some(row => row.protocol === "HTTP" && row.contract === "POST /books"), "HTTP methods belong in the contract and the protocol is HTTP");
   assert.ok(pair("AssignmentRelationship", "ApplicationComponent", "ApplicationFunction"));
   assert.ok(pair("CompositionRelationship", "ApplicationComponent", "ApplicationInterface"));
   assert.ok(pair("RealizationRelationship", "ApplicationFunction", "ApplicationService"));
@@ -79,9 +96,13 @@ test("ADD projection produces distinct baseline views and source-backed ArchiMat
   assert.ok(model.views.dataStructure.relationshipIds.some(id => model.relationships.find(relation => relation.id === id)?.type === "AssociationRelationship"));
   assert.ok(model.views.applicationCooperation.relationshipIds.length > 0);
   assert.ok(model.relationships.every(relation => relation.evidence.length > 0 && relation.reason.length > 0));
+  assert.equal(model.catalogs.applicationPortfolio.length, 0, "the repository scope node is metadata, not an extracted application portfolio item");
+  const markdown = createAddMarkdown(model, emptyAddReviewOverlay(), span => `https://github.com/sample/library/blob/${input.ccm.snapshot.commitSha}/${span.filePath}`);
+  assert.doesNotMatch(markdown, /System-level scope represented by the analyzed repository snapshot|No source evidence/u, "the generated application portfolio omits the metadata-only repository scope node");
   assert.equal(isAddBaselineModel(model), true);
   const invalid = structuredClone(model);
-  invalid.relationships.push({ ...invalid.relationships[0]!, id: "invalid-pair", type: "AccessRelationship", sourceId: invalid.catalogs.applicationPortfolio[0]!.elementId, targetId: invalid.catalogs.dataEntities[0]!.elementId });
+  const repositoryScopeId = invalid.elements.find(item => item.type === "ApplicationComponent")!.id;
+  invalid.relationships.push({ ...invalid.relationships[0]!, id: "invalid-pair", type: "AccessRelationship", sourceId: repositoryScopeId, targetId: invalid.catalogs.dataEntities[0]!.elementId });
   assert.equal(isAddBaselineModel(invalid), false, "the validator rejects a relationship outside the supported ArchiMate profile");
 });
 
@@ -210,10 +231,11 @@ test("SQL string contents do not become DDL facts while quoted identifiers remai
 test("Markdown exports render source labels and narratives inertly and encode evidence URL parentheses", () => {
   const input = fixture();
   const model = buildAddBaseline(input);
-  model.elements[0]!.name = '<img src=x onerror="alert(1)"> ![x](javascript:alert(1)) `*_##';
+  const evidencedEntity = model.elements.find(element => element.type === "DataObject" && element.name === "Book")!;
+  evidencedEntity.name = '<img src=x onerror="alert(1)"> ![x](javascript:alert(1)) `*_##';
   model.narratives.dataBaseline = '<script>alert("x")</script> ![open](https://evil.test)';
   model.limitations.push("<svg onload=alert(1)> [click](javascript:alert(1))");
-  model.elements[0]!.evidence = [{ ...evidence, filePath: "api/(hostile).ts" }];
+  evidencedEntity.evidence = [{ ...evidence, filePath: "api/(hostile).ts" }];
   const markdown = createAddMarkdown(model, emptyAddReviewOverlay(), span => `https://github.com/sample/library/blob/${input.ccm.snapshot.commitSha}/${span.filePath}#L${span.startLine}`);
   assert.ok(markdown.includes("&lt;img"));
   assert.ok(markdown.includes("&lt;script&gt;"));

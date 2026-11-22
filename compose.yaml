@@ -50,6 +50,7 @@ services:
     image: sage-web:local
     environment:
       <<: *database-environment
+      SAGE_PRIVACY_CONTACT_EMAIL: ${SAGE_PRIVACY_CONTACT_EMAIL:-}
       NEXT_TELEMETRY_DISABLED: "1"
       STORAGE_ROOT: /app/storage
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?Jalankan npm run setup:local terlebih dahulu}

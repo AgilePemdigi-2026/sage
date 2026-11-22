@@ -128,7 +128,8 @@ test("Compose and source evidence flow into the ADD portfolio, cooperation view,
   assert.equal(isSemanticModel(semantic), true, "the canonical semantic validator accepts typed CRUD metadata");
   assert.equal(isAddBaselineModel(add), true, "the ADD validator accepts typed CRUD relationships");
   const components = add.catalogs.applicationPortfolio.map(row => add.elements.find(element => element.id === row.elementId)!);
-  assert.deepEqual(components.map(component => component.name).sort(), ["NLP", "ReqFlow", "Web"]);
+  assert.deepEqual(components.map(component => component.name).sort(), ["NLP", "Web"], "only source-backed Compose services belong in the application portfolio");
+  assert.ok(add.views.applicationCooperation.elementIds.some(id => add.elements.find(element => element.id === id)?.name === "ReqFlow"), "repository scope may remain as diagram context without masquerading as an extracted application");
   assert.equal(add.matrices.applicationInteractions.length, 1);
   const interaction = add.matrices.applicationInteractions[0]!;
   assert.equal(components.find(component => component.id === interaction.sourceApplicationId)?.name, "Web");
@@ -139,12 +140,12 @@ test("Compose and source evidence flow into the ADD portfolio, cooperation view,
   assert.match(add.narratives.applicationViewInterpretation ?? "", /does not prove|tidak membuktikan/iu);
 });
 
-test("ReqFlow, Application, and NLP stay visible as application component names", () => {
+test("repository scope stays in view context while Application and NLP remain portfolio entries", () => {
   const input = semanticInput({ "compose.yaml": compose.replace("  web:\n", "  app:\n") });
   const semantic = buildSemanticModel(input);
   const add = buildAddBaseline({ ccm: input.ccm, semantic, sourceCkgHash });
   const names = add.catalogs.applicationPortfolio.map(row => add.elements.find(element => element.id === row.elementId)!.name);
-  assert.deepEqual(names.sort(), ["Application", "NLP", "ReqFlow"]);
+  assert.deepEqual(names.sort(), ["Application", "NLP"]);
   assert.equal(add.elements.find(element => element.name === "ReqFlow")?.type, "ApplicationComponent");
   assert.equal(add.elements.find(element => element.name === "Application")?.type, "ApplicationComponent");
   assert.equal(add.elements.find(element => element.name === "NLP")?.type, "ApplicationComponent");

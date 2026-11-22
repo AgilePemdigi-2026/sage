@@ -121,7 +121,7 @@
 .documentationBlock { margin:8px 0; font-size:13px; line-height:1.6; }
 .documentationBlock > p,.documentationBlock > blockquote { margin:4px 0; }
 .documentationBlock blockquote { padding:2px 10px; border-left:3px solid #8c959f; color:#59636e; }
-.documentationBlock code { padding:1px 4px; border-radius:4px; background:#eaeef2; font:12px ui-monospace,SFMono-Regular,monospace; overflow-wrap:anywhere; }
+.documentationBlock code { padding:1px 4px; border-radius:4px; background:#eaeef2; font:12px var(--font-sans); overflow-wrap:anywhere; }
 .documentationList { margin:5px 0; padding-left:22px; }
 .documentationTableScroll { max-width:100%; overflow:auto; }
 .documentationTable { border-collapse:collapse; font-size:12px; }

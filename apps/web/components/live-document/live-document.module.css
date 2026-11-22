@@ -9,7 +9,7 @@
 .exportCopy { min-width: 0; }
 .exportCopy h2 { margin: 0; color: #183b39; font-size: 17px; font-weight: 600; line-height: 24px; }
 .exportCopy p { margin: 6px 0 0; color: #52637b; font-size: 12px; line-height: 19px; }
-.exportCopy code { overflow-wrap: anywhere; color: #173655; font-family: "JetBrains Mono", monospace; font-size: 11px; }
+.exportCopy code { overflow-wrap: anywhere; color: #173655; font-family: var(--font-mono); font-size: 11px; }
 .exportStatus,.exportFailure { padding: 9px 10px; border-radius: 5px; }
 .exportStatus { color: #315b53 !important; background: #eaf7f3; }
 .exportFailure { color: #802937 !important; background: #fcedef; }
@@ -24,7 +24,7 @@
 .metadataGrid > div { min-width: 0; }
 .metadataGrid dt { color: #52637b; font-size: 11px; font-weight: 600; }
 .metadataGrid dd { min-width: 0; margin: 3px 0 0; color: #233b57; overflow-wrap: anywhere; }
-.metadataGrid code,.catalogTable code,.relationTable code,.mappingTable code { color: #173655; font-family: "JetBrains Mono", monospace; font-size: 11px; overflow-wrap: anywhere; }
+.metadataGrid code,.catalogTable code,.relationTable code,.mappingTable code { color: #173655; font-family: var(--font-mono); font-size: 11px; overflow-wrap: anywhere; }
 .sectionLayout { display: grid; gap: 14px; min-width: 0; }
 .sectionNav { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .sectionButton { min-height: 42px; padding: 8px 11px; border: 1px solid #b8c6d3; border-radius: 6px; color: #061e42; background: #fff; font: inherit; font-size: 12px; font-weight: 500; text-align: left; cursor: pointer; }
@@ -48,7 +48,7 @@
 .catalogTable td:first-child,.relationTable td:first-child,.mappingTable td:first-child,.fileTable td:first-child { border-left: 1px solid #dce5ec; border-radius: 5px 0 0 5px; }
 .catalogTable td:last-child,.relationTable td:last-child,.mappingTable td:last-child,.fileTable td:last-child { border-right: 1px solid #dce5ec; border-radius: 0 5px 5px 0; }
 .kind { display: block; margin-bottom: 4px; color: #52637b; font-size: 11px; font-weight: 600; }
-.sourceEvidence { color: #164e63; font-family: "JetBrains Mono", monospace; font-size: 11px; overflow-wrap: anywhere; }
+.sourceEvidence { color: #164e63; font-family: var(--font-mono); font-size: 11px; overflow-wrap: anywhere; }
 .catalogFilters { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(150px, .6fr) minmax(0, 1fr); gap: 10px; margin: 16px 0; }
 .catalogFilters label { display: grid; gap: 5px; color: #43556e; font-size: 11px; font-weight: 600; }
 .catalogFilters :is(input, select) { width: 100%; min-width: 0; min-height: 40px; padding: 7px 10px; border: 1px solid #c6d3df; border-radius: 6px; color: #061e42; background: #fff; font: inherit; font-size: 12px; }
@@ -184,7 +184,7 @@
 .classCard header {padding:16px;background:#f6f8fa;text-align:center;}
 .classCard h3 {margin:4px 0 8px;font-size:16px;overflow-wrap:anywhere;}
 .classCard small {font-size:12px;color:#59636e;}
-.classCard code {display:block;overflow-wrap:anywhere;white-space:pre-wrap;font:11px/1.7 var(--font-mono,monospace);}
+.classCard code {display:block;overflow-wrap:anywhere;white-space:pre-wrap;font:11px/1.7 var(--font-sans);}
 .classCard header code {color:#59636e;}
 .classCompartment {padding:12px 16px;border-top:1px solid #d1d9e0;min-height:56px;}
 .classMemberLabel {display:block;color:#59636e;font-size:10px;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}

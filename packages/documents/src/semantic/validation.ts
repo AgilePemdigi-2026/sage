@@ -83,7 +83,8 @@ export function isSemanticModel(value: unknown, context: SemanticValidationConte
   const edgeIds = new Set<string>();
   for (const candidate of nodes) {
     if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds",
-      ...(Object.prototype.hasOwnProperty.call(candidate, "dataIdentity") ? ["dataIdentity"] : [])])) return false;
+      ...(Object.prototype.hasOwnProperty.call(candidate, "dataIdentity") ? ["dataIdentity"] : []),
+      ...(Object.prototype.hasOwnProperty.call(candidate, "dataFields") ? ["dataFields"] : [])])) return false;
     const evidence = dataArray(candidate.evidence, 2_000);
     const technicalNodeIds = dataArray(candidate.technicalNodeIds, 30_000);
     if (typeof candidate.id !== "string" || !candidate.id || nodeIds.has(candidate.id) ||
@@ -100,6 +101,16 @@ export function isSemanticModel(value: unknown, context: SemanticValidationConte
           !(identity.schema === null || (typeof identity.schema === "string" && identity.schema.length > 0 && identity.schema.length <= 256)) ||
           typeof identity.name !== "string" || !identity.name || identity.name.length > 256 ||
           typeof identity.schemaQuoted !== "boolean" || typeof identity.nameQuoted !== "boolean" || candidate.kind !== "store") return false;
+    }
+    if (Object.prototype.hasOwnProperty.call(candidate, "dataFields")) {
+      const fields = dataArray(candidate.dataFields, 100);
+      if (candidate.kind !== "store" || !fields || fields.some(field => !exact(field,
+        ["name", "type", "multiplicity", "evidence", ...(Object.prototype.hasOwnProperty.call(field ?? {}, "targetNodeId") ? ["targetNodeId"] : [])]) ||
+        typeof field.name !== "string" || !/^[A-Za-z_][A-Za-z0-9_]{0,299}$/u.test(field.name) ||
+        typeof field.type !== "string" || !/^[A-Za-z_][A-Za-z0-9_]{0,299}$/u.test(field.type) ||
+        !["1", "0..1", "0..*"].includes(String(field.multiplicity)) ||
+        (field.targetNodeId !== undefined && typeof field.targetNodeId !== "string") ||
+        !validEvidence(field.evidence, context))) return false;
     }
     nodeIds.add(candidate.id);
     nodeKinds.set(candidate.id as string, candidate.kind as string);
@@ -119,7 +130,8 @@ export function isSemanticModel(value: unknown, context: SemanticValidationConte
   }
   for (const candidate of nodes) {
     if (!exact(candidate, ["id", "kind", "label", "featureId", "confidence", "reason", "evidence", "technicalNodeIds",
-      ...(Object.prototype.hasOwnProperty.call(candidate, "dataIdentity") ? ["dataIdentity"] : [])]) ||
+      ...(Object.prototype.hasOwnProperty.call(candidate, "dataIdentity") ? ["dataIdentity"] : []),
+      ...(Object.prototype.hasOwnProperty.call(candidate, "dataFields") ? ["dataFields"] : [])]) ||
         (candidate.featureId !== null && (typeof candidate.featureId !== "string" || !featureIds.has(candidate.featureId)))) return false;
   }
   const declaredEdgeIds = new Set(edges.filter(plain).map(edge => edge.id));

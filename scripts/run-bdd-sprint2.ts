@@ -18,8 +18,9 @@ if (
   )
 )
   throw new Error("Unknown browser case");
+const userScenariosOnly = process.argv.includes("--user-scenarios-only");
 const browserOnly =
-  process.argv.includes("--browser-only") || Boolean(browserCase);
+  process.argv.includes("--browser-only") || Boolean(browserCase) || userScenariosOnly;
 if (contractsOnly && browserOnly) throw new Error("Select only one test mode");
 const container = `sage-bdd-sprint2-${randomBytes(5).toString("hex")}`;
 const cases = JSON.parse(
@@ -29,6 +30,7 @@ const env = {
   ...process.env,
   SAGE_BDD_REPORT_DIR: directory,
   SAGE_BDD_CONTRACTS_ONLY: contractsOnly ? "1" : "0",
+  SAGE_BDD_USER_SCENARIOS_ONLY: userScenariosOnly ? "1" : "0",
   SAGE_BDD_BROWSER_ONLY: browserOnly ? "1" : "0",
   SAGE_BDD_BROWSER_CASE: browserCase ?? "",
   CREDENTIAL_ENCRYPTION_KEY: randomBytes(32).toString("base64"),
@@ -260,7 +262,9 @@ try {
   const scenarios = report
     .flatMap((f) => f.elements ?? [])
     .filter((x) => x.type === "scenario");
-  const expectedCount = browserCase
+  const expectedCount = userScenariosOnly
+    ? Object.keys(JSON.parse(await readFile("tests/bdd/sprint2/srs-cases.json", "utf8"))).length
+    : browserCase
     ? browserCase === "pipeline"
       ? 1
       : Object.values(
@@ -310,7 +314,7 @@ try {
         sourceCommit: source,
         codeSha256,
         account,
-        mode: contractsOnly ? "contracts-only" : browserOnly ? "browser-only" : "full",
+        mode: userScenariosOnly ? "user-scenarios-only" : contractsOnly ? "contracts-only" : browserOnly ? "browser-only" : "full",
         browserCase: browserCase ?? null,
         scope: contractsOnly
           ? "contract regression"

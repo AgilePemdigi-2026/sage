@@ -48,19 +48,45 @@ function fixture(): AddBaselineModel {
 
 const llmEnv = { LLM_BASE_URL: "https://llm.example.test/v1", LLM_API_KEY: "fixture-key", LLM_MODEL: "campus-model" };
 
-test("ADD consent is default-off, collected on the ADD page, and absent from Code Knowledge", async () => {
+test("document generation is deterministic by default and LLM narrative help is opt-in", async () => {
   const addWorkspace = await readFile(new URL("../apps/web/components/add-workspace/add-workspace.tsx", import.meta.url), "utf8");
   const graphWorkspace = await readFile(new URL("../apps/web/components/live-graph/live-graph-client.tsx", import.meta.url), "utf8");
 
-  assert.match(addWorkspace, /id="add-llm-consent" type="checkbox" aria-describedby="add-llm-consent-details" defaultChecked=\{false\}/u);
+  assert.match(addWorkspace, /id="add-llm-consent" type="checkbox"[^>]*defaultChecked=\{false\}/u);
   assert.match(addWorkspace, /body: JSON\.stringify\(\{ allowLlm: llmConsentInput\.current\?\.checked === true \}\)/u);
   assert.match(addWorkspace, /onClick=\{\(\) => void generateBaseline\(\)\}/u);
-  assert.match(addWorkspace, /Generate Phase C baseline/u);
-  assert.match(addWorkspace, /With this option unchecked, no LLM request is made\./u);
-  assert.match(addWorkspace, /Source code, file contents, repository file paths, evidence ranges, repository URL, commit SHA, and credentials are not sent\./u);
-  assert.match(addWorkspace, /Interface names may contain an API route when that route is the extracted interface name\./u);
-  assert.doesNotMatch(graphWorkspace, /llmConsent|allowLlm|Generate TOGAF Phase C baseline ADD/u);
-  assert.match(graphWorkspace, /Open Architecture Definition Document/u);
+  assert.match(addWorkspace, /Generate ADD baseline/u);
+  assert.match(addWorkspace, /Tanpa centang, tidak ada permintaan ke LLM/u);
+  assert.match(addWorkspace, /Source code, isi file, path file repository, rentang evidence, URL repository, SHA commit, dan kredensial tidak dikirim/u);
+  assert.match(addWorkspace, /Nama interface bisa memuat route API/u);
+  assert.doesNotMatch(graphWorkspace, /llmConsent|allowLlm|TOGAF/u);
+  assert.match(graphWorkspace, /Buka Architecture Definition Document/u);
+});
+
+test("analysis results route users from progress to Code Knowledge before document generation", async () => {
+  const navigation = await readFile(new URL("../apps/web/components/analysis-navigation/analysis-navigation.tsx", import.meta.url), "utf8");
+  const progress = await readFile(new URL("../apps/web/components/history/detail-client.tsx", import.meta.url), "utf8");
+  const graph = await readFile(new URL("../apps/web/components/live-graph/live-graph-client.tsx", import.meta.url), "utf8");
+  const productHome = await readFile(new URL("../apps/web/app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(navigation, /label: "Progres"[\s\S]*label: "Code Knowledge"[\s\S]*label: "Architecture Definition Document"/u);
+  assert.match(navigation, /item\.id === "document" && active === "progress"/u, "the progress screen should lead to Code Knowledge instead of offering an ADD shortcut");
+  assert.match(progress, /Tahap analisis/u);
+  assert.match(progress, /detail\.results\.graphUrl/u);
+  assert.doesNotMatch(progress, /detail\.results\.documentUrl|TOGAF ADD|Sembilan tahap/u);
+  assert.match(graph, /Buka Architecture Definition Document/u);
+  assert.doesNotMatch(productHome, /(?:title|text):\s*"[^"]*(?:TOGAF|Phase C)/u);
+});
+
+test("unsupported ADD filler sections and empty artifact placeholders are not presented", async () => {
+  const addWorkspace = await readFile(new URL("../apps/web/components/add-workspace/add-workspace.tsx", import.meta.url), "utf8");
+  assert.doesNotMatch(addWorkspace, /Approved data principles were not supplied|Data governance, stewardship, retention|approved business-function catalog|Not assessed\./u);
+  assert.match(addWorkspace, /includedAddSections\(activeModel\)/u);
+  assert.match(addWorkspace, /phaseCAddContents\(activeModel\)/u);
+  assert.match(addWorkspace, /addAnalyzerCoverageNotes\(activeModel\)/u);
+  assert.match(addWorkspace, /<details id="optional-corrections" data-print-hide>/u);
+  assert.doesNotMatch(addWorkspace, /Items requiring confirmation|Review<\/th>/u);
+  assert.match(addWorkspace, /<aside className=\{doc\.rail\}[\s\S]*<ExportPanel/u, "export controls are available in the document rail");
 });
 
 test("consented LLM receives bounded ADD facts without source, evidence, repository, or commit data", async () => {

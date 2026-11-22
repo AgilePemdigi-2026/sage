@@ -1,5 +1,5 @@
 import type { AddBaselineModel } from "./baseline-add-model.ts";
-import { PHASE_C_ADD } from "./phase-c-add.ts";
+import { PHASE_C_ADD, phaseCAddNumbers } from "./phase-c-add.ts";
 import { projectCoreBaselineView } from "./baseline-core-views.ts";
 
 export type AddViewKind = "dataStructure" | "applicationCooperation";
@@ -38,7 +38,8 @@ export function addViewNarratives(model: AddBaselineModel, view: AddViewKind): A
   };
 }
 
-export function addViewFigureNumber(view: AddViewKind, page: number): string {
-  const section = view === "dataStructure" ? PHASE_C_ADD.sections.logicalDataModel.number : PHASE_C_ADD.sections.applicationDesign.number;
-  return `${section}.${page}`;
+export function addViewFigureNumber(model: AddBaselineModel, view: AddViewKind, page: number): string {
+  const sectionId = view === "dataStructure" ? PHASE_C_ADD.sections.logicalDataModel.id : PHASE_C_ADD.sections.applicationDesign.id;
+  const section = phaseCAddNumbers(model).get(sectionId);
+  return section === undefined ? String(page) : `${section}.${page}`;
 }

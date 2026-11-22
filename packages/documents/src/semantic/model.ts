@@ -20,11 +20,19 @@ export interface DataIdentity {
   schemaQuoted: boolean;
   nameQuoted: boolean;
 }
+export interface DeclaredDataField {
+  name: string;
+  type: string;
+  multiplicity: "0..1" | "1" | "0..*";
+  targetNodeId?: string;
+  evidence: EvidenceSpan;
+}
 export interface SemanticNode {
   id: string; kind: SemanticKind; label: string; featureId: string | null;
   confidence: SemanticConfidence; reason: string; evidence: EvidenceSpan[]; technicalNodeIds: string[];
   /** Exact SQL identity for relational tables; display labels are intentionally not used to resolve CRUD targets. */
   dataIdentity?: DataIdentity;
+  dataFields?: DeclaredDataField[];
 }
 export interface SemanticEdge {
   id: string; source: string; target: string; label: string;

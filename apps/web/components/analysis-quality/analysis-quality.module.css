@@ -1,6 +1,7 @@
-.quality { margin-top: 14px; padding: 12px 14px; border: 1px solid #cddbdc; border-radius: 8px; background: #f4faf9; color: #344b68; font-size: 12px; line-height: 1.6; }
-.quality summary { cursor: pointer; color: #075b52; font-weight: 600; }
-.quality summary:focus-visible { outline: 3px solid #08796e; outline-offset: 3px; }
+.quality { padding: 12px 14px; border: 1px solid var(--color-border-soft); border-radius: var(--radius-control); background: var(--color-surface); color: var(--color-muted); font-size: var(--text-caption); line-height: 1.6; }
+.quality summary { width: fit-content; color: var(--color-teal-700); font-weight: 600; cursor: pointer; }
+.quality summary:focus-visible { outline: 2px solid var(--color-teal-500); outline-offset: 2px; border-radius: 4px; }
 .quality p { margin: 10px 0 0; }
-.quality ul { display: grid; gap: 8px; padding-left: 18px; }
+.quality ul { display: grid; gap: 8px; margin: 10px 0 0; padding-left: 18px; }
+.quality li strong { color: var(--color-ink); font-weight: 600; }
 .quality li span { display: block; }

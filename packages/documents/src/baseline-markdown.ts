@@ -1,7 +1,7 @@
 import type { EvidenceSpan } from "@sage/contracts";
 import { applyAddReviewOverlay, type AddReviewOverlay } from "./add-overlay.ts";
 import type { AddBaselineModel, AddElement, AddRelationship } from "./baseline-add.ts";
-import { addExportModelHash, PHASE_C_ADD, PHASE_C_ADD_TOC, type AddExportMetadata } from "./phase-c-add.ts";
+import { logicalSchemaRows, baselineCatalogMappings, addAnalyzerCoverageNotes, addExportModelHash, includedAddSections, phaseCAddContents, phaseCAddNumbers, PHASE_C_ADD, sourceBackedApplicationPortfolio, type AddExportMetadata } from "./phase-c-add.ts";
 import { addViewNarratives } from "./baseline-narratives.ts";
 import { coreRelationshipLabel, projectCoreBaselineView } from "./baseline-core-views.ts";
 
@@ -31,118 +31,136 @@ function evidenceLinks(spans: EvidenceSpan[], makeUrl: EvidenceUrlBuilder): stri
 function relationshipRow(edge: AddRelationship, elements: ReadonlyMap<string, AddElement>, makeUrl: EvidenceUrlBuilder): string {
   return "| " + cell(elements.get(edge.sourceId)?.name ?? edge.sourceId) + " | " + cell(edge.type) + " | " +
     cell(coreRelationshipLabel(edge) ?? "—") + " | " + cell(elements.get(edge.targetId)?.name ?? edge.targetId) + " | " +
-    (edge.confidence === "proven" ? "Proven" : "Indicated") + " | " + edge.review + " | " + evidenceLinks(edge.evidence, makeUrl) + " |";
+    (edge.confidence === "proven" ? "Proven" : "Indicated") + " | " + evidenceLinks(edge.evidence, makeUrl) + " |";
 }
 
 const relationshipHeader = [
-  "| Source | ArchiMate relationship | Label | Target | Confidence | Review | Evidence |",
-  "| --- | --- | --- | --- | --- | --- | --- |",
+  "| Source | ArchiMate relationship | Label | Target | Evidence confidence | Evidence |",
+  "| --- | --- | --- | --- | --- | --- |",
 ];
 
-const inputRequired = "Requires architect input. The analyzed repository does not establish this information.";
-
-/** Render the supplied PAP template's Phase C baseline section from the canonical model and review overlay. */
+/** Render a concise, source-backed baseline ADD from the canonical model. */
 export function createAddMarkdown(model: AddBaselineModel, overlay: AddReviewOverlay, makeEvidenceUrl: EvidenceUrlBuilder, metadata?: AddExportMetadata): string {
   model = applyAddReviewOverlay(model, overlay);
   const modelHash = addExportModelHash(metadata);
   const elements = new Map(model.elements.map(element => [element.id, element]));
+  const mapping = baselineCatalogMappings(model);
   const applicationView = projectCoreBaselineView(model, "applicationCooperation");
   const dataView = projectCoreBaselineView(model, "dataStructure");
   const dataViewNarrative = addViewNarratives(model, "dataStructure");
   const applicationViewNarrative = addViewNarratives(model, "applicationCooperation");
   const functions = model.elements.filter(element => element.type === "ApplicationFunction" || element.type === "ApplicationService");
-  const contents = PHASE_C_ADD_TOC.map(item => `${"  ".repeat(item.level)}- [${markdownText(item.label)}](#${item.id})`);
+  const included = includedAddSections(model);
+  const numbers = phaseCAddNumbers(model);
+  const contents = phaseCAddContents(model).map(item => `${"  ".repeat(item.level)}- [${markdownText(item.label)}](#${item.id})`);
+  const heading = (id: string, title: string) => `#### <a id="${id}"></a>${numbers.get(id)}. ${title}`;
   const out = [
     `# <a id="${PHASE_C_ADD.document.id}"></a>${PHASE_C_ADD.document.title}`, "",
-    "Architecture Definition Document (ADD): source-grounded baseline for Data Architecture and Application Architecture.", "",
+    "Baseline Data and Application Architecture generated from evidence in one repository snapshot.", "",
     "| Repository | Branch | Source commit | ArchiMate profile |",
     "| --- | --- | --- | --- |",
     `| ${cell(model.snapshot.repository)} | ${cell(model.snapshot.branch ?? "Not recorded")} | ${model.snapshot.commitSha} | ${model.archimateVersion} |`, "",
     "## Contents", "", ...contents, "",
-    `### <a id="${PHASE_C_ADD.dataArchitecture.id}"></a>${PHASE_C_ADD.dataArchitecture.title}`, "",
-    `#### <a id="${PHASE_C_ADD.sections.dataPrinciples.id}"></a>${PHASE_C_ADD.sections.dataPrinciples.number} ${PHASE_C_ADD.sections.dataPrinciples.title}`, "",
-    inputRequired + " Approved data principles must be supplied by the architecture authority; they are not inferred from code.", "",
-    `#### <a id="${PHASE_C_ADD.sections.dataBaseline.id}"></a>${PHASE_C_ADD.sections.dataBaseline.number} ${PHASE_C_ADD.sections.dataBaseline.title}`, "",
-    markdownText(model.narratives.dataBaseline), "",
-    "Only the baseline is included. Target architecture is a separately governed design input and is not inferred from this source snapshot.", "",
-    `##### <a id="${PHASE_C_ADD.sections.businessDataModel.id}"></a>${PHASE_C_ADD.sections.businessDataModel.number} ${PHASE_C_ADD.sections.businessDataModel.title}`, "",
-    "###### Data Entity Catalog", "",
-    "| Data entity | Feature group | Owner | Distribution | Description | Review | Evidence |",
-    "| --- | --- | --- | --- | --- | --- | --- |",
   ];
 
-  for (const row of model.catalogs.dataEntities) {
-    const element = elements.get(row.elementId);
-    if (!element) continue;
-    out.push(`| ${cell(element.name)} | ${cell(element.featureGroup ?? "Unassigned")} | ${cell(row.owner ?? "Requires confirmation")} | Requires enterprise input | ${cell(row.description ?? "")} | ${element.review} | ${evidenceLinks(element.evidence, makeEvidenceUrl)} |`);
+  const dataIds = [PHASE_C_ADD.sections.dataBaseline.id, PHASE_C_ADD.sections.businessDataModel.id,
+    PHASE_C_ADD.sections.logicalSchema.id, PHASE_C_ADD.sections.logicalDataModel.id, PHASE_C_ADD.sections.dataCrudMatrix.id];
+  if (dataIds.some(id => included.has(id))) out.push(`### <a id="${PHASE_C_ADD.dataArchitecture.id}"></a>${PHASE_C_ADD.dataArchitecture.title}`, "");
+  if (included.has(PHASE_C_ADD.sections.dataBaseline.id)) {
+    out.push(heading(PHASE_C_ADD.sections.dataBaseline.id, PHASE_C_ADD.sections.dataBaseline.title), "", markdownText(model.narratives.dataBaseline), "");
   }
-  if (!model.catalogs.dataEntities.length) out.push("| No data entity was identified |  |  |  |  |  |  |");
-
-  out.push("", `##### <a id="${PHASE_C_ADD.sections.logicalDataModel.id}"></a>${PHASE_C_ADD.sections.logicalDataModel.number} ${PHASE_C_ADD.sections.logicalDataModel.title}`, "",
-    markdownText(dataViewNarrative.introduction), "",
-    "This view shows the core source-supported data-object associations. Other data objects remain in the catalog.", "",
-    "ArchiMate Information Structure Viewpoint relationship register", "", ...relationshipHeader);
-  out.push(...(dataView.relationships.length ? dataView.relationships.map(edge => relationshipRow(edge, elements, makeEvidenceUrl)) : ["| No explicit data-to-data relationship was identified | — | — | — | — | — | — |"]));
-  out.push("", "**Interpretation of the data view:** " + markdownText(dataViewNarrative.interpretation), "");
-
-  out.push("", `##### <a id="${PHASE_C_ADD.sections.dataManagementProcess.id}"></a>${PHASE_C_ADD.sections.dataManagementProcess.number} ${PHASE_C_ADD.sections.dataManagementProcess.title}`, "",
-    inputRequired + " Data governance, stewardship, retention, and operational procedures are not established by code declarations alone.", "",
-    `##### <a id="${PHASE_C_ADD.sections.dataFunctionMatrix.id}"></a>${PHASE_C_ADD.sections.dataFunctionMatrix.number} ${PHASE_C_ADD.sections.dataFunctionMatrix.title}`, "",
-    inputRequired + " No approved Phase B business-function catalog or mapping was supplied; this matrix is intentionally omitted.", "",
-    `##### <a id="${PHASE_C_ADD.sections.dataCrudMatrix.id}"></a>${PHASE_C_ADD.sections.dataCrudMatrix.number} ${PHASE_C_ADD.sections.dataCrudMatrix.title}`, "",
-    "The matrix uses repository-level application components because source code does not establish enterprise business functions. Do not interpret an application component as a business function.", "",
-    "| Application component | Data entity | Create | Read | Update | Delete | Evidence |",
-    "| --- | --- | --- | --- | --- | --- | --- |");
-  for (const row of model.matrices.applicationData) out.push(`| ${cell(elements.get(row.applicationId)?.name ?? row.applicationId)} | ${cell(elements.get(row.dataId)?.name ?? row.dataId)} | ${row.create} | ${row.read} | ${row.update} | ${row.delete} | ${evidenceLinks(row.evidence, makeEvidenceUrl)} |`);
-  if (!model.matrices.applicationData.length) out.push("| No confirmed application-data operation |  |  |  |  |  |  |");
-  out.push("", "`Unknown` means the operation was not confirmed by supported static evidence; it does not mean `No`.", "",
-    `### <a id="${PHASE_C_ADD.applicationArchitecture.id}"></a>${PHASE_C_ADD.applicationArchitecture.title}`, "",
-    `#### <a id="${PHASE_C_ADD.sections.applicationDesign.id}"></a>${PHASE_C_ADD.sections.applicationDesign.number} ${PHASE_C_ADD.sections.applicationDesign.title}`, "",
-    markdownText(model.narratives.applicationBaseline), "", markdownText(applicationViewNarrative.introduction), "",
-    "This view shows the main source-supported application relationships. Endpoint and function details remain in the catalogs.", "",
-    "ArchiMate Application Cooperation Viewpoint relationship register", "", ...relationshipHeader);
-  out.push(...(applicationView.relationships.length ? applicationView.relationships.map(edge => relationshipRow(edge, elements, makeEvidenceUrl)) : ["| No application cooperation relationship was extracted | — | — | — | — | — | — |"]));
-  out.push("", "**Interpretation of the application view:** " + markdownText(applicationViewNarrative.interpretation), "");
-
-  out.push("", `#### <a id="${PHASE_C_ADD.sections.applicationCatalog.id}"></a>${PHASE_C_ADD.sections.applicationCatalog.number} ${PHASE_C_ADD.sections.applicationCatalog.title}`, "",
-    "##### Application Portfolio", "",
-    "| Application component | State | Description | Review | Evidence |", "| --- | --- | --- | --- | --- |");
-  for (const row of model.catalogs.applicationPortfolio) {
-    const element = elements.get(row.elementId);
-    if (element) out.push(`| ${cell(element.name)} | Baseline | ${cell(row.description ?? "")} | ${element.review} | ${evidenceLinks(element.evidence, makeEvidenceUrl)} |`);
+  if (included.has(PHASE_C_ADD.sections.businessDataModel.id)) {
+    out.push(heading(PHASE_C_ADD.sections.businessDataModel.id, PHASE_C_ADD.sections.businessDataModel.title), "",
+      "| Data entity | Group | Application access | Description | Evidence |", "| --- | --- | --- | --- | --- |");
+    for (const row of model.catalogs.dataEntities) {
+      const element = elements.get(row.elementId);
+      if (element) out.push(`| ${cell(element.name)} | ${cell(element.featureGroup ?? "")} | ${cell(mapping("dataAccess", element.id))} | ${cell(row.description ?? "")} | ${evidenceLinks(element.evidence, makeEvidenceUrl)} |`);
+    }
+    out.push("");
   }
-  if (!model.catalogs.applicationPortfolio.length) out.push("| No application component was identified |  |  |  |  |");
-
-  out.push("", `##### <a id="${PHASE_C_ADD.sections.logicalApplicationComponents.id}"></a>${PHASE_C_ADD.sections.logicalApplicationComponents.number} ${PHASE_C_ADD.sections.logicalApplicationComponents.title}`, "",
-    "| Type | Component | Feature group | Description | Review | Evidence |", "| --- | --- | --- | --- | --- | --- |");
-  for (const element of functions) out.push(`| ${element.type === "ApplicationFunction" ? "Function" : "Service"} | ${cell(element.name)} | ${cell(element.featureGroup ?? "Unassigned")} | ${cell(element.description ?? "")} | ${element.review} | ${evidenceLinks(element.evidence, makeEvidenceUrl)} |`);
-  if (!functions.length) out.push("| No logical application component was identified |  |  |  |  |  |");
-
-  out.push("", `##### <a id="${PHASE_C_ADD.sections.interfaceCatalog.id}"></a>${PHASE_C_ADD.sections.interfaceCatalog.number} ${PHASE_C_ADD.sections.interfaceCatalog.title}`, "",
-    "| Interface | Protocol | Contract | Review | Evidence |", "| --- | --- | --- | --- | --- |");
-  for (const row of model.catalogs.interfaces) {
-    const element = elements.get(row.elementId);
-    if (element) out.push(`| ${cell(element.name)} | ${cell(row.protocol ?? "Not identified")} | ${cell(row.contract ?? "")} | ${element.review} | ${evidenceLinks(element.evidence, makeEvidenceUrl)} |`);
+  if (included.has(PHASE_C_ADD.sections.logicalSchema.id)) {
+    out.push(heading(PHASE_C_ADD.sections.logicalSchema.id, PHASE_C_ADD.sections.logicalSchema.title), "",
+      "Declared Prisma attributes and relation fields. Multiplicity describes the field from its declaring entity.", "",
+      "| Entity | Field | Kind | Type / target | Multiplicity | Evidence |", "| --- | --- | --- | --- | --- | --- |");
+    for (const row of logicalSchemaRows(model)) {
+      out.push("| " + [row.entity, row.name, row.kind, row.type, row.multiplicity].map(cell).concat(evidenceLinks([row.evidence], makeEvidenceUrl)).join(" | ") + " |");
+    }
+    out.push("");
   }
-  if (!model.catalogs.interfaces.length) out.push("| No interface was identified |  |  |  |  |");
+  if (included.has(PHASE_C_ADD.sections.logicalDataModel.id)) {
+    out.push(heading(PHASE_C_ADD.sections.logicalDataModel.id, PHASE_C_ADD.sections.logicalDataModel.title), "",
+      markdownText(dataViewNarrative.introduction), "", "The view contains data objects and associations identified in the analyzed source.", "",
+      "ArchiMate Information Structure Viewpoint relationship register", "", ...relationshipHeader,
+      ...dataView.relationships.map(edge => relationshipRow(edge, elements, makeEvidenceUrl)),
+      "", "**Interpretation:** " + markdownText(dataViewNarrative.interpretation), "");
+  }
+  if (included.has(PHASE_C_ADD.sections.dataCrudMatrix.id)) {
+    const evidencedRows = model.matrices.applicationData.map(row => ({ ...row, operations: [
+      row.create === "yes" ? "Create" : "", row.read === "yes" ? "Read" : "",
+      row.update === "yes" ? "Update" : "", row.delete === "yes" ? "Delete" : "",
+    ].filter(Boolean).join(", ") })).filter(row => row.operations);
+    if (evidencedRows.length) {
+      out.push(heading(PHASE_C_ADD.sections.dataCrudMatrix.id, PHASE_C_ADD.sections.dataCrudMatrix.title), "",
+        "Only operations supported by source evidence are listed; missing operations are not represented as negative facts.", "",
+        "| Application component | Data entity | Detected operations | Evidence |", "| --- | --- | --- | --- |");
+      for (const row of evidencedRows) out.push(`| ${cell(elements.get(row.applicationId)?.name ?? row.applicationId)} | ${cell(elements.get(row.dataId)?.name ?? row.dataId)} | ${cell(row.operations)} | ${evidenceLinks(row.evidence, makeEvidenceUrl)} |`);
+      out.push("");
+    }
+  }
 
-  out.push("", `#### <a id="${PHASE_C_ADD.sections.applicationInteractions.id}"></a>${PHASE_C_ADD.sections.applicationInteractions.number} ${PHASE_C_ADD.sections.applicationInteractions.title}`, "");
-  if (model.matrices.applicationInteractions.length) {
-    out.push("| Source application | Target application | Mechanism | Evidence |", "| --- | --- | --- | --- |");
+  const appIds = [PHASE_C_ADD.sections.applicationDesign.id, PHASE_C_ADD.sections.applicationCatalog.id,
+    PHASE_C_ADD.sections.logicalApplicationComponents.id, PHASE_C_ADD.sections.interfaceCatalog.id,
+    PHASE_C_ADD.sections.applicationInteractions.id];
+  if (appIds.some(id => included.has(id))) out.push(`### <a id="${PHASE_C_ADD.applicationArchitecture.id}"></a>${PHASE_C_ADD.applicationArchitecture.title}`, "");
+  if (included.has(PHASE_C_ADD.sections.applicationDesign.id)) {
+    out.push(heading(PHASE_C_ADD.sections.applicationDesign.id, PHASE_C_ADD.sections.applicationDesign.title), "",
+      markdownText(model.narratives.applicationBaseline), "", markdownText(applicationViewNarrative.introduction), "",
+      "The view shows source-supported application components and relationships.", "",
+      "ArchiMate Application Cooperation Viewpoint relationship register", "", ...relationshipHeader,
+      ...applicationView.relationships.map(edge => relationshipRow(edge, elements, makeEvidenceUrl)),
+      "", "**Interpretation:** " + markdownText(applicationViewNarrative.interpretation), "");
+  }
+  if (included.has(PHASE_C_ADD.sections.applicationCatalog.id)) {
+    out.push(heading(PHASE_C_ADD.sections.applicationCatalog.id, PHASE_C_ADD.sections.applicationCatalog.title), "",
+      "| Application component | State | Description | Evidence |", "| --- | --- | --- | --- |");
+    for (const row of sourceBackedApplicationPortfolio(model)) {
+      const element = elements.get(row.elementId);
+      if (element) out.push(`| ${cell(element.name)} | Baseline | ${cell(row.description ?? "")} | ${evidenceLinks(element.evidence, makeEvidenceUrl)} |`);
+    }
+    out.push("");
+  }
+  if (included.has(PHASE_C_ADD.sections.logicalApplicationComponents.id)) {
+    out.push(heading(PHASE_C_ADD.sections.logicalApplicationComponents.id, PHASE_C_ADD.sections.logicalApplicationComponents.title), "",
+      "| Application | Feature group | Function / service | Description | Evidence |", "| --- | --- | --- | --- | --- |");
+    for (const element of functions) out.push(`| ${cell(mapping("application", element.id))} | ${cell(element.featureGroup ?? "")} | ${cell(element.name)} | ${cell(element.description ?? "")} | ${evidenceLinks(element.evidence, makeEvidenceUrl)} |`);
+    out.push("");
+  }
+  if (included.has(PHASE_C_ADD.sections.interfaceCatalog.id)) {
+    out.push(heading(PHASE_C_ADD.sections.interfaceCatalog.id, PHASE_C_ADD.sections.interfaceCatalog.title), "",
+      "| Interface | Protocol | Contract | Provider | Consumer | Evidence |", "| --- | --- | --- | --- | --- | --- |");
+    for (const row of model.catalogs.interfaces) {
+      const element = elements.get(row.elementId);
+      if (element) out.push(`| ${cell(element.name)} | ${cell(row.protocol ?? "")} | ${cell(row.contract ?? "")} | ${cell(mapping("provider", element.id))} | ${cell(mapping("consumer", element.id))} | ${evidenceLinks(element.evidence, makeEvidenceUrl)} |`);
+    }
+    out.push("");
+  }
+  if (included.has(PHASE_C_ADD.sections.applicationInteractions.id)) {
+    out.push(heading(PHASE_C_ADD.sections.applicationInteractions.id, PHASE_C_ADD.sections.applicationInteractions.title), "",
+      "| Source application | Target application | Mechanism | Evidence |", "| --- | --- | --- | --- |");
     for (const row of model.matrices.applicationInteractions) out.push(`| ${cell(elements.get(row.sourceApplicationId)?.name ?? row.sourceApplicationId)} | ${cell(elements.get(row.targetApplicationId)?.name ?? row.targetApplicationId)} | ${cell(row.mechanism)} | ${evidenceLinks(row.evidence, makeEvidenceUrl)} |`);
-  } else out.push("No interaction between separately identified applications or communication mechanism was confirmed from this repository snapshot. Internal calls remain in the Application Cooperation view.");
+    out.push("");
+  }
 
-  out.push("", "### Source and analysis notes", "",
-    `| Item | Value |`, `| --- | --- |`,
+  out.push("### Source and analysis notes", "",
+    "| Item | Value |", "| --- | --- |",
     `| Repository snapshot | ${cell(model.snapshot.repository)} @ ${model.snapshot.commitSha} |`,
     `| Branch | ${cell(model.snapshot.branch ?? "Not recorded")} |`,
     `| Source CKG SHA-256 | ${model.sourceCkgHash} |`,
     `| ADD model SHA-256 | ${modelHash} |`,
     `| Analyzer version | ${cell(model.generation.extractorVersion)} |`,
-    `| Narrative assistance | ${cell(model.generation.llmOutcome + (model.generation.llmModel ? " · " + model.generation.llmModel : ""))} |`,
-    `| Review overlay | ${overlay.status}, revision ${overlay.revision} |`, "",
-    "The application and data views use the same canonical snapshot as this document. `Proven` and `Indicated` describe evidence confidence; they are separate from code-model resolution status.", "",
-    "### Items requiring confirmation", "",
-    ...(model.limitations.length ? model.limitations.map(item => "- " + markdownText(item, true)) : ["- No additional analyzer limitation was recorded."]), "");
+    `| Narrative assistance | ${cell(model.generation.llmOutcome + (model.generation.llmModel ? " · " + model.generation.llmModel : ""))} |`, "",
+    "The application and data views use the same analyzed source snapshot. `Proven` and `Indicated` describe evidence confidence and do not change code-model resolution status.", "");
+  const coverageNotes = addAnalyzerCoverageNotes(model);
+  if (coverageNotes.length) out.push("### Analyzer coverage", "", ...coverageNotes.map(item => "- " + markdownText(item, true)), "");
   return out.join("\n");
 }

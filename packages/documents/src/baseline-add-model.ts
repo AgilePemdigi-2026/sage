@@ -1,3 +1,4 @@
+import type { DeclaredDataField } from "./semantic/model.ts";
 import { EVIDENCE_ROLES } from "@sage/contracts/registries";
 import type { CcmV1, EvidenceSpan } from "@sage/contracts";
 import type { DataOperation } from "./semantic/model.ts";
@@ -20,6 +21,7 @@ export interface AddElement {
   description: string | null;
   origin: AddOrigin;
   featureGroup?: string | null;
+  dataFields?: DeclaredDataField[];
   evidence: EvidenceSpan[];
   review: "unreviewed" | "confirmed" | "rejected";
 }
@@ -125,6 +127,10 @@ export function isAddBaselineModel(value: unknown): value is AddBaselineModel {
         !ELEMENT_TYPES.has(item.type as ArchiMateElementType) || !isText(item.name, 1000) || !item.name.trim() ||
         !(item.description === null || isText(item.description)) || !ADD_ORIGINS.has(item.origin as AddOrigin) ||
         !(item.featureGroup === undefined || item.featureGroup === null || isText(item.featureGroup, 300)) ||
+        (item.dataFields !== undefined && (item.type !== "DataObject" || !Array.isArray(item.dataFields) || item.dataFields.length > 100 ||
+          !item.dataFields.every(field => isRecord(field) && isText(field.name, 300) && isText(field.type, 300) &&
+            ["0..1", "1", "0..*"].includes(String(field.multiplicity)) &&
+            (field.targetNodeId === undefined || isText(field.targetNodeId, 180)) && isEvidence(field.evidence)))) ||
         !Array.isArray(item.evidence) || !item.evidence.every(isEvidence) || !REVIEW.has(item.review as string)) return false;
     elements.set(item.id, item as unknown as AddElement);
   }

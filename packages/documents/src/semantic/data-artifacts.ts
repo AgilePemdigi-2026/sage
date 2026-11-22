@@ -267,11 +267,13 @@ function prismaModels(fragment: SemanticFragment, sources: Source[]): void {
   }
 
   const identifiers = new Map<PrismaModelBlock, string>();
+  const nodes = new Map<PrismaModelBlock, (typeof fragment.nodes)[number]>();
   const bySchemaAndName = new Map<string, PrismaModelBlock[]>();
   for (const model of models) {
     const id = addData(fragment, model.source, model.nameStart, model.nameStart + model.name.length, model.name,
       `prisma-model:${model.name}`, "Data model explicitly declared by a Prisma model block.");
     identifiers.set(model, id);
+    nodes.set(model, fragment.nodes.at(-1)!);
     const key = `${prismaSchemaRoot(model.source.path)}\0${model.name}`;
     const matches = bySchemaAndName.get(key) ?? [];
     matches.push(model);
@@ -290,6 +292,18 @@ function prismaModels(fragment: SemanticFragment, sources: Source[]): void {
         const targetType = field[3]!;
         const targetKey = `${prismaSchemaRoot(model.source.path)}\0${targetType}`;
         const targets = bySchemaAndName.get(targetKey) ?? [];
+        const suffix = line.trim().split(/\s+/u)[1]?.slice(targetType.length);
+        const scalar = /^(?:String|Boolean|Int|BigInt|Float|Decimal|DateTime|Json|Bytes)$/u.test(targetType);
+        if (scalar || targets.length === 1) {
+          const node = nodes.get(model)!;
+          const fields = node.dataFields ??= [];
+          if (fields.length < 100 && !fields.some(item => item.name === field[2])) fields.push({
+            name: field[2]!, type: targetType,
+            multiplicity: suffix === "[]" ? "0..*" : suffix === "?" ? "0..1" : "1",
+            ...(targets.length === 1 ? { targetNodeId: identifiers.get(targets[0]!)! } : {}),
+            evidence: span(model.source, lineStart + field[1]!.length, lineEnd, "declaration"),
+          });
+        }
         if (targets.length === 1) {
           const target = targets[0]!;
           if (model === target) {

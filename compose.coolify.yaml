@@ -59,6 +59,7 @@ services:
     image: ${SAGE_WEB_IMAGE:?Set SAGE_WEB_IMAGE to an immutable web image digest}
     environment:
       <<: *database-environment
+      SAGE_PRIVACY_CONTACT_EMAIL: ${SAGE_PRIVACY_CONTACT_EMAIL:-}
       NEXT_TELEMETRY_DISABLED: "1"
       STORAGE_ROOT: /app/storage
       CREDENTIAL_ENCRYPTION_KEY: ${CREDENTIAL_ENCRYPTION_KEY:?Set CREDENTIAL_ENCRYPTION_KEY in the operator environment or private env file}

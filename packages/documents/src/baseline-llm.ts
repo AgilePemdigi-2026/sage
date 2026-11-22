@@ -1,5 +1,6 @@
 import type { AddBaselineModel } from "./baseline-add.ts";
 import { coreRelationshipLabel, projectCoreBaselineView } from "./baseline-core-views.ts";
+import { sourceBackedApplicationPortfolio } from "./phase-c-add.ts";
 
 export type AddLlmOutcome = "used" | "unavailable" | "not-configured";
 const safeText = (value: unknown, max: number): value is string => typeof value === "string" && value.trim().length > 0 && value.length <= max;
@@ -58,7 +59,7 @@ export async function enrichAddNarrative(input: {
   const dataRelationshipIds = new Set(input.model.views.dataStructure.relationshipIds);
   const applicationRelationshipIds = new Set(input.model.views.applicationCooperation.relationshipIds);
   const allFacts = {
-    application: input.model.catalogs.applicationPortfolio.map(item => bounded(input.model.elements.find(e => e.id === item.elementId)?.name)),
+    application: sourceBackedApplicationPortfolio(input.model).map(item => bounded(input.model.elements.find(e => e.id === item.elementId)?.name)),
     functions: input.model.elements.filter(element => element.type === "ApplicationFunction" || element.type === "ApplicationService")
       .map(element => ({ type: bounded(element.type), id: bounded(element.id), name: bounded(element.name) })),
     dataObjects: input.model.catalogs.dataEntities.map(item => ({ name: bounded(input.model.elements.find(e => e.id === item.elementId)?.name), owner: bounded(item.owner) })),

@@ -5,7 +5,9 @@ const directory = resolve(
 const configuration = {
   paths: ["tests/bdd/sprint2/*.feature"],
   import: ["tests/bdd/sprint2/steps.ts"],
-  tags: process.env.SAGE_BDD_BROWSER_CASE
+  tags: process.env.SAGE_BDD_USER_SCENARIOS_ONLY === "1"
+    ? "@sprint2 and @srs"
+    : process.env.SAGE_BDD_BROWSER_CASE
     ? `@sprint2 and @browser_${process.env.SAGE_BDD_BROWSER_CASE}`
     : process.env.SAGE_BDD_CONTRACTS_ONLY === "1"
       ? "@sprint2 and @contract"

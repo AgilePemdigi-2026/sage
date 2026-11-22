@@ -148,7 +148,8 @@ export async function renderInteractiveDiagramSvg(
       deterministicIDSeed: identitySeed,
       suppressErrorRendering: true,
       logLevel: "error",
-      fontFamily: "Inter, sans-serif",
+      // Token UI: Plus Jakarta Sans (dimuat via @fontsource di layout); fallback sans-serif untuk SVG yang diunduh.
+      fontFamily: "\"Plus Jakarta Sans\", ui-sans-serif, system-ui, sans-serif",
       theme: "base",
             look: "classic",
       themeVariables: HUMAN_DIAGRAM_THEME,
