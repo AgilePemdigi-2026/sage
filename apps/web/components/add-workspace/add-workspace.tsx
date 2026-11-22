@@ -10,7 +10,7 @@ import { addViewFigureNumber, addViewNarratives } from "@sage/documents/baseline
 import { coreRelationshipLabel, projectCoreBaselineView } from "@sage/documents/baseline-core-views";
 import { PHASE_C_ADD, PHASE_C_ADD_TOC } from "@sage/documents/phase-c-add";
 import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
-import { Button, EmptyState, MaskIcon, OverflowX, SkeletonRows, useVisibleSection } from "../design-system/ui.tsx";
+import { AssetIcon, Badge, Button, EmptyState, Field, MaskIcon, OverflowX, SkeletonRows, useVisibleSection } from "../design-system/ui.tsx";
 import { AnalysisPageHead } from "../analysis-navigation/analysis-page-head.tsx";
 import type { AnalysisHeadData } from "../../lib/analyses/analysis-head.ts";
 import styles from "./add-workspace.module.css";
@@ -384,13 +384,34 @@ function ReviewEditor({ model, overlay, update, reset, markReviewed, save, savin
   const pageSize = 12; const pages = Math.max(1, Math.ceil(filtered.length / pageSize)); const currentPage = Math.min(page, pages - 1);
   const visible = filtered.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
   return <section className={styles.sectionCard + " " + styles.reviewPanel} id="review" aria-labelledby="review-title">
-    <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>REVIEW</p><h2 id="review-title">Review and correct the baseline</h2><p>Corrections are stored as a versioned overlay. The analyzed source facts remain unchanged.</p></div><span className={overlay.status === "reviewed" ? styles.reviewed : styles.draft}>{overlay.status === "reviewed" ? "Reviewed" : "Draft"} · revision {overlay.revision}</span></div>
+    <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>REVIEW</p><h2 id="review-title">Review and correct the baseline</h2><p>Corrections are stored as a versioned overlay. The analyzed source facts remain unchanged.</p></div><span className={styles.reviewStatusPill}><Badge tone={overlay.status === "reviewed" ? "success" : "warning"}>{overlay.status === "reviewed" ? "Reviewed" : "Draft"} · revision {overlay.revision}</Badge></span></div>
     <div className={styles.reviewToolbar}><label>Search elements <input type="search" disabled={saving} value={query} onChange={event => { setQuery(event.currentTarget.value); setPage(0); }} placeholder="Name or description" /></label><label>Feature group <select disabled={saving} value={group} onChange={event => { setGroup(event.currentTarget.value); setPage(0); }}><option value="all">All groups</option><option value="unassigned">Unassigned</option>{featureGroups.map(item => <option key={item} value={item}>{item}</option>)}</select></label><span>{filtered.length} of {reviewable.length} elements</span></div>
     <div className={styles.reviewRows}>{visible.map(element => {
       const changes = overlay.elements[element.id] ?? {}; const name = changes.name ?? element.name; const selectedGroup = changes.featureGroup === undefined ? element.featureGroup ?? "unassigned" : changes.featureGroup ?? "unassigned";
       const isConfirmed = changes.review === "confirmed";
       const isRejected = changes.review === "rejected";
-      return <article key={element.id} className={styles.reviewRow}><div className={styles.reviewIdentity}><span>{elementTypeLabel(element.type)}</span><strong>{name}</strong><EvidenceList model={model} spans={element.evidence} /></div><label>Display name<input disabled={saving} value={name} maxLength={180} onChange={event => update(element.id, { name: event.currentTarget.value })} /></label><label>Feature group<select disabled={saving} value={selectedGroup} onChange={event => update(element.id, { featureGroup: event.currentTarget.value === "unassigned" ? null : event.currentTarget.value })}><option value="unassigned">Unassigned</option>{featureGroups.map(item => <option key={item} value={item}>{item}</option>)}</select></label><div className={styles.reviewActions}><button disabled={saving} type="button" className={isConfirmed ? styles.primaryButton : styles.secondaryButton} aria-pressed={isConfirmed} onClick={() => update(element.id, { review: isConfirmed ? "rejected" : "confirmed" })}>{isConfirmed ? "Confirmed" : "Confirm"}</button><button disabled={saving} type="button" className={styles.secondaryButton} aria-pressed={isRejected} onClick={() => update(element.id, { review: "rejected" })}>Reject</button><button disabled={saving} type="button" className={styles.linkButton} onClick={() => reset(element.id)}>Reset</button></div></article>;
+      const reviewState = changes.review ?? element.review;
+      const groupId = `review-group-${element.id.replace(/[^A-Za-z0-9_-]/g, "_")}`;
+      // Baris atas: identitas + status; baris bawah: field berdampingan lalu aksi (turun dan wrap di layar sempit).
+      return <article key={element.id} className={styles.reviewRow}>
+        <div className={styles.reviewHead}>
+          <div className={styles.reviewIdentity}><span>{elementTypeLabel(element.type)}</span><strong>{name}</strong><EvidenceList model={model} spans={element.evidence} /></div>
+          <Badge tone={reviewState === "confirmed" ? "success" : reviewState === "rejected" ? "error" : "neutral"}>{reviewState === "confirmed" ? "Dikonfirmasi" : reviewState === "rejected" ? "Ditolak" : "Belum direview"}</Badge>
+        </div>
+        <div className={styles.reviewEdit}>
+          <div className={styles.reviewFields}>
+            <Field className={styles.reviewField} label="Display name" disabled={saving} value={name} maxLength={180} onChange={event => update(element.id, { name: event.currentTarget.value })} />
+            <Field className={styles.reviewField} id={groupId} label="Feature group" disabled={saving} trailing={<AssetIcon group="header" name="imgIconChevronDown" />}>
+              <select id={groupId} disabled={saving} value={selectedGroup} onChange={event => update(element.id, { featureGroup: event.currentTarget.value === "unassigned" ? null : event.currentTarget.value })}><option value="unassigned">Unassigned</option>{featureGroups.map(item => <option key={item} value={item}>{item}</option>)}</select>
+            </Field>
+          </div>
+          <div className={styles.reviewActions}>
+            <Button variant="secondary" disabled={saving} className={styles.reviewAction} data-tone={isConfirmed ? "success" : undefined} aria-pressed={isConfirmed} onClick={() => update(element.id, { review: isConfirmed ? "rejected" : "confirmed" })}>{isConfirmed ? "Confirmed" : "Confirm"}</Button>
+            <Button variant="secondary" disabled={saving} className={styles.reviewAction} data-tone={isRejected ? "error" : undefined} aria-pressed={isRejected} onClick={() => update(element.id, { review: "rejected" })}>Reject</Button>
+            <Button variant="link" disabled={saving} onClick={() => reset(element.id)}>Reset</Button>
+          </div>
+        </div>
+      </article>;
     })}</div>
     <div className={styles.pagination}><button type="button" className={styles.secondaryButton} disabled={saving || currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button><span>Page {currentPage + 1} of {pages}</span><button type="button" className={styles.secondaryButton} disabled={saving || currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>Next</button></div>
     <div className={styles.reviewFooter}><div><button className={styles.secondaryButton} disabled={saving} type="button" onClick={() => markReviewed(overlay.status === "reviewed" ? "draft" : "reviewed")}>{overlay.status === "reviewed" ? "Reopen as draft" : "Mark document reviewed"}</button><p>Review status records your sign-off; it does not claim that source evidence changed.</p></div><button className={styles.primaryButton} type="button" disabled={saving} onClick={save}>{saving ? "Saving review…" : "Save review"}</button></div>

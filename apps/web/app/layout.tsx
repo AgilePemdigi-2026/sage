@@ -11,8 +11,9 @@ import { AccountProvider } from "../components/design-system/account-context.tsx
 import { readHeaderAccount } from "../lib/auth/header-account.ts";
 
 export const metadata: Metadata = {
-  title: "SAGE — Dokumentasi arsitektur berbasis source code",
-  description: "Telusuri struktur kode dan dokumentasi arsitektur dengan bukti langsung dari source code.",
+  // Halaman lain cukup mengisi `title` (tanpa suffix); template menambahkan " | SAGE".
+  title: { default: "SAGE", template: "%s | SAGE" },
+  description: "Dokumentasi arsitektur berbasis source code: telusuri struktur kode dan dokumentasi arsitektur dengan bukti langsung dari source code.",
 };
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

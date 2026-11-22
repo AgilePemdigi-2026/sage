@@ -10,7 +10,7 @@ import { AnalysisDetailClient } from "../../../components/history/detail-client.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Progres analisis — SAGE",
+  title: "Progres",
   robots: { index: false, follow: false },
 };
 

@@ -11,7 +11,7 @@ import { AddWorkspace } from "../../../../components/add-workspace/add-workspace
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Architecture Definition Document — SAGE",
+  title: "TOGAF ADD",
   robots: { index: false, follow: false },
 };
 

@@ -4,7 +4,7 @@ import { loginRedirectPath, readWorkspaceContextCached } from "../../lib/auth/wo
 import { Badge, Button, DesignFrame, PageHead, Panel } from "../../components/design-system/ui.tsx";
 
 export const metadata: Metadata = {
-  title: "Workspace — SAGE",
+  title: "Workspace",
   robots: { index: false, follow: false },
 };
 

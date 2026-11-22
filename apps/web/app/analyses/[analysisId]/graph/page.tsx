@@ -12,7 +12,7 @@ import { readAnalysisHead } from "../../../../lib/analyses/analysis-head.ts";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: "Code Knowledge — SAGE",
+  title: "Code Knowledge",
   robots: { index: false, follow: false },
 };
 

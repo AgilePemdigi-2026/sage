@@ -38,7 +38,7 @@
 .caption { margin:12px 2px 0; font-size:13px; line-height:1.5; }
 .sectionCard { overflow:hidden; }.sectionTitle { align-items:end; }
 .searchLabel,.reviewToolbar label { display:grid; gap:6px; color:var(--color-muted); font-size:12px; font-weight:600; }
-.searchLabel input,.reviewToolbar input,.reviewToolbar select,.reviewRow input,.reviewRow select { min-height:38px; min-width:160px; border:1px solid var(--color-border); border-radius:7px; padding:7px 10px; background:#fff; color:var(--color-ink); font:14px system-ui,sans-serif; }
+.searchLabel input,.reviewToolbar input,.reviewToolbar select { min-height:38px; min-width:0; width:100%; border:1px solid var(--color-border); border-radius:7px; padding:7px 10px; background:#fff; color:var(--color-ink); font:14px system-ui,sans-serif; }
 .tableScroll { margin:8px 0; }
 .tableScroll table { width:100%; border-collapse:collapse; min-width:780px; table-layout:fixed; font-size:13px; }
 /* Teks biasa tidak patah di tengah kata; hanya sel path/SHA/kode (aturan di bawah) yang boleh break-all. */
@@ -53,9 +53,20 @@
 .evidenceList a { color:var(--color-teal-700); text-decoration:none; }.evidenceList a:hover { text-decoration:underline; }.evidenceList code { font-size:11px; overflow-wrap:anywhere; }.evidenceList small { display:block; color:#6e7781; font-size:10px; }
 .portfolioGrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; margin:12px 0 24px; }
 .portfolioItem { padding:16px; border:1px solid #d8dee4; border-radius:9px; background:#fbfcfe; }.portfolioItem>span { color:var(--color-muted); font:700 10px ui-monospace,monospace; text-transform:uppercase; letter-spacing:.07em; }.portfolioItem h3 { margin:8px 0; font-size:16px; }.portfolioItem p { color:var(--color-muted); font-size:13px; line-height:1.5; }
-.reviewToolbar { display:flex; align-items:end; gap:14px; flex-wrap:wrap; margin:16px 0; }.reviewToolbar>span { margin:0 0 9px auto; color:var(--color-muted); font-size:12px; }
-.reviewRows { display:grid; gap:10px; }.reviewRow { display:grid; grid-template-columns:minmax(180px,1.3fr) minmax(140px,1fr) minmax(140px,.8fr) auto; align-items:center; gap:14px; padding:14px; border:1px solid #d8dee4; border-radius:9px; background:#fbfcfe; }.reviewIdentity { display:grid; gap:5px; min-width:0; }.reviewIdentity>span { color:var(--color-muted); font:700 10px ui-monospace,monospace; text-transform:uppercase; letter-spacing:.06em; }.reviewIdentity strong { overflow-wrap:anywhere; }.reviewIdentity .evidenceList { font-size:11px; }.reviewActions { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
-.reviewRow>label { display:grid; gap:6px; color:var(--color-muted); font-size:11px; font-weight:650; }.reviewActions { display:flex; gap:6px; align-items:center; }
+/* Toolbar review: satu baris (cari melebar, group, jumlah di kanan); wrap di layar sempit. */
+.reviewToolbar { display:flex; align-items:end; gap:12px 14px; flex-wrap:wrap; margin:16px 0; }.reviewToolbar>label { flex:1 1 150px; min-width:0; }.reviewToolbar>label:nth-child(2) { flex:0 1 190px; }.reviewToolbar>span { flex:none; margin:0 0 10px auto; color:var(--color-muted); font-size:12px; white-space:nowrap; }
+.reviewRows { display:grid; gap:10px; }
+/* Kartu review: baris atas identitas + status, baris bawah field berdampingan + aksi. Semua anak min-width:0 agar tidak meluap. */
+.reviewRow { display:grid; gap:12px; min-width:0; padding:14px 16px; border:1px solid var(--color-border-soft); border-radius:14px; background:var(--color-canvas); }
+.reviewHead { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; min-width:0; }
+.reviewIdentity { display:grid; gap:4px; min-width:0; flex:1 1 auto; }.reviewIdentity>span { color:var(--color-muted); font:var(--text-mono-sm)/1.4 var(--font-mono); text-transform:uppercase; letter-spacing:.06em; }.reviewIdentity strong { color:var(--color-ink); font-size:15px; overflow-wrap:anywhere; }.reviewIdentity .evidenceList { min-width:0; font-size:11px; }.reviewIdentity .evidenceList code { overflow-wrap:anywhere; word-break:break-all; }
+.reviewHead>span { flex:none; }
+.reviewEdit { display:flex; flex-wrap:wrap; align-items:flex-end; gap:12px 16px; min-width:0; }
+.reviewFields { display:flex; flex:1 1 360px; gap:12px; min-width:0; }.reviewField { flex:1 1 0; min-width:0; }
+.reviewActions { display:flex; flex:0 1 auto; flex-wrap:wrap; align-items:center; gap:8px; min-width:0; margin-left:auto; }
+.reviewActions .reviewAction[data-tone="success"] { color:var(--color-success); background:var(--color-success-fill); border-color:var(--color-success); }
+.reviewActions .reviewAction[data-tone="error"] { color:var(--color-error); background:var(--color-error-fill); border-color:var(--color-error); }
+.reviewStatusPill { flex:none; white-space:nowrap; }
 /* Tombol mengikuti kit (Button): radius 12, tinggi 44, teks 14/600; primer teal dengan teks ink. */
 .primaryButton,.secondaryButton,.linkButton,.primaryLink { display:inline-flex; align-items:center; justify-content:center; min-height:44px; border-radius:var(--radius-control); padding:0 20px; font:600 14px/1.4 var(--font-sans); cursor:pointer; text-decoration:none; transition:transform var(--duration-base) var(--ease-out-soft), background-color var(--duration-base) var(--ease-out-soft), border-color var(--duration-base) var(--ease-out-soft); }
 .primaryButton:hover:not(:disabled),.secondaryButton:hover:not(:disabled),.primaryLink:hover { transform:translateY(-2px); }
@@ -75,7 +86,7 @@
 .printTocTitle { display:none; }
 /* Daftar isi cetak: di layar diganti daftar isi samping (add-document-chrome). */
 .printOnlyContents { display:none; }
-@media(max-width:760px) { .page { width:100%; padding-top:0; }.exportPanel { flex-direction:column; align-items:stretch; }.baseline,.sectionCard,.emptyPanel,.errorPanel { padding:16px; }.baselineHeading,.sectionTitle { display:grid; }.archimateTag { white-space:normal; }.reviewRow { grid-template-columns:1fr; }.reviewToolbar>span { margin-left:0; }.exportActions>* { flex:1; }.reviewFooter { align-items:stretch; flex-direction:column; }.diagramViewport { max-height:65vh; }.tocList { grid-template-columns:1fr; }.tocList .tocDocument { grid-column:auto; } }
+@media(max-width:760px) { .page { width:100%; padding-top:0; }.exportPanel { flex-direction:column; align-items:stretch; }.baseline,.sectionCard,.emptyPanel,.errorPanel { padding:16px; }.baselineHeading,.sectionTitle { display:grid; }.archimateTag { white-space:normal; }.reviewFields { flex-basis:100%; flex-direction:column; }.reviewActions { margin-left:0; }.reviewToolbar>label,.reviewToolbar>label:nth-child(2) { flex-basis:100%; }.reviewToolbar>span { margin-left:0; }.exportActions>* { flex:1; }.reviewFooter { align-items:stretch; flex-direction:column; }.diagramViewport { max-height:65vh; }.tocList { grid-template-columns:1fr; }.tocList .tocDocument { grid-column:auto; } }
 @media print {
   .page { width:100%; max-width:none; margin:0; padding:0; color:#111; font:10pt/1.45 "Times New Roman",serif; }
   .pageHeader,.baseline,.sectionCard { box-shadow:none; margin:0 0 7mm; border-color:#b8c1cc; }
