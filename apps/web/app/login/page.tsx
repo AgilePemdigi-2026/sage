@@ -3,7 +3,7 @@ import { authRequiredMessage, parseGitHubAuthConfig, safeAuthErrorMessage } from
 import { AssetIcon, Button, DesignFrame, Panel } from "../../components/design-system/ui.tsx";
 
 export const metadata: Metadata = {
-  title: "Masuk — SAGE",
+  title: "Masuk",
   robots: { index: false, follow: false },
 };
 export const dynamic = "force-dynamic";

@@ -3,7 +3,7 @@ import { loginRedirectPath, readWorkspaceContextCached } from "../../../lib/auth
 import { RepositoryAccessPanel } from "../../../components/repositories/access-panel.tsx";
 import { DesignFrame } from "../../../components/design-system/ui.tsx";
 
-export const metadata = { title: "Repository — SAGE", robots: { index: false, follow: false } };
+export const metadata = { title: "Repository", robots: { index: false, follow: false } };
 
 export default async function RepositoriesPage() {
   let context;

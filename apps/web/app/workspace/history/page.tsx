@@ -4,7 +4,7 @@ import { loginRedirectPath, readWorkspaceContextCached } from "../../../lib/auth
 import { HistoryClient } from "../../../components/history/history-client.tsx";
 
 export const metadata: Metadata = {
-  title: "Riwayat — SAGE",
+  title: "Riwayat",
   robots: { index: false, follow: false },
 };
 
