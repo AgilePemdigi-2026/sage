@@ -600,7 +600,8 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
     <p>Architecture Definition Document (ADD) · Baseline Data Architecture and Application Architecture generated from one repository snapshot.</p>
     <dl className={styles.snapshotDetails}><div><dt>Repository</dt><dd>{activeModel.snapshot.repository}</dd></div><div><dt>Source commit</dt><dd><code>{activeModel.snapshot.commitSha}</code></dd></div><div><dt>Branch</dt><dd>{activeModel.snapshot.branch ?? "Not recorded"}</dd></div><div><dt>ArchiMate profile</dt><dd>{activeModel.archimateVersion}</dd></div></dl>
   </header> : null;
-  return <main className={styles.page}>
+  // <div>, bukan <main>: DesignFrame sudah menyediakan satu landmark <main> per halaman.
+  return <div className={styles.page}>
     {context ? <AnalysisPageHead head={context} tab="Architecture Definition Document" /> : null}
     {!context ? documentHeader : null}
     <AnalysisNavigation analysisId={analysisId} active="document" resultsAvailable={context ? context.resultsAvailable : true} />
@@ -725,5 +726,5 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
         <ExportPanel analysisId={analysisId} accountKey={accountKey} model={visibleData!.model} modelHash={visibleData!.modelHash} overlay={overlay} />
       </aside>
     </div> : null}
-  </main>;
+  </div>;
 }
