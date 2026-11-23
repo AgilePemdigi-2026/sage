@@ -131,7 +131,9 @@
 .accountMenu form { margin: 0; }
 @keyframes menuIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 
-.main { flex: 1 0 auto; width: 100%; max-width: 1264px; /* konten 1200 px seperti Figma + padding 32 */ min-width: 0; margin: 0 auto; padding: 32px; }
+.main { flex: 1 0 auto; width: 100%; max-width: 1264px; /* konten 1200 px seperti Figma + padding 32 */ min-width: 0; margin: 0 auto; padding: 32px;
+  /* Setinggi viewport: footer selalu di bawah lipatan saat memuat, sehingga skeleton → konten tidak menggeser footer di layar. */
+  min-height: 100dvh; }
 /* Tanpa animasi masuk halaman: opacity 0 di awal menunda cat konten (LCP) dan tidak menyampaikan perubahan state. */
 .main:focus-visible { outline: 2px solid var(--color-teal-500); outline-offset: -4px; }
 
@@ -457,7 +459,7 @@ button.pill:disabled { cursor: not-allowed; opacity: .6; }
 /* Cetak: latar putih, tanpa padding layar. */
 @media print {
   .frame { background: #fff; }
-  .main { max-width: none; padding: 0; }
+  .main { max-width: none; min-height: 0; padding: 0; }
 }
 
 /* ── OverflowX (tabel lebar) ──────────────────────────────────────── */

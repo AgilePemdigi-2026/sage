@@ -338,8 +338,10 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
   }
   function repoRow(item: Repository) {
     const selected = chosen?.id === item.id;
+    // Baris = kartu informasi; tombol transparan menutupi seluruh baris (nama aksesibel "Pilih owner/repo" tanpa teks
+    // terlihat di dalam tombol, sehingga lolos label-in-name) dan tetap satu target klik.
     return <li key={item.id}>
-      <button type="button" className={css.row} aria-label={`Pilih ${item.fullName}`} aria-pressed={selected} disabled={busy || !scopeVerified} onClick={() => void choose(item)}>
+      <div className={css.row} data-selected={selected ? "true" : undefined}>
         <span className={css.rowIcon}><Icon name="repo" /></span>
         <span className={css.rowCopy}>
           <span className={css.rowName} title={item.fullName}>{item.fullName}</span>
@@ -349,7 +351,8 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
         <span className={css.rowEnd} aria-hidden="true">
           {selected ? <Icon name="checkCircle" className={css.check} /> : <Icon name="chevronRight" className={css.chevron} />}
         </span>
-      </button>
+        <button type="button" className={css.rowHit} aria-label={`Pilih ${item.fullName}`} aria-pressed={selected} disabled={busy || !scopeVerified} onClick={() => void choose(item)} />
+      </div>
     </li>;
   }
   const step = !chosen ? 0 : target ? 2 : 1;

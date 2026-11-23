@@ -110,7 +110,7 @@ function PrintRelationshipRegister({ model }: { model: AddBaselineModel }) {
   return <section className={styles.printRelationshipRegister} aria-labelledby="complete-relationship-register-title">
     <h3 id="complete-relationship-register-title">Core Relationship Register</h3>
     <p>Only the source-supported relationships shown in the stakeholder views are listed here. Lower-level endpoint and function links remain available in their catalogs.</p>
-    <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><RelationshipTable model={model} relationships={relationships} showAllEvidence /></OverflowX>
+    <OverflowX className={styles.tableScroll} label="Core Relationship Register; geser untuk melihat kolom lain"><RelationshipTable model={model} relationships={relationships} showAllEvidence /></OverflowX>
   </section>;
 }
 
@@ -323,7 +323,7 @@ function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStru
     <p className={styles.figureInterpretation}>{hasDiagram ? "Gambar " + addViewFigureNumber(model, view, 1) + " memperlihatkan bahwa " : ""}{narratives.interpretation}</p>
     <details className={styles.relationshipDetails}>
       <summary>{relationships.length} core relationships and source evidence</summary>
-      <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><RelationshipTable model={model} relationships={relationships} /></OverflowX>
+      <OverflowX className={styles.tableScroll} label={typeLabel + " — relationships; geser untuk melihat kolom lain"}><RelationshipTable model={model} relationships={relationships} /></OverflowX>
     </details>
   </div>;
 }
@@ -362,7 +362,7 @@ function InterfaceCatalog({ model }: { model: AddBaselineModel }) {
   const mapping = baselineCatalogMappings(model);
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.interfaceCatalog.id} aria-labelledby="interface-catalog-title">
     <div className={styles.sectionTitle}><div><h2 id="interface-catalog-title">{PHASE_C_ADD.sections.interfaceCatalog.title}</h2></div></div>
-    {model.catalogs.interfaces.length ? <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><table className={styles.interfaceTable}><TableColumns widths={[21, 10, 19, 15, 15, 20]} /><thead><tr><th>Interface</th><th>Protocol</th><th>Contract</th><th>Provider</th><th>Consumer</th><th>Evidence</th></tr></thead><tbody>{model.catalogs.interfaces.map(row => { const item = model.elements.find(element => element.id === row.elementId); return item ? <tr key={item.id}><th scope="row">{item.name}</th><td>{row.protocol ?? ""}</td><td>{row.contract}</td><td>{mapping("provider", item.id)}</td><td>{mapping("consumer", item.id)}</td><td><EvidenceList model={model} spans={item.evidence} /></td></tr> : null; })}</tbody></table></OverflowX> : <p className={styles.muted}>No interface was identified in this repository snapshot.</p>}
+    {model.catalogs.interfaces.length ? <OverflowX className={styles.tableScroll} label="Interface catalog; geser untuk melihat kolom lain"><table className={styles.interfaceTable}><TableColumns widths={[21, 10, 19, 15, 15, 20]} /><thead><tr><th>Interface</th><th>Protocol</th><th>Contract</th><th>Provider</th><th>Consumer</th><th>Evidence</th></tr></thead><tbody>{model.catalogs.interfaces.map(row => { const item = model.elements.find(element => element.id === row.elementId); return item ? <tr key={item.id}><th scope="row">{item.name}</th><td>{row.protocol ?? ""}</td><td>{row.contract}</td><td>{mapping("provider", item.id)}</td><td>{mapping("consumer", item.id)}</td><td><EvidenceList model={model} spans={item.evidence} /></td></tr> : null; })}</tbody></table></OverflowX> : <p className={styles.muted}>No interface was identified in this repository snapshot.</p>}
   </section>;
 }
 
@@ -371,7 +371,7 @@ function FunctionalCatalog({ model }: { model: AddBaselineModel }) {
   const entries = model.elements.filter(element => element.type === "ApplicationFunction" || element.type === "ApplicationService");
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.logicalApplicationComponents.id} aria-labelledby="functional-decomposition-title">
     <div className={styles.sectionTitle}><div><h2 id="functional-decomposition-title">{PHASE_C_ADD.sections.logicalApplicationComponents.title}</h2><p>Functions and services recognized in source. Each item remains linked to evidence and relationship confidence.</p></div></div>
-    <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><table className={styles.functionalTable}><TableColumns widths={[18, 18, 18, 24, 22]} /><thead><tr><th>Application</th><th>Feature group</th><th>Function or service</th><th>Description</th><th>Evidence</th></tr></thead><tbody>
+    <OverflowX className={styles.tableScroll} label="Functional decomposition; geser untuk melihat kolom lain"><table className={styles.functionalTable}><TableColumns widths={[18, 18, 18, 24, 22]} /><thead><tr><th>Application</th><th>Feature group</th><th>Function or service</th><th>Description</th><th>Evidence</th></tr></thead><tbody>
       {entries.map(item => <tr key={item.id}><td>{mapping("application", item.id)}</td><td>{item.featureGroup}</td><th scope="row">{item.name}</th><td>{item.description ?? "No additional description was extracted."}</td><td><EvidenceList model={model} spans={item.evidence} /></td></tr>)}
       {!entries.length ? <tr><td colSpan={5} className={styles.emptyCell}>No application functions or modules were recognized in this snapshot.</td></tr> : null}
     </tbody></table></OverflowX>
@@ -385,7 +385,7 @@ function CrudMatrix({ model }: { model: AddBaselineModel }) {
   const rows = model.matrices.applicationData.filter(row => row.evidence.length > 0 && [row.create, row.read, row.update, row.delete].includes("yes"));
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.dataCrudMatrix.id} aria-labelledby="crud-matrix-title">
     <div className={styles.sectionTitle}><div><h2 id="crud-matrix-title">{PHASE_C_ADD.sections.dataCrudMatrix.title}</h2><p>C = Create, R = Read, U = Update, D = Delete. Marks indicate operations supported by source evidence.</p></div></div>
-    <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><table className={styles.crudTable}><TableColumns widths={[20, 19, 8, 8, 8, 8, 29]} /><thead><tr><th>Application component</th><th>Data entity</th><th>C</th><th>R</th><th>U</th><th>D</th><th>Evidence</th></tr></thead><tbody>{rows.map((row, index) => <tr key={`${row.applicationId}:${row.dataId}:${index}`}><th scope="row">{appById.get(row.applicationId) ?? "Unknown application"}</th><td>{dataById.get(row.dataId) ?? "Unknown data object"}</td><td>{cell(row.create)}</td><td>{cell(row.read)}</td><td>{cell(row.update)}</td><td>{cell(row.delete)}</td><td><EvidenceList model={model} spans={row.evidence} /></td></tr>)}</tbody></table></OverflowX>
+    <OverflowX className={styles.tableScroll} label="Data CRUD matrix; geser untuk melihat kolom lain"><table className={styles.crudTable}><TableColumns widths={[20, 19, 8, 8, 8, 8, 29]} /><thead><tr><th>Application component</th><th>Data entity</th><th>C</th><th>R</th><th>U</th><th>D</th><th>Evidence</th></tr></thead><tbody>{rows.map((row, index) => <tr key={`${row.applicationId}:${row.dataId}:${index}`}><th scope="row">{appById.get(row.applicationId) ?? "Unknown application"}</th><td>{dataById.get(row.dataId) ?? "Unknown data object"}</td><td>{cell(row.create)}</td><td>{cell(row.read)}</td><td>{cell(row.update)}</td><td>{cell(row.delete)}</td><td><EvidenceList model={model} spans={row.evidence} /></td></tr>)}</tbody></table></OverflowX>
     {!rows.length ? <p className={styles.muted}>No application–data operation has enough source evidence for this matrix yet.</p> : null}
   </section>;
 }
@@ -742,13 +742,13 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
         {included.has(PHASE_C_ADD.sections.interfaceCatalog.id) ? <InterfaceCatalog model={activeModel} /> : null}
         {included.has(PHASE_C_ADD.sections.applicationInteractions.id) ? <section className={`${styles.sectionCard} ${styles.templateSection}`} id={PHASE_C_ADD.sections.applicationInteractions.id} aria-labelledby="application-interactions-title">
           <h3 id="application-interactions-title">{PHASE_C_ADD.sections.applicationInteractions.title}</h3>
-          {activeModel.matrices.applicationInteractions.length ? <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><table className={styles.interactionTable}><TableColumns widths={[22, 22, 26, 30]} /><thead><tr><th>Source application</th><th>Target application</th><th>Mechanism</th><th>Evidence</th></tr></thead><tbody>{activeModel.matrices.applicationInteractions.map((row, index) => <tr key={`${row.sourceApplicationId}:${row.targetApplicationId}:${index}`}><td>{activeModel.elements.find(item => item.id === row.sourceApplicationId)?.name ?? row.sourceApplicationId}</td><td>{activeModel.elements.find(item => item.id === row.targetApplicationId)?.name ?? row.targetApplicationId}</td><td>{row.mechanism}</td><td><EvidenceList model={activeModel} spans={row.evidence} /></td></tr>)}</tbody></table></OverflowX> : <p className={styles.muted}>No interaction between separately identified applications or communication mechanism was confirmed in this repository snapshot. Internal calls remain in the Application Cooperation view.</p>}
+          {activeModel.matrices.applicationInteractions.length ? <OverflowX className={styles.tableScroll} label="Application interactions; geser untuk melihat kolom lain"><table className={styles.interactionTable}><TableColumns widths={[22, 22, 26, 30]} /><thead><tr><th>Source application</th><th>Target application</th><th>Mechanism</th><th>Evidence</th></tr></thead><tbody>{activeModel.matrices.applicationInteractions.map((row, index) => <tr key={`${row.sourceApplicationId}:${row.targetApplicationId}:${index}`}><td>{activeModel.elements.find(item => item.id === row.sourceApplicationId)?.name ?? row.sourceApplicationId}</td><td>{activeModel.elements.find(item => item.id === row.targetApplicationId)?.name ?? row.targetApplicationId}</td><td>{row.mechanism}</td><td><EvidenceList model={activeModel} spans={row.evidence} /></td></tr>)}</tbody></table></OverflowX> : <p className={styles.muted}>No interaction between separately identified applications or communication mechanism was confirmed in this repository snapshot. Internal calls remain in the Application Cooperation view.</p>}
         </section> : null}
       </section>
       <PrintRelationshipRegister model={activeModel} />
       <section className={`${styles.sectionCard} ${styles.sourceNotes}`} id="source-notes" aria-labelledby="source-notes-title">
         <h2 id="source-notes-title">Source and analysis notes</h2>
-        <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><table><tbody>
+        <OverflowX className={styles.tableScroll} label="Source and analysis notes; geser untuk melihat kolom lain"><table><tbody>
           <tr><th scope="row">ADD model SHA-256</th><td><code>{visibleData!.modelHash}</code></td></tr>
           <tr><th scope="row">Source CKG SHA-256</th><td><code>{activeModel.sourceCkgHash}</code></td></tr>
           <tr><th scope="row">Analyzer version</th><td>{activeModel.generation.extractorVersion}</td></tr>
