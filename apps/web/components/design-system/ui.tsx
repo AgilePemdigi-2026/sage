@@ -16,30 +16,24 @@ function cx(...names: Array<string | false | null | undefined>): string {
 
 /* ── Header (RD/Header, frame 01) ─────────────────────────────────────── */
 
-export type NavKey = "home" | "repositories" | "history" | "docs" | "none";
+export type NavKey = "home" | "repositories" | "history" | "none";
 
 const navigation: ReadonlyArray<{ key: Exclude<NavKey, "none">; label: string; href: string }> = [
   { key: "home", label: "Beranda", href: "/" },
   { key: "repositories", label: "Repository", href: "/workspace/repositories" },
   { key: "history", label: "Riwayat", href: "/workspace/history" },
-  { key: "docs", label: "Dokumentasi", href: "/#dokumentasi" },
 ];
 
-/** Di landing, pill aktif mengikuti section yang terlihat (#dokumentasi → Dokumentasi, selain itu Beranda). */
-function useLandingSection(enabled: boolean): NavKey {
-  const [section, setSection] = useState<NavKey>("home");
-  useEffect(() => {
-    if (!enabled) return;
-    const target = document.getElementById("dokumentasi");
-    if (!target || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver(
-      ([entry]) => setSection(entry?.isIntersecting ? "docs" : "home"),
-      { rootMargin: "-35% 0px -55% 0px" },
-    );
-    observer.observe(target);
-    return () => observer.disconnect();
-  }, [enabled]);
-  return section;
+export function SiteFooter() {
+  return <footer className="sage-footer" data-print-hide>
+    <div className="sage-footer-inner">
+      <div className="sage-footer-brand"><Link href="/" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link><span>Source-code Architecture Graph Extraction · AgilePemdigi 2026</span></div>
+      <nav aria-label="Kebijakan SAGE" className="sage-footer-links">
+        <Link href="/policies#cookie">Kebijakan cookie</Link><Link href="/policies#privasi">Privasi</Link><Link href="/policies#ketentuan">Ketentuan</Link><Link href="/policies#pengembalian-dana">Pengembalian dana</Link><Link href="/policies#penghapusan">Penghapusan data</Link>
+      </nav>
+      <p>SAGE menggunakan cookie yang diperlukan untuk login.</p>
+    </div>
+  </footer>;
 }
 
 function initials(account: { login: string; displayName: string | null }): string {
@@ -70,8 +64,7 @@ export function DesignFrame({ children, active = "none" }: {
   const pathname = usePathname();
   const onLanding = pathname === "/";
   const onLogin = pathname === "/login";
-  const landingSection = useLandingSection(onLanding);
-  const current: NavKey = onLanding ? landingSection : active;
+  const current: NavKey = onLanding ? "home" : active;
   const account = useHeaderAccount();
 
   return <div className={styles.frame}>
@@ -83,7 +76,7 @@ export function DesignFrame({ children, active = "none" }: {
           key={item.key}
           href={item.href}
           className={styles.navPill}
-          aria-current={current === item.key ? (item.key === "docs" ? "location" : "page") : undefined}
+          aria-current={current === item.key ? "page" : undefined}
         >{item.label}</Link>)}
       </nav>
       <div className={styles.headerEnd}>
@@ -93,6 +86,7 @@ export function DesignFrame({ children, active = "none" }: {
       </div>
     </header>
     <main className={styles.main} id="main-content" tabIndex={-1}>{children}</main>
+    <SiteFooter />
   </div>;
 }
 

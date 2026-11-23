@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import "@fontsource/plus-jakarta-sans/400.css";
 import "@fontsource/plus-jakarta-sans/500.css";
 import "@fontsource/plus-jakarta-sans/600.css";
@@ -22,14 +21,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body>
         <AccountProvider account={account}>
           {children}
-          <aside className="sage-policy-bar" aria-label="Cookie dan kebijakan SAGE" data-print-hide>
-            <span>SAGE menggunakan cookie yang diperlukan untuk login.</span>
-            <Link href="/policies#cookie">Kebijakan cookie</Link>
-            <Link href="/policies#privasi">Privasi</Link>
-            <Link href="/policies#ketentuan">Ketentuan</Link>
-            <Link href="/policies#pengembalian-dana">Pengembalian dana</Link>
-            <Link href="/policies#penghapusan">Penghapusan data</Link>
-          </aside>
         </AccountProvider>
       </body>
     </html>
