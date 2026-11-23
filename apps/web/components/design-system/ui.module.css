@@ -184,15 +184,6 @@
 .featureLink { display: inline-flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 4px; color: var(--color-teal-700); font-size: var(--text-button); line-height: 1.4; font-weight: 700; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* ── Reveal: fade-up + stagger 60 ms (motion spec: 200 ms ease-out) ── */
-.reveal[data-reveal="hidden"] > * { opacity: 0; }
-.reveal[data-reveal="shown"] > * { animation: revealUp var(--duration-base) ease-out backwards; }
-.reveal[data-reveal="shown"] > :nth-child(2) { animation-delay: 60ms; }
-.reveal[data-reveal="shown"] > :nth-child(3) { animation-delay: 120ms; }
-.reveal[data-reveal="shown"] > :nth-child(4) { animation-delay: 180ms; }
-.reveal[data-reveal="shown"] > :nth-child(5) { animation-delay: 240ms; }
-.reveal[data-reveal="shown"] > :nth-child(n + 6) { animation-delay: 300ms; }
-@keyframes revealUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
 /* ── RD/Badge ───────────────────────────────────────────────────────── */
 .badge {

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGroup, MotionConfig, motion, useMotionValueEvent, useScroll } from "motion/react";
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type AnchorHTMLAttributes, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { LayoutGroup, MotionConfig, motion, useMotionValueEvent, useReducedMotion, useScroll, type Variants } from "motion/react";
+import { Children, isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type AnchorHTMLAttributes, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import assetManifest from "../../public/design/figma/manifest.json";
 import { useHeaderAccount } from "./account-context.tsx";
 import { loginGatedHref } from "./login-gated.ts";
@@ -514,24 +514,40 @@ export function FeatureCard({ icon, number, title, children, href, linkLabel, he
   >{body}{external ? <span className={styles.srOnly}> (membuka tab baru)</span> : null}</a>;
 }
 
-/** Fade-up saat masuk viewport, stagger 60 ms per anak langsung. Konten tetap terlihat tanpa JS / reduced-motion. */
+const REVEAL_ITEM: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  shown: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.2, 0.8, 0.2, 1] } },
+};
+const REVEAL_GROUP: Variants = { hidden: {}, shown: { transition: { staggerChildren: 0.06 } } };
+
+/**
+ * Fade-up saat masuk viewport (Motion whileInView, sekali), stagger 60 ms per item. Setiap anak dibungkus satu item
+ * (<li> untuk as="ol"/"ul"). SSR dan tanpa JS: konten langsung terlihat; setelah hidrasi baru "dipersenjatai" bila grup
+ * berada di bawah layar dan pengguna tidak memilih reduced-motion (remount ber-key, tak terlihat karena di luar layar).
+ */
 export function Reveal({ children, className, as = "div" }: { children: ReactNode; className?: string; as?: "div" | "ol" | "ul" }) {
   const ref = useRef<HTMLElement>(null);
-  const [state, setState] = useState<"idle" | "hidden" | "shown">("idle");
+  const reduced = useReducedMotion();
+  const [armed, setArmed] = useState(false);
   useEffect(() => {
     const element = ref.current;
-    if (!element || typeof IntersectionObserver === "undefined") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (element.getBoundingClientRect().top < window.innerHeight * 0.9) return;
-    setState("hidden");
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting) { setState("shown"); observer.disconnect(); }
-    }, { rootMargin: "0px 0px -10% 0px" });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  const Tag = as as "div";
-  return <Tag ref={ref as React.RefObject<HTMLDivElement>} className={cx(styles.reveal, className)} data-reveal={state}>{children}</Tag>;
+    if (!element || reduced) return;
+    // Keputusan setelah hidrasi; SSR selalu tampil.
+    if (element.getBoundingClientRect().top > window.innerHeight * 0.9) setArmed(true);
+  }, [reduced]);
+  const Group = as === "ol" ? motion.ol : as === "ul" ? motion.ul : motion.div;
+  const Item = as === "div" ? motion.div : motion.li;
+  return <Group
+    key={armed ? "armed" : "static"}
+    ref={ref as React.RefObject<never>}
+    className={className}
+    variants={REVEAL_GROUP}
+    initial={armed ? "hidden" : false}
+    whileInView="shown"
+    viewport={{ once: true, margin: "0px 0px -10% 0px" }}
+  >
+    {Children.toArray(children).map((child, index) => <Item key={isValidElement(child) && child.key !== null ? child.key : index} variants={REVEAL_ITEM}>{child}</Item>)}
+  </Group>;
 }
 
 /* ── Page head (frame 02, 251:158) ────────────────────────────────── */

@@ -66,7 +66,7 @@ export default async function Home() {
         <h2 id="cara-kerja-heading" className={styles.blockTitle}>Empat langkah dari repository ke ADD</h2>
       </div>
       <Reveal as="ol" className={styles.grid4}>
-        {steps.map(item => <li key={item.number}><FeatureCard icon={<Icon name={item.icon} />} number={item.number} title={item.title}>{item.text}</FeatureCard></li>)}
+        {steps.map(item => <FeatureCard key={item.number} icon={<Icon name={item.icon} />} number={item.number} title={item.title}>{item.text}</FeatureCard>)}
       </Reveal>
     </section>
 
@@ -76,7 +76,7 @@ export default async function Home() {
         <p className={styles.blockLead}>Dokumentasi lengkap tersedia di repository GitHub SAGE.</p>
       </div>
       <Reveal as="ul" className={styles.grid4}>
-        {guides.map(item => <li key={item.title}><FeatureCard icon={<Icon name={item.icon} />} title={item.title} href={item.href} linkLabel="Baca di GitHub">{item.text}</FeatureCard></li>)}
+        {guides.map(item => <FeatureCard key={item.title} icon={<Icon name={item.icon} />} title={item.title} href={item.href} linkLabel="Baca di GitHub">{item.text}</FeatureCard>)}
       </Reveal>
     </section>
   </DesignFrame>;
