@@ -240,7 +240,7 @@
 /* ── RD/Pipeline step ───────────────────────────────────────────────── */
 .step { display: flex; align-items: center; gap: 16px; padding: 10px 0; min-width: 0; }
 .stepIndicator { position: relative; display: inline-grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; border-radius: var(--radius-pill); }
-.step[data-status="done"] .stepIndicator { color: var(--color-ink); background: var(--color-teal-500); animation: stepDone var(--duration-fast) var(--ease-out-soft); }
+.step[data-status="done"] .stepIndicator { color: var(--color-ink); background: var(--color-teal-500); }
 .step[data-status="active"] .stepIndicator { background: var(--color-teal-50); border: 2px solid var(--color-teal-500); }
 .step[data-status="active"] .stepIndicator::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--color-teal-500); animation: stepPulse 1.6s ease-in-out infinite; }
 .step[data-status="pending"] .stepIndicator { background: var(--color-surface); border: 1.5px solid var(--color-border); }
@@ -265,6 +265,23 @@
   transition: border-color var(--duration-fast) var(--ease-out-soft), background-color var(--duration-fast) var(--ease-out-soft);
 }
 .copySha button:hover { border-color: var(--color-teal-500); background: var(--color-teal-50); }
+.copySha button { display: inline-grid; overflow: hidden; min-width: 92px; }
+.copySha button[data-copied] { border-color: var(--color-success); color: var(--color-success); background: var(--color-success-fill); }
+.copyLabel { display: inline-flex; align-items: center; justify-content: center; gap: 4px; grid-area: 1 / 1; }
+
+/* Toast (umpan balik ekspor): kanan bawah, tidak bertabrakan dengan kartu cookie (kiri bawah). */
+.toastRegion { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: grid; justify-items: end; pointer-events: none; }
+.toast {
+  display: flex; align-items: center; gap: 10px; max-width: min(360px, calc(100vw - 32px)); padding: 8px 8px 8px 14px; pointer-events: auto;
+  border: 1px solid var(--color-border-soft); border-radius: 16px; background: var(--color-surface); box-shadow: var(--shadow-pop);
+  color: var(--color-ink); font-size: var(--text-body-sm); line-height: 1.5; font-weight: 600;
+}
+.toast > svg { flex: 0 0 auto; color: var(--color-success); }
+/* Radius konsentris: toast 16 − padding 8 → tombol tutup 8. */
+.toastClose { display: inline-grid; place-items: center; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 8px; color: var(--color-muted); background: transparent; cursor: pointer; }
+.toastClose:hover { color: var(--color-ink); background: var(--color-subtle-bg); }
+.toastClose:focus-visible { outline: 2px solid var(--color-teal-500); outline-offset: 2px; }
+.stepCheck { display: inline-grid; place-items: center; }
 
 /* ── Page head + breadcrumb (frame 02) ──────────────────────────────── */
 .pageHead { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; margin: 8px 0 28px; }
@@ -415,8 +432,6 @@ button.navPill:disabled { cursor: not-allowed; opacity: .6; }
 .step[data-status="done"]:not(:last-child)::after { background: var(--color-teal-500); }
 .step[data-status="active"]:not(:last-child)::after { background: linear-gradient(var(--color-teal-500), var(--color-border)); animation: stepPulse 1.6s ease-in-out infinite; }
 .step[data-status="failed"]:not(:last-child)::after { background: var(--color-error-fill); }
-.stepIndicator { animation: stepIn var(--duration-base) var(--ease-out-soft); }
-.step[data-status="done"] .stepIndicator { animation: stepIn var(--duration-base) var(--ease-out-soft); }
 .step[data-status="active"] .stepIndicator { border-color: var(--color-teal-100); }
 .step[data-status="active"] .stepIndicator::before {
   content: ""; position: absolute; inset: -2px; border: 2px solid transparent; border-top-color: var(--color-teal-500); border-right-color: var(--color-teal-500);

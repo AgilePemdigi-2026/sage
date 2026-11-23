@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutGroup, MotionConfig, motion, useMotionValueEvent, useReducedMotion, useScroll, type Variants } from "motion/react";
+import { AnimatePresence, LayoutGroup, MotionConfig, motion, useMotionValueEvent, useReducedMotion, useScroll, type Transition, type Variants } from "motion/react";
 import { Children, isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import { Icon, type IconName } from "./icons.tsx";
 import { useHeaderAccount } from "./account-context.tsx";
@@ -11,6 +11,14 @@ import styles from "./ui.module.css";
 
 function cx(...names: Array<string | false | null | undefined>): string {
   return names.filter(Boolean).join(" ");
+}
+
+/* ── Motion umpan balik ───────────────────────────────────────────── */
+
+/** Transisi umpan balik singkat (Motion spec: 150–300 ms, ease-out-soft); durasi 0 saat prefers-reduced-motion. */
+export function useFeedbackTransition(duration = 0.2): Transition {
+  const reduced = useReducedMotion();
+  return reduced ? { duration: 0 } : { duration, ease: [0.2, 0.8, 0.2, 1] };
 }
 
 /* ── Header (RD/Header, frame 01) ─────────────────────────────────────── */
@@ -682,10 +690,11 @@ export function PipelineStep({ status, title, meta, aside, className, ...rest }:
   aside?: ReactNode;
   className?: string;
 } & Omit<React.LiHTMLAttributes<HTMLLIElement>, "title">) {
+  // Status awal (render server) disimpan: tahap yang sudah selesai sejak dimuat tidak beranimasi.
+  const [initialStatus] = useState(status);
   return <li className={cx(styles.step, className)} data-status={status} aria-current={status === "active" ? "step" : undefined} {...rest}>
-    {/* key per status: ikon di-remount saat status berubah sehingga crossfade + scale .8→1 berjalan. */}
-    <span key={status} className={styles.stepIndicator} aria-hidden="true">
-      {status === "done" ? <Icon name="check" /> : null}
+    <span className={styles.stepIndicator} aria-hidden="true">
+      {status === "done" ? <StepCheck animateIn={initialStatus !== "done"} /> : null}
     </span>
     <span className={styles.stepText}>
       <span className={styles.stepTitle}>{title}</span>
@@ -693,6 +702,14 @@ export function PipelineStep({ status, title, meta, aside, className, ...rest }:
     </span>
     {aside ? <span className={styles.stepAside}>{aside}</span> : null}
   </li>;
+}
+
+/** Centang tahap: muncul dengan scale hanya saat status berubah menjadi selesai (bukan saat halaman dimuat). */
+function StepCheck({ animateIn }: { animateIn: boolean }) {
+  const transition = useFeedbackTransition(0.22);
+  return <motion.span className={styles.stepCheck} initial={animateIn ? { scale: 0.4, opacity: 0 } : false} animate={{ scale: 1, opacity: 1 }} transition={transition}>
+    <Icon name="check" />
+  </motion.span>;
 }
 
 /* ── Progress bar ─────────────────────────────────────────────────── */
@@ -709,17 +726,50 @@ export function ProgressBar({ value, max, label, indeterminate = false }: { valu
 
 export function CopySha({ sha, label }: { sha: string; /** Teks tampilan (mis. SHA pendek); yang disalin tetap SHA penuh. */ label?: string }) {
   const [copied, setCopied] = useState(false);
+  const timer = useRef<number | null>(null);
+  const transition = useFeedbackTransition(0.15);
+  useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
   async function copy() {
     try {
       await navigator.clipboard.writeText(sha);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      if (timer.current !== null) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setCopied(false), 1500);
     } catch {
       setCopied(false);
     }
   }
+  // Lebar tombol tetap (muat label terpanjang) sehingga pergantian label tidak menggeser SHA di sebelahnya.
   return <div className={styles.copySha}>
     <code title={label ? sha : undefined}>{label ?? sha}</code>
-    <button type="button" onClick={() => void copy()} aria-label="Salin SHA lengkap">{copied ? "Tersalin" : "Salin"}</button>
+    <button type="button" onClick={() => void copy()} aria-label={copied ? "SHA lengkap tersalin" : "Salin SHA lengkap"} data-copied={copied ? "true" : undefined}>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span key={copied ? "copied" : "idle"} className={styles.copyLabel} initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -6, opacity: 0 }} transition={transition}>
+          {copied ? <>Tersalin<Icon name="check" size={14} /></> : "Salin"}
+        </motion.span>
+      </AnimatePresence>
+    </button>
+    <span className={styles.srOnly} aria-live="polite">{copied ? "SHA lengkap tersalin ke clipboard." : ""}</span>
+  </div>;
+}
+
+/* ── Toast ────────────────────────────────────────────────────────── */
+
+/** Toast kecil kanan bawah. Wilayah aria-live selalu ada di DOM agar pesan baru diumumkan; bisa ditutup, hilang sendiri 6 s. */
+export function Toast({ message, onClose }: { message: string | null; onClose: () => void }) {
+  const transition = useFeedbackTransition(0.2);
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(onClose, 6000);
+    return () => window.clearTimeout(timer);
+  }, [message, onClose]);
+  return <div className={styles.toastRegion} aria-live="polite" role="status">
+    <AnimatePresence>
+      {message ? <motion.div key={message} className={styles.toast} initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 12, opacity: 0 }} transition={transition}>
+        <Icon name="checkCircle" />
+        <span>{message}</span>
+        <button type="button" className={styles.toastClose} onClick={onClose} aria-label="Tutup notifikasi"><Icon name="close" /></button>
+      </motion.div> : null}
+    </AnimatePresence>
   </div>;
 }

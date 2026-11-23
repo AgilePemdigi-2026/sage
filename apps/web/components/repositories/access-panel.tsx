@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Badge, Button, CopySha, EmptyState, Field, PageHead, Panel, PillLink, ScrollList, SkeletonRows, Stepper, useVisibleSection } from "../design-system/ui.tsx";
+import { AnimatePresence, motion } from "motion/react";
+import { Badge, Button, CopySha, EmptyState, Field, PageHead, Panel, PillLink, ScrollList, SkeletonRows, Stepper, useFeedbackTransition, useVisibleSection } from "../design-system/ui.tsx";
 import { Icon } from "../design-system/icons.tsx";
 import design from "../design-system/ui.module.css";
 import css from "./repositories.module.css";
@@ -58,6 +59,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
   const targetHeading = useRef<HTMLHeadingElement>(null);
   const repositoryListHeading = useRef<HTMLHeadingElement>(null);
   const chosenId = chosen?.id;
+  const slide = useFeedbackTransition(0.24);
 
   // Move to the target step as soon as a public or App-authorized repository is
   // chosen. Branch loading happens in place so even a slow or failed request
@@ -456,15 +458,19 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
             <Field id="target-commit" label="Commit" optional mono disabled={busy} value={commit} maxLength={64} onChange={e => { setCommit(e.target.value); setTarget(null); }} placeholder="Kosongkan untuk commit terbaru" hint="Commit harus berada dalam riwayat branch yang dipilih. Branch dan izin diperiksa kembali saat memeriksa target." />
             <Button type="submit" variant={target ? "secondary" : "primary"} block disabled={busy || !branch} loading={pending === "validate"}>{pending === "validate" ? "Memeriksa target…" : "Periksa target"}</Button>
           </form>
-          {target ? <>
-            <div role="status" className={css.validated}>
-              <span className={css.validatedTitle}><Icon name="checkCircle" /><strong>Target tervalidasi</strong></span>
-              <p className={css.validatedMeta}>{target.repository.fullName} · {target.branch}</p>
-              <CopySha sha={target.commitSha} />
-              <p className={css.validatedNote}>Analisis akan disimpan untuk full SHA ini.</p>
-            </div>
-            <Button size="lg" block disabled={busy || !scopeVerified} loading={pending === "start"} onClick={() => { setPending("start"); void startAnalysis().finally(() => setPending(null)); }}>{pending === "start" || busy ? "Mengantrekan analisis…" : "Mulai analisis"}</Button>
-          </> : null}
+          {/* Target tervalidasi: blok sukses turun (tinggi 0 → auto) lalu tombol Mulai analisis; mati saat reduced-motion. */}
+          <AnimatePresence initial={false}>
+            {target ? <motion.div key={`${target.repository.id}:${target.branch}:${target.commitSha}`} className={css.validatedGroup}
+              initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={slide}>
+              <motion.div role="status" className={css.validated} initial={{ y: -8 }} animate={{ y: 0 }} transition={slide}>
+                <span className={css.validatedTitle}><Icon name="checkCircle" /><strong>Target tervalidasi</strong></span>
+                <p className={css.validatedMeta}>{target.repository.fullName} · {target.branch}</p>
+                <CopySha sha={target.commitSha} />
+                <p className={css.validatedNote}>Analisis akan disimpan untuk full SHA ini.</p>
+              </motion.div>
+              <Button size="lg" block disabled={busy || !scopeVerified} loading={pending === "start"} onClick={() => { setPending("start"); void startAnalysis().finally(() => setPending(null)); }}>{pending === "start" || busy ? "Mengantrekan analisis…" : "Mulai analisis"}</Button>
+            </motion.div> : null}
+          </AnimatePresence>
         </div> : <div className={css.placeholder}>
           <p className={css.label}>Target analisis</p>
           <h2 id="target-placeholder-heading" className={css.sourceTitle}>Belum ada repository dipilih</h2>

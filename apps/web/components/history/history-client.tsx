@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Badge, Button, CopySha, DesignFrame, EmptyState, Field, PageHead, Panel, PillButton, Skeleton } from "../design-system/ui.tsx";
+import { AnimatePresence, motion } from "motion/react";
+import { Badge, Button, CopySha, DesignFrame, EmptyState, Field, PageHead, Panel, PillButton, Skeleton, useFeedbackTransition } from "../design-system/ui.tsx";
 import { Icon } from "../design-system/icons.tsx";
 import designStyles from "../design-system/ui.module.css";
 import { analysisStatusBadge, formatDateTime } from "./format.ts";
@@ -45,6 +46,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
   const [deletionActions, setDeletionActions] = useState<Record<string, HistoryDeletionAction>>({});
   const [confirming, setConfirming] = useState<{ item: HistoryItem; accountKey: string } | null>(null);
   const deleteDialog = useRef<HTMLDialogElement>(null);
+  const collapse = useFeedbackTransition(0.25);
 
   /** Target state dan mesin data dibuat sekali: setState dari useState stabil, dan pola
    * ini menghindari akses ref saat render (react-hooks/refs). */
@@ -120,7 +122,9 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
     const badge = analysisStatusBadge(item.status);
     // Durasi hanya dari data yang ada (diantrekan → selesai); analisis aktif/tanpa waktu selesai → "—".
     const durationSeconds = elapsedAnalysisSeconds({ queuedAt: item.queuedAt, completedAt: item.completedAt }, item.status, Number.NaN);
-    return <li className={css.row} key={item.id} style={{ "--i": Math.min(index, 10) } as CSSProperties}>
+    // Baris yang terhapus menyusut keluar (tinggi & padding → 0) sehingga baris di bawahnya naik tanpa lompatan.
+    return <motion.li className={css.row} key={item.id} style={{ "--i": Math.min(index, 10) } as CSSProperties}
+      exit={{ height: 0, opacity: 0, paddingTop: 0, paddingBottom: 0, borderTopWidth: 0 }} transition={collapse}>
       <div className={css.repo}>
         <span className={css.repoName} title={item.repository.fullName}>{item.repository.fullName}</span>
         <span className={css.branch}><Icon name="gitBranch" /><span className={designStyles.srOnly}>Branch </span><span>{item.branch || "—"}</span></span>
@@ -151,7 +155,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
           onClick={() => setConfirming({ item, accountKey })}
         >{deletionControls.failed ? "Coba hapus lagi" : "Hapus"}</button>
       </div>
-    </li>;
+    </motion.li>;
   };
   return <DesignFrame active="history">
     <PageHead
@@ -179,7 +183,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
       </div> : null}
       {visibleLoaded && visibleItems && visibleItems.length > 0 ? <>
         <div className={css.columns} aria-hidden="true">{COLUMN_LABELS.map(label => <span key={label}>{label}</span>)}</div>
-        <ul className={css.list} aria-label="Daftar riwayat analisis">{visibleItems.map(renderRow)}</ul>
+        <ul className={css.list} aria-label="Daftar riwayat analisis"><AnimatePresence initial={false}>{visibleItems.map(renderRow)}</AnimatePresence></ul>
         {load ? <div className={css.loadMore}><Button variant="link" onClick={() => load()}>Muat lebih banyak</Button></div> : null}
       </> : null}
     </Panel>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "motion/react";
 import { applyAddReviewOverlay, emptyAddReviewOverlay, type AddReviewOverlay } from "@sage/documents/add-overlay";
 import { isAddBaselineModel, type AddBaselineModel, type AddElement, type AddRelationship } from "@sage/documents/baseline-add-model";
 import { createAddMarkdown } from "@sage/documents/baseline-markdown";
@@ -10,7 +11,7 @@ import { addViewFigureNumber, addViewNarratives } from "@sage/documents/baseline
 import { coreRelationshipLabel, projectCoreBaselineView } from "@sage/documents/baseline-core-views";
 import { PHASE_C_ADD, PHASE_C_ADD_TOC, logicalSchemaRows, baselineCatalogMappings, phaseCAddContents, includedAddSections, addAnalyzerCoverageNotes, sourceBackedApplicationPortfolio } from "@sage/documents/phase-c-add";
 import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
-import { Badge, Button, EmptyState, Field, OverflowX, Skeleton, SkeletonRows, Spinner, useVisibleSection } from "../design-system/ui.tsx";
+import { Badge, Button, EmptyState, Field, OverflowX, Skeleton, SkeletonRows, Spinner, Toast, useFeedbackTransition, useVisibleSection } from "../design-system/ui.tsx";
 import designStyles from "../design-system/ui.module.css";
 import { Icon } from "../design-system/icons.tsx";
 import { AnalysisPageHead } from "../analysis-navigation/analysis-page-head.tsx";
@@ -407,9 +408,19 @@ function ReviewEditor({ model, overlay, update, reset, markReviewed, save, savin
     return `${name} ${element.description ?? ""} ${elementTypeLabel(element.type)}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) && (group === "all" || (assignedGroup ?? "unassigned") === group);
   });
   const pageSize = 12; const pages = Math.max(1, Math.ceil(filtered.length / pageSize)); const currentPage = Math.min(page, pages - 1);
+  const badgeTransition = useFeedbackTransition(0.18);
+  const progressTransition = useFeedbackTransition(0.3);
+  const reviewedCount = reviewable.filter(element => (overlay.elements[element.id]?.review ?? element.review) === "confirmed" || (overlay.elements[element.id]?.review ?? element.review) === "rejected").length;
+  const reviewedShare = reviewable.length ? (reviewedCount / reviewable.length) * 100 : 0;
   const visible = filtered.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
   return <section className={styles.sectionCard + " " + styles.reviewPanel} id="review" aria-labelledby="review-title">
     <div className={styles.sectionTitle}><div><h2 id="review-title">Review and correct the baseline</h2><p>Corrections are stored as a versioned overlay. The analyzed source facts remain unchanged.</p></div><span className={styles.reviewStatusPill}><Badge tone={overlay.status === "reviewed" ? "success" : "warning"}>{overlay.status === "reviewed" ? "Reviewed" : "Draft"} · revision {overlay.revision}</Badge></span></div>
+    <div className={styles.reviewProgress}>
+      <div className={styles.reviewProgressHead}><span>Progres review</span><span>{reviewedCount} / {reviewable.length} elemen</span></div>
+      <div className={styles.reviewProgressTrack} role="progressbar" aria-label="Progres review elemen" aria-valuemin={0} aria-valuemax={reviewable.length} aria-valuenow={reviewedCount}>
+        <motion.span initial={false} animate={{ width: `${reviewedShare}%` }} transition={{ ...progressTransition, delay: progressTransition.duration ? 0.12 : 0 }} />
+      </div>
+    </div>
     <div className={styles.reviewToolbar}><label>Search elements <input type="search" disabled={saving} value={query} onChange={event => { setQuery(event.currentTarget.value); setPage(0); }} placeholder="Name or description" /></label><label>Feature group <select disabled={saving} value={group} onChange={event => { setGroup(event.currentTarget.value); setPage(0); }}><option value="all">All groups</option><option value="unassigned">Unassigned</option>{featureGroups.map(item => <option key={item} value={item}>{item}</option>)}</select></label><span>{filtered.length} of {reviewable.length} elements</span></div>
     <div className={styles.reviewRows}>{visible.map(element => {
       const changes = overlay.elements[element.id] ?? {}; const name = changes.name ?? element.name; const selectedGroup = changes.featureGroup === undefined ? element.featureGroup ?? "unassigned" : changes.featureGroup ?? "unassigned";
@@ -421,7 +432,10 @@ function ReviewEditor({ model, overlay, update, reset, markReviewed, save, savin
       return <article key={element.id} className={styles.reviewRow}>
         <div className={styles.reviewHead}>
           <div className={styles.reviewIdentity}><span>{elementTypeLabel(element.type)}</span><strong>{name}</strong><EvidenceList model={model} spans={element.evidence} /></div>
-          <Badge tone={reviewState === "confirmed" ? "success" : reviewState === "rejected" ? "error" : "neutral"}>{reviewState === "confirmed" ? "Dikonfirmasi" : reviewState === "rejected" ? "Ditolak" : "Belum direview"}</Badge>
+          {/* Badge status berganti dengan scale kecil (remount per status), sebelum progres review bertambah. */}
+          <motion.span key={reviewState ?? "unreviewed"} className={styles.reviewBadge} initial={{ scale: 0.85 }} animate={{ scale: 1 }} transition={badgeTransition}>
+            <Badge tone={reviewState === "confirmed" ? "success" : reviewState === "rejected" ? "error" : "neutral"}>{reviewState === "confirmed" ? "Dikonfirmasi" : reviewState === "rejected" ? "Ditolak" : "Belum direview"}</Badge>
+          </motion.span>
         </div>
         <div className={styles.reviewEdit}>
           <div className={styles.reviewFields}>
@@ -447,6 +461,8 @@ function ReviewEditor({ model, overlay, update, reset, markReviewed, save, savin
 function ExportPanel({ model, modelHash, overlay, analysisId, accountKey }: { model: AddBaselineModel; modelHash: string; overlay: AddReviewOverlay; analysisId: string; accountKey: string }) {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const closeToast = useCallback(() => setToast(null), []);
   const downloadPdf = async () => {
     setPdfBusy(true);
     setPdfError("");
@@ -464,6 +480,7 @@ function ExportPanel({ model, modelHash, overlay, analysisId, accountKey }: { mo
       anchor.download = `sage-add-${repositoryName}.pdf`;
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+      setToast("File siap diunduh: PDF");
     } catch (error) {
       setPdfError(error instanceof Error ? error.message : "PDF belum dapat diunduh.");
     } finally {
@@ -476,14 +493,16 @@ function ExportPanel({ model, modelHash, overlay, analysisId, accountKey }: { mo
     const href = URL.createObjectURL(blob); const anchor = document.createElement("a");
     anchor.href = href; anchor.download = repositoryName + "-architecture-definition-document.md"; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+    setToast("File siap diunduh: Markdown");
   };
   const downloadLatex = () => {
     const blob = new Blob([createAddLatex(model, overlay, (span, fileOnly) => githubEvidence(model.snapshot.repository, model.snapshot.commitSha, span, fileOnly), { modelHash, generatedAt: new Date().toISOString() })], { type: "application/x-tex;charset=utf-8" });
     const href = URL.createObjectURL(blob); const anchor = document.createElement("a");
     anchor.href = href; anchor.download = repositoryName + "-architecture-definition-document.tex"; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+    setToast("File siap diunduh: LaTeX");
   };
-  return <section className={`${styles.sectionCard} ${styles.exportPanel}`} id="export" aria-labelledby="export-title"><div><h2 id="export-title">Export Architecture Definition Document (ADD)</h2><p>Markdown and LaTeX use the same Phase C baseline, repository snapshot, review overlay, catalogs, matrices, and evidence links. PDF is compiled from the LaTeX template using the saved baseline and review.</p></div><div className={styles.exportActions}><button className={styles.primaryButton} type="button" onClick={downloadMarkdown}>Download Markdown</button><button className={styles.secondaryButton} type="button" onClick={downloadLatex}>Download LaTeX</button><button className={styles.primaryButton} type="button" disabled={pdfBusy} aria-busy={pdfBusy || undefined} onClick={() => void downloadPdf()}>{pdfBusy ? <><Spinner />Membuat PDF…</> : "Download PDF"}</button></div>{pdfError ? <p role="alert">{pdfError}</p> : null}</section>;
+  return <section className={`${styles.sectionCard} ${styles.exportPanel}`} id="export" aria-labelledby="export-title"><div><h2 id="export-title">Export Architecture Definition Document (ADD)</h2><p>Markdown and LaTeX use the same Phase C baseline, repository snapshot, review overlay, catalogs, matrices, and evidence links. PDF is compiled from the LaTeX template using the saved baseline and review.</p></div><div className={styles.exportActions}><button className={styles.primaryButton} type="button" onClick={downloadMarkdown}>Download Markdown</button><button className={styles.secondaryButton} type="button" onClick={downloadLatex}>Download LaTeX</button><button className={styles.primaryButton} type="button" disabled={pdfBusy} aria-busy={pdfBusy || undefined} onClick={() => void downloadPdf()}>{pdfBusy ? <><Spinner />Membuat PDF…</> : "Download PDF"}</button></div>{pdfError ? <p role="alert">{pdfError}</p> : null}<Toast message={toast} onClose={closeToast} /></section>;
 }
 
 export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: string; accountKey: string; context?: AddPageContext }) {

@@ -63,7 +63,9 @@
 .textButton { justify-self: start; padding: 0; border: 0; color: var(--color-teal-700); background: none; font: inherit; font-size: var(--text-caption); font-weight: 700; cursor: pointer; }
 .textButton:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .textButton:disabled { cursor: not-allowed; color: var(--color-subtle); }
-.validated { display: grid; gap: 8px; padding: 16px; border-radius: var(--radius-inset); background: var(--color-success-fill); animation: slideDown var(--duration-base) var(--ease-out-soft); }
+/* Grup hasil validasi (blok sukses + tombol mulai); gap = gap .targetBody, overflow hidden selama tinggi dianimasikan. */
+.validatedGroup { display: grid; gap: 18px; overflow: hidden; margin-top: -18px; padding-top: 18px; }
+.validated { display: grid; gap: 8px; padding: 16px; border-radius: var(--radius-inset); background: var(--color-success-fill); }
 .validatedTitle { display: flex; align-items: center; gap: 8px; color: var(--color-success); font-size: 14px; line-height: 1.6; font-weight: 700; }
 .validatedMeta { margin: 0; color: var(--color-ink); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 500; overflow-wrap: anywhere; }
 .validatedNote { margin: 0; color: var(--color-success); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
@@ -76,7 +78,7 @@
 }
 @media (prefers-reduced-motion: reduce) {
   .row:hover:not(:disabled) .chevron { transform: none; }
-  .check, .targetBody, .validated { animation: none; }
+  .check, .targetBody { animation: none; }
 }
 .resolved { margin-top: 14px; }
 
