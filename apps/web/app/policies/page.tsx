@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { SiteFooter } from "../../components/design-system/ui.tsx";
 
 export const metadata: Metadata = { title: "Kebijakan layanan" };
 export const dynamic = "force-dynamic";
@@ -7,7 +8,7 @@ export const dynamic = "force-dynamic";
 export default function PoliciesPage() {
   const contact = process.env.SAGE_PRIVACY_CONTACT_EMAIL?.trim();
   const email = contact && /^[a-z0-9._+-]+@[a-z0-9.-]+\.[a-z]{2,}$/iu.test(contact) ? contact : null;
-  return <main id="main-content" className="sage-policies">
+  return <><main id="main-content" className="sage-policies">
     <Link href="/">Kembali ke beranda</Link>
     <h1>Kebijakan layanan SAGE</h1>
     <p>SAGE adalah proyek dokumentasi arsitektur perangkat lunak dari AgilePemdigi 2026. <a href="https://github.com/AgilePemdigi-2026/sage">Repositori proyek</a></p>
@@ -46,5 +47,5 @@ export default function PoliciesPage() {
       <p>Analisis individual dapat dihapus dari <Link href="/workspace/history">Riwayat</Link>. Untuk meminta penghapusan akun atau data lainnya, hubungi pengelola secara privat. Sertakan username GitHub dan data yang ingin dihapus. Jangan kirim password, token, atau isi repositori.</p>
       {email ? <p><a href={`mailto:${encodeURIComponent(email).replace("%40", "@")}?subject=Permintaan%20penghapusan%20data%20SAGE`}>Kirim permintaan penghapusan data</a></p> : <p><a href="https://github.com/orgs/AgilePemdigi-2026/people">Temukan pengelola AgilePemdigi</a> dan minta kanal kontak privat. Hindari mengirim detail akun melalui issue publik.</p>}
     </section>
-  </main>;
+  </main><SiteFooter /></>;
 }

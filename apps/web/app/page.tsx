@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { AssetIcon, Badge, Button, DesignFrame, FeatureCard, Reveal } from "../components/design-system/ui.tsx";
 import styles from "../components/landing/landing.module.css";
 
@@ -102,9 +101,5 @@ export default function Home() {
       </Reveal>
     </section>
 
-    <footer className={styles.footer}>
-      <Link className={styles.wordmark} href="/" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link>
-      <span>Source-code Architecture Graph Extraction · AgilePemdigi 2026</span>
-    </footer>
   </DesignFrame>;
 }
