@@ -140,16 +140,3 @@ body {
   [data-print-hide] { display: none !important; }
   body { background: #fff; }
 }
-
-.sage-policies {
-  max-inline-size: 72ch;
-  margin-inline: auto;
-  padding: clamp(1rem, 5vw, 3rem);
-  color: #172b45;
-  line-height: 1.65;
-}
-.sage-policies h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; text-wrap: balance; }
-.sage-policies h2 { font-size: 1.25rem; font-weight: 700; }
-.sage-policies p, .sage-policies nav, .sage-policies section { margin-block-start: 1rem; }
-.sage-policies a { color: #005f55; text-decoration: underline; text-underline-offset: .2em; }
-.sage-policies a:focus-visible { outline: 2px solid #005f55; outline-offset: 4px; }
