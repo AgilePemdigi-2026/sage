@@ -239,13 +239,29 @@ export function CookieNotice() {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- sengaja setelah hidrasi; SSR selalu tanpa kartu.
     if (!dismissed) setVisible(true);
   }, []);
+  const ref = useRef<HTMLElement>(null);
+  // Selama kartu tampil, footer mendapat ruang bawah setinggi kartu + jarak tepinya + 16 px (lihat .siteFooter),
+  // sehingga baris terakhir footer tidak tertutup. Variabel dihapus saat kartu ditutup.
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!visible || !element) return;
+    const root = document.documentElement;
+    const measure = () => {
+      const fromBottom = window.innerHeight - element.getBoundingClientRect().bottom;
+      root.style.setProperty("--cookie-notice-space", `${Math.ceil(element.offsetHeight + Math.max(0, fromBottom) + 16)}px`);
+    };
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(element);
+    return () => { observer?.disconnect(); root.style.removeProperty("--cookie-notice-space"); };
+  }, [visible]);
   if (!visible) return null;
   function dismiss() {
     try { window.localStorage.setItem(COOKIE_NOTICE_KEY, "dismissed"); } catch { /* tetap tutup untuk sesi ini */ }
     setVisible(false);
   }
-  return <aside className={styles.cookieNotice} aria-label="Cookie dan kebijakan SAGE" data-print-hide data-cookie-notice>
-    <p>SAGE hanya memakai cookie yang diperlukan untuk login.</p>
+  return <aside ref={ref} className={styles.cookieNotice} aria-label="Cookie dan kebijakan SAGE" data-print-hide data-cookie-notice>
+    <p>SAGE hanya memakai cookie untuk login.</p>
     <div className={styles.cookieNoticeActions}>
       <Link href="/policies#cookie">Kebijakan cookie</Link>
       <Button size="sm" onClick={dismiss}>Mengerti</Button>

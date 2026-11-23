@@ -466,7 +466,11 @@ button.pill:disabled { cursor: not-allowed; opacity: .6; }
 
 /* ── Footer situs: full-bleed, bg-subtle, padding 48 ─────────────── */
 .orb { display: block; flex: 0 0 auto; }
-.siteFooter { margin-top: 48px; padding: 48px 0; background: var(--color-subtle-bg); color: var(--color-muted); }
+.siteFooter {
+  margin-top: 48px; padding: 48px 0; background: var(--color-subtle-bg); color: var(--color-muted);
+  /* --cookie-notice-space diisi CookieNotice selama kartu tampil (tinggi kartu + jarak tepi + 16). */
+  padding-bottom: max(48px, var(--cookie-notice-space, 0px));
+}
 .siteFooterInner {
   display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 48px;
   width: 100%; max-width: 1264px; margin: 0 auto; padding: 0 32px;
