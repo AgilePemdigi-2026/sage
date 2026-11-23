@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type AnchorHTMLAttributes, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import assetManifest from "../../public/design/figma/manifest.json";
 import { useHeaderAccount } from "./account-context.tsx";
+import { loginGatedHref } from "./login-gated.ts";
 import styles from "./ui.module.css";
 
 type AssetRecord = { src: string; width: string; height: string };
@@ -81,7 +82,7 @@ export function DesignFrame({ children, active = "none" }: {
       <nav className={styles.nav} aria-label="Navigasi utama">
         {navigation.map(item => <Link
           key={item.key}
-          href={item.href}
+          href={loginGatedHref(item.href, Boolean(account))}
           className={styles.navPill}
           aria-current={current === item.key ? (item.key === "docs" ? "location" : "page") : undefined}
         >{item.label}</Link>)}

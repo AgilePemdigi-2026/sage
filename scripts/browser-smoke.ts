@@ -70,7 +70,8 @@ try {
     const headerLogin = page.getByRole("banner").getByRole("link", { name: "Masuk", exact: true });
     assert.equal(await headerLogin.getAttribute("href"), "/login");
     const startCta = page.getByRole("link", { name: "Mulai analisis", exact: true });
-    assert.equal(await startCta.getAttribute("href"), "/workspace/repositories");
+    // Tanpa sesi, CTA langsung ke /login (tanpa redirect server perantara yang sempat merender segmen kosong).
+    assert.equal(await startCta.getAttribute("href"), "/login?reason=auth-required&from=repository");
     await startCta.click();
     await page.waitForURL((url) => url.pathname === "/login");
     const loginUrl = new URL(page.url());
@@ -100,7 +101,7 @@ try {
     checks.push({
       width,
       status: "PASS",
-      loginCta: "Mulai analisis redirected to /login (auth-required, repository)",
+      loginCta: "Mulai analisis links directly to /login (auth-required, repository)",
       previewRoutes: "all six removed routes return 404",
       loadedAssetTypes: [...loadedAssetTypes].sort(),
       horizontalOverflow: false,

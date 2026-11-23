@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { AssetIcon, Badge, Button, DesignFrame, FeatureCard, Reveal } from "../components/design-system/ui.tsx";
+import { loginGatedHref } from "../components/design-system/login-gated.ts";
+import { readHeaderAccount } from "../lib/auth/header-account.ts";
 import styles from "../components/landing/landing.module.css";
 
 const DOCS_BASE = "https://github.com/AgilePemdigi-2026/sage/blob/main/docs";
@@ -36,7 +38,8 @@ const guides: ReadonlyArray<{ icon: string; group?: string; title: string; text:
   { icon: "imgFeatureData", title: "Isi Architecture Definition Document", text: "Struktur Architecture Definition Document yang disusun dari hasil analisis.", href: `${DOCS_BASE}/reference/TOGAF_ADD.md` },
 ] as const;
 
-export default function Home() {
+export default async function Home() {
+  const signedIn = Boolean(await readHeaderAccount());
   return <DesignFrame active="home">
     <section className={styles.hero} aria-labelledby="hero-heading">
       <div className={styles.copy}>
@@ -44,8 +47,8 @@ export default function Home() {
         <h1 id="hero-heading" className={styles.title}><span>Pahami arsitektur<span className="punct">.</span></span> <span>Telusuri buktinya<span className="punct">.</span></span></h1>
         <p className={styles.lead}>SAGE menganalisis satu snapshot repository dan menyusun baseline Architecture Definition Document untuk Data dan Application Architecture. Setiap klaim tertaut ke file, baris, dan commit yang dianalisis.</p>
         <div className={styles.actions}>
-          <Button href="/workspace/repositories" size="lg">Mulai analisis</Button>
-          <Button href="/workspace/history" variant="secondary" size="lg">Buka riwayat</Button>
+          <Button href={loginGatedHref("/workspace/repositories", signedIn)} size="lg">Mulai analisis</Button>
+          <Button href={loginGatedHref("/workspace/history", signedIn)} variant="secondary" size="lg">Buka riwayat</Button>
         </div>
         <ul className={styles.trust}>
           {trust.map(item => <li key={item.icon}><AssetIcon group="landing" name={item.icon} />{item.label}</li>)}
