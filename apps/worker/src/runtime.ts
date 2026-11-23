@@ -46,6 +46,8 @@ export async function runWorkerRuntime(options: {
   const signal = controller.signal;
   const wait = options.wait ?? waitForWorker;
   let failure: unknown;
+  let draining = false;
+  let activeHandlers = 0;
 
   async function operation<T>(phase: WorkerPhase, queue: WorkerQueue | null, task: () => Promise<T>): Promise<T> {
     let priorCode: WorkerErrorCode | null = null;
@@ -65,7 +67,11 @@ export async function runWorkerRuntime(options: {
           const diagnostic: WorkerRuntimeEvent = { event: "worker_failed", phase, queue, code: classification.code, attempt, delayMs: 0 };
           const fatal = new WorkerRuntimeFailure(diagnostic);
           failure = fatal;
-          stop();
+          // An unrelated queue claim must not cancel a job already being
+          // processed. Stop taking new work and let active handlers finish;
+          // ambiguous claims remain fenced until their lease expires.
+          if ((phase === "claim" || phase === "heartbeat") && activeHandlers > 0) draining = true;
+          else stop();
           options.emit(diagnostic);
           throw fatal;
         }
@@ -79,7 +85,7 @@ export async function runWorkerRuntime(options: {
   const tasks: Promise<void>[] = [];
   const launch = (task: () => Promise<void>) => {
     tasks.push(task().catch(error => {
-      if (!signal.aborted) { failure = error; stop(); }
+      if (!signal.aborted && !draining) { failure = error; stop(); }
     }));
   };
   try {
@@ -93,11 +99,15 @@ export async function runWorkerRuntime(options: {
       }
     });
     for (const consumer of options.consumers) launch(async () => {
-      while (!signal.aborted) {
+      while (!signal.aborted && !draining) {
         const handler = await operation("claim", consumer.queue, consumer.claim);
         // An ambiguous/aborted acquisition remains fenced until lease recovery.
-        if (signal.aborted) return;
-        if (handler) await operation("handler", consumer.queue, () => handler(signal));
+        if (signal.aborted || draining) return;
+        if (handler) {
+          activeHandlers += 1;
+          try { await operation("handler", consumer.queue, () => handler(signal)); }
+          finally { activeHandlers -= 1; if (draining && activeHandlers === 0) stop(); }
+        }
         else await wait(consumer.idleMs, signal);
       }
     });

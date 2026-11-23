@@ -10,7 +10,7 @@ test("claim retry requires a known pre-execution failure or rolled back transact
     assert.equal(classifyWorkerError({ code }).retryableClaim, false, code);
   }
   assert.equal(classifyWorkerError({ code: "ECONNRESET" }).retryableHeartbeat, true);
-  assert.equal(classifyWorkerError({ code: "P2028" }).retryableHeartbeat, false);
+  assert.equal(classifyWorkerError({ code: "P2028" }).retryableHeartbeat, true);
 });
 
 test("actual Prisma/pg adapter wrapper shapes map to fixed safe diagnostics", () => {

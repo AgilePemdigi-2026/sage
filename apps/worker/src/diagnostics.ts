@@ -50,7 +50,7 @@ function classification(code: WorkerErrorCode): WorkerErrorClassification {
     code === "DATABASE_CONNECTION_LIMIT" || code === "DATABASE_TRANSACTION_CONFLICT" || code === "DATABASE_LOCK_TIMEOUT";
   return {
     code, retryableClaim,
-    retryableHeartbeat: retryableClaim || code === "DATABASE_CONNECTION_LOST" || code === "DATABASE_TIMEOUT",
+    retryableHeartbeat: retryableClaim || code === "DATABASE_CONNECTION_LOST" || code === "DATABASE_TIMEOUT" || code === "DATABASE_TRANSACTION_CLOSED",
   };
 }
 
