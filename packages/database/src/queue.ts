@@ -611,6 +611,7 @@ export async function enqueueAnalysis(db: PrismaClient, input: EnqueueAnalysisIn
 export async function claimAnalysisJob(db: PrismaClient, options: ClaimAnalysisJobOptions = {}): Promise<AnalysisJobClaim | null> {
   const leaseDurationMs = requireLeaseDuration(options.leaseDurationMs);
   return db.$transaction(async (tx) => {
+    await tx.$executeRaw`SET LOCAL lock_timeout = '2s'`;
     await ensureAndLockSlot(tx);
     let slot = await readSlotState(tx);
 
@@ -689,7 +690,7 @@ export async function claimAnalysisJob(db: PrismaClient, options: ClaimAnalysisJ
       leaseToken,
       leaseExpiresAt: jobRows[0].leaseExpiresAt,
     };
-  });
+  }, { maxWait: 2_000, timeout: 8_000 });
 }
 
 /** Renews only the current, unexpired lease; stale workers cannot revive it. */

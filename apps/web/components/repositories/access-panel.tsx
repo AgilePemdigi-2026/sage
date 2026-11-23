@@ -262,7 +262,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
       const result = await request<Page<Branch>>(`/api/repositories/branches?repository=${encodeURIComponent(item.fullName)}&page=${page}`);
       if (generation.current !== requestGeneration) return;
       setBranches(old => [...new Map((page === 1 ? result.items : [...old, ...result.items]).map(value => [value.name, value])).values()]);
-      if (page === 1) setBranch(result.items.find(value => value.name === item.defaultBranch)?.name ?? result.items[0]?.name ?? "");
+      if (page === 1) setBranch(item.defaultBranch || result.items[0]?.name || "");
       setBranchPage(result.nextPage); setBranchLoaded(true);
     } catch (cause) { if (generation.current === requestGeneration && !(cause instanceof AccountChangedError)) setError(cause instanceof Error ? cause.message : "Branch belum dapat dimuat."); }
     finally { if (generation.current === requestGeneration) setBusy(false); }
@@ -449,7 +449,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
           {branchLoaded && branches.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgBranch" }}>Repository ini belum memiliki branch. Tambahkan commit di GitHub sebelum memilih target.</EmptyState> : null}
           <form onSubmit={event => { setPending("validate"); void validate(event).finally(() => setPending(null)); }} className={css.form}>
             <Field id="target-branch" label="Branch" icon={<MaskIcon group="repository" name="imgBranch" size={18} />} trailing={<AssetIcon group="header" name="imgIconChevronDown" />} mono>
-              <select id="target-branch" disabled={busy || branches.length === 0} value={branch} onChange={e => { setBranch(e.target.value); setCommit(""); setTarget(null); }}><option value="" disabled>Pilih branch</option>{branches.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select>
+              <select id="target-branch" disabled={busy || (branches.length === 0 && !chosen.defaultBranch)} value={branch} onChange={e => { setBranch(e.target.value); setCommit(""); setTarget(null); }}><option value="" disabled>Pilih branch</option>{chosen.defaultBranch && !branches.some(item => item.name === chosen.defaultBranch) ? <option value={chosen.defaultBranch}>{chosen.defaultBranch}</option> : null}{branches.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select>
             </Field>
             {branchPage ? <button type="button" disabled={busy} onClick={() => void choose(chosen, branchPage)} className={css.textButton}>Muat branch berikutnya</button> : null}
             <Field id="target-commit" label="Commit" optional mono disabled={busy} value={commit} maxLength={64} onChange={e => { setCommit(e.target.value); setTarget(null); }} placeholder="Kosongkan untuk commit terbaru" hint="Commit harus berada dalam riwayat branch yang dipilih. Branch dan izin diperiksa kembali saat memeriksa target." />

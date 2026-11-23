@@ -415,6 +415,7 @@ async function releaseCleanupSlot(tx: Prisma.TransactionClient, claim: CleanupJo
 export async function claimCleanupJob(db: PrismaClient, options: { leaseDurationMs?: number } = {}): Promise<CleanupJobClaim | null> {
   const leaseDurationMs = validateLeaseDuration(options.leaseDurationMs);
   return db.$transaction(async tx => {
+    await tx.$executeRaw`SET LOCAL lock_timeout = '2s'`;
     const slot = await ensureAndLockCleanupSlot(tx);
     if (slot.jobId !== null) {
       if (!slot.ownerUserId || !slot.leaseUntil || !slot.leaseTokenHash) throw new CleanupQueueInvariantError();
@@ -493,7 +494,7 @@ export async function claimCleanupJob(db: PrismaClient, options: { leaseDuration
       leaseExpiresAt: jobs[0].leaseExpiresAt,
       manifest,
     });
-  });
+  }, { maxWait: 2_000, timeout: 8_000 });
 }
 
 /** Renew a cleanup lease using the database clock; caller timestamps are informational only. */
