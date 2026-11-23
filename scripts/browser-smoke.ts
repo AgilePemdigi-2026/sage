@@ -59,7 +59,7 @@ try {
     assert.equal(await page.locator("html").getAttribute("lang"), "id");
     const landingHeading = page.getByRole("heading", { level: 1 });
     assert.equal(await landingHeading.count(), 1);
-    assert.equal((await landingHeading.innerText()).replace(/\s+/g, " ").trim(), "Pahami arsitektur. Telusuri buktinya.");
+    assert.equal((await landingHeading.innerText()).replace(/\s+/g, " ").trim(), "From Repository to Architecture Definition Document, with Evidence");
     await page.evaluate(() => document.fonts.ready);
     await assertNoHorizontalOverflow(page, "landing");
     assert.ok(loadedAssetTypes.has("stylesheet"), "Landing stylesheet did not load");
@@ -69,7 +69,7 @@ try {
 
     const headerLogin = page.getByRole("banner").getByRole("link", { name: "Masuk", exact: true });
     assert.equal(await headerLogin.getAttribute("href"), "/login");
-    const startCta = page.getByRole("link", { name: "Mulai analisis", exact: true });
+    const startCta = page.getByRole("link", { name: "Analisis repository", exact: true });
     // Tanpa sesi, CTA langsung ke /login (tanpa redirect server perantara yang sempat merender segmen kosong).
     assert.equal(await startCta.getAttribute("href"), "/login?reason=auth-required&from=repository");
     await startCta.click();
@@ -101,7 +101,7 @@ try {
     checks.push({
       width,
       status: "PASS",
-      loginCta: "Mulai analisis links directly to /login (auth-required, repository)",
+      loginCta: "Analisis repository links directly to /login (auth-required, repository)",
       previewRoutes: "all six removed routes return 404",
       loadedAssetTypes: [...loadedAssetTypes].sort(),
       horizontalOverflow: false,

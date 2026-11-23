@@ -43,11 +43,11 @@ export default async function Home() {
     <section className={styles.hero} aria-labelledby="hero-heading">
       <div className={styles.copy}>
         <p className={styles.label}>Dokumentasi arsitektur berbasis source code</p>
-        <h1 id="hero-heading" className={styles.title}><span>Pahami arsitektur<span className="punct">.</span></span> <span>Telusuri buktinya<span className="punct">.</span></span></h1>
-        <p className={styles.lead}>SAGE menganalisis satu snapshot repository dan menyusun baseline Architecture Definition Document untuk Data dan Application Architecture. Setiap klaim tertaut ke file, baris, dan commit yang dianalisis.</p>
+        <h1 id="hero-heading" className={styles.title}>From Repository to Architecture Definition Document, <span className={styles.titleAccent}>with Evidence</span></h1>
+        <p className={styles.lead}>SAGE membaca commit GitHub-mu, membangun Code Knowledge Graph, lalu menyusun baseline TOGAF Phase C dengan tautan ke baris kode sumbernya.</p>
         <div className={styles.actions}>
-          <Button href={loginGatedHref("/workspace/repositories", signedIn)} size="lg">Mulai analisis</Button>
-          <Button href={loginGatedHref("/workspace/history", signedIn)} variant="secondary" size="lg">Buka riwayat</Button>
+          <Button href={loginGatedHref("/workspace/repositories", signedIn)} size="lg" arrow>Analisis repository</Button>
+          <Button href="#cara-kerja" variant="secondary" size="lg">Lihat cara kerja</Button>
         </div>
         <ul className={styles.trust}>
           {trust.map(item => <li key={item.icon}><AssetIcon group="landing" name={item.icon} />{item.label}</li>)}

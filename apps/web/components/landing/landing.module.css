@@ -6,9 +6,9 @@
 .hero { display: grid; gap: 48px; align-items: center; padding: 64px 0 72px; }
 .copy { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; min-width: 0; }
 .label { margin: 0; color: var(--color-teal-700); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); text-transform: uppercase; }
-.title { margin: 0; color: var(--color-ink); font-size: var(--text-display); line-height: var(--text-display--line-height); font-weight: 800; letter-spacing: var(--text-display--letter-spacing); }
-.title > span { display: block; }
-.title > span + span { color: var(--color-teal-700); }
+.title { margin: 0; color: var(--color-ink); font-size: var(--text-display); line-height: var(--text-display--line-height); font-weight: 800; letter-spacing: var(--text-display--letter-spacing); text-wrap: balance; }
+/* teal-700 di atas canvas = 4.84:1 (teks besar; tetap lolos ambang 4.5 teks normal). */
+.titleAccent { color: var(--color-teal-700); }
 .lead { max-width: 576px; margin: 0; color: var(--color-muted); font-size: 17px; line-height: 1.7; }
 .actions { display: flex; flex-wrap: wrap; gap: 12px; }
 .trust { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 0; padding: 0; list-style: none; }
