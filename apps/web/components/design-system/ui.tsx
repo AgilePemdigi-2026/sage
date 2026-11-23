@@ -482,8 +482,13 @@ export function MaskIcon({ group, name, size, className }: { group: string; name
   return <span className={cx(styles.maskIcon, className)} style={style} aria-hidden="true" />;
 }
 
+function isAssetRef(value: unknown): value is { group: string; name: string } {
+  return typeof value === "object" && value !== null && "group" in value && "name" in value && !("$$typeof" in value);
+}
+
 export function FeatureCard({ icon, number, title, children, href, linkLabel, headingLevel = 3 }: {
-  icon: { group: string; name: string };
+  /** Aset Figma (MaskIcon) atau node ikon siap pakai (mis. <Icon> dari icons.tsx). */
+  icon: { group: string; name: string } | ReactNode;
   number?: string;
   title: ReactNode;
   children: ReactNode;
@@ -494,7 +499,7 @@ export function FeatureCard({ icon, number, title, children, href, linkLabel, he
 }) {
   const Heading = headingLevel === 2 ? "h2" : "h3";
   const body = <>
-    <span className={styles.featureIcon}><MaskIcon group={icon.group} name={icon.name} size={22} /></span>
+    <span className={styles.featureIcon}>{isAssetRef(icon) ? <MaskIcon group={icon.group} name={icon.name} size={22} /> : icon}</span>
     {number ? <span className={styles.featureNumber}>{number}</span> : null}
     <Heading className={styles.featureTitle}>{title}</Heading>
     <p className={styles.featureText}>{children}</p>
