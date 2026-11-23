@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Badge, Button, CopySha, EmptyState, Field, PageHead, Panel, PillLink, ScrollList, SkeletonRows, Spinner, Stepper, useVisibleSection } from "../design-system/ui.tsx";
+import { Badge, Button, CopySha, EmptyState, Field, PageHead, Panel, PillLink, ScrollList, SkeletonRows, Stepper, useVisibleSection } from "../design-system/ui.tsx";
 import { Icon } from "../design-system/icons.tsx";
 import design from "../design-system/ui.module.css";
 import css from "./repositories.module.css";
@@ -49,7 +49,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
   const [scopeVerified, setScopeVerified] = useState(false);
   const [scopeError, setScopeError] = useState("");
   // Presentational only: which action shows a spinner on its own button (busy stays the single source of truth).
-  const [pending, setPending] = useState<"validate" | "start" | null>(null);
+  const [pending, setPending] = useState<"resolve" | "validate" | "start" | null>(null);
   const visibleSource = useVisibleSection(SOURCE_SECTIONS);
   const generation = useRef(0);
   const reloadStarted = useRef(false);
@@ -357,12 +357,12 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
     description={<>Pilih repository yang ingin dianalisis, lalu tentukan branch dan commit. Terhubung sebagai @{accountLogin}. Izin selalu diperiksa kembali melalui GitHub.</>}
     aside={<><Button href="/workspace" variant="link">Kembali ke workspace</Button><Stepper steps={["Repository", "Target", "Analisis"]} current={step} label="Langkah analisis" /></>}
   />;
-  if (!scopeVerified) return <>
+  // Selama sesi diperiksa, tata letak asli langsung tampil dengan skeleton di daftar (tanpa lompatan saat data tiba);
+  // semua aksi tetap nonaktif sampai identitas terverifikasi.
+  if (!scopeVerified && scopeError) return <>
     {head}
     <Panel>
-      {scopeError
-        ? <EmptyState tone="error" role="status" icon="repo" action={<Button variant="secondary" onClick={() => window.location.reload()}>Muat ulang sesi</Button>}>{scopeError}</EmptyState>
-        : <SkeletonRows rows={4} label="Memeriksa akun GitHub dan memuat daftar repository…" />}
+      <EmptyState tone="error" role="status" icon="repo" action={<Button variant="secondary" onClick={() => window.location.reload()}>Muat ulang sesi</Button>}>{scopeError}</EmptyState>
     </Panel>
   </>;
   const filteredPublic = publicRepositories.filter(item => item.fullName.toLowerCase().includes(publicQuery.trim().toLowerCase()));
@@ -372,7 +372,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
   return <>
     {head}
     {error ? <p role="alert" className={css.alert}>{error}</p> : null}
-    {busy && !chosen ? <p role="status" className={design.srOnly}>Memeriksa GitHub…</p> : null}
+    {!scopeVerified ? <p role="status" className={design.srOnly}>Memeriksa akun GitHub dan memuat daftar repository…</p> : busy && !chosen ? <p role="status" className={design.srOnly}>Memeriksa GitHub…</p> : null}
     {reauthRequired ? <form action="/auth/logout" method="post" className={css.reauth}><Button type="submit" variant="secondary">Keluar untuk menyambungkan ulang GitHub</Button></form> : null}
     <div className={css.layout} aria-busy={busy || publicBusy}>
       <div className={css.column}>
@@ -424,9 +424,9 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
         </Panel>
 
         <Panel title="Repository publik milik pihak lain">
-          <form onSubmit={resolve} className={css.resolveForm}>
+          <form onSubmit={event => { setPending("resolve"); void resolve(event).finally(() => setPending(null)); }} className={css.resolveForm}>
             <Field label="Nama atau URL GitHub" disabled={busy} required maxLength={300} value={repository} onChange={e => setRepository(e.target.value)} placeholder="owner/repository" hint="Memasukkan URL private tidak menambah izin. Hanya github.com yang diterima." />
-            <Button type="submit" variant="secondary" disabled={busy}>Periksa repository</Button>
+            <Button type="submit" variant="secondary" disabled={busy || !scopeVerified} loading={pending === "resolve"}>{pending === "resolve" ? "Memeriksa repository…" : "Periksa repository"}</Button>
           </form>
           {resolved ? <ul className={`${css.list} ${css.resolved}`}>{repoRow(resolved)}</ul> : null}
         </Panel>
@@ -446,10 +446,10 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
             <Button variant="secondary" disabled={busy} onClick={() => { setChosen(null); setBranches([]); setBranchPage(null); setBranchLoaded(false); setBranch(""); setCommit(""); setTarget(null); setError(""); setTimeout(() => repositoryListHeading.current?.focus(), 0); }}>Pilih repository lain</Button>
             <Button variant="secondary" disabled={busy} onClick={() => void choose(chosen)}>Muat ulang branch</Button>
           </div>
-          {busy && !branchLoaded ? <p className={css.status} role="status"><Spinner /> Memuat branch untuk {chosen.fullName}…</p> : null}
+          {busy && !branchLoaded ? <p className={design.srOnly} role="status">Memuat branch untuk {chosen.fullName}…</p> : null}
           {branchLoaded && branches.length === 0 ? <EmptyState icon="gitBranch">Repository ini belum memiliki branch. Tambahkan commit di GitHub sebelum memilih target.</EmptyState> : null}
           <form onSubmit={event => { setPending("validate"); void validate(event).finally(() => setPending(null)); }} className={css.form}>
-            <Field id="target-branch" label="Branch" icon={<Icon name="gitBranch" />} trailing={<Icon name="chevronDown" />} mono>
+            <Field id="target-branch" label="Branch" icon={<Icon name="gitBranch" />} trailing={<Icon name="chevronDown" />} mono loading={busy && !branchLoaded}>
               <select id="target-branch" disabled={busy || (branches.length === 0 && !chosen.defaultBranch)} value={branch} onChange={e => { setBranch(e.target.value); setCommit(""); setTarget(null); }}><option value="" disabled>Pilih branch</option>{chosen.defaultBranch && !branches.some(item => item.name === chosen.defaultBranch) ? <option value={chosen.defaultBranch}>{chosen.defaultBranch}</option> : null}{branches.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select>
             </Field>
             {branchPage ? <button type="button" disabled={busy} onClick={() => void choose(chosen, branchPage)} className={css.textButton}>Muat branch berikutnya</button> : null}

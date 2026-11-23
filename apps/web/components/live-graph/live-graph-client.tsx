@@ -13,7 +13,8 @@ import { filterGraph } from "./graph-filters.ts";
 import { parseLiveGraphPayload } from "./graph-data.ts";
 import { AnalysisQuality } from "../analysis-quality/analysis-quality.tsx";
 import { NodeInspector } from "./node-inspector.tsx";
-import { Button, EmptyState, Field, PillButton, SkeletonRows } from "../design-system/ui.tsx";
+import { Button, EmptyState, Field, PillButton, Skeleton } from "../design-system/ui.tsx";
+import designStyles from "../design-system/ui.module.css";
 import { Icon } from "../design-system/icons.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
 
@@ -363,12 +364,20 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         <h2>Struktur source code</h2>
         <p className={styles.lead}>Telusuri module, symbol, dependency, dan bukti pada source code di commit yang dianalisis.</p>
       </div>
-      {visiblePayload ? <Button href={documentHref} variant="primary" arrow>Buka Architecture Definition Document</Button> : null}
+      {visiblePayload ? <Button href={documentHref} variant="primary" arrow>Buka Architecture Definition Document</Button>
+        : busy || payload ? <Skeleton width={336} height={44} style={{ borderRadius: "var(--radius-control)" }} /> : null}
     </header>
 
     {!visiblePayload && (busy || payload) ? <div className={styles.workspace}>
-      <section className={styles.graphCard} aria-label="Memuat knowledge graph">
-        <SkeletonRows rows={1} label="Memeriksa akun dan memuat knowledge graph…" />
+      {/* Skeleton berbentuk kartu graph asli: judul, path, toolbar (field 46 + kontrol 44), legend, kanvas. */}
+      <section className={styles.graphCard} aria-label="Memuat knowledge graph" aria-busy="true">
+        <p role="status" className={designStyles.srOnly}>Memeriksa akun dan memuat knowledge graph…</p>
+        <div className={styles.graphCardHeader} aria-hidden="true"><h3>Knowledge graph</h3><Skeleton width={200} height={17} /></div>
+        <div className={`${styles.toolbar} ${styles.toolbarSkeleton}`} aria-hidden="true">
+          <div className={styles.filterControls}><Skeleton height={46} style={{ borderRadius: "var(--radius-control)" }} /><Skeleton width={150} height={44} style={{ borderRadius: "var(--radius-control)" }} /></div>
+          <div className={styles.modeControls}><Skeleton width={300} height={36} style={{ borderRadius: 999 }} /><Skeleton width={260} height={44} style={{ borderRadius: "var(--radius-control)" }} /></div>
+        </div>
+        <Skeleton height={32} />
         <div className={styles.canvasSkeleton} aria-hidden="true" />
       </section>
       <aside className={styles.inspectorRail} aria-hidden="true">

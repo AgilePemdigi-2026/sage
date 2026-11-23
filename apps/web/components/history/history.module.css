@@ -65,3 +65,8 @@
   .row { animation: none; }
   .row:hover .chevron { transform: none; }
 }
+
+/* Skeleton baris: tanpa animasi masuk; di kartu mobile, meta tetap satu baris seperti data asli. */
+.skeletonRow { animation: none; }
+.skeletonRow:hover { background: var(--color-surface); box-shadow: none; }
+.skeletonRow .meta > * { display: inline-flex; }

@@ -10,7 +10,8 @@ import { addViewFigureNumber, addViewNarratives } from "@sage/documents/baseline
 import { coreRelationshipLabel, projectCoreBaselineView } from "@sage/documents/baseline-core-views";
 import { PHASE_C_ADD, PHASE_C_ADD_TOC, logicalSchemaRows, baselineCatalogMappings, phaseCAddContents, includedAddSections, addAnalyzerCoverageNotes, sourceBackedApplicationPortfolio } from "@sage/documents/phase-c-add";
 import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
-import { Badge, Button, EmptyState, Field, OverflowX, SkeletonRows, useVisibleSection } from "../design-system/ui.tsx";
+import { Badge, Button, EmptyState, Field, OverflowX, Skeleton, SkeletonRows, Spinner, useVisibleSection } from "../design-system/ui.tsx";
+import designStyles from "../design-system/ui.module.css";
 import { Icon } from "../design-system/icons.tsx";
 import { AnalysisPageHead } from "../analysis-navigation/analysis-page-head.tsx";
 import type { AnalysisHeadData } from "../../lib/analyses/analysis-head.ts";
@@ -43,6 +44,24 @@ const ADD_PARTS = (() => {
     return { ...group, count: sections.length, summary: sections.slice(0, 3).join(", ") };
   });
 })();
+
+/** Skeleton tata letak dokumen (daftar isi · isi · panel ekspor) dengan tinggi kotak yang sama dengan bagian aslinya. */
+function DocumentSkeleton() {
+  return <div className={doc.layout} role="status" aria-label="Memuat ADD">
+    <span className={designStyles.srOnly}>Memuat baseline Phase C…</span>
+    <div className={`${doc.toc} ${doc.tocSkeleton}`} aria-hidden="true">
+      <Skeleton width={110} height={24} />
+      {Array.from({ length: 9 }, (_, index) => <Skeleton key={index} width={index % 3 === 0 ? "55%" : "80%"} height={index % 3 === 0 ? 16 : 20} />)}
+    </div>
+    <div className={doc.content} aria-hidden="true">
+      <Skeleton className={doc.tocMobileSkeleton} height={50} />
+      <div className={doc.headerSkeleton}><Skeleton width="70%" height={36} /><Skeleton width="90%" height={26} /><Skeleton height={112} /></div>
+      <div className={doc.metrics}>{Array.from({ length: 4 }, (_, index) => <Skeleton key={index} height={89} />)}</div>
+      <Skeleton height={360} />
+    </div>
+    <div className={doc.rail} aria-hidden="true"><Skeleton height={300} /></div>
+  </div>;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -420,7 +439,7 @@ function ReviewEditor({ model, overlay, update, reset, markReviewed, save, savin
       </article>;
     })}</div>
     <div className={styles.pagination}><button type="button" className={styles.secondaryButton} disabled={saving || currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button><span>Page {currentPage + 1} of {pages}</span><button type="button" className={styles.secondaryButton} disabled={saving || currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>Next</button></div>
-    <div className={styles.reviewFooter}><div><button className={styles.secondaryButton} disabled={saving} type="button" onClick={() => markReviewed(overlay.status === "reviewed" ? "draft" : "reviewed")}>{overlay.status === "reviewed" ? "Reopen as draft" : "Mark document reviewed"}</button><p>Review status records your sign-off; it does not claim that source evidence changed.</p></div><button className={styles.primaryButton} type="button" disabled={saving} onClick={save}>{saving ? "Saving review…" : "Save review"}</button></div>
+    <div className={styles.reviewFooter}><div><button className={styles.secondaryButton} disabled={saving} type="button" onClick={() => markReviewed(overlay.status === "reviewed" ? "draft" : "reviewed")}>{overlay.status === "reviewed" ? "Reopen as draft" : "Mark document reviewed"}</button><p>Review status records your sign-off; it does not claim that source evidence changed.</p></div><button className={styles.primaryButton} type="button" disabled={saving} aria-busy={saving || undefined} onClick={save}>{saving ? <><Spinner />Saving review…</> : "Save review"}</button></div>
     {saveMessage ? <p className={styles.successMessage} role="status">{saveMessage}</p> : null}{saveError ? <p className={styles.errorMessage} role="alert">{saveError}</p> : null}
   </section>;
 }
@@ -464,7 +483,7 @@ function ExportPanel({ model, modelHash, overlay, analysisId, accountKey }: { mo
     anchor.href = href; anchor.download = repositoryName + "-architecture-definition-document.tex"; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(href), 1000);
   };
-  return <section className={`${styles.sectionCard} ${styles.exportPanel}`} id="export" aria-labelledby="export-title"><div><h2 id="export-title">Export Architecture Definition Document (ADD)</h2><p>Markdown and LaTeX use the same Phase C baseline, repository snapshot, review overlay, catalogs, matrices, and evidence links. PDF is compiled from the LaTeX template using the saved baseline and review.</p></div><div className={styles.exportActions}><button className={styles.primaryButton} type="button" onClick={downloadMarkdown}>Download Markdown</button><button className={styles.secondaryButton} type="button" onClick={downloadLatex}>Download LaTeX</button><button className={styles.primaryButton} type="button" disabled={pdfBusy} onClick={() => void downloadPdf()}>{pdfBusy ? "Membuat PDF…" : "Download PDF"}</button></div>{pdfError ? <p role="alert">{pdfError}</p> : null}</section>;
+  return <section className={`${styles.sectionCard} ${styles.exportPanel}`} id="export" aria-labelledby="export-title"><div><h2 id="export-title">Export Architecture Definition Document (ADD)</h2><p>Markdown and LaTeX use the same Phase C baseline, repository snapshot, review overlay, catalogs, matrices, and evidence links. PDF is compiled from the LaTeX template using the saved baseline and review.</p></div><div className={styles.exportActions}><button className={styles.primaryButton} type="button" onClick={downloadMarkdown}>Download Markdown</button><button className={styles.secondaryButton} type="button" onClick={downloadLatex}>Download LaTeX</button><button className={styles.primaryButton} type="button" disabled={pdfBusy} aria-busy={pdfBusy || undefined} onClick={() => void downloadPdf()}>{pdfBusy ? <><Spinner />Membuat PDF…</> : "Download PDF"}</button></div>{pdfError ? <p role="alert">{pdfError}</p> : null}</section>;
 }
 
 export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: string; accountKey: string; context?: AddPageContext }) {
@@ -612,7 +631,7 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
     </div> : null}
 
     <div key={pageState} className={states.stateBlock}>
-      {pageState === "loading" ? <section className={states.card} aria-label="Memuat ADD"><SkeletonRows rows={3} label="Memuat baseline Phase C…" /></section> : null}
+      {pageState === "loading" ? <DocumentSkeleton /> : null}
 
       {pageState === "error" && notReady ? <section className={states.card} aria-labelledby="add-not-ready-title">
         <h2 id="add-not-ready-title" className={states.heading}>{analysisActive ? "Analisis belum selesai" : "Hasil analisis belum siap untuk ADD"}</h2>

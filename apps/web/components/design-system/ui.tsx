@@ -604,6 +604,11 @@ export function SkeletonRows({ rows = 3, label, className }: { rows?: number; la
   </div>;
 }
 
+/** Blok skeleton (pulse 1.6 s; diam saat reduced-motion). Ukuran mengikuti kotak teks/kontrol asli agar tanpa CLS. */
+export function Skeleton({ width, height, className, style }: { width?: number | string; height: number | string; className?: string; style?: React.CSSProperties }) {
+  return <span className={cx(styles.skeletonBlock, className)} style={{ width, height, ...style }} aria-hidden="true" />;
+}
+
 export function Spinner() {
   return <span className={styles.spinner} aria-hidden="true" />;
 }
@@ -643,9 +648,11 @@ type FieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "children"> & {
   hideLabel?: boolean;
   /** Ganti <input> bawaan, misalnya dengan <select>. Kontrol harus memakai id yang sama. */
   children?: ReactNode;
+  /** Kontrol sedang memuat isi (mis. daftar branch): kotak berdenyut dengan ukuran yang sama, isi disembunyikan. */
+  loading?: boolean;
 };
 
-export function Field({ label, icon, trailing, hint, error, optional = false, mono = false, hideLabel = false, children, id, className, ...input }: FieldProps) {
+export function Field({ label, icon, trailing, hint, error, optional = false, mono = false, hideLabel = false, loading = false, children, id, className, ...input }: FieldProps) {
   const generatedId = useId();
   const controlId = id ?? generatedId;
   const hintId = hint ? `${controlId}-hint` : undefined;
@@ -653,7 +660,7 @@ export function Field({ label, icon, trailing, hint, error, optional = false, mo
   const describedBy = cx(input["aria-describedby"], hintId, errorId) || undefined;
   return <div className={cx(styles.field, className)}>
     <label className={hideLabel ? styles.srOnly : styles.fieldLabel} htmlFor={controlId}>{label}{optional ? <>{" "}<span className={styles.fieldOptional}>(opsional)</span></> : null}</label>
-    <div className={cx(styles.fieldControl, mono && styles.fieldMono)} data-invalid={error ? "true" : undefined} data-disabled={input.disabled ? "true" : undefined}>
+    <div className={cx(styles.fieldControl, mono && styles.fieldMono)} data-invalid={error ? "true" : undefined} data-disabled={input.disabled ? "true" : undefined} data-loading={loading ? "true" : undefined}>
       {icon ? <span className={styles.fieldIcon} aria-hidden="true">{icon}</span> : null}
       {children ?? <input id={controlId} {...input} aria-invalid={error ? true : input["aria-invalid"]} aria-describedby={describedBy} />}
       {trailing}

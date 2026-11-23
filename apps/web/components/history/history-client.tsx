@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Badge, Button, CopySha, DesignFrame, EmptyState, Field, PageHead, Panel, PillButton, SkeletonRows } from "../design-system/ui.tsx";
+import { Badge, Button, CopySha, DesignFrame, EmptyState, Field, PageHead, Panel, PillButton, Skeleton } from "../design-system/ui.tsx";
 import { Icon } from "../design-system/icons.tsx";
 import designStyles from "../design-system/ui.module.css";
 import { analysisStatusBadge, formatDateTime } from "./format.ts";
@@ -14,6 +14,25 @@ import css from "./history.module.css";
 import deletionStyles from "./history-delete.module.css";
 
 const STATUS_OPTIONS = ["QUEUED", "RUNNING", "COMPLETED", "COMPLETED_WITH_LIMITATIONS", "FAILED"] as const;
+const COLUMN_LABELS = ["Repository", "Commit", "Bahasa", "Durasi", "Tanggal", "Status", "Aksi"] as const;
+
+/** Skeleton riwayat: grid kolom & tinggi baris sama dengan baris asli (kotak = tinggi baris teks/chip/tombol). */
+function HistorySkeleton({ rows = 4 }: { rows?: number }) {
+  return <div role="status" aria-label="Memuat riwayat">
+    <div className={css.columns} aria-hidden="true">{COLUMN_LABELS.map(label => <span key={label}>{label}</span>)}</div>
+    <ul className={css.list} aria-hidden="true">{Array.from({ length: rows }, (_, index) => <li key={index} className={`${css.row} ${css.skeletonRow}`}>
+      <div className={css.repo}><Skeleton width="min(240px, 80%)" height={20} /><Skeleton width={120} height={20} /></div>
+      <div className={css.commit}><Skeleton width={132} height={32} /></div>
+      <span className={css.meta}>
+        <span className={css.languages}><Skeleton width={72} height={22} /></span>
+        <span className={css.duration}><Skeleton width={56} height={22} /></span>
+        <span className={css.date}><Skeleton width={110} height={22} /></span>
+      </span>
+      <span className={css.status}><Skeleton width={96} height={24} style={{ borderRadius: 999 }} /></span>
+      <div className={css.actions}><Skeleton width={64} height={36} /><Skeleton width={64} height={36} /></div>
+    </li>)}</ul>
+  </div>;
+}
 
 export function HistoryClient({ accountKey }: { accountKey: string }) {
   const [items, setItems] = useState<HistoryItem[] | null>(null);
@@ -150,7 +169,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
       {filtersActive ? <Button variant="link" onClick={clearFilters}>Hapus filter</Button> : null}
     </div>
     <Panel className={css.card}>
-      {!visibleLoaded ? <div className={css.state}><SkeletonRows rows={4} label="Memuat riwayat" /></div> : null}
+      {!visibleLoaded ? <HistorySkeleton /> : null}
       {visibleError ? <div className={css.state}><EmptyState tone="error" role="alert" icon="repo" title="Riwayat gagal dimuat" action={<Button variant="secondary" onClick={() => setReloadKey(key => key + 1)}>Coba lagi</Button>}>Periksa koneksi lalu muat ulang halaman.</EmptyState></div> : null}
       {visibleLoaded && !visibleError && visibleItems?.length === 0 && !filtersActive ? <div className={css.state}>
         <EmptyState icon="repo" title="Belum ada riwayat analisis" action={<Button href="/workspace/repositories" variant="secondary">Pilih repository</Button>}>Pilih repository untuk memulai analisis pertama.</EmptyState>
@@ -159,7 +178,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
         <EmptyState icon="search" title={<>Tidak ada hasil untuk {trimmed ? `“${trimmed}”` : "filter ini"}</>} action={<Button variant="link" onClick={clearFilters}>Hapus filter</Button>}>Pencarian memeriksa repository, branch, dan SHA.</EmptyState>
       </div> : null}
       {visibleLoaded && visibleItems && visibleItems.length > 0 ? <>
-        <div className={css.columns} aria-hidden="true"><span>Repository</span><span>Commit</span><span>Bahasa</span><span>Durasi</span><span>Tanggal</span><span>Status</span><span>Aksi</span></div>
+        <div className={css.columns} aria-hidden="true">{COLUMN_LABELS.map(label => <span key={label}>{label}</span>)}</div>
         <ul className={css.list} aria-label="Daftar riwayat analisis">{visibleItems.map(renderRow)}</ul>
         {load ? <div className={css.loadMore}><Button variant="link" onClick={() => load()}>Muat lebih banyak</Button></div> : null}
       </> : null}

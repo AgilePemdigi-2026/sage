@@ -60,3 +60,12 @@
   .layout { display: block; }
   .content { max-width: none; }
 }
+
+/* Skeleton dokumen (state memuat): kotak setinggi elemen aslinya. */
+.tocSkeleton { gap: 10px; padding: 20px; }
+.headerSkeleton { display: grid; gap: 12px; margin: 8px 0 24px; }
+.tocMobileSkeleton { margin: 0 0 20px; }
+@media (min-width: 1060px) {
+  .tocSkeleton { display: grid; }
+  .tocMobileSkeleton { display: none; }
+}

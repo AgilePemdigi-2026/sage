@@ -232,3 +232,4 @@
   .kindDisclosure > summary, .kindDisclosure > summary::after, .kindFilters label, .zoomButton, .inspectorClose, .inspectorRetry, .inspectorSourceAction, .inspectorMore, .inspectorRelations > li { transition: none; }
   .inspectorRetry:hover, .inspectorSourceAction:hover, .inspectorMore:hover { transform: none; }
 }
+.toolbarSkeleton .filterControls { grid-template-columns: minmax(0, 1fr) auto; }
