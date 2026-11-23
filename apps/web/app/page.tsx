@@ -1,6 +1,9 @@
-import { AssetIcon, Badge, Button, DesignFrame, FeatureCard, Reveal } from "../components/design-system/ui.tsx";
+import { AssetIcon, Button, DesignFrame, FeatureCard, Reveal } from "../components/design-system/ui.tsx";
 import { loginGatedHref } from "../components/design-system/login-gated.ts";
 import { readHeaderAccount } from "../lib/auth/header-account.ts";
+import { ANALYSIS_STAGE_DEFINITIONS } from "@sage/contracts/stages";
+import { PHASE_C_ADD } from "@sage/documents/phase-c-add";
+import { ProductMockup, type MockupCopy } from "../components/landing/product-mockup.tsx";
 import styles from "../components/landing/landing.module.css";
 
 const DOCS_BASE = "https://github.com/AgilePemdigi-2026/sage/blob/main/docs";
@@ -11,11 +14,12 @@ const trust = [
   { icon: "imgTrustSha", label: "Terkunci ke full SHA" },
 ] as const;
 
-const dataObjects = [
-  { name: "Buku", table: "Buku", tone: "teal", status: "Exact" },
-  { name: "Anggota", table: "Anggota", tone: "teal", status: "Exact" },
-  { name: "Transaksi", table: "Transaksi", tone: "warning", status: "Perlu cek" },
-] as const;
+/** Teks mockup diambil dari definisi nyata: 9 tahap pipeline dan judul bagian ADD Phase C. */
+const mockupCopy: MockupCopy = {
+  stages: ANALYSIS_STAGE_DEFINITIONS.map(stage => stage.label),
+  viewTitle: PHASE_C_ADD.sections.logicalDataModel.title,
+  catalogTitle: PHASE_C_ADD.sections.businessDataModel.title,
+};
 
 const features = [
   { number: "01", icon: "imgFeatureData", title: "Baseline Data Architecture", text: "Data object, relasi, katalog, dan CRUD yang didukung bukti repository." },
@@ -53,27 +57,8 @@ export default async function Home() {
           {trust.map(item => <li key={item.icon}><AssetIcon group="landing" name={item.icon} />{item.label}</li>)}
         </ul>
       </div>
-
-      <div className={styles.illustration} aria-hidden="true">
-        <span className={styles.glow} />
-        <div className={styles.window}>
-          <div className={styles.windowBar}>
-            <span className={styles.dot} /><span className={styles.dot} /><span className={styles.dot} />
-            <span className={styles.fileName}>add-baseline.md</span>
-          </div>
-          <div className={styles.windowBody}>
-            <p className={styles.label}>3 · Business Data Model</p>
-            {dataObjects.map(item => <div key={item.name} className={styles.dataRow}>
-              <span className={styles.dataIcon}><AssetIcon group="landing" name="imgDataObject" /></span>
-              <span className={styles.dataName}>{item.name}</span>
-              <span className={styles.dataTable}>{item.table}</span>
-              <Badge tone={item.tone}>{item.status}</Badge>
-            </div>)}
-          </div>
-        </div>
-        <span className={`${styles.chip} ${styles.chipEvidence}`}><AssetIcon group="landing" name="imgEvidence" />app/api/buku/route.ts:31</span>
-        <span className={`${styles.chip} ${styles.chipSha}`}><AssetIcon group="landing" name="imgBranch" />main · 08dbdd2</span>
-      </div>
+      <p className={styles.srOnly}>Ilustrasi produk: progres analisis sembilan tahap selesai, potongan dokumen TOGAF ADD dengan diagram ArchiMate, lalu node Code Knowledge dengan evidence src/app/api/books/route.ts baris 12.</p>
+      <ProductMockup copy={mockupCopy} />
     </section>
 
     <section className={`${styles.block} ${styles.section}`} aria-labelledby="fitur-heading">
