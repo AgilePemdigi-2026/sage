@@ -7,6 +7,9 @@ export type SourceSelection = { totalFiles: number; includedFiles: number; omitt
 const MAX_FILE = 1024 * 1024;
 const MAX_FILES = 250;
 const MAX_TOTAL = 20 * 1024 * 1024;
+// A recursive tree may include thousands of vendor paths even when the
+// selected source is small. Bound metadata separately from source content.
+const MAX_TREE_RESPONSE = 4 * 1024 * 1024;
 const BINARY = /\.(?:onnx|pt|pth|h5|hdf5|pkl|pickle|safetensors|bin|zip|gz|7z|pdf|png|jpe?g|gif|webp|ico|woff2?|ttf|mp[34]|wav|sqlite3?)$/i;
 const DEPENDENCY = /(?:^|\/)(?:node_modules|vendor|\.git|\.next|__pycache__)(?:\/|$)/;
 const unsafe = (path: string) => !path || path.length > 4096 || path.includes("\\") || /[\x00-\x1f\x7f]/.test(path) || path.split("/").some(p => !p || p === "." || p === "..");
@@ -40,7 +43,7 @@ export async function fetchSourceArchive(input: {
     } finally { await reader.cancel().catch(() => undefined); }
     return Buffer.concat(chunks, size);
   }
-  const tree = JSON.parse((await get(`/trees/${input.sha}?recursive=1`, 2 * 1024 * 1024)).toString("utf8"));
+  const tree = JSON.parse((await get(`/trees/${input.sha}?recursive=1`, MAX_TREE_RESPONSE)).toString("utf8"));
   if (tree.truncated !== false || !Array.isArray(tree.tree) || tree.tree.length > 10000) throw new GitHubRepositoryError("UNAVAILABLE");
   // Small repositories keep the original whole-archive path and its coverage.
   const total = tree.tree.filter((entry: { type: string }) => entry.type === "blob").reduce((sum: number, entry: { size: number }) => sum + (Number.isSafeInteger(entry.size) && entry.size >= 0 ? entry.size : MAX_TOTAL + 1), 0);

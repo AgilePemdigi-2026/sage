@@ -48,6 +48,15 @@ test("symlinks are omitted and never followed", async () => {
  assert.equal(f.urls.length, 2);
 });
 
+test("large tree metadata containing dependencies is filtered before selecting source", async () => {
+ const dependencies = Array.from({ length: 7000 }, (_, i) => ({ ...entry, path: `node_modules/pkg-${i}/${"x".repeat(130)}.js` }));
+ const f = fixture([entry, model, ...dependencies]);
+ const result = await fetchSourceArchive({ ...input, fetcher: f.fetcher });
+ assert.equal(result?.selection.includedFiles, 1);
+ assert.equal(result?.selection.omitted.length, 7001);
+ assert.equal(f.urls.length, 2);
+});
+
  test("selection metadata preserves legacy manifests and rejects malformed additions", async () => {
   const { snapshotManifest } = await import("../apps/worker/src/snapshot/selection.ts");
   const manifest = { storageObjectId: "id", archiveSha256: "sha", archiveBytes: 1, commitSha: "commit", files: 2, extractedBytes: 3 };
