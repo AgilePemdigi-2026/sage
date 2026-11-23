@@ -141,6 +141,9 @@
   font-size: var(--text-button); line-height: var(--text-button--line-height); font-weight: 600;
 }
 .button_lg { height: 52px; padding: 0 26px; font-size: 15px; }
+/* Koreksi optik: panah di kanan menambah bobot visual, jadi padding kanan dikurangi 4 px agar label tampak di tengah. */
+.button:not(.button_link):has([data-arrow]) { padding-right: 16px; }
+.button_lg:has([data-arrow]) { padding-right: 22px; }
 .button_sm { height: 36px; padding: 0 14px; gap: 6px; }
 .button_primary { color: var(--color-ink); background: var(--color-teal-500); box-shadow: var(--shadow-teal); }
 .button_primary:hover:not(:disabled) { background: var(--color-teal-600); }
@@ -178,8 +181,8 @@
   transition: background-color var(--duration-base) var(--ease-out-soft), color var(--duration-base) var(--ease-out-soft);
 }
 .featureCard:hover .featureIcon, .featureCard:focus-visible .featureIcon { color: var(--color-ink); background: var(--color-teal-500); }
-.featureNumber { color: var(--color-subtle); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 500; }
-.featureTitle { margin: 0; color: var(--color-ink); font-size: var(--text-h3); line-height: var(--text-h3--line-height); font-weight: 700; letter-spacing: var(--text-h3--letter-spacing); }
+.featureNumber { color: var(--color-subtle); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 500; font-variant-numeric: tabular-nums; }
+.featureTitle { margin: 0; color: var(--color-ink); font-size: var(--text-h3); line-height: var(--text-h3--line-height); font-weight: 700; letter-spacing: var(--text-h3--letter-spacing); text-wrap: balance; }
 .featureText { margin: 0; color: var(--color-muted); font-size: var(--text-body-sm); line-height: 1.6; }
 .featureLink { display: inline-flex; align-items: center; gap: 6px; margin-top: auto; padding-top: 4px; color: var(--color-teal-700); font-size: var(--text-button); line-height: 1.4; font-weight: 700; }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }

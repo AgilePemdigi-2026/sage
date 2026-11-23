@@ -42,7 +42,7 @@ export default async function Home() {
   return <DesignFrame active="home">
     <section className={styles.hero} aria-labelledby="hero-heading">
       <div className={styles.copy}>
-        <h1 id="hero-heading" className={styles.title}>From Repository to Architecture Definition Document, <span className={styles.titleAccent}>with Evidence</span></h1>
+        <h1 id="hero-heading" className={styles.title}>From Repository to Architecture Definition Document<span className="punct">,</span> <span className={styles.titleAccent}>with Evidence</span></h1>
         <p className={styles.lead}>SAGE membaca commit GitHub-mu, membangun Code Knowledge Graph, lalu menyusun baseline TOGAF Phase C dengan tautan ke baris kode sumbernya.</p>
         <div className={styles.actions}>
           <Button href={loginGatedHref("/workspace/repositories", signedIn)} size="lg" arrow>Analisis repository</Button>

@@ -4,6 +4,8 @@
 
 /* ── Hero ─────────────────────────────────────────────────────────── */
 .hero { display: grid; justify-items: center; gap: 56px; padding: 72px 0 112px; }
+/* Angka di seluruh landing memakai lebar tetap (tabular-nums). */
+.copy, .block { font-variant-numeric: tabular-nums; }
 .copy { display: flex; flex-direction: column; align-items: center; gap: 24px; max-width: 880px; min-width: 0; text-align: center; }
 .title { margin: 0; color: var(--color-ink); font-size: var(--text-display); line-height: var(--text-display--line-height); font-weight: 800; letter-spacing: var(--text-display--letter-spacing); text-wrap: balance; }
 /* teal-700 di atas canvas = 4.84:1 (teks besar; tetap lolos ambang 4.5 teks normal). */
@@ -12,7 +14,8 @@
 .actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
 .trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px; margin: 0; padding: 0; list-style: none; }
 .trust li { display: inline-flex; align-items: center; gap: 8px; color: var(--color-muted); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
-.trust svg { flex: 0 0 auto; color: var(--color-teal-700); }
+/* Koreksi optik: ikon 20 px terhadap caption 13 px tampak turun; naikkan 0.5 px. */
+.trust svg { flex: 0 0 auto; color: var(--color-teal-700); transform: translateY(-0.5px); }
 .srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
 /* ── Mockup produk (komponen nyata, data contoh statis) ──────────────
