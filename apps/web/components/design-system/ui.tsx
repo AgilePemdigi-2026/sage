@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LayoutGroup, MotionConfig, motion, useMotionValueEvent, useScroll } from "motion/react";
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type AnchorHTMLAttributes, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 import assetManifest from "../../public/design/figma/manifest.json";
 import { useHeaderAccount } from "./account-context.tsx";
@@ -64,6 +65,75 @@ function AccountMenu({ login, displayName }: { login: string; displayName: strin
   </details>;
 }
 
+/** Kapsul melayang aktif setelah scroll melewati ambang ini (px). */
+const FLOATING_THRESHOLD = 24;
+/** Pill nav: satu indikator yang bergeser antar item (layoutId). Reduced-motion → MotionConfig mematikan slide. */
+const PILL_SPRING = { type: "spring", stiffness: 400, damping: 35 } as const;
+
+/**
+ * Kapsul tanpa layout shift: kotak header tetap full-width; lapisan latar (headerSurface) berada permanen di geometri kapsul
+ * dan di posisi atas di-scale menutup full-width. --sx = lebar header / lebar kapsul, diukur saat ukuran berubah (bukan per frame).
+ */
+function useSurfaceScale() {
+  const header = useRef<HTMLElement>(null);
+  const surface = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const headerElement = header.current;
+    const surfaceElement = surface.current;
+    if (!headerElement || !surfaceElement) return;
+    const measure = () => {
+      const capsule = surfaceElement.offsetWidth;
+      if (capsule > 0) headerElement.style.setProperty("--sx", String(headerElement.clientWidth / capsule));
+      headerElement.dataset.measured = "true";
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(headerElement);
+    return () => observer.disconnect();
+  }, []);
+  return { headerRef: header, surfaceRef: surface };
+}
+
+function useFloatingHeader(): boolean {
+  const { scrollY } = useScroll();
+  const [floating, setFloating] = useState(false);
+  useMotionValueEvent(scrollY, "change", value => setFloating(value > FLOATING_THRESHOLD));
+  // Halaman dibuka/dipulihkan di posisi tengah: sinkronkan sekali setelah hidrasi (SSR selalu bentuk diam).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sinkronisasi awal dengan posisi scroll browser.
+    setFloating(scrollY.get() > FLOATING_THRESHOLD);
+  }, [scrollY]);
+  return floating;
+}
+
+function NavPills({ current, signedIn }: { current: NavKey; signedIn: boolean }) {
+  const [hovered, setHovered] = useState<NavKey | null>(null);
+  // Tanpa hover/fokus, pill hover "beristirahat" di bawah item aktif sehingga hover berikutnya bergeser dari sana.
+  const hoverTarget = hovered ?? (current === "none" ? null : current);
+  return <LayoutGroup id="site-nav">
+    <nav className={styles.nav} aria-label="Navigasi utama" onMouseLeave={() => setHovered(null)}>
+      {navigation.map(item => {
+        const isActive = current === item.key;
+        return <Link
+          key={item.key}
+          href={loginGatedHref(item.href, signedIn)}
+          className={styles.navLink}
+          data-hovered={hovered === item.key && !isActive ? "true" : undefined}
+          aria-current={isActive ? (item.key === "docs" ? "location" : "page") : undefined}
+          onMouseEnter={() => setHovered(item.key)}
+          onFocus={() => setHovered(item.key)}
+          onBlur={() => setHovered(null)}
+        >
+          {hoverTarget === item.key ? <motion.span layoutId="nav-hover" className={styles.navHover} transition={PILL_SPRING} aria-hidden="true" /> : null}
+          {isActive ? <motion.span layoutId="nav-active" className={styles.navActive} transition={PILL_SPRING} aria-hidden="true" /> : null}
+          <span className={styles.navLabel}>{item.label}</span>
+        </Link>;
+      })}
+    </nav>
+  </LayoutGroup>;
+}
+
 export function DesignFrame({ children, active = "none" }: {
   children: React.ReactNode;
   active?: NavKey;
@@ -74,25 +144,26 @@ export function DesignFrame({ children, active = "none" }: {
   const landingSection = useLandingSection(onLanding);
   const current: NavKey = onLanding ? landingSection : active;
   const account = useHeaderAccount();
+  const floating = useFloatingHeader();
+  const { headerRef, surfaceRef } = useSurfaceScale();
 
   return <div className={styles.frame}>
     <a className={styles.skip} href="#main-content">Lewati navigasi</a>
-    <header className={styles.header} data-print-hide>
-      <Link className={styles.brand} href="/" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link>
-      <nav className={styles.nav} aria-label="Navigasi utama">
-        {navigation.map(item => <Link
-          key={item.key}
-          href={loginGatedHref(item.href, Boolean(account))}
-          className={styles.navPill}
-          aria-current={current === item.key ? (item.key === "docs" ? "location" : "page") : undefined}
-        >{item.label}</Link>)}
-      </nav>
-      <div className={styles.headerEnd}>
-        {account
-          ? <AccountMenu login={account.login} displayName={account.displayName} />
-          : onLogin ? null : <Button href="/login" variant="primary" size="md">Masuk</Button>}
-      </div>
-    </header>
+    {/* Slot menyisakan tinggi header di dokumen (tanpa CLS); header sendiri fixed agar bisa berubah jadi kapsul. */}
+    <div className={styles.headerSlot} data-print-hide>
+      <MotionConfig reducedMotion="user">
+        <header ref={headerRef} className={styles.header} data-floating={floating ? "true" : undefined}>
+          <span ref={surfaceRef} className={styles.headerSurface} aria-hidden="true" />
+          <Link className={styles.brand} href="/" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link>
+          <NavPills current={current} signedIn={Boolean(account)} />
+          <div className={styles.headerEnd}>
+            {account
+              ? <AccountMenu login={account.login} displayName={account.displayName} />
+              : onLogin ? null : <Button href="/login" variant="primary" size="md">Masuk</Button>}
+          </div>
+        </header>
+      </MotionConfig>
+    </div>
     <main className={styles.main} id="main-content" tabIndex={-1}>{children}</main>
     <SiteFooter signedIn={Boolean(account)} />
   </div>;

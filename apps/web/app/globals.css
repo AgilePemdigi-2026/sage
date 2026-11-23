@@ -94,6 +94,9 @@
   --duration-slow: 300ms;
 }
 
+/* Sudut conic-gradient garis berputar kapsul header (ui.module.css .header::before). */
+@property --sage-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+
 html { scroll-behavior: smooth; }
 body {
   margin: 0;
