@@ -114,6 +114,7 @@
   color: var(--color-ink); background: var(--color-teal-100); /* ink: 14:1 (teal-700 di atas teal-100 hanya 4.46:1) */
   font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 500;
 }
+.avatar::before { content: attr(data-initials); }
 .accountName { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-body-strong); line-height: 1.6; font-weight: 600; }
 .chevron { transition: transform var(--duration-base) var(--ease-out-soft); }
 .account[open] .chevron { transform: rotate(180deg); }

@@ -353,7 +353,7 @@ export function NodeInspector({
       type="button"
       className={styles.inspectorSourceAction}
       data-testid={testId}
-      aria-label={`Buka bukti source ${label}, baris ${evidence.startLine} sampai ${evidence.endLine}`}
+      aria-label={`Buka source, baris ${evidence.startLine}–${evidence.endLine} (bukti ${label})`}
       onClick={(event) => openSource(evidence, file, label, event.currentTarget)}
     >Buka source, baris {evidence.startLine}–{evidence.endLine}</button>;
   }
@@ -385,7 +385,7 @@ export function NodeInspector({
       : setOutgoingVisible((count) => count + 6);
     return <section className={styles.inspectorRelationGroup} aria-labelledby={`node-inspector-${direction}-title`}>
       <h3 id={`node-inspector-${direction}-title`}>{title} <span>({relations.length})</span></h3>
-      {relations.length === 0 ? <p className={styles.inspectorEmpty}>Tidak ada relasi {incoming ? "masuk" : "keluar"} langsung.</p> : <ul className={styles.inspectorRelations} data-testid={`node-inspector-${direction}`}>
+      {relations.length === 0 ? <p className={styles.inspectorEmpty}>Tidak ada relasi {incoming ? "masuk" : "keluar"} langsung.</p> : <ul id={`node-inspector-${direction}`} className={styles.inspectorRelations} data-testid={`node-inspector-${direction}`}>
         {visibleRelations.map(({ edge, peer }, index) => <li key={`${edge.id}:${index}`} data-testid={`node-inspector-${direction}-edge`} data-edge-id={edge.id}>
           <p className={styles.inspectorRelationFlow}>
             <span>{incoming ? peer.name : node?.name}</span><span aria-hidden="true"> → </span><span>{incoming ? node?.name : peer.name}</span>

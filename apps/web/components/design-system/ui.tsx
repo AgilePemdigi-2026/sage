@@ -54,7 +54,8 @@ function initials(account: { login: string; displayName: string | null }): strin
 function AccountMenu({ login, displayName }: { login: string; displayName: string | null }) {
   return <details className={styles.account}>
     <summary className={styles.accountPill} aria-label={`@${login} · menu akun`}>
-      <span className={styles.avatar} aria-hidden="true">{initials({ login, displayName })}</span>
+      {/* Inisial lewat ::before (bukan teks DOM) agar nama aksesibel "@login · menu akun" memuat seluruh teks yang terlihat. */}
+      <span className={styles.avatar} aria-hidden="true" data-initials={initials({ login, displayName })} />
       <span className={styles.accountName}>@{login}</span>
       <AssetIcon group="header" name="imgIconChevronDown" className={styles.chevron} />
     </summary>
