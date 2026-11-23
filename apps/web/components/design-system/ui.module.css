@@ -247,6 +247,16 @@
 .emptyCopy strong { color: var(--color-ink); font-weight: 700; }
 .emptyState[data-tone="error"] .emptyCopy strong { color: var(--color-error); }
 .emptyAction { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
+/* Varian halaman (404): kartu tersentral, ikon 56, judul h1. */
+.emptyPage { flex-direction: column; align-items: center; gap: 20px; max-width: 560px; margin: 48px auto; padding: 48px 32px; text-align: center; background: var(--color-surface); }
+.emptyPage .emptyIcon { flex-basis: 56px; width: 56px; height: 56px; border-radius: 16px; color: var(--color-teal-700); background: var(--color-teal-50); }
+.emptyPage .emptyCopy { flex: 0 1 auto; gap: 8px; font-size: var(--text-body); line-height: var(--text-body--line-height); color: var(--color-muted); }
+.emptyPage .emptyCopy h1 { margin: 0; color: var(--color-ink); font-size: var(--text-h1); line-height: var(--text-h1--line-height); font-weight: 800; letter-spacing: var(--text-h1--letter-spacing); }
+.emptyPage .emptyAction { justify-content: center; gap: 12px; }
+@media (max-width: 480px) {
+  .emptyPage { margin: 24px auto; padding: 32px 20px; }
+  .emptyPage .emptyAction { flex-direction: column; align-self: stretch; }
+}
 .skeleton { display: grid; gap: 8px; }
 .skeletonRow { display: flex; align-items: center; gap: 14px; min-height: var(--skeleton-row-height, auto); padding: 14px 16px; border: 1px solid var(--color-border-soft); border-radius: 14px; }
 .skeletonIcon { flex: 0 0 36px; width: 36px; height: 36px; border-radius: var(--radius-control); background: var(--color-subtle-bg); animation: pulse 1.6s ease-in-out infinite; }

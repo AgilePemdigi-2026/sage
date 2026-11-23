@@ -482,19 +482,22 @@ export function Stepper({ steps, current, label = "Langkah" }: { steps: readonly
   </ol>;
 }
 
-/** Empty / info state gaya kit: border dashed, ikon dalam kotak, satu kalimat, maksimal satu aksi. */
-export function EmptyState({ icon, title, children, action, tone = "neutral", role }: {
+/** Empty / info state gaya kit: border dashed, ikon dalam kotak, satu kalimat, maksimal satu aksi.
+ *  `variant="page"`: versi satu halaman penuh (mis. 404) — tersentral, judul menjadi <h1>, boleh dua aksi. */
+export function EmptyState({ icon, title, children, action, tone = "neutral", role, variant = "inline" }: {
   icon?: { group: string; name: string };
   title?: ReactNode;
   children: ReactNode;
   action?: ReactNode;
   tone?: "neutral" | "error";
   role?: "status" | "alert";
+  variant?: "inline" | "page";
 }) {
-  return <div className={styles.emptyState} data-tone={tone} role={role}>
-    {icon ? <span className={styles.emptyIcon}><MaskIcon group={icon.group} name={icon.name} size={18} /></span> : null}
+  const page = variant === "page";
+  return <div className={cx(styles.emptyState, page && styles.emptyPage)} data-tone={tone} role={role}>
+    {icon ? <span className={styles.emptyIcon}><MaskIcon group={icon.group} name={icon.name} size={page ? 24 : 18} /></span> : null}
     <div className={styles.emptyCopy}>
-      {title ? <strong>{title}</strong> : null}
+      {title ? page ? <h1>{title}</h1> : <strong>{title}</strong> : null}
       <span>{children}</span>
     </div>
     {action ? <div className={styles.emptyAction}>{action}</div> : null}
