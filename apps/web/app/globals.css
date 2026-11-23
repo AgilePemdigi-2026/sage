@@ -153,24 +153,3 @@ body {
 .sage-policies p, .sage-policies nav, .sage-policies section { margin-block-start: 1rem; }
 .sage-policies a { color: #005f55; text-decoration: underline; text-underline-offset: .2em; }
 .sage-policies a:focus-visible { outline: 2px solid #005f55; outline-offset: 4px; }
-
-.sage-policy-bar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .5rem 1rem;
-  padding: .75rem max(1rem, env(safe-area-inset-right)) max(.75rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-  background: #eef5f5;
-  color: #172b45;
-  border-top: 1px solid #c6d7df;
-  font-size: .875rem;
-}
-.sage-policy-bar a {
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 44px;
-  color: #005f55;
-  text-decoration: underline;
-  text-underline-offset: .2em;
-}
-.sage-policy-bar a:focus-visible { outline: 2px solid #005f55; outline-offset: 3px; }

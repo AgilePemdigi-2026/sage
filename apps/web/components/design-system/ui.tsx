@@ -97,12 +97,42 @@ export function DesignFrame({ children, active = "none" }: {
   </div>;
 }
 
+/* ── Pemberitahuan cookie ─────────────────────────────────────────── */
+
+const COOKIE_NOTICE_KEY = "sage-cookie-notice";
+
+/**
+ * Kartu melayang kiri bawah. Tidak pernah dirender saat SSR: baru muncul setelah hidrasi jika belum ditutup,
+ * sehingga tidak ada kilatan di alur dokumen (mis. saat redirect). Status tutup disimpan di localStorage.
+ */
+export function CookieNotice() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    let dismissed = false;
+    try { dismissed = window.localStorage.getItem(COOKIE_NOTICE_KEY) === "dismissed"; } catch { /* storage diblokir: tetap tampil */ }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sengaja setelah hidrasi; SSR selalu tanpa kartu.
+    if (!dismissed) setVisible(true);
+  }, []);
+  if (!visible) return null;
+  function dismiss() {
+    try { window.localStorage.setItem(COOKIE_NOTICE_KEY, "dismissed"); } catch { /* tetap tutup untuk sesi ini */ }
+    setVisible(false);
+  }
+  return <aside className={styles.cookieNotice} aria-label="Cookie dan kebijakan SAGE" data-print-hide data-cookie-notice>
+    <p>SAGE hanya memakai cookie yang diperlukan untuk login.</p>
+    <div className={styles.cookieNoticeActions}>
+      <Link href="/policies#cookie">Kebijakan cookie</Link>
+      <Button size="sm" onClick={dismiss}>Mengerti</Button>
+    </div>
+  </aside>;
+}
+
 /* ── RD/Button ────────────────────────────────────────────────────────── */
 
 type ButtonOwnProps = {
   /** `github` = latar ink + teks putih (tombol GitHub, CLAUDE.md). */
   variant?: "primary" | "secondary" | "ghost" | "github" | "link";
-  size?: "md" | "lg";
+  size?: "sm" | "md" | "lg";
   block?: boolean;
   /** Tambahkan panah yang bergeser 4px saat hover. */
   arrow?: boolean;
@@ -117,7 +147,7 @@ type ButtonAsLink = ButtonOwnProps & Omit<AnchorHTMLAttributes<HTMLAnchorElement
 export function Button(props: ButtonAsButton | ButtonAsLink) {
   const { variant = "primary", size = "md", block = false, arrow = false, loading = false, children, className, ...rest } = props;
   const classes = cx(
-    styles.button, styles[`button_${variant}`], size === "lg" && styles.button_lg, block && styles.button_block,
+    styles.button, styles[`button_${variant}`], size === "lg" && styles.button_lg, size === "sm" && styles.button_sm, block && styles.button_block,
     "hover-lift-button", arrow && "hover-arrow", className,
   );
   const content = <>{loading ? <Spinner /> : null}{children}{arrow && !loading ? <ArrowIcon /> : null}</>;
