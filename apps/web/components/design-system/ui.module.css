@@ -517,14 +517,13 @@ button.pill:disabled { cursor: not-allowed; opacity: .6; }
 .cookieNotice button { font-family: inherit; }
 @keyframes cookieIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @media (max-width: 560px) {
+  /* Teks satu baris penuh (≥ 300 px tersedia di 360–390), link + tombol di baris kedua; tinggi ≤ 96 px. */
   .cookieNotice {
     left: 12px; right: 12px; bottom: max(12px, env(safe-area-inset-bottom)); width: auto; max-width: none;
-    grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 4px 12px; padding: 12px 12px 12px 16px;
+    gap: 6px; padding: 12px 12px 12px 16px;
   }
-  .cookieNotice p { grid-column: 1; font-size: var(--text-caption); line-height: 1.45; }
-  .cookieNoticeActions { display: contents; }
-  .cookieNoticeActions a { grid-column: 1; grid-row: 2; justify-self: start; font-size: var(--text-caption); }
-  .cookieNoticeActions button { grid-column: 2; grid-row: 1 / span 2; }
+  .cookieNotice p { font-size: var(--text-caption); line-height: 1.45; }
+  .cookieNoticeActions a { font-size: var(--text-caption); }
 }
 @media (prefers-reduced-motion: reduce) { .cookieNotice { animation: cookieFade var(--duration-base) linear; } }
 @keyframes cookieFade { from { opacity: 0; } to { opacity: 1; } }
