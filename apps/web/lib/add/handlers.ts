@@ -100,6 +100,11 @@ export function createAddHandlers(deps: AddHandlerDependencies) {
           model = { ...result.model, generation: { ...result.model.generation, llmOutcome: result.outcome } };
         } else model = { ...model, generation: { ...model.generation, llmOutcome: "not-requested" } };
         const saved = await deps.saveBaseline({ ownerUserId: auth.session.userId, analysisId, model });
+        if (!saved.created) {
+          const current = await deps.readBaseline(auth.session.userId, analysisId);
+          if (!current) return failure("ADD_UNAVAILABLE", "Baseline ADD sementara tidak dapat dibaca.", 503);
+          return json({ data: { ...current, analysisId, accountKey: auth.session.githubUserId, created: false } });
+        }
         return json({ data: { ...saved, analysisId, revision: 0, overlay: emptyAddReviewOverlay(), accountKey: auth.session.githubUserId, generated: true } }, saved.created ? 201 : 200);
       } catch { return failure("ADD_GENERATION_FAILED", "ADD tidak dapat dibuat sekarang. Analisis tersimpan dan bisa dicoba kembali.", 503); }
     },

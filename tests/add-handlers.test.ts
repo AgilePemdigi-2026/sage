@@ -21,7 +21,7 @@ const semantic: SemanticModel = {
   nodes: [], edges: [], features: [], frameworks: [], limitations: [],
 };
 
-function setup(options: { session?: AnalysisSession | null } = {}) {
+function setup(options: { session?: AnalysisSession | null; concurrentRevision?: boolean } = {}) {
   let baseline: { id: string; modelHash: string; sourceCkgHash: string; model: unknown; revision: number; overlay: unknown } | null = null;
   let revision = 0;
   let saves = 0;
@@ -34,6 +34,10 @@ function setup(options: { session?: AnalysisSession | null } = {}) {
       saves += 1;
       const model = input.model;
       baseline = { id: "baseline-123", modelHash: "d".repeat(64), sourceCkgHash: model.sourceCkgHash, model, revision: 0, overlay: emptyAddReviewOverlay() };
+      if (options.concurrentRevision) {
+        baseline = { ...baseline, revision: 1, overlay: { ...emptyAddReviewOverlay(), revision: 1, status: "reviewed" } };
+        return { id: baseline.id, modelHash: baseline.modelHash, model, created: false };
+      }
       return { id: baseline.id, modelHash: baseline.modelHash, model, created: true };
     },
     saveRevision: async input => {
@@ -46,6 +50,15 @@ function setup(options: { session?: AnalysisSession | null } = {}) {
   });
   return { handlers, get saves() { return saves; } };
 }
+
+test("concurrent ADD generation returns the persisted revision", async () => {
+  const fixture = setup({ concurrentRevision: true });
+  const response = await fixture.handlers.generate(request("POST", { allowLlm: false }, { origin: "https://sage.test" }), "analysis-123");
+  const data = (await response.json() as { data: { revision: number; overlay: { status: string } } }).data;
+  assert.equal(response.status, 200);
+  assert.equal(data.revision, 1);
+  assert.equal(data.overlay.status, "reviewed");
+});
 
 function request(method: string, body?: unknown, options: { origin?: string; account?: string } = {}) {
   return new Request("https://sage.test/api/analyses/analysis-123/add", {
