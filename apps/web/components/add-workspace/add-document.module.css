@@ -1,6 +1,6 @@
 /* Tab TOGAF ADD saat dokumen ada — Figma frame 05 (253:143). Tiga kolom di desktop, satu kolom di bawah 1060 px. */
 
-.layout { display: grid; gap: 24px; align-items: start; min-width: 0; font-family: var(--font-sans); }
+.layout { display: grid; gap: 32px; align-items: start; min-width: 0; font-family: var(--font-sans); }
 .content { min-width: 0; }
 .rail { display: grid; gap: 20px; min-width: 0; }
 
@@ -32,7 +32,7 @@
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 .panelTitle { margin: 0; color: var(--color-ink); font-size: var(--text-h3); line-height: var(--text-h3--line-height); font-weight: 700; letter-spacing: var(--text-h3--letter-spacing); }
 .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 0; }
-.stats div { padding: 10px 12px; border-radius: 12px; background: var(--color-canvas); }
+.stats div { padding: 10px 12px; border-radius: var(--radius-inset); background: var(--color-canvas); }
 .stats dt { color: var(--color-subtle); font-size: var(--text-caption); font-weight: 500; }
 .stats dd { margin: 2px 0 0; color: var(--color-ink); font-size: 18px; font-weight: 700; }
 .note { margin: 0; color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }

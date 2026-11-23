@@ -225,8 +225,8 @@
 .fieldControl:focus-within { border-color: var(--color-teal-500); outline: 2px solid var(--color-teal-500); outline-offset: 2px; }
 .fieldControl[data-invalid="true"] { border-color: var(--color-error); }
 .fieldControl[data-disabled="true"] { background: var(--color-subtle-bg); }
-.fieldIcon { display: inline-flex; flex: 0 0 18px; width: 18px; height: 18px; color: var(--color-subtle); }
-.fieldIcon > * { width: 18px; height: 18px; }
+.fieldIcon { display: inline-flex; flex: 0 0 20px; width: 20px; height: 20px; color: var(--color-subtle); }
+.fieldIcon > * { width: 20px; height: 20px; }
 .fieldControl :is(input, select, textarea) {
   flex: 1 1 auto; min-width: 0; height: 100%; padding: 0; border: 0; outline: none; background: transparent; color: var(--color-ink); font-size: 14px;
 }
@@ -240,7 +240,7 @@
 /* ── RD/Pipeline step ───────────────────────────────────────────────── */
 .step { display: flex; align-items: center; gap: 16px; padding: 10px 0; min-width: 0; }
 .stepIndicator { position: relative; display: inline-grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px; border-radius: var(--radius-pill); }
-.step[data-status="done"] .stepIndicator { background: var(--color-teal-500); animation: stepDone var(--duration-fast) var(--ease-out-soft); }
+.step[data-status="done"] .stepIndicator { color: var(--color-ink); background: var(--color-teal-500); animation: stepDone var(--duration-fast) var(--ease-out-soft); }
 .step[data-status="active"] .stepIndicator { background: var(--color-teal-50); border: 2px solid var(--color-teal-500); }
 .step[data-status="active"] .stepIndicator::after { content: ""; width: 10px; height: 10px; border-radius: 50%; background: var(--color-teal-500); animation: stepPulse 1.6s ease-in-out infinite; }
 .step[data-status="pending"] .stepIndicator { background: var(--color-surface); border: 1.5px solid var(--color-border); }
@@ -260,7 +260,7 @@
 .copySha { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .copySha code { min-width: 0; overflow-wrap: anywhere; color: var(--color-ink); font-family: var(--font-mono); font-size: 12px; line-height: 18px; }
 .copySha button {
-  flex-shrink: 0; padding: 4px 10px; border: 1px solid var(--color-border); border-radius: 8px;
+  flex-shrink: 0; padding: 4px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-inset);
   color: var(--color-ink); background: var(--color-surface); font-size: 12px; line-height: 16px; font-weight: 600; cursor: pointer;
   transition: border-color var(--duration-fast) var(--ease-out-soft), background-color var(--duration-fast) var(--ease-out-soft);
 }
@@ -292,18 +292,18 @@
 /* ── Empty state / skeleton / spinner ─────────────────────────────── */
 .emptyState {
   display: flex; flex-wrap: wrap; align-items: center; gap: 12px 14px; padding: 16px;
-  border: 1.5px dashed var(--color-border); border-radius: 14px; background: var(--color-surface); color: var(--color-muted);
+  border: 1.5px dashed var(--color-border); border-radius: var(--radius-inset); background: var(--color-surface); color: var(--color-muted);
 }
 .emptyState[data-tone="error"] { border-color: var(--color-error); border-style: solid; background: var(--color-error-fill); color: var(--color-error); }
-.emptyIcon { display: inline-grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border-radius: var(--radius-control); color: var(--color-muted); background: var(--color-subtle-bg); }
+.emptyIcon { display: inline-grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border-radius: var(--radius-inset); color: var(--color-muted); background: var(--color-subtle-bg); }
 .emptyState[data-tone="error"] .emptyIcon { color: var(--color-error); background: var(--color-surface); }
 .emptyCopy { display: grid; gap: 2px; flex: 1 1 220px; min-width: 0; font-size: var(--text-body-sm); line-height: 1.6; }
 .emptyCopy strong { color: var(--color-ink); font-weight: 700; }
 .emptyState[data-tone="error"] .emptyCopy strong { color: var(--color-error); }
 .emptyAction { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
 /* Varian halaman (404): kartu tersentral, ikon 56, judul h1. */
-.emptyPage { flex-direction: column; align-items: center; gap: 20px; max-width: 560px; margin: 48px auto; padding: 48px 32px; text-align: center; background: var(--color-surface); }
-.emptyPage .emptyIcon { flex-basis: 56px; width: 56px; height: 56px; border-radius: 16px; color: var(--color-teal-700); background: var(--color-teal-50); }
+.emptyPage { border-radius: var(--radius-card); flex-direction: column; align-items: center; gap: 20px; max-width: 560px; margin: 48px auto; padding: 48px 32px; text-align: center; background: var(--color-surface); }
+.emptyPage .emptyIcon { flex-basis: 56px; width: 56px; height: 56px; border-radius: var(--radius-inset); color: var(--color-teal-700); background: var(--color-teal-50); }
 .emptyPage .emptyCopy { flex: 0 1 auto; gap: 8px; font-size: var(--text-body); line-height: var(--text-body--line-height); color: var(--color-muted); }
 .emptyPage .emptyCopy h1 { margin: 0; color: var(--color-ink); font-size: var(--text-h1); line-height: var(--text-h1--line-height); font-weight: 800; letter-spacing: var(--text-h1--letter-spacing); }
 .emptyPage .emptyAction { justify-content: center; gap: 12px; }
@@ -312,10 +312,10 @@
   .emptyPage .emptyAction { flex-direction: column; align-self: stretch; }
 }
 .skeleton { display: grid; gap: 8px; }
-.skeletonRow { display: flex; align-items: center; gap: 14px; min-height: var(--skeleton-row-height, auto); padding: 14px 16px; border: 1px solid var(--color-border-soft); border-radius: 14px; }
-.skeletonIcon { flex: 0 0 36px; width: 36px; height: 36px; border-radius: var(--radius-control); background: var(--color-subtle-bg); animation: pulse 1.6s ease-in-out infinite; }
+.skeletonRow { display: flex; align-items: center; gap: 14px; min-height: var(--skeleton-row-height, auto); padding: 14px 16px; border: 1px solid var(--color-border-soft); border-radius: var(--radius-inset); }
+.skeletonIcon { flex: 0 0 36px; width: 36px; height: 36px; border-radius: var(--radius-inset); background: var(--color-subtle-bg); animation: pulse 1.6s ease-in-out infinite; }
 .skeletonLines { display: grid; gap: 8px; flex: 1 1 auto; }
-.skeletonLines > span { display: block; height: 10px; border-radius: 6px; background: var(--color-subtle-bg); animation: pulse 1.6s ease-in-out infinite; }
+.skeletonLines > span { display: block; height: 10px; border-radius: var(--radius-inset); background: var(--color-subtle-bg); animation: pulse 1.6s ease-in-out infinite; }
 .skeletonLines > span:first-child { width: min(260px, 70%); }
 .skeletonLines > span:last-child { width: min(160px, 45%); }
 @keyframes pulse { 50% { opacity: .45; } }
@@ -455,7 +455,9 @@ button.pill:disabled { cursor: not-allowed; opacity: .6; }
 /* Breadcrumb ringkas di layar sempit */
 .breadcrumbBack { display: none; color: var(--color-teal-700); font-size: var(--text-caption); line-height: 1.5; font-weight: 600; text-decoration: none; }
 @media (max-width: 480px) {
-  .breadcrumbBack { display: inline-flex; gap: 6px; }
+  .breadcrumbBack { display: inline-flex; align-items: center; gap: 4px; }
+  /* Koreksi optik: ruang kosong kiri glyph panah 20 px membuat teks tampak menjorok. */
+  .breadcrumbBack svg { margin-left: -4px; }
   .breadcrumbFull { display: none; }
 }
 

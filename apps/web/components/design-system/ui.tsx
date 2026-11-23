@@ -3,14 +3,11 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutGroup, MotionConfig, motion, useMotionValueEvent, useReducedMotion, useScroll, type Variants } from "motion/react";
-import { Children, isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type AnchorHTMLAttributes, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
-import assetManifest from "../../public/design/figma/manifest.json";
+import { Children, isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { Icon, type IconName } from "./icons.tsx";
 import { useHeaderAccount } from "./account-context.tsx";
 import { loginGatedHref } from "./login-gated.ts";
 import styles from "./ui.module.css";
-
-type AssetRecord = { src: string; width: string; height: string };
-const assets = assetManifest as Record<string, Record<string, AssetRecord>>;
 
 function cx(...names: Array<string | false | null | undefined>): string {
   return names.filter(Boolean).join(" ");
@@ -57,7 +54,7 @@ function AccountMenu({ login, displayName }: { login: string; displayName: strin
       {/* Inisial lewat ::before (bukan teks DOM) agar nama aksesibel "@login · menu akun" memuat seluruh teks yang terlihat. */}
       <span className={styles.avatar} aria-hidden="true" data-initials={initials({ login, displayName })} />
       <span className={styles.accountName}>@{login}</span>
-      <AssetIcon group="header" name="imgIconChevronDown" className={styles.chevron} />
+      <Icon name="chevronDown" className={styles.chevron} />
     </summary>
     <div className={styles.accountMenu}>
       <Link href="/workspace">Workspace</Link>
@@ -303,9 +300,7 @@ export function Button(props: ButtonAsButton | ButtonAsLink) {
 }
 
 export function ArrowIcon() {
-  return <svg data-arrow width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>;
+  return <Icon name="arrowRight" data-arrow="" />;
 }
 
 /* ── Pill & bagian terlihat ───────────────────────────────────────── */
@@ -473,23 +468,9 @@ export function Panel({ title, children, className, interactive = false }: {
 
 /* ── Feature card (frame 01, 251:112) ───────────────────────────────── */
 
-/** Ikon aset Figma yang bisa diwarnai ulang (mask + currentColor), mis. saat hover kartu. */
-export function MaskIcon({ group, name, size, className }: { group: string; name: string; size?: number; className?: string }) {
-  const record = assets[group]?.[name];
-  if (!record) return null;
-  const width = size ?? Number(record.width);
-  const height = size ?? Number(record.height);
-  const style = { width, height, "--icon": `url(${record.src})` } as CSSProperties;
-  return <span className={cx(styles.maskIcon, className)} style={style} aria-hidden="true" />;
-}
-
-function isAssetRef(value: unknown): value is { group: string; name: string } {
-  return typeof value === "object" && value !== null && "group" in value && "name" in value && !("$$typeof" in value);
-}
-
 export function FeatureCard({ icon, number, title, children, href, linkLabel, headingLevel = 3 }: {
-  /** Aset Figma (MaskIcon) atau node ikon siap pakai (mis. <Icon> dari icons.tsx). */
-  icon: { group: string; name: string } | ReactNode;
+  /** Node ikon dari set tunggal (<Icon> dari icons.tsx). */
+  icon: ReactNode;
   number?: string;
   title: ReactNode;
   children: ReactNode;
@@ -500,7 +481,7 @@ export function FeatureCard({ icon, number, title, children, href, linkLabel, he
 }) {
   const Heading = headingLevel === 2 ? "h2" : "h3";
   const body = <>
-    <span className={styles.featureIcon}>{isAssetRef(icon) ? <MaskIcon group={icon.group} name={icon.name} size={22} /> : icon}</span>
+    <span className={styles.featureIcon}>{icon}</span>
     {number ? <span className={styles.featureNumber}>{number}</span> : null}
     <Heading className={styles.featureTitle}>{title}</Heading>
     <p className={styles.featureText}>{children}</p>
@@ -555,7 +536,7 @@ export function Reveal({ children, className, as = "div" }: { children: ReactNod
 
 export function PageHead({ breadcrumb, title, description, aside, titleId, backLink }: {
   breadcrumb?: ReadonlyArray<{ label: string; href?: string }>;
-  /** Di layar ≤480 px breadcrumb diringkas menjadi satu tautan kembali (mis. "← Riwayat"). */
+  /** Di layar ≤480 px breadcrumb diringkas menjadi satu tautan kembali (mis. "Riwayat" dengan panah kembali). */
   backLink?: { label: string; href: string };
   title: ReactNode;
   description?: ReactNode;
@@ -566,7 +547,7 @@ export function PageHead({ breadcrumb, title, description, aside, titleId, backL
   return <div className={styles.pageHead}>
     <div className={styles.pageHeadCopy}>
       {breadcrumb?.length ? <nav aria-label="Breadcrumb">
-        {backLink ? <Link className={styles.breadcrumbBack} href={backLink.href}><span aria-hidden="true">←</span> {backLink.label}</Link> : null}
+        {backLink ? <Link className={styles.breadcrumbBack} href={backLink.href}><Icon name="arrowLeft" />{backLink.label}</Link> : null}
         <ol className={cx(styles.breadcrumb, backLink && styles.breadcrumbFull)}>
         {breadcrumb.map((item, index) => <li key={item.label} aria-current={index === breadcrumb.length - 1 ? "page" : undefined}>
           {item.href && index < breadcrumb.length - 1 ? <Link href={item.href}>{item.label}</Link> : item.label}
@@ -594,7 +575,7 @@ export function Stepper({ steps, current, label = "Langkah" }: { steps: readonly
 /** Empty / info state gaya kit: border dashed, ikon dalam kotak, satu kalimat, maksimal satu aksi.
  *  `variant="page"`: versi satu halaman penuh (mis. 404) — tersentral, judul menjadi <h1>, boleh dua aksi. */
 export function EmptyState({ icon, title, children, action, tone = "neutral", role, variant = "inline" }: {
-  icon?: { group: string; name: string };
+  icon?: IconName;
   title?: ReactNode;
   children: ReactNode;
   action?: ReactNode;
@@ -604,7 +585,7 @@ export function EmptyState({ icon, title, children, action, tone = "neutral", ro
 }) {
   const page = variant === "page";
   return <div className={cx(styles.emptyState, page && styles.emptyPage)} data-tone={tone} role={role}>
-    {icon ? <span className={styles.emptyIcon}><MaskIcon group={icon.group} name={icon.name} size={page ? 24 : 18} /></span> : null}
+    {icon ? <span className={styles.emptyIcon}><Icon name={icon} /></span> : null}
     <div className={styles.emptyCopy}>
       {title ? page ? <h1>{title}</h1> : <strong>{title}</strong> : null}
       <span>{children}</span>
@@ -697,7 +678,7 @@ export function PipelineStep({ status, title, meta, aside, className, ...rest }:
   return <li className={cx(styles.step, className)} data-status={status} aria-current={status === "active" ? "step" : undefined} {...rest}>
     {/* key per status: ikon di-remount saat status berubah sehingga crossfade + scale .8→1 berjalan. */}
     <span key={status} className={styles.stepIndicator} aria-hidden="true">
-      {status === "done" ? <AssetIcon group="pipeline" name="imgIconCheck" /> : null}
+      {status === "done" ? <Icon name="check" /> : null}
     </span>
     <span className={styles.stepText}>
       <span className={styles.stepTitle}>{title}</span>
@@ -734,18 +715,4 @@ export function CopySha({ sha, label }: { sha: string; /** Teks tampilan (mis. S
     <code title={label ? sha : undefined}>{label ?? sha}</code>
     <button type="button" onClick={() => void copy()} aria-label="Salin SHA lengkap">{copied ? "Tersalin" : "Salin"}</button>
   </div>;
-}
-
-export function AssetIcon({ group, name, className }: { group: string; name: string; className?: string }) {
-  const record = assets[group]?.[name];
-  if (!record) return null;
-  // eslint-disable-next-line @next/next/no-img-element -- Local Figma SVGs keep their manifest dimensions.
-  return <img
-    className={className}
-    src={record.src}
-    width={Number(record.width)}
-    height={Number(record.height)}
-    alt=""
-    aria-hidden="true"
-  />;
 }

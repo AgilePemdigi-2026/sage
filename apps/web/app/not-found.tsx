@@ -10,7 +10,7 @@ export default async function NotFound() {
   return <DesignFrame>
     <EmptyState
       variant="page"
-      icon={{ group: "repository", name: "imgSearch" }}
+      icon="search"
       title="Halaman tidak ditemukan"
       action={<>
         <Button href="/" arrow>Kembali ke beranda</Button>

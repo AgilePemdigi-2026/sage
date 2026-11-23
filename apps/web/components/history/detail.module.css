@@ -1,8 +1,8 @@
 /* Layar 03 Progres analisis — Figma frame 03 (252:51). Komponen dasar: PageHead, Panel, Badge, PipelineStep, ProgressBar, CopySha, Button. */
 
-.layout { display: grid; gap: 24px; align-items: start; }
-.column { display: grid; gap: 20px; min-width: 0; }
-.side { display: grid; gap: 20px; min-width: 0; }
+.layout { display: grid; gap: 32px; align-items: start; }
+.column { display: grid; gap: 24px; min-width: 0; }
+.side { display: grid; gap: 24px; min-width: 0; }
 
 /* Kartu tahap */
 .cardHead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 12px; margin-bottom: 8px; }
@@ -23,7 +23,6 @@
 @keyframes bannerIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
 
 /* Ringkasan */
-.label { margin: 0; color: var(--color-subtle); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); text-transform: uppercase; }
 .summary { display: grid; gap: 18px; }
 .facts { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px 16px; margin: 0; font-size: var(--text-caption); line-height: 1.5; }
 .facts dt { color: var(--color-subtle); font-weight: 500; }
@@ -32,7 +31,7 @@
 .progressHead span:last-child { color: var(--color-teal-700); font-family: var(--font-mono); font-size: var(--text-mono-sm); font-weight: 500; }
 .actions { display: grid; gap: 10px; }
 .note { margin: 0; color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
-.retryError { margin: 0; padding: 10px 12px; border-radius: var(--radius-control); color: var(--color-error); background: var(--color-error-fill); font-size: var(--text-caption); font-weight: 600; }
+.retryError { margin: 0; padding: 10px 12px; border-radius: var(--radius-inset); color: var(--color-error); background: var(--color-error-fill); font-size: var(--text-caption); font-weight: 600; }
 
 /* Timer (role="timer"; aria-label & strong dipakai test) */
 .elapsedCard { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px 12px; }

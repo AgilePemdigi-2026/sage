@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { AssetIcon, Badge, Button, CopySha, EmptyState, Field, MaskIcon, PageHead, Panel, PillLink, ScrollList, SkeletonRows, Spinner, Stepper, useVisibleSection } from "../design-system/ui.tsx";
+import { Badge, Button, CopySha, EmptyState, Field, PageHead, Panel, PillLink, ScrollList, SkeletonRows, Spinner, Stepper, useVisibleSection } from "../design-system/ui.tsx";
+import { Icon } from "../design-system/icons.tsx";
 import design from "../design-system/ui.module.css";
 import css from "./repositories.module.css";
 
@@ -337,14 +338,14 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
     const selected = chosen?.id === item.id;
     return <li key={item.id}>
       <button type="button" className={css.row} aria-label={`Pilih ${item.fullName}`} aria-pressed={selected} disabled={busy || !scopeVerified} onClick={() => void choose(item)}>
-        <span className={css.rowIcon}><MaskIcon group="repository" name="imgRepo" size={18} /></span>
+        <span className={css.rowIcon}><Icon name="repo" /></span>
         <span className={css.rowCopy}>
           <span className={css.rowName} title={item.fullName}>{item.fullName}</span>
           <span className={css.rowMeta}>Branch default: {item.defaultBranch || "Belum ada commit"}</span>
         </span>
         <Badge tone="neutral">{item.private ? "Private · berizin" : "Public"}</Badge>
         <span className={css.rowEnd} aria-hidden="true">
-          {selected ? <span className={css.check}><AssetIcon group="repository" name="imgCheck" /></span> : <AssetIcon group="repository" name="imgChevronRight" className={css.chevron} />}
+          {selected ? <Icon name="checkCircle" className={css.check} /> : <Icon name="chevronRight" className={css.chevron} />}
         </span>
       </button>
     </li>;
@@ -360,7 +361,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
     {head}
     <Panel>
       {scopeError
-        ? <EmptyState tone="error" role="status" icon={{ group: "repository", name: "imgRepo" }} action={<Button variant="secondary" onClick={() => window.location.reload()}>Muat ulang sesi</Button>}>{scopeError}</EmptyState>
+        ? <EmptyState tone="error" role="status" icon="repo" action={<Button variant="secondary" onClick={() => window.location.reload()}>Muat ulang sesi</Button>}>{scopeError}</EmptyState>
         : <SkeletonRows rows={4} label="Memeriksa akun GitHub dan memuat daftar repository…" />}
     </Panel>
   </>;
@@ -387,12 +388,12 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
           <section id="sumber-public" className={css.source} aria-labelledby="sumber-public-heading">
             <h3 id="sumber-public-heading" ref={repositoryListHeading} tabIndex={-1} className={css.sourceTitle}>Repository public milik @{accountLogin}</h3>
             <p className={css.sourceLead}>Daftar repository public yang dimiliki akun GitHub-mu. Pilih repository untuk memuat branch.</p>
-            {publicError ? <EmptyState tone="error" role="alert" icon={{ group: "repository", name: "imgRepo" }} action={<Button variant="secondary" onClick={() => void loadPublicRepositories()}>Coba lagi</Button>}>{publicError}</EmptyState> : null}
+            {publicError ? <EmptyState tone="error" role="alert" icon="repo" action={<Button variant="secondary" onClick={() => void loadPublicRepositories()}>Coba lagi</Button>}>{publicError}</EmptyState> : null}
             {publicBusy && !publicLoaded ? <SkeletonRows rows={5} className={css.skeletonRows} label="Memuat repository publik…" /> : null}
-            {publicLoaded && publicRepositories.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgRepo" }}>Akun ini belum memiliki repository public. Repository public orang lain bisa dicari di bagian bawah.</EmptyState> : null}
+            {publicLoaded && publicRepositories.length === 0 ? <EmptyState icon="repo">Akun ini belum memiliki repository public. Repository public orang lain bisa dicari di bagian bawah.</EmptyState> : null}
             {publicLoaded && publicRepositories.length > 0 ? <>
-              <Field label="Cari repository public milikmu" icon={<MaskIcon group="repository" name="imgSearch" size={18} />} value={publicQuery} onChange={event => setPublicQuery(event.target.value)} placeholder="Cari repository…" type="search" />
-              {filteredPublic.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgSearch" }} action={<Button variant="ghost" onClick={() => setPublicQuery("")}>Reset pencarian</Button>}>Tidak ada hasil pencarian. Coba kata lain.</EmptyState> : null}
+              <Field label="Cari repository public milikmu" icon={<Icon name="search" />} value={publicQuery} onChange={event => setPublicQuery(event.target.value)} placeholder="Cari repository…" type="search" />
+              {filteredPublic.length === 0 ? <EmptyState icon="search" action={<Button variant="ghost" onClick={() => setPublicQuery("")}>Reset pencarian</Button>}>Tidak ada hasil pencarian. Coba kata lain.</EmptyState> : null}
               <ScrollList label="Daftar repository public" footer={publicPage ? <Button variant="link" disabled={publicBusy} onClick={() => void loadPublicRepositories(publicPage)}>Repository public berikutnya</Button> : undefined}>
                 {filteredPublic.length > 0 ? <ul className={css.list}>{filteredPublic.map(repoRow)}</ul> : null}
               </ScrollList>
@@ -408,13 +409,13 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
               <Button variant="link" disabled={busy} onClick={() => void loadInstallations()}>Muat ulang instalasi</Button>
               {installUrl && installations.length > 0 ? <a href={installUrl} target="_blank" rel="noreferrer" className={css.textButton}>Atur akses App di GitHub</a> : null}
             </div>
-            {loaded && installations.length === 0 ? <EmptyState icon={{ group: "landing", name: "imgGithub" }} action={installUrl ? <Button href={installUrl} variant="secondary" target="_blank" rel="noreferrer">Atur akses App di GitHub</Button> : undefined}>Belum ada instalasi yang dapat diakses lewat App.</EmptyState> : null}
+            {loaded && installations.length === 0 ? <EmptyState icon="github" action={installUrl ? <Button href={installUrl} variant="secondary" target="_blank" rel="noreferrer">Atur akses App di GitHub</Button> : undefined}>Belum ada instalasi yang dapat diakses lewat App.</EmptyState> : null}
             {installations.length > 0 ? <ul className={css.installations}>{installations.map(item => <li key={item.id}><button type="button" className={design.navPill} disabled={busy} onClick={() => void loadRepositories(item.id)} aria-pressed={selectedInstallation === item.id}>{item.accountLogin}</button></li>)}</ul> : null}
             {installationPage ? <div className={css.inlineActions}><Button variant="link" disabled={busy} onClick={() => void loadInstallations(installationPage)}>Instalasi berikutnya</Button></div> : null}
             {selectedInstallation && busy && repositories.length === 0 && !error ? <SkeletonRows rows={5} className={css.skeletonRows} label="Memuat repository instalasi…" /> : null}
-            {selectedInstallation && !busy && !error && repositories.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgRepo" }}>Tidak ada repository yang dapat dibaca pada instalasi ini.</EmptyState> : null}
-            <Field label="Cari pada repository App yang sudah dimuat" icon={<MaskIcon group="repository" name="imgSearch" size={18} />} value={query} onChange={event => setQuery(event.target.value)} placeholder="Cari repository…" type="search" />
-            {repositories.length > 0 && filteredApp.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgSearch" }} action={<Button variant="ghost" onClick={() => setQuery("")}>Reset pencarian</Button>}>Tidak ada hasil pencarian pada halaman yang dimuat.</EmptyState> : null}
+            {selectedInstallation && !busy && !error && repositories.length === 0 ? <EmptyState icon="repo">Tidak ada repository yang dapat dibaca pada instalasi ini.</EmptyState> : null}
+            <Field label="Cari pada repository App yang sudah dimuat" icon={<Icon name="search" />} value={query} onChange={event => setQuery(event.target.value)} placeholder="Cari repository…" type="search" />
+            {repositories.length > 0 && filteredApp.length === 0 ? <EmptyState icon="search" action={<Button variant="ghost" onClick={() => setQuery("")}>Reset pencarian</Button>}>Tidak ada hasil pencarian pada halaman yang dimuat.</EmptyState> : null}
             {repositories.length > 0 ? <ScrollList label="Daftar repository GitHub App" footer={repoPage ? <Button variant="link" disabled={busy} onClick={() => void loadRepositories(selectedInstallation, repoPage)}>Repository berikutnya</Button> : undefined}>
               {filteredApp.length > 0 ? <ul className={css.list}>{filteredApp.map(repoRow)}</ul> : null}
             </ScrollList> : null}
@@ -437,7 +438,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
           <p className={css.label}>Target analisis</p>
           <h2 id="analysis-target-heading" ref={targetHeading} tabIndex={-1} className={css.targetName}>
             <span className={design.srOnly}>Siapkan analisis: </span>
-            <MaskIcon group="repository" name="imgRepo" size={18} className={css.maskTeal} />
+            <Icon name="repo" className={css.maskTeal} />
             <span>{chosen.fullName}</span>
           </h2>
           <p className={css.visibility}><Badge tone={chosen.private ? "neutral" : "teal"}>{chosen.private ? "Private" : "Public"}</Badge>{chosen.private ? "Berizin melalui GitHub App" : "Dapat dianalisis"}. Pilih branch dan commit yang akan dianalisis.</p>
@@ -446,9 +447,9 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
             <Button variant="secondary" disabled={busy} onClick={() => void choose(chosen)}>Muat ulang branch</Button>
           </div>
           {busy && !branchLoaded ? <p className={css.status} role="status"><Spinner /> Memuat branch untuk {chosen.fullName}…</p> : null}
-          {branchLoaded && branches.length === 0 ? <EmptyState icon={{ group: "repository", name: "imgBranch" }}>Repository ini belum memiliki branch. Tambahkan commit di GitHub sebelum memilih target.</EmptyState> : null}
+          {branchLoaded && branches.length === 0 ? <EmptyState icon="gitBranch">Repository ini belum memiliki branch. Tambahkan commit di GitHub sebelum memilih target.</EmptyState> : null}
           <form onSubmit={event => { setPending("validate"); void validate(event).finally(() => setPending(null)); }} className={css.form}>
-            <Field id="target-branch" label="Branch" icon={<MaskIcon group="repository" name="imgBranch" size={18} />} trailing={<AssetIcon group="header" name="imgIconChevronDown" />} mono>
+            <Field id="target-branch" label="Branch" icon={<Icon name="gitBranch" />} trailing={<Icon name="chevronDown" />} mono>
               <select id="target-branch" disabled={busy || (branches.length === 0 && !chosen.defaultBranch)} value={branch} onChange={e => { setBranch(e.target.value); setCommit(""); setTarget(null); }}><option value="" disabled>Pilih branch</option>{chosen.defaultBranch && !branches.some(item => item.name === chosen.defaultBranch) ? <option value={chosen.defaultBranch}>{chosen.defaultBranch}</option> : null}{branches.map(item => <option key={item.name} value={item.name}>{item.name}</option>)}</select>
             </Field>
             {branchPage ? <button type="button" disabled={busy} onClick={() => void choose(chosen, branchPage)} className={css.textButton}>Muat branch berikutnya</button> : null}
@@ -457,7 +458,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
           </form>
           {target ? <>
             <div role="status" className={css.validated}>
-              <span className={css.validatedTitle}><AssetIcon group="repository" name="imgValidated" /><strong>Target tervalidasi</strong></span>
+              <span className={css.validatedTitle}><Icon name="checkCircle" /><strong>Target tervalidasi</strong></span>
               <p className={css.validatedMeta}>{target.repository.fullName} · {target.branch}</p>
               <CopySha sha={target.commitSha} />
               <p className={css.validatedNote}>Analisis akan disimpan untuk full SHA ini.</p>
@@ -467,7 +468,7 @@ export function RepositoryAccessPanel({ installUrl, accountKey, accountLogin }: 
         </div> : <div className={css.placeholder}>
           <p className={css.label}>Target analisis</p>
           <h2 id="target-placeholder-heading" className={css.sourceTitle}>Belum ada repository dipilih</h2>
-          <EmptyState icon={{ group: "repository", name: "imgBranch" }}>Pilih repository di daftar untuk menentukan branch dan commit.</EmptyState>
+          <EmptyState icon="gitBranch">Pilih repository di daftar untuk menentukan branch dan commit.</EmptyState>
         </div>}
       </section>
     </div>

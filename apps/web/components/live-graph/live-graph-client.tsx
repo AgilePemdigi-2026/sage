@@ -13,7 +13,8 @@ import { filterGraph } from "./graph-filters.ts";
 import { parseLiveGraphPayload } from "./graph-data.ts";
 import { AnalysisQuality } from "../analysis-quality/analysis-quality.tsx";
 import { NodeInspector } from "./node-inspector.tsx";
-import { AssetIcon, Button, EmptyState, Field, MaskIcon, PillButton, SkeletonRows } from "../design-system/ui.tsx";
+import { Button, EmptyState, Field, PillButton, SkeletonRows } from "../design-system/ui.tsx";
+import { Icon } from "../design-system/icons.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
 
 type RequestError = { status: number | null; message: string };
@@ -26,8 +27,8 @@ const modes: { id: GraphMode; label: string }[] = [
   { id: "all-references", label: "Semua referensi" },
 ];
 
-const ERROR_ICON = { group: "repository", name: "imgRepo" } as const;
-const SEARCH_ICON = { group: "repository", name: "imgSearch" } as const;
+const ERROR_ICON = "repo" as const;
+const SEARCH_ICON = "search" as const;
 
 function responseMessage(value: unknown): string | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -359,7 +360,6 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
     {/* h1 berada di page head bersama (nama repo); judul tab menjadi h2. */}
     <header className={styles.tabHead}>
       <div className={styles.tabHeadCopy}>
-        <p className={styles.label}>Code Knowledge</p>
         <h2>Struktur source code</h2>
         <p className={styles.lead}>Telusuri module, symbol, dependency, dan bukti pada source code di commit yang dianalisis.</p>
       </div>
@@ -387,7 +387,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
 
           <div className={styles.toolbar}>
             <section className={styles.filterControls} aria-label="Pencarian dan filter node">
-              <Field id="graph-node-query" className={styles.searchField} label="Cari node" hideLabel type="search" icon={<MaskIcon group="repository" name="imgSearch" size={18} />} value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="Cari node, berkas, atau simbol" aria-describedby="graph-node-query-help" />
+              <Field id="graph-node-query" className={styles.searchField} label="Cari node" hideLabel type="search" icon={<Icon name="search" />} value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="Cari node, berkas, atau simbol" aria-describedby="graph-node-query-help" />
               {/* <details> asli mengatur buka/tutup (keyboard, atribut open); panel saudara ditampilkan lewat CSS [open] ~ panel agar selebar toolbar. */}
               <details className={styles.kindDisclosure} data-testid="graph-kind-filters-disclosure">
                 <summary aria-controls="graph-kind-panel">Filter jenis node AST{selectedKinds.length ? ` · ${selectedKinds.length} dipilih` : ""}</summary>
@@ -411,7 +411,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
                 {modes.map((item) => <PillButton key={item.id} pressed={mode === item.id} onClick={() => setMode(item.id)}>{item.label}</PillButton>)}
               </div>
               <div className={styles.nodePickerControls}>
-                <Field id="graph-node-picker" className={styles.nodePickerField} label="Pilih node fokus" hideLabel trailing={<AssetIcon group="header" name="imgIconChevronDown" />}>
+                <Field id="graph-node-picker" className={styles.nodePickerField} label="Pilih node fokus" hideLabel trailing={<Icon name="chevronDown" />}>
                   <select id="graph-node-picker" ref={nodePickerRef} aria-label="Pilih node fokus" data-testid="graph-node-picker" value={selectedId ?? projection.anchorId ?? ""} onChange={(event) => chooseNode(event.target.value)}>
                     {!projection.anchorId ? <option value="">Graph tidak memiliki node</option> : null}
                     {[...filterResult.graph.nodes].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)).map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}

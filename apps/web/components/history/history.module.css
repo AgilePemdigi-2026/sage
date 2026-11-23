@@ -25,7 +25,7 @@
 
 .repo { display: grid; gap: 2px; min-width: 0; }
 .repoName { overflow: hidden; color: var(--color-ink); font-family: var(--font-mono); font-size: 13px; line-height: 1.55; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }
-.branch { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
+.branch { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--color-subtle); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.5; font-weight: 500; }
 .branch > span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .chip { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; padding: 4px 4px 4px 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); }
 .chip > div { gap: 6px; }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "../design-system/icons.tsx";
 import type { CcmSnapshot, EvidenceSpan } from "@sage/contracts";
 import { explainCkgEdge } from "@sage/documents/semantic/explanations";
 import type {
@@ -415,7 +416,7 @@ export function NodeInspector({
       <div className={styles.inspectorHeader}>
         <p className={styles.inspectorEyebrow}>Inspector · graph kanonik</p>
         <button type="button" data-testid="node-inspector-close" className={styles.inspectorClose} onClick={onClose} aria-label="Tutup inspektor node" title="Tutup">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+          <Icon name="close" />
         </button>
       </div>
       <div className={styles.inspectorIdentity}>
@@ -488,7 +489,7 @@ export function NodeInspector({
             <code>{sourceTarget.file.path}</code>
           </div>
           <button type="button" className={styles.inspectorClose} onClick={closeSource} aria-label="Tutup source evidence" title="Tutup">
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            <Icon name="close" />
           </button>
         </div>
         <dl className={styles.sourceContext}>

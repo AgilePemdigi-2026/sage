@@ -14,9 +14,8 @@
 .dialog { width: min(480px, calc(100vw - 32px)); max-width: none; max-height: calc(100vh - 32px); margin: auto; padding: 0; overflow: auto; border: 1px solid var(--color-border-soft); border-radius: var(--radius-card); color: var(--color-ink); background: var(--color-surface); box-shadow: var(--shadow-pop); }
 .dialog::backdrop { background: rgb(6 30 66 / 44%); }
 .dialogContent { padding: 28px; font-family: var(--font-sans); }
-.dialogEyebrow { margin: 0 0 8px; color: var(--color-error); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); }
 .dialogContent h2 { margin: 0 0 10px; color: var(--color-ink); font-size: var(--text-h3); line-height: var(--text-h3--line-height); font-weight: 700; overflow-wrap: anywhere; }
-.dialogContent > p:not(.dialogEyebrow) { margin: 0; color: var(--color-muted); font-size: var(--text-body-sm); line-height: 1.6; }
+.dialogContent > p { margin: 0; color: var(--color-muted); font-size: var(--text-body-sm); line-height: 1.6; }
 .dialogActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; align-items: center; margin-top: 24px; }
 .confirmAction { min-height: 44px; padding: 0 20px; border: 0; border-radius: var(--radius-control); color: white; background: var(--color-error); font: inherit; font-size: var(--text-button); font-weight: 600; cursor: pointer; }
 .confirmAction:hover { background: var(--color-error-hover); }

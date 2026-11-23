@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { DesignFrame } from "../../components/design-system/ui.tsx";
+import { Icon } from "../../components/design-system/icons.tsx";
 import { PolicyToc } from "../../components/policies/policy-toc.tsx";
 import styles from "../../components/policies/policies.module.css";
 
@@ -15,7 +16,7 @@ export default function PoliciesPage() {
       <PolicyToc />
       <article className={styles.content}>
         <div className={styles.intro}>
-          <Link className={styles.back} href="/"><span aria-hidden="true">←</span> Kembali ke beranda</Link>
+          <Link className={styles.back} href="/"><Icon name="arrowLeft" />Kembali ke beranda</Link>
           <h1>Kebijakan layanan SAGE</h1>
           <p>SAGE adalah proyek dokumentasi arsitektur perangkat lunak dari AgilePemdigi 2026. <a href="https://github.com/AgilePemdigi-2026/sage">Repositori proyek</a></p>
         </div>
