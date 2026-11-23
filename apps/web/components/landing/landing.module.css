@@ -137,7 +137,7 @@
 .kindList li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 4px; background: var(--color-canvas); color: var(--color-ink); font-size: 13px; line-height: 1.4; font-weight: 600; }
 .kindCount { color: var(--color-teal-700); font-weight: 700; }
 .historyRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; margin-top: auto; padding: 12px; border-radius: 4px; background: var(--color-canvas); }
-.historyRepo { min-width: 0; overflow: hidden; color: var(--color-ink); font-size: 13px; line-height: 1.4; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.historyRepo { min-width: 0; overflow: hidden; color: var(--color-ink); font-family: var(--font-mono); font-size: 13px; line-height: 1.4; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .historySha { color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; }
 .historyFormats { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; color: var(--color-teal-700); font-size: 13px; line-height: 1.4; font-weight: 600; }
 

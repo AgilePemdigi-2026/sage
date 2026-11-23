@@ -14,7 +14,7 @@ function sourceFiles(directory: string): string[] {
   });
 }
 
-test("web UI uses the locally bundled Jakarta Sans family", () => {
+test("web UI uses locally bundled Jakarta Sans, with JetBrains Mono only through the mono token", () => {
   const layout = readFileSync(join(webRoot, "app/layout.tsx"), "utf8");
   const globalStyles = readFileSync(join(webRoot, "app/globals.css"), "utf8");
   const webPackage = JSON.parse(readFileSync(join(webRoot, "package.json"), "utf8")) as {
@@ -24,10 +24,15 @@ test("web UI uses the locally bundled Jakarta Sans family", () => {
   for (const weight of [400, 500, 600, 700, 800]) {
     assert.ok(layout.includes(`@fontsource/plus-jakarta-sans/${weight}.css`), `weight ${weight} is imported by the root layout`);
   }
-  assert.doesNotMatch(layout, /@fontsource\/(?:inter|jetbrains-mono)/i);
+  for (const weight of [400, 500, 600, 700]) {
+    assert.ok(layout.includes(`@fontsource/jetbrains-mono/${weight}.css`), `mono weight ${weight} is imported by the root layout`);
+  }
+  assert.doesNotMatch(layout, /@fontsource\/inter/i);
   assert.equal(webPackage.dependencies["@fontsource/plus-jakarta-sans"], "5.3.0");
+  assert.equal(webPackage.dependencies["@fontsource/jetbrains-mono"], "5.3.0");
   assert.match(globalStyles, /--font-sans:\s*"Plus Jakarta Sans"/);
-  assert.match(globalStyles, /--font-mono:\s*(?:"Plus Jakarta Sans"|var\(--font-sans\))/);
+  // Kode, path, SHA, dan nomor baris memakai JetBrains Mono, hanya lewat token --font-mono.
+  assert.match(globalStyles, /--font-mono:\s*"JetBrains Mono"/);
   assert.match(globalStyles, /body\s*\{[^}]*font-family:\s*var\(--font-sans\)/s);
 
   const familyOverride = /(?:font-family|fontFamily|\bfont)\s*:[^;\n]*/i;
