@@ -448,6 +448,7 @@ async function recoverExpiredExport(tx: Prisma.TransactionClient, slot: Occupied
 export async function claimExportJob(db: PrismaClient, options: ClaimExportJobOptions = {}): Promise<ExportJobClaim | null> {
   const leaseDurationMs = validateLeaseDuration(options.leaseDurationMs);
   return db.$transaction(async tx => {
+    await tx.$executeRaw`SET LOCAL lock_timeout = '2s'`;
     await ensureAndLockExportSlot(tx);
     let slot = await readExportSlot(tx);
     if (slot.jobId === null) {
@@ -536,7 +537,7 @@ export async function claimExportJob(db: PrismaClient, options: ClaimExportJobOp
       leaseToken,
       leaseExpiresAt: jobRows[0].leaseExpiresAt,
     };
-  });
+  }, { maxWait: 2_000, timeout: 8_000 });
 }
 
 export async function renewExportLease(
