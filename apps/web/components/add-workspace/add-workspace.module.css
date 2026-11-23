@@ -1,7 +1,7 @@
 /* Lebar & padding mengikuti <main> DesignFrame (konten 1200 px seperti frame 04/05). */
 .page { width:100%; margin:0 auto; padding:0 0 72px; color:var(--color-ink); font-family:var(--font-sans); }
 .pageHeader { margin:8px 0 24px; max-width:860px; }
-.pageHeader h1,.pageHeader>h2 { margin:5px 0 10px; color:var(--color-ink); font-size:clamp(26px,3vw,34px); font-weight:800; letter-spacing:-.01em; line-height:1.2; text-transform:none; }
+.pageHeader h1,.pageHeader>h2 { margin:5px 0 10px; color:var(--color-ink); font-family:var(--font-display); font-size:clamp(26px,3vw,34px); font-weight:800; letter-spacing:-.01em; line-height:1.2; text-transform:none; }
 .pageHeader>p:last-child { margin:0; color:var(--color-muted); font-size:16px; line-height:1.6; }
 .snapshotDetails { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px 18px; margin:20px 0 0; padding:16px; border:1px solid var(--color-border); border-radius:10px; background:var(--color-canvas); }.snapshotDetails div { min-width:0; }.snapshotDetails dt { color:var(--color-muted); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }.snapshotDetails dd { margin:4px 0 0; overflow-wrap:anywhere; font-size:13px; }
 .eyebrow { margin:0 0 8px; color:var(--color-subtle); font:700 11px/1.4 var(--font-sans); letter-spacing:.08em; text-transform:uppercase; }

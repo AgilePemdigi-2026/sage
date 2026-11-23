@@ -3,8 +3,10 @@
 /* SAGE redesign tokens — sumber: Figma "Redesign kit" (250:23), frame 01 (251:6), 02 (251:138), "00 Motion spec" (254:1578). */
 @theme static {
   /* Font */
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Keluarga font dari next/font/local (app/layout.tsx): Plus Jakarta Sans & JetBrains Mono + fallback ber-metrik. */
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-jakarta-display), var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Brand */
   --color-teal-*: initial;
@@ -113,6 +115,8 @@ body {
 /* Path, SHA, dan kode selalu mono lewat token (bukan "monospace" bawaan browser). */
 :where(code, kbd, samp, pre) { font-family: var(--font-mono); }
 :where(h1, h2, h3, h4) { text-wrap: balance; }
+/* Semua h1 memakai ExtraBold 800 dari keluarga headline (satu-satunya file font yang di-preload). */
+:where(h1) { font-family: var(--font-display); }
 ::selection { background: var(--color-teal-100); color: var(--color-ink); }
 
 /* Hover yang bergerak (CLAUDE.md "Keputusan navigasi & landing"): 200 ms, dimatikan saat reduced-motion. */

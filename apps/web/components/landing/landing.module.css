@@ -7,7 +7,7 @@
 /* Angka di seluruh landing memakai lebar tetap (tabular-nums). */
 .copy, .block { font-variant-numeric: tabular-nums; }
 .copy { display: flex; flex-direction: column; align-items: center; gap: 24px; max-width: 880px; min-width: 0; text-align: center; }
-.title { margin: 0; color: var(--color-ink); font-size: var(--text-display); line-height: var(--text-display--line-height); font-weight: 800; letter-spacing: var(--text-display--letter-spacing); text-wrap: balance; }
+.title { margin: 0; color: var(--color-ink); font-family: var(--font-display); font-size: var(--text-display); line-height: var(--text-display--line-height); font-weight: 800; letter-spacing: var(--text-display--letter-spacing); text-wrap: balance; }
 /* teal-700 di atas canvas = 4.84:1 (teks besar; tetap lolos ambang 4.5 teks normal). */
 .titleAccent { color: var(--color-teal-700); }
 .lead { max-width: 640px; margin: 0; color: var(--color-muted); font-size: 17px; line-height: 1.7; text-wrap: pretty; }
