@@ -202,7 +202,9 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         }
       }
     }
-    refreshRef.current = () => { void verifyIdentityPeriodically(); };
+    // Tombol "Coba lagi" dan kegagalan identitas inspector: periksa sesi lalu muat ulang graph (bukan hanya cek sesi),
+    // agar state error 503 bisa pulih. Pemeriksaan berkala/fokus tetap memakai verifyIdentityPeriodically.
+    refreshRef.current = () => { void refreshAfterIdentityCheck(); };
 
     async function verifyIdentityPeriodically() {
       if (!active || reloadStarted.current || periodicCheckRunning || fullCheckRunning.current || document.visibilityState !== "visible") return;
