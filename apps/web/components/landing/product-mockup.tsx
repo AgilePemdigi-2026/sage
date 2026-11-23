@@ -24,7 +24,7 @@ const TIMELINE: readonly Frame[] = [
   { done: 9, add: true, ck: false, hold: 2300 },
 ];
 
-const SPRING = { type: "spring", stiffness: 260, damping: 30 } as const;
+const WIPE = { duration: 0.45, ease: [0.2, 0.8, 0.2, 1] } as const;
 const EVIDENCE = "src/app/api/books/route.ts:12";
 /* Nilai token (globals.css) sebagai hex agar motion bisa menginterpolasi warna. */
 const TEAL_50 = "#e6faf6";
@@ -58,13 +58,15 @@ function InformationStructure({ active }: { active: boolean }) {
 }
 
 /**
- * Isi kartu muncul (fade + naik) saat kartu aktif; sebelum itu tampil skeleton tanpa teks, sehingga tidak pernah ada
- * teks redup yang kontrasnya < 4.5:1. Tinggi kartu tetap (grid satu sel) → tanpa CLS.
+ * Isi kartu muncul dengan wipe clip-path (atas → bawah) saat kartu aktif; sebelum itu tampil skeleton tanpa teks.
+ * Tidak memakai opacity pada teks: teks selalu berwarna penuh (hanya terpotong), sehingga kontras ≥ 4.5:1 di frame
+ * mana pun, termasuk saat audit otomatis menangkap tengah transisi. Tinggi kartu tetap (grid satu sel) → tanpa CLS.
  */
 function CardBody({ active, children }: { active: boolean; children: React.ReactNode }) {
   return <div className={styles.mockBodyStack}>
     <div className={styles.mockSkeleton} data-show={active ? undefined : "true"}><span /><span /><span /><span /></div>
-    <motion.div className={styles.mockBody} initial={false} animate={{ opacity: active ? 1 : 0, y: active ? 0 : 6 }} transition={SPRING}>
+    <motion.div className={styles.mockBody} initial={false}
+      animate={{ clipPath: active ? "inset(0% 0% 0% 0%)" : "inset(0% 0% 100% 0%)" }} transition={WIPE}>
       {children}
     </motion.div>
   </div>;

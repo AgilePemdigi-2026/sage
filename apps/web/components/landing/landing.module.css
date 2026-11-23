@@ -95,13 +95,18 @@
 .mockCode span[data-hit] { background: rgb(42 198 174 / 22%); }
 .mockCode i { display: inline-block; width: 22px; margin-right: 8px; color: #9fb0c6; font-style: normal; text-align: right; }
 
-/* < 1060 px: kartu bertumpuk dalam stage setinggi tetap; hanya adegan terbaru yang tampil (fade). */
+/* < 1060 px: kartu bertumpuk dalam stage setinggi tetap; adegan terbaru masuk dengan geser horizontal (tanpa opacity,
+   agar teks tidak pernah setengah transparan). Stage memotong kartu yang sedang keluar/masuk. */
 @media (max-width: 1059px) {
-  .stage { display: block; height: 390px; max-width: 560px; }
-  .mockCard { position: absolute; inset: var(--stage-pad); transition: opacity var(--duration-slow) var(--ease-out-soft), transform var(--duration-slow) var(--ease-out-soft), visibility var(--duration-slow); }
+  .stage { display: block; height: 390px; max-width: 560px; overflow: hidden; }
+  .mockCard { position: absolute; inset: var(--stage-pad); transition: transform 400ms var(--ease-out-soft), visibility 400ms; }
   .stage[data-scene="progress"] [data-card]:not([data-card="progress"]),
   .stage[data-scene="add"] [data-card]:not([data-card="add"]),
-  .stage[data-scene="ck"] [data-card]:not([data-card="ck"]) { visibility: hidden; opacity: 0; transform: translateY(8px); }
+  .stage[data-scene="ck"] [data-card]:not([data-card="ck"]) { visibility: hidden; transform: translateX(calc(100% + 2 * var(--stage-pad))); }
+  /* Kartu sebelumnya keluar ke kiri, bukan ke kanan. */
+  .stage[data-scene="add"] [data-card="progress"],
+  .stage[data-scene="ck"] [data-card="progress"],
+  .stage[data-scene="ck"] [data-card="add"] { transform: translateX(calc(-100% - 2 * var(--stage-pad))); }
 }
 
 /* ── Bento fitur: kartu radius 20 / padding 24 → inset radius 4 (minimum lembut, ≈ 20 − 24). ── */
