@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { AssetIcon, Badge, Button, DesignFrame, FeatureCard, Reveal } from "../components/design-system/ui.tsx";
 import { loginGatedHref } from "../components/design-system/login-gated.ts";
 import { readHeaderAccount } from "../lib/auth/header-account.ts";
@@ -104,10 +103,5 @@ export default async function Home() {
         {guides.map(item => <li key={item.title}><FeatureCard icon={{ group: item.group ?? "landing", name: item.icon }} title={item.title} href={item.href} linkLabel="Baca di GitHub">{item.text}</FeatureCard></li>)}
       </Reveal>
     </section>
-
-    <footer className={styles.footer}>
-      <Link className={styles.wordmark} href="/" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link>
-      <span>Source-code Architecture Graph Extraction · AgilePemdigi 2026</span>
-    </footer>
   </DesignFrame>;
 }

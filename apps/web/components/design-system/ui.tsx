@@ -94,7 +94,62 @@ export function DesignFrame({ children, active = "none" }: {
       </div>
     </header>
     <main className={styles.main} id="main-content" tabIndex={-1}>{children}</main>
+    <SiteFooter signedIn={Boolean(account)} />
   </div>;
+}
+
+/* ── Logo orb (app/icon.svg) ──────────────────────────────────────── */
+
+export function BrandOrb({ size = 32 }: { size?: number }) {
+  return <svg className={styles.orb} width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+    <circle cx="50" cy="50" r="48" fill="#061E42" />
+    <circle cx="50" cy="50" r="45" fill="none" stroke="#2AC6AE" strokeWidth="3" />
+    <circle cx="48" cy="54" r="22" fill="#2AC6AE" />
+    <path d="M36 50 A14 14 0 0 1 50 36 A18 18 0 0 0 40 52 Z" fill="#C9F6F0" />
+    <path d="M71 22 L76 29 L71 36 L66 29 Z" fill="#C9F6F0" />
+    <circle cx="79" cy="44" r="3" fill="#2AC6AE" />
+  </svg>;
+}
+
+/* ── Footer situs ─────────────────────────────────────────────────── */
+
+const REPOSITORY_URL = "https://github.com/AgilePemdigi-2026/sage";
+
+const footerColumns: ReadonlyArray<{ title: string; links: ReadonlyArray<{ label: string; href: string }> }> = [
+  { title: "Produk", links: navigation.map(item => ({ label: item.label, href: item.href })) },
+  { title: "Kebijakan", links: [
+    { label: "Privasi", href: "/policies#privasi" },
+    { label: "Ketentuan", href: "/policies#ketentuan" },
+    { label: "Cookie", href: "/policies#cookie" },
+    { label: "Penghapusan data", href: "/policies#penghapusan" },
+    { label: "Pengembalian dana", href: "/policies#pengembalian-dana" },
+  ] },
+  { title: "Proyek", links: [{ label: "Repositori GitHub", href: REPOSITORY_URL }] },
+];
+
+export function SiteFooter({ signedIn }: { signedIn: boolean }) {
+  return <footer className={styles.siteFooter} data-print-hide>
+    <div className={styles.siteFooterInner}>
+      <div className={styles.siteFooterBrand}>
+        <Link className={styles.siteFooterLogo} href="/" aria-label="SAGE, halaman utama"><BrandOrb /><span>SAGE<span>.</span></span></Link>
+        <p>Dokumentasi arsitektur dari source code, dengan setiap klaim tertaut ke file, baris, dan commit.</p>
+        <p className={styles.siteFooterCopy}>© 2026 AgilePemdigi</p>
+      </div>
+      <nav className={styles.siteFooterNav} aria-label="Navigasi footer">
+        {footerColumns.map(column => <div key={column.title} className={styles.siteFooterColumn}>
+          <h2>{column.title}</h2>
+          <ul>
+            {column.links.map(link => {
+              const external = /^https?:\/\//.test(link.href);
+              return <li key={link.href}>{external
+                ? <a href={link.href} target="_blank" rel="noopener noreferrer">{link.label}<span className={styles.srOnly}> (membuka tab baru)</span></a>
+                : <Link href={loginGatedHref(link.href, signedIn)}>{link.label}</Link>}</li>;
+            })}
+          </ul>
+        </div>)}
+      </nav>
+    </div>
+  </footer>;
 }
 
 /* ── Pemberitahuan cookie ─────────────────────────────────────────── */

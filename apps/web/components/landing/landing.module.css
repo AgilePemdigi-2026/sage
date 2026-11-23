@@ -44,9 +44,6 @@
 .grid4 > li { min-width: 0; }
 
 /* ── Footer ───────────────────────────────────────────────────────── */
-.footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; margin-top: 8px; padding: 24px 0 8px; border-top: 1px solid var(--color-border); color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
-.wordmark { color: var(--color-ink); font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.02em; text-decoration: none; }
-.wordmark span { color: var(--color-teal-500); }
 
 @media (min-width: 720px) {
   .grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
