@@ -105,5 +105,10 @@
     "prisma@7.10.1": true,
     "unrs-resolver@1.12.2": true,
     "@prisma/engines@7.10.1": true
+  },
+  "overrides": {
+    "@prisma/config": {
+      "effect": "3.22.5"
+    }
   }
 }
