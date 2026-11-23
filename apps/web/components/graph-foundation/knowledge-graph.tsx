@@ -14,7 +14,7 @@ function themeTokens() {
   return {
     ink: read("--color-ink", "#061e42"),
     muted: read("--color-muted", "#4a5b73"),
-    subtle: read("--color-subtle", "#66788f"),
+    subtle: read("--color-subtle", "#5f6f85"),
     surface: read("--color-surface", "#ffffff"),
     subtleBg: read("--color-subtle-bg", "#eef3f7"),
     teal50: read("--color-teal-50", "#e6faf6"),

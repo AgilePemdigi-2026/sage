@@ -24,7 +24,7 @@
   --color-border: #dde5ec;
   --color-border-soft: #edf2f7;
   --color-muted: #4a5b73;
-  --color-subtle: #66788f;
+  --color-subtle: #5f6f85; /* ≥4.5:1 di atas surface, canvas, subtle-bg, dan teal-50 (hue sama dengan #66788F lama) */
 
   /* Status (teks / isi) */
   --color-success: #1b6b3a;
