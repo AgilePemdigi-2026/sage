@@ -364,6 +364,11 @@ try {
     await page.getByRole("heading", { name: `Halo, SAGE UI ${fixtureSuffix}.`, exact: true }).waitFor();
     assert.ok((await page.locator("body").textContent())?.includes(`Terhubung sebagai @${fixtureConnectionLogin}.`),
       "workspace should show the synthetic connection label");
+    // WCAG label-in-name: nama aksesibel pill akun harus memuat teks yang terlihat (@login).
+    const accountPill = page.getByRole("banner").locator("summary");
+    assert.equal(await accountPill.getAttribute("aria-label"), `@${fixtureLogin} · menu akun`, "account pill label must start with the visible @login");
+    const visibleLogin = (await accountPill.locator("[class*='accountName']").innerText()).trim();
+    assert.ok((await accountPill.getAttribute("aria-label"))?.includes(visibleLogin), "account pill accessible name must contain its visible text");
     await assertNoHorizontalOverflow(page);
     await page.screenshot({ path: saveScreenshotName(`workspace-${width}.png`), fullPage: true });
 
