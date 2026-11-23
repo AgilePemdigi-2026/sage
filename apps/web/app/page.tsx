@@ -4,6 +4,7 @@ import { readHeaderAccount } from "../lib/auth/header-account.ts";
 import { ANALYSIS_STAGE_DEFINITIONS } from "@sage/contracts/stages";
 import { PHASE_C_ADD } from "@sage/documents/phase-c-add";
 import { ProductMockup, type MockupCopy } from "../components/landing/product-mockup.tsx";
+import { FeatureBento } from "../components/landing/feature-bento.tsx";
 import styles from "../components/landing/landing.module.css";
 
 const DOCS_BASE = "https://github.com/AgilePemdigi-2026/sage/blob/main/docs";
@@ -20,12 +21,6 @@ const mockupCopy: MockupCopy = {
   viewTitle: PHASE_C_ADD.sections.logicalDataModel.title,
   catalogTitle: PHASE_C_ADD.sections.businessDataModel.title,
 };
-
-const features = [
-  { number: "01", icon: "imgFeatureData", title: "Baseline Data Architecture", text: "Data object, relasi, katalog, dan CRUD yang didukung bukti repository." },
-  { number: "02", icon: "imgFeatureApplication", title: "Baseline Application Architecture", text: "Portofolio komponen, interface API, dan relasi source yang dikenali." },
-  { number: "03", icon: "imgFeatureGraph", title: "Code Knowledge", text: "Graph struktur kode untuk menelusuri node, relasi, dan source preview." },
-] as const;
 
 const steps = [
   { number: "01", icon: "imgGithub", title: "Masuk GitHub", text: "Hubungkan akun lewat GitHub App. Token disimpan dan dipakai hanya di server." },
@@ -63,9 +58,7 @@ export default async function Home() {
 
     <section className={`${styles.block} ${styles.section}`} aria-labelledby="fitur-heading">
       <h2 id="fitur-heading" className={styles.blockTitle}>Dari source code ke dokumen arsitektur</h2>
-      <Reveal className={styles.grid3}>
-        {features.map(item => <FeatureCard key={item.number} icon={{ group: "landing", name: item.icon }} number={item.number} title={item.title}>{item.text}</FeatureCard>)}
-      </Reveal>
+      <FeatureBento />
     </section>
 
     <section id="cara-kerja" className={`${styles.block} ${styles.section}`} aria-labelledby="cara-kerja-heading">
