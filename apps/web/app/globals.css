@@ -5,7 +5,7 @@
   /* Font */
   /* Keluarga font dari next/font/local (app/layout.tsx): Plus Jakarta Sans & JetBrains Mono + fallback ber-metrik. */
   --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
-  --font-display: var(--font-jakarta-display), var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Brand */
@@ -115,7 +115,7 @@ body {
 /* Path, SHA, dan kode selalu mono lewat token (bukan "monospace" bawaan browser). */
 :where(code, kbd, samp, pre) { font-family: var(--font-mono); }
 :where(h1, h2, h3, h4) { text-wrap: balance; }
-/* Semua h1 memakai ExtraBold 800 dari keluarga headline (satu-satunya file font yang di-preload). */
+/* Token headline (h1, wordmark): saat ini sama dengan --font-sans; satu titik ubah bila keluarga headline dipisah. */
 :where(h1) { font-family: var(--font-display); }
 ::selection { background: var(--color-teal-100); color: var(--color-ink); }
 

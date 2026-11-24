@@ -20,14 +20,8 @@ const jakarta = localFont({
   ],
   variable: "--font-jakarta",
   display: "swap",
-  preload: false,
-  adjustFontFallback: "Arial",
-});
-/* Headline (ExtraBold 800, elemen LCP landing): satu-satunya file yang di-preload. */
-const jakartaDisplay = localFont({
-  src: [{ path: "./fonts/plus-jakarta-sans-latin-800-normal.woff2", weight: "800", style: "normal" }],
-  variable: "--font-jakarta-display",
-  display: "swap",
+  // Teks UI (termasuk headline 800, elemen LCP) memakai keluarga ini: di-preload agar umumnya sudah tersedia sebelum
+  // cat pertama, sehingga swap tidak memicu reflow/CLS. JetBrains Mono tidak di-preload (bukan teks LCP).
   preload: true,
   adjustFontFallback: "Arial",
 });
@@ -53,7 +47,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const account = await readHeaderAccount();
   return (
-    <html lang="id" className={`${jakarta.variable} ${jakartaDisplay.variable} ${jetbrainsMono.variable}`}>
+    <html lang="id" className={`${jakarta.variable} ${jetbrainsMono.variable}`}>
       <body>
         <AccountProvider account={account}>
           {children}

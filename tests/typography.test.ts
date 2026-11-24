@@ -31,8 +31,8 @@ test("web UI self-hosts Jakarta Sans and JetBrains Mono through next/font/local 
     assert.ok(layout.includes(`./fonts/jetbrains-mono-latin-${weight}-normal.woff2`), `mono weight ${weight} is self-hosted`);
     assert.ok(existsSync(join(webRoot, `app/fonts/jetbrains-mono-latin-${weight}-normal.woff2`)));
   }
-  assert.equal((layout.match(/display: "swap"/g) ?? []).length, 3, "every font face uses font-display: swap");
-  assert.equal((layout.match(/preload: true/g) ?? []).length, 1, "only the headline face is preloaded");
+  assert.equal((layout.match(/display: "swap"/g) ?? []).length, 2, "every font face uses font-display: swap");
+  assert.equal((layout.match(/preload: true/g) ?? []).length, 1, "only the UI/headline family (Jakarta) is preloaded; mono is not");
   assert.doesNotMatch(layout, /@fontsource\//i);
   assert.equal(Object.keys(webPackage.dependencies).filter(name => name.startsWith("@fontsource/")).length, 0);
   assert.match(globalStyles, /--font-sans:\s*var\(--font-jakarta\)/);
