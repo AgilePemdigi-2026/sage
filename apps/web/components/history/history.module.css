@@ -7,12 +7,13 @@
 .state { padding: 20px 24px; }
 
 /* Tabel ringkas (desktop) */
-.columns, .row {
-  display: grid; align-items: center; column-gap: 16px;
-  /* Urutan kolom = urutan DOM: repository, commit, bahasa, durasi, tanggal, status, aksi. */
-  /* Kolom kecil berlebar tetap agar header & baris (grid terpisah) sejajar. */
-  grid-template-columns: minmax(0, 2.4fr) 150px minmax(80px, 1fr) 90px 140px 170px 140px;
+/* Satu grid untuk header + semua baris (subgrid): kolom Commit, Durasi, Tanggal, Status, dan Aksi selebar kontennya
+   dan tetap sejajar; Repository dan Bahasa mengisi sisa ruang. Urutan kolom = urutan DOM. */
+.table {
+  display: grid; column-gap: 16px;
+  grid-template-columns: minmax(0, 2.4fr) min-content minmax(80px, 1fr) max-content max-content max-content max-content;
 }
+.columns, .list, .row { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; }
 .columns { padding: 14px 24px; background: var(--color-canvas); color: var(--color-subtle); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); text-transform: uppercase; }
 .list { margin: 0; padding: 0; list-style: none; }
 .row {
@@ -27,10 +28,8 @@
 .repoName { overflow: hidden; color: var(--color-ink); font-family: var(--font-mono); font-size: 13px; line-height: 1.55; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }
 .branch { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--color-subtle); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.5; font-weight: 500; }
 .branch > span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.chip { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; padding: 4px 4px 4px 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); }
-.chip > div { gap: 6px; }
-.chip code { color: var(--color-muted); font-size: var(--text-mono-sm); }
-.chip button { padding: 2px 8px; font-size: 11px; }
+/* Chip commit: tinggi 32 (tombol ikon 24 + padding 3 + border 1), tidak pernah membungkus. */
+.chip { display: inline-flex; align-items: center; gap: 6px; width: max-content; padding: 3px 3px 3px 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); white-space: nowrap; }
 .languages { min-width: 0; color: var(--color-muted); font-size: var(--text-body-sm); line-height: 1.6; overflow-wrap: anywhere; }
 .duration { color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 500; white-space: nowrap; }
 .date { color: var(--color-muted); font-size: var(--text-body-sm); line-height: 1.6; }
@@ -45,6 +44,7 @@
 
 /* Mobile/tablet: kartu bertumpuk */
 @media (max-width: 1059px) {
+  .table, .list { display: block; }
   .columns { display: none; }
   .row {
     grid-template-columns: minmax(0, 1fr) auto;

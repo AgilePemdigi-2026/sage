@@ -1,30 +1,35 @@
 # Screenshot produk
 
-Gambar berasal dari aplikasi SAGE aktual pada browser lokal, bukan mockup desain. Seluruh identitas, repository contoh, source fixture, dan commit sintetis merupakan data pengujian. Tidak ada kredensial atau source repository private pengguna. Screenshot disalin tanpa retouch dari artefak browser; metadata lengkap tetap pada laporan lokal.
+Gambar berasal dari aplikasi SAGE asli (server standalone produksi) di browser Chromium, bukan mockup desain. Tidak ada retouch.
 
-Source aplikasi saat pengambilan: `f4e6ab9eaff8725fc322f30e2dfe23bc352a4fef`. Instrumentasi sementara hanya menambahkan screenshot/ukuran viewport pada langkah BDD dan sudah dikembalikan; tidak ada perubahan fitur atau test runner pada PR dokumentasi. Run graph/document di bawah memeriksa subset SRS, bukan seluruh acceptance Sprint 2 atau OAuth live.
+## Data yang dipakai
 
-## repository.png
+- Akun `@akun-fixture` dan repository `contoh-org/*` adalah data sintetis. Tidak ada akun GitHub atau repository pengguna nyata.
+- Analisis `contoh-org/sage-pinned` memakai source fixture [`tests/fixtures/semantic/sage-pinned`](../../../tests/fixtures/semantic/sage-pinned/) (snapshot source SAGE sendiri, commit `c2dc3d8`). Graph, ADD baseline, dan evidence dihasilkan oleh analyzer, semantic model, dan ADD baseline asli, lalu disimpan ke database test.
+- Empat baris lain di Riwayat hanya baris analisis sintetis tanpa artefak.
+- Daftar repository, branch, dan target di halaman Repository di-mock di browser, karena akun sintetis tidak punya akses GitHub.
+- Kredensial dan token di harness bersifat sintetis. Tidak ada kredensial nyata.
 
-- Waktu: 15 November 2026, 10:54 UTC.
-- Scope: Fixture provider terkontrol; UI repository/target aktual. Nama private-sample hanya data sintetis, bukan source private.
-- Artefak lokal: `artifacts/bdd/sprint2-2026-11-15T10-54-26-914Z/live-pipeline/matrix-repository-selected-1440.png`.
-- SHA-256: `f4ed11554d3778bf58cfae32240bc4572244b0027ef199e8fa435f4610b5e244`.
+## Cara pengambilan
 
-## code-knowledge.png
+- Tanggal: 24 November 2026.
+- Source aplikasi: `cabd9f0` (branch `docs/readme-dan-riwayat`).
+- Harness Docker terisolasi (project `sage-bdd-ui`) dengan database disposable `sage_bdd_sprint1` dan server di port 3100.
+- Viewport 1440 px, reduced motion aktif agar animasi tidak terekam di tengah jalan.
+- Artefak lokal (tidak di-commit): `artifacts/bdd/readme-20261124/`.
 
-- Waktu: 15 November 2026, 11:17 UTC.
-- Scope: Browser BDD graph: 5 skenario/33 langkah PASS; database disposable, sesi sintetis, komponen aplikasi aktual.
-- Artefak lokal: `artifacts/bdd/sprint2-2026-11-15T11-17-08-447Z/readme-graph.png`.
-- SHA-256: `9e249f1c1dd219100052bb8e6364119ae8e8569c50ce16d53556a19af638741c`.
+## Berkas
 
-## documentation.png
+| Berkas | Halaman | Ukuran | SHA-256 |
+| --- | --- | --- | --- |
+| `landing-hero.png` | Landing `/`, tanpa sesi | 1440 × 900 | `2f0bd32fde97807dce4b16230c564b5390c1cab99c51d9689fe51c3b8898b012` |
+| `repository.png` | Pilih repository, target tervalidasi | 1440 × 1080 | `0e425b19049f930fe6e7b137cfccb66173e2eb3fa6ded47a35758f70dd527a96` |
+| `progres.png` | Progres analisis, 9 dari 9 tahap | 1440 × 900 | `0a26f1c3a6557007897244b0185091e580c9acbcb4743a3bfcd665a5f9e64fd3` |
+| `togaf-add.png` | Architecture Definition Document | 1440 × 900 | `12c3c99346c0f8922870ab3c6c6fe60638aef9eba57698b5d9d37fd9c152f1e4` |
+| `togaf-add-review.png` | Review ADD, data object Analysis dikonfirmasi | 1440 × 900 | `9d8ed3b2054eb16d4fddb632d5e48a9e9531fee842a2dfad37f9c46676884acc` |
+| `code-knowledge.png` | Code Knowledge dengan inspector terbuka | 1440 × 1000 | `529300c44963fedc0c484e4d5b55548194589dfc7f7f07457808260ced2d6ea8` |
+| `riwayat.png` | Riwayat analisis, lima status | 1440 × 900 | `f4a60e5284a06c66f7cd6a82476230b2500e1f35c5e28d9d3899ce3f25bbd5be` |
 
-- Waktu: 15 November 2026, 11:18 UTC.
-- Scope: Browser BDD document: 1 skenario/10 langkah PASS; database disposable, sesi sintetis, komponen aplikasi aktual.
-- Artefak lokal: `artifacts/bdd/sprint2-2026-11-15T11-18-41-236Z/readme-document.png`.
-- SHA-256: `dd6ea6504d1383579d4790371ffe483801b61dc3aa949576f3ee634d34dc58f0`.
-
-Percobaan awal dokumentasi `sprint2-2026-11-15T11-13-07-855Z` ditolak oleh guard perubahan source, meskipun langkah browser lulus; bukan bukti acceptance. Run ulang stabil yang tercatat di atas lulus. Pengujian terdahulu di arsip tetap memiliki tanggal dan scope aslinya.
+Screenshot lama (`repository.png`, `code-knowledge.png`, dan `documentation.png` dari 15 November 2026, sebelum revisi ADD dan UI tahap 2) sudah diganti. Riwayatnya tetap ada di Git.
 
 [Kembali ke README](../../../README.md) · [Panduan testing](../../guides/TESTING.md)

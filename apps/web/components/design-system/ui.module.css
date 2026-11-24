@@ -269,6 +269,27 @@
 .copySha button { display: inline-grid; overflow: hidden; min-width: 92px; }
 .copySha button[data-copied] { border-color: var(--color-success); color: var(--color-success); background: var(--color-success-fill); }
 .copyLabel { display: inline-flex; align-items: center; justify-content: center; gap: 4px; grid-area: 1 / 1; }
+/* SHA pendek tidak pernah dipecah; SHA penuh tetap boleh membungkus di layar sempit. */
+.copySha code[data-short] { overflow-wrap: normal; white-space: nowrap; }
+/* CopySha ringkas (tabel Riwayat): SHA + tombol ikon 24 px (ikon 20 px). */
+.copyShaCompact { display: inline-flex; align-items: center; gap: 6px; }
+.copyShaStack { display: inline-grid; }
+.copyShaStack > * {
+  grid-area: 1 / 1; white-space: nowrap; font-size: 12px; line-height: 18px;
+  transition: opacity var(--duration-fast) var(--ease-out-soft), transform var(--duration-fast) var(--ease-out-soft);
+}
+.copyShaStack code { color: var(--color-muted); font-family: var(--font-mono); font-weight: 500; }
+.copyShaDone { color: var(--color-success); font-weight: 600; opacity: 0; transform: translateY(4px); }
+.copyShaCompact[data-copied] code { opacity: 0; transform: translateY(-4px); }
+.copyShaCompact[data-copied] .copyShaDone { opacity: 1; transform: none; }
+.copyShaCompact button {
+  display: inline-grid; place-items: center; flex: 0 0 auto; width: 24px; height: 24px; padding: 0;
+  border: 0; border-radius: var(--radius-inset); color: var(--color-muted); background: transparent; cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-out-soft), background-color var(--duration-fast) var(--ease-out-soft);
+}
+.copyShaCompact button:hover { color: var(--color-teal-700); background: var(--color-teal-50); }
+.copyShaCompact button:focus-visible { outline: 2px solid var(--color-teal-500); outline-offset: 2px; }
+.copyShaCompact button[data-copied] { color: var(--color-success); background: var(--color-success-fill); }
 
 /* Toast (umpan balik ekspor): kanan bawah, tidak bertabrakan dengan kartu cookie (kiri bawah). */
 .toastRegion { position: fixed; right: 16px; bottom: 16px; z-index: 60; display: grid; justify-items: end; pointer-events: none; }
