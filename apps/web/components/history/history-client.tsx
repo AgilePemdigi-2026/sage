@@ -20,10 +20,11 @@ const COLUMN_LABELS = ["Repository", "Commit", "Bahasa", "Durasi", "Tanggal", "S
 /** Skeleton riwayat: grid kolom & tinggi baris sama dengan baris asli (kotak = tinggi baris teks/chip/tombol). */
 function HistorySkeleton({ rows = 4 }: { rows?: number }) {
   return <div role="status" aria-label="Memuat riwayat">
+    <div className={css.table}>
     <div className={css.columns} aria-hidden="true">{COLUMN_LABELS.map(label => <span key={label}>{label}</span>)}</div>
     <ul className={css.list} aria-hidden="true">{Array.from({ length: rows }, (_, index) => <li key={index} className={`${css.row} ${css.skeletonRow}`}>
       <div className={css.repo}><Skeleton width="min(240px, 80%)" height={20} /><Skeleton width={120} height={20} /></div>
-      <div className={css.commit}><Skeleton width={132} height={32} /></div>
+      <div className={css.commit}><Skeleton width={122} height={32} /></div>
       <span className={css.meta}>
         <span className={css.languages}><Skeleton width={72} height={22} /></span>
         <span className={css.duration}><Skeleton width={56} height={22} /></span>
@@ -32,6 +33,7 @@ function HistorySkeleton({ rows = 4 }: { rows?: number }) {
       <span className={css.status}><Skeleton width={96} height={24} style={{ borderRadius: 999 }} /></span>
       <div className={css.actions}><Skeleton width={64} height={36} /><Skeleton width={64} height={36} /></div>
     </li>)}</ul>
+    </div>
   </div>;
 }
 
@@ -129,7 +131,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
         <span className={css.repoName} title={item.repository.fullName}>{item.repository.fullName}</span>
         <span className={css.branch}><Icon name="gitBranch" /><span className={designStyles.srOnly}>Branch </span><span>{item.branch || "—"}</span></span>
       </div>
-      <div className={css.commit}><span className={css.chip}><Icon name="gitCommit" /><CopySha sha={item.commitSha} label={item.commitSha.slice(0, 7)} /></span></div>
+      <div className={css.commit}><span className={css.chip}><Icon name="gitCommit" /><CopySha compact sha={item.commitSha} label={item.commitSha.slice(0, 7)} /></span></div>
       <span className={css.meta}>
         {item.languages?.length
           ? <span className={css.languages}>{item.languages.join(", ")}</span>
@@ -184,8 +186,10 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
         <EmptyState icon="search" title={<>Tidak ada hasil untuk {trimmed ? `“${trimmed}”` : "filter ini"}</>} action={<Button variant="link" onClick={clearFilters}>Hapus filter</Button>}>Pencarian memeriksa repository, branch, dan SHA.</EmptyState>
       </div> : null}
       {visibleLoaded && visibleItems && visibleItems.length > 0 ? <>
-        <div className={css.columns} aria-hidden="true">{COLUMN_LABELS.map(label => <span key={label}>{label}</span>)}</div>
-        <ul className={css.list} aria-label="Daftar riwayat analisis"><AnimatePresence initial={false}>{visibleItems.map(renderRow)}</AnimatePresence></ul>
+        <div className={css.table}>
+          <div className={css.columns} aria-hidden="true">{COLUMN_LABELS.map(label => <span key={label}>{label}</span>)}</div>
+          <ul className={css.list} aria-label="Daftar riwayat analisis"><AnimatePresence initial={false}>{visibleItems.map(renderRow)}</AnimatePresence></ul>
+        </div>
         {load ? <div className={css.loadMore}><Button variant="link" onClick={() => load()}>Muat lebih banyak</Button></div> : null}
       </> : null}
     </Panel>

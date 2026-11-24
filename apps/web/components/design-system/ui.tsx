@@ -724,7 +724,13 @@ export function ProgressBar({ value, max, label, indeterminate = false }: { valu
 
 /* ── Util ─────────────────────────────────────────────────────────────── */
 
-export function CopySha({ sha, label }: { sha: string; /** Teks tampilan (mis. SHA pendek); yang disalin tetap SHA penuh. */ label?: string }) {
+export function CopySha({ sha, label, compact = false }: {
+  sha: string;
+  /** Teks tampilan (mis. SHA pendek); yang disalin tetap SHA penuh. */
+  label?: string;
+  /** Versi ringkas untuk tabel/chip sempit: tombol ikon 20 px, "Tersalin" menggantikan SHA di tempat yang sama. */
+  compact?: boolean;
+}) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<number | null>(null);
   const transition = useFeedbackTransition(0.15);
@@ -739,17 +745,32 @@ export function CopySha({ sha, label }: { sha: string; /** Teks tampilan (mis. S
       setCopied(false);
     }
   }
+  const actionLabel = copied ? "SHA lengkap tersalin" : "Salin SHA lengkap";
+  const live = <span className={styles.srOnly} aria-live="polite">{copied ? "SHA lengkap tersalin ke clipboard." : ""}</span>;
+  if (compact) {
+    // SHA dan "Tersalin" ditumpuk di sel grid yang sama: lebar chip tetap selama umpan balik, tanpa geser kolom.
+    return <div className={styles.copyShaCompact} data-copied={copied ? "true" : undefined}>
+      <span className={styles.copyShaStack}>
+        <code title={sha}>{label ?? sha.slice(0, 7)}</code>
+        <span className={styles.copyShaDone} aria-hidden="true">Tersalin</span>
+      </span>
+      <button type="button" onClick={() => void copy()} aria-label={actionLabel} title={actionLabel} data-copied={copied ? "true" : undefined}>
+        <Icon name={copied ? "check" : "copy"} />
+      </button>
+      {live}
+    </div>;
+  }
   // Lebar tombol tetap (muat label terpanjang) sehingga pergantian label tidak menggeser SHA di sebelahnya.
   return <div className={styles.copySha}>
-    <code title={label ? sha : undefined}>{label ?? sha}</code>
-    <button type="button" onClick={() => void copy()} aria-label={copied ? "SHA lengkap tersalin" : "Salin SHA lengkap"} data-copied={copied ? "true" : undefined}>
+    <code title={label ? sha : undefined} data-short={label ? "true" : undefined}>{label ?? sha}</code>
+    <button type="button" onClick={() => void copy()} aria-label={actionLabel} data-copied={copied ? "true" : undefined}>
       <AnimatePresence mode="popLayout" initial={false}>
         <motion.span key={copied ? "copied" : "idle"} className={styles.copyLabel} initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -6, opacity: 0 }} transition={transition}>
           {copied ? <>Tersalin<Icon name="check" size={14} /></> : "Salin"}
         </motion.span>
       </AnimatePresence>
     </button>
-    <span className={styles.srOnly} aria-live="polite">{copied ? "SHA lengkap tersalin ke clipboard." : ""}</span>
+    {live}
   </div>;
 }
 
