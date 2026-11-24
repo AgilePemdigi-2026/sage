@@ -16,7 +16,7 @@
 .columns { padding: 14px 24px; background: var(--color-canvas); color: var(--color-subtle); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); text-transform: uppercase; }
 .list { margin: 0; padding: 0; list-style: none; }
 .row {
-  position: relative; padding: 16px 24px; border-top: 1px solid var(--color-border-soft); background: var(--color-surface);
+  position: relative; overflow: hidden; padding: 16px 24px; border-top: 1px solid var(--color-border-soft); background: var(--color-surface);
   transition: background-color var(--duration-fast) var(--ease-out-soft), box-shadow var(--duration-fast) var(--ease-out-soft);
   animation: rowIn var(--duration-base) ease-out backwards; animation-delay: calc(var(--i, 0) * 40ms);
 }
@@ -25,7 +25,7 @@
 
 .repo { display: grid; gap: 2px; min-width: 0; }
 .repoName { overflow: hidden; color: var(--color-ink); font-family: var(--font-mono); font-size: 13px; line-height: 1.55; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }
-.branch { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
+.branch { display: inline-flex; align-items: center; gap: 6px; min-width: 0; color: var(--color-subtle); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.5; font-weight: 500; }
 .branch > span:last-child { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .chip { display: inline-flex; align-items: center; gap: 6px; width: fit-content; max-width: 100%; padding: 4px 4px 4px 10px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); }
 .chip > div { gap: 6px; }
@@ -41,7 +41,7 @@
 .row:hover .chevron { transform: translateX(2px); }
 .meta { display: contents; }
 .loadMore { padding: 12px 24px 18px; border-top: 1px solid var(--color-border-soft); }
-.footnote { margin: 14px 0 0; color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
+.footnote { margin: -8px 0 16px; color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
 
 /* Mobile/tablet: kartu bertumpuk */
 @media (max-width: 1059px) {
@@ -65,3 +65,8 @@
   .row { animation: none; }
   .row:hover .chevron { transform: none; }
 }
+
+/* Skeleton baris: tanpa animasi masuk; di kartu mobile, meta tetap satu baris seperti data asli. */
+.skeletonRow { animation: none; }
+.skeletonRow:hover { background: var(--color-surface); box-shadow: none; }
+.skeletonRow .meta > * { display: inline-flex; }

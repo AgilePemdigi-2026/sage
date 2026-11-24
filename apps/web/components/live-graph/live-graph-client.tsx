@@ -13,7 +13,9 @@ import { filterGraph } from "./graph-filters.ts";
 import { parseLiveGraphPayload } from "./graph-data.ts";
 import { AnalysisQuality } from "../analysis-quality/analysis-quality.tsx";
 import { NodeInspector } from "./node-inspector.tsx";
-import { AssetIcon, Button, EmptyState, Field, MaskIcon, PillButton, SkeletonRows } from "../design-system/ui.tsx";
+import { Button, EmptyState, Field, PillButton, Skeleton } from "../design-system/ui.tsx";
+import designStyles from "../design-system/ui.module.css";
+import { Icon } from "../design-system/icons.tsx";
 import styles from "../graph-foundation/graph-foundation.module.css";
 
 type RequestError = { status: number | null; message: string };
@@ -26,8 +28,8 @@ const modes: { id: GraphMode; label: string }[] = [
   { id: "all-references", label: "Semua referensi" },
 ];
 
-const ERROR_ICON = { group: "repository", name: "imgRepo" } as const;
-const SEARCH_ICON = { group: "repository", name: "imgSearch" } as const;
+const ERROR_ICON = "repo" as const;
+const SEARCH_ICON = "search" as const;
 
 function responseMessage(value: unknown): string | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -200,7 +202,9 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
         }
       }
     }
-    refreshRef.current = () => { void verifyIdentityPeriodically(); };
+    // Tombol "Coba lagi" dan kegagalan identitas inspector: periksa sesi lalu muat ulang graph (bukan hanya cek sesi),
+    // agar state error 503 bisa pulih. Pemeriksaan berkala/fokus tetap memakai verifyIdentityPeriodically.
+    refreshRef.current = () => { void refreshAfterIdentityCheck(); };
 
     async function verifyIdentityPeriodically() {
       if (!active || reloadStarted.current || periodicCheckRunning || fullCheckRunning.current || document.visibilityState !== "visible") return;
@@ -359,16 +363,23 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
     {/* h1 berada di page head bersama (nama repo); judul tab menjadi h2. */}
     <header className={styles.tabHead}>
       <div className={styles.tabHeadCopy}>
-        <p className={styles.label}>Code Knowledge</p>
         <h2>Struktur source code</h2>
         <p className={styles.lead}>Telusuri module, symbol, dependency, dan bukti pada source code di commit yang dianalisis.</p>
       </div>
-      {visiblePayload ? <Button href={documentHref} variant="primary" arrow>Buka Architecture Definition Document</Button> : null}
+      {visiblePayload ? <Button href={documentHref} variant="primary" arrow>Buka Architecture Definition Document</Button>
+        : busy || payload ? <Skeleton width={336} height={44} style={{ borderRadius: "var(--radius-control)" }} /> : null}
     </header>
 
     {!visiblePayload && (busy || payload) ? <div className={styles.workspace}>
-      <section className={styles.graphCard} aria-label="Memuat knowledge graph">
-        <SkeletonRows rows={1} label="Memeriksa akun dan memuat knowledge graph…" />
+      {/* Skeleton berbentuk kartu graph asli: judul, path, toolbar (field 46 + kontrol 44), legend, kanvas. */}
+      <section className={styles.graphCard} aria-label="Memuat knowledge graph" aria-busy="true">
+        <p role="status" className={designStyles.srOnly}>Memeriksa akun dan memuat knowledge graph…</p>
+        <div className={styles.graphCardHeader} aria-hidden="true"><h3>Knowledge graph</h3><Skeleton width={200} height={17} /></div>
+        <div className={`${styles.toolbar} ${styles.toolbarSkeleton}`} aria-hidden="true">
+          <div className={styles.filterControls}><Skeleton height={46} style={{ borderRadius: "var(--radius-control)" }} /><Skeleton width={150} height={44} style={{ borderRadius: "var(--radius-control)" }} /></div>
+          <div className={styles.modeControls}><Skeleton width={300} height={36} style={{ borderRadius: 999 }} /><Skeleton width={260} height={44} style={{ borderRadius: "var(--radius-control)" }} /></div>
+        </div>
+        <Skeleton height={32} />
         <div className={styles.canvasSkeleton} aria-hidden="true" />
       </section>
       <aside className={styles.inspectorRail} aria-hidden="true">
@@ -387,7 +398,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
 
           <div className={styles.toolbar}>
             <section className={styles.filterControls} aria-label="Pencarian dan filter node">
-              <Field id="graph-node-query" className={styles.searchField} label="Cari node" hideLabel type="search" icon={<MaskIcon group="repository" name="imgSearch" size={18} />} value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="Cari node, berkas, atau simbol" aria-describedby="graph-node-query-help" />
+              <Field id="graph-node-query" className={styles.searchField} label="Cari node" hideLabel type="search" icon={<Icon name="search" />} value={query} onChange={(event) => updateQuery(event.target.value)} placeholder="Cari node, berkas, atau simbol" aria-describedby="graph-node-query-help" />
               {/* <details> asli mengatur buka/tutup (keyboard, atribut open); panel saudara ditampilkan lewat CSS [open] ~ panel agar selebar toolbar. */}
               <details className={styles.kindDisclosure} data-testid="graph-kind-filters-disclosure">
                 <summary aria-controls="graph-kind-panel">Filter jenis node AST{selectedKinds.length ? ` · ${selectedKinds.length} dipilih` : ""}</summary>
@@ -411,7 +422,7 @@ export function LiveGraphClient({ analysisId, accountKey }: { analysisId: string
                 {modes.map((item) => <PillButton key={item.id} pressed={mode === item.id} onClick={() => setMode(item.id)}>{item.label}</PillButton>)}
               </div>
               <div className={styles.nodePickerControls}>
-                <Field id="graph-node-picker" className={styles.nodePickerField} label="Pilih node fokus" hideLabel trailing={<AssetIcon group="header" name="imgIconChevronDown" />}>
+                <Field id="graph-node-picker" className={styles.nodePickerField} label="Pilih node fokus" hideLabel trailing={<Icon name="chevronDown" />}>
                   <select id="graph-node-picker" ref={nodePickerRef} aria-label="Pilih node fokus" data-testid="graph-node-picker" value={selectedId ?? projection.anchorId ?? ""} onChange={(event) => chooseNode(event.target.value)}>
                     {!projection.anchorId ? <option value="">Graph tidak memiliki node</option> : null}
                     {[...filterResult.graph.nodes].sort((left, right) => (left.name < right.name ? -1 : left.name > right.name ? 1 : 0) || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)).map((node) => <option key={node.id} value={node.id}>{node.name} · {node.kind}</option>)}

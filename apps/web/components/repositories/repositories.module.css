@@ -1,20 +1,21 @@
 /* Layar 02 Pilih repository — Figma frame 02 (251:138): repository list 251:177, target panel 251:247. */
 
 .layout {
-  display: grid; gap: 24px; align-items: start;
+  /* Jarak bertingkat: antar grup 32 > judul ke isi 16 > di dalam grup 8–12. */
+  display: grid; gap: 32px; align-items: start;
   /* Tinggi baris repo dari token: padding 14×2 + border 2 + nama 13×1.55 + gap 2 + meta 13×1.5. Dipakai skeleton agar tidak loncat. */
   --repo-row-height: calc(28px + 2px + 13px * 1.55 + 2px + 13px * 1.5);
 }
-.column { display: grid; gap: 20px; min-width: 0; }
+.column { display: grid; gap: 24px; min-width: 0; }
 .alert { margin: 0 0 20px; padding: 12px 16px; border-radius: var(--radius-control); color: var(--color-error); background: var(--color-error-fill); font-size: var(--text-body-sm); line-height: 1.6; font-weight: 600; overflow-wrap: anywhere; }
 .status { color: var(--color-muted); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
 .reauth { margin: 0 0 20px; }
 
 /* ── Kartu kiri ─────────────────────────────────────────────────────── */
-.cardHead { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 20px; }
+.cardHead { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
 .cardTitle { flex: 1 1 auto; margin: 0; color: var(--color-ink); font-size: var(--text-h3); line-height: var(--text-h3--line-height); font-weight: 700; letter-spacing: var(--text-h3--letter-spacing); }
 .sourcePills { display: flex; flex-wrap: wrap; gap: 4px; }
-.source { display: grid; gap: 14px; scroll-margin-top: 96px; }
+.source { display: grid; gap: 12px; scroll-margin-top: 96px; }
 .source + .source { margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--color-border-soft); }
 .sourceTitle { margin: 0; color: var(--color-ink); font-size: var(--text-body-strong); line-height: 1.6; font-weight: 700; overflow-wrap: anywhere; }
 .sourceTitle:focus-visible { outline: 2px solid var(--color-teal-500); outline-offset: 2px; border-radius: 4px; }
@@ -27,25 +28,27 @@
 
 /* ── Baris repo ─────────────────────────────────────────────────────── */
 .row {
-  display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 22px; grid-template-areas: "icon copy badge end";
+  position: relative; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto 20px; grid-template-areas: "icon copy badge end";
   align-items: center; column-gap: 14px; width: 100%; min-width: 0; min-height: var(--repo-row-height); padding: 14px 16px;
-  border: 1px solid var(--color-border-soft); border-radius: 14px; background: var(--color-surface);
+  border: 1px solid var(--color-border-soft); border-radius: var(--radius-inset); background: var(--color-surface);
   color: inherit; font: inherit; text-align: left; cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-out-soft), border-color var(--duration-fast) var(--ease-out-soft);
 }
 .row > :nth-child(3) { grid-area: badge; }
-.row:hover:not(:disabled) { border-color: var(--color-teal-100); background: var(--color-canvas); }
-.row:disabled { cursor: not-allowed; }
-.row[aria-pressed="true"] { border: 1.5px solid var(--color-teal-500); padding: 13.5px 15.5px; background: var(--color-teal-50); }
-.rowIcon { grid-area: icon; display: inline-grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border-radius: var(--radius-control); color: var(--color-muted); background: var(--color-subtle-bg); }
-.row[aria-pressed="true"] .rowIcon { color: var(--color-teal-700); background: var(--color-surface); }
+.row:has(.rowHit:hover:not(:disabled)) { border-color: var(--color-teal-100); background: var(--color-canvas); }
+.rowHit { position: absolute; inset: -1px; z-index: 1; width: auto; margin: 0; padding: 0; border: 0; border-radius: inherit; background: transparent; cursor: pointer; }
+.rowHit:disabled { cursor: not-allowed; }
+.rowHit:focus-visible { outline: 2px solid var(--color-teal-500); outline-offset: 2px; }
+.row[data-selected] { border: 1.5px solid var(--color-teal-500); padding: 13.5px 15.5px; background: var(--color-teal-50); }
+.rowIcon { grid-area: icon; display: inline-grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border-radius: var(--radius-inset); color: var(--color-muted); background: var(--color-subtle-bg); }
+.row[data-selected] .rowIcon { color: var(--color-teal-700); background: var(--color-surface); }
 .rowCopy { grid-area: copy; display: grid; gap: 2px; min-width: 0; }
 .rowName { min-width: 0; overflow: hidden; color: var(--color-ink); font-family: var(--font-mono); font-size: 13px; line-height: 1.55; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }
 .rowMeta { color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
-.rowEnd { grid-area: end; display: inline-grid; place-items: center; flex: 0 0 22px; width: 22px; height: 22px; }
+.rowEnd { grid-area: end; display: inline-grid; place-items: center; flex: 0 0 20px; width: 20px; height: 20px; }
 .chevron { transition: transform var(--duration-fast) var(--ease-out-soft); }
-.row:hover:not(:disabled) .chevron { transform: translateX(2px); }
-.check { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: var(--radius-pill); background: var(--color-teal-500); animation: checkIn var(--duration-fast) var(--ease-out-soft); }
+.row:has(.rowHit:hover:not(:disabled)) .chevron { transform: translateX(2px); }
+.check { flex: 0 0 auto; color: var(--color-teal-700); animation: checkIn var(--duration-fast) var(--ease-out-soft); }
 @keyframes checkIn { from { transform: scale(.8); opacity: 0; } to { transform: none; opacity: 1; } }
 
 /* ── Panel target ───────────────────────────────────────────────────── */
@@ -62,7 +65,9 @@
 .textButton { justify-self: start; padding: 0; border: 0; color: var(--color-teal-700); background: none; font: inherit; font-size: var(--text-caption); font-weight: 700; cursor: pointer; }
 .textButton:hover:not(:disabled) { text-decoration: underline; text-underline-offset: 3px; }
 .textButton:disabled { cursor: not-allowed; color: var(--color-subtle); }
-.validated { display: grid; gap: 8px; padding: 16px; border-radius: 14px; background: var(--color-success-fill); animation: slideDown var(--duration-base) var(--ease-out-soft); }
+/* Grup hasil validasi (blok sukses + tombol mulai); gap = gap .targetBody, overflow hidden selama tinggi dianimasikan. */
+.validatedGroup { display: grid; gap: 18px; overflow: hidden; margin-top: -18px; padding-top: 18px; }
+.validated { display: grid; gap: 8px; padding: 16px; border-radius: var(--radius-inset); background: var(--color-success-fill); }
 .validatedTitle { display: flex; align-items: center; gap: 8px; color: var(--color-success); font-size: 14px; line-height: 1.6; font-weight: 700; }
 .validatedMeta { margin: 0; color: var(--color-ink); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 500; overflow-wrap: anywhere; }
 .validatedNote { margin: 0; color: var(--color-success); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
@@ -74,8 +79,8 @@
   .target { position: sticky; top: 96px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .row:hover:not(:disabled) .chevron { transform: none; }
-  .check, .targetBody, .validated { animation: none; }
+  .row:has(.rowHit:hover:not(:disabled)) .chevron { transform: none; }
+  .check, .targetBody { animation: none; }
 }
 .resolved { margin-top: 14px; }
 
@@ -83,7 +88,7 @@
 
 /* Mobile: badge sejajar di kanan nama, nama satu baris (ellipsis), tinggi baris sama dengan desktop. */
 @media (max-width: 480px) {
-  .row { grid-template-columns: 36px minmax(0, 1fr) auto 22px; grid-template-areas: "icon name badge end" "icon meta meta end"; column-gap: 12px; row-gap: 2px; }
+  .row { grid-template-columns: 36px minmax(0, 1fr) auto 20px; grid-template-areas: "icon name badge end" "icon meta meta end"; column-gap: 12px; row-gap: 2px; }
   .rowCopy { display: contents; }
   .rowName { grid-area: name; }
   .rowMeta { grid-area: meta; }

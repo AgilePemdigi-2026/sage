@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { AssetIcon, Badge, Button, CopySha, DesignFrame, EmptyState, Field, MaskIcon, PageHead, Panel, PillButton, SkeletonRows } from "../design-system/ui.tsx";
+import { AnimatePresence, motion } from "motion/react";
+import { Badge, Button, CopySha, DesignFrame, EmptyState, Field, PageHead, Panel, PillButton, Skeleton, useFeedbackTransition } from "../design-system/ui.tsx";
+import { Icon } from "../design-system/icons.tsx";
 import designStyles from "../design-system/ui.module.css";
 import { analysisStatusBadge, formatDateTime } from "./format.ts";
 import { elapsedAnalysisSeconds } from "./detail-data.ts";
@@ -13,6 +15,25 @@ import css from "./history.module.css";
 import deletionStyles from "./history-delete.module.css";
 
 const STATUS_OPTIONS = ["QUEUED", "RUNNING", "COMPLETED", "COMPLETED_WITH_LIMITATIONS", "FAILED"] as const;
+const COLUMN_LABELS = ["Repository", "Commit", "Bahasa", "Durasi", "Tanggal", "Status", "Aksi"] as const;
+
+/** Skeleton riwayat: grid kolom & tinggi baris sama dengan baris asli (kotak = tinggi baris teks/chip/tombol). */
+function HistorySkeleton({ rows = 4 }: { rows?: number }) {
+  return <div role="status" aria-label="Memuat riwayat">
+    <div className={css.columns} aria-hidden="true">{COLUMN_LABELS.map(label => <span key={label}>{label}</span>)}</div>
+    <ul className={css.list} aria-hidden="true">{Array.from({ length: rows }, (_, index) => <li key={index} className={`${css.row} ${css.skeletonRow}`}>
+      <div className={css.repo}><Skeleton width="min(240px, 80%)" height={20} /><Skeleton width={120} height={20} /></div>
+      <div className={css.commit}><Skeleton width={132} height={32} /></div>
+      <span className={css.meta}>
+        <span className={css.languages}><Skeleton width={72} height={22} /></span>
+        <span className={css.duration}><Skeleton width={56} height={22} /></span>
+        <span className={css.date}><Skeleton width={110} height={22} /></span>
+      </span>
+      <span className={css.status}><Skeleton width={96} height={24} style={{ borderRadius: 999 }} /></span>
+      <div className={css.actions}><Skeleton width={64} height={36} /><Skeleton width={64} height={36} /></div>
+    </li>)}</ul>
+  </div>;
+}
 
 export function HistoryClient({ accountKey }: { accountKey: string }) {
   const [items, setItems] = useState<HistoryItem[] | null>(null);
@@ -25,6 +46,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
   const [deletionActions, setDeletionActions] = useState<Record<string, HistoryDeletionAction>>({});
   const [confirming, setConfirming] = useState<{ item: HistoryItem; accountKey: string } | null>(null);
   const deleteDialog = useRef<HTMLDialogElement>(null);
+  const collapse = useFeedbackTransition(0.25);
 
   /** Target state dan mesin data dibuat sekali: setState dari useState stabil, dan pola
    * ini menghindari akses ref saat render (react-hooks/refs). */
@@ -100,12 +122,14 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
     const badge = analysisStatusBadge(item.status);
     // Durasi hanya dari data yang ada (diantrekan → selesai); analisis aktif/tanpa waktu selesai → "—".
     const durationSeconds = elapsedAnalysisSeconds({ queuedAt: item.queuedAt, completedAt: item.completedAt }, item.status, Number.NaN);
-    return <li className={css.row} key={item.id} style={{ "--i": Math.min(index, 10) } as CSSProperties}>
+    // Baris yang terhapus menyusut keluar (tinggi & padding → 0) sehingga baris di bawahnya naik tanpa lompatan.
+    return <motion.li className={css.row} key={item.id} style={{ "--i": Math.min(index, 10) } as CSSProperties}
+      exit={{ height: 0, opacity: 0, paddingTop: 0, paddingBottom: 0, borderTopWidth: 0 }} transition={collapse}>
       <div className={css.repo}>
         <span className={css.repoName} title={item.repository.fullName}>{item.repository.fullName}</span>
-        <span className={css.branch}><MaskIcon group="repository" name="imgBranch" size={13} /><span className={designStyles.srOnly}>Branch </span><span>{item.branch || "—"}</span></span>
+        <span className={css.branch}><Icon name="gitBranch" /><span className={designStyles.srOnly}>Branch </span><span>{item.branch || "—"}</span></span>
       </div>
-      <div className={css.commit}><span className={css.chip}><AssetIcon group="progress-v2" name="imgCommit" /><CopySha sha={item.commitSha} label={item.commitSha.slice(0, 7)} /></span></div>
+      <div className={css.commit}><span className={css.chip}><Icon name="gitCommit" /><CopySha sha={item.commitSha} label={item.commitSha.slice(0, 7)} /></span></div>
       <span className={css.meta}>
         {item.languages?.length
           ? <span className={css.languages}>{item.languages.join(", ")}</span>
@@ -115,7 +139,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
       </span>
       <span className={css.status}><Badge tone={badge.tone} pulse={item.status === "RUNNING"}>{badge.label}</Badge></span>
       <div className={`${deletionStyles.rowActions} ${css.actions}`}>
-        {!item.deletion ? <Link className={css.open} href={`/analyses/${item.id}`}>Buka<AssetIcon group="repository" name="imgChevronRight" className={css.chevron} /></Link> : null}
+        {!item.deletion ? <Link className={css.open} href={`/analyses/${item.id}`}>Buka<Icon name="chevronRight" className={css.chevron} /></Link> : null}
         {deletionControls.pending ? <span className={deletionStyles.pending} role="status">
           <span className={deletionStyles.spinner} aria-hidden="true" />
           {action?.message ?? (deletionStatus === "RUNNING" ? "Penghapusan sedang berjalan" : "Penghapusan sedang menunggu")}
@@ -131,7 +155,7 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
           onClick={() => setConfirming({ item, accountKey })}
         >{deletionControls.failed ? "Coba hapus lagi" : "Hapus"}</button>
       </div>
-    </li>;
+    </motion.li>;
   };
   return <DesignFrame active="history">
     <PageHead
@@ -141,29 +165,30 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
       aside={<Button href="/workspace/repositories" size="lg">Analisis baru</Button>}
     />
     <div className={css.toolbar}>
-      <Field className={css.search} label="Cari repository, branch, atau SHA" hideLabel type="search" icon={<MaskIcon group="repository" name="imgSearch" size={18} />} value={query} onChange={event => setQuery(event.target.value)} placeholder="Cari repository, branch, atau SHA" />
+      <Field className={css.search} label="Cari repository, branch, atau SHA" hideLabel type="search" icon={<Icon name="search" />} value={query} onChange={event => setQuery(event.target.value)} placeholder="Cari repository, branch, atau SHA" />
       <div className={css.filters} role="group" aria-label="Filter status">
         <PillButton pressed={status === ""} onClick={() => setStatus("")}>Semua</PillButton>
         {STATUS_OPTIONS.map(option => <PillButton key={option} pressed={status === option} onClick={() => setStatus(option)}>{analysisStatusBadge(option).label}</PillButton>)}
       </div>
       {filtersActive ? <Button variant="link" onClick={clearFilters}>Hapus filter</Button> : null}
     </div>
+    {/* Catatan di atas kartu: tinggi daftar berubah saat data tiba, jadi tidak ada elemen terlihat di bawahnya yang bergeser (CLS). */}
+    <p className={css.footnote}>Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaruan otomatis.</p>
     <Panel className={css.card}>
-      {!visibleLoaded ? <div className={css.state}><SkeletonRows rows={4} label="Memuat riwayat" /></div> : null}
-      {visibleError ? <div className={css.state}><EmptyState tone="error" role="alert" icon={{ group: "repository", name: "imgRepo" }} title="Riwayat gagal dimuat" action={<Button variant="secondary" onClick={() => setReloadKey(key => key + 1)}>Coba lagi</Button>}>Periksa koneksi lalu muat ulang halaman.</EmptyState></div> : null}
+      {!visibleLoaded ? <HistorySkeleton /> : null}
+      {visibleError ? <div className={css.state}><EmptyState tone="error" role="alert" icon="repo" title="Riwayat gagal dimuat" action={<Button variant="secondary" onClick={() => setReloadKey(key => key + 1)}>Coba lagi</Button>}>Periksa koneksi lalu muat ulang halaman.</EmptyState></div> : null}
       {visibleLoaded && !visibleError && visibleItems?.length === 0 && !filtersActive ? <div className={css.state}>
-        <EmptyState icon={{ group: "repository", name: "imgRepo" }} title="Belum ada riwayat analisis" action={<Button href="/workspace/repositories" variant="secondary">Pilih repository</Button>}>Pilih repository untuk memulai analisis pertama.</EmptyState>
+        <EmptyState icon="repo" title="Belum ada riwayat analisis" action={<Button href="/workspace/repositories" variant="secondary">Pilih repository</Button>}>Pilih repository untuk memulai analisis pertama.</EmptyState>
       </div> : null}
       {visibleLoaded && !visibleError && visibleItems?.length === 0 && filtersActive ? <div className={css.state}>
-        <EmptyState icon={{ group: "repository", name: "imgSearch" }} title={<>Tidak ada hasil untuk {trimmed ? `“${trimmed}”` : "filter ini"}</>} action={<Button variant="link" onClick={clearFilters}>Hapus filter</Button>}>Pencarian memeriksa repository, branch, dan SHA.</EmptyState>
+        <EmptyState icon="search" title={<>Tidak ada hasil untuk {trimmed ? `“${trimmed}”` : "filter ini"}</>} action={<Button variant="link" onClick={clearFilters}>Hapus filter</Button>}>Pencarian memeriksa repository, branch, dan SHA.</EmptyState>
       </div> : null}
       {visibleLoaded && visibleItems && visibleItems.length > 0 ? <>
-        <div className={css.columns} aria-hidden="true"><span>Repository</span><span>Commit</span><span>Bahasa</span><span>Durasi</span><span>Tanggal</span><span>Status</span><span>Aksi</span></div>
-        <ul className={css.list} aria-label="Daftar riwayat analisis">{visibleItems.map(renderRow)}</ul>
+        <div className={css.columns} aria-hidden="true">{COLUMN_LABELS.map(label => <span key={label}>{label}</span>)}</div>
+        <ul className={css.list} aria-label="Daftar riwayat analisis"><AnimatePresence initial={false}>{visibleItems.map(renderRow)}</AnimatePresence></ul>
         {load ? <div className={css.loadMore}><Button variant="link" onClick={() => load()}>Muat lebih banyak</Button></div> : null}
       </> : null}
     </Panel>
-    <p className={css.footnote}>Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaruan otomatis.</p>
     <dialog
       ref={deleteDialog}
       className={deletionStyles.dialog}
@@ -172,7 +197,6 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
       onCancel={event => { event.preventDefault(); setConfirming(null); }}
     >
       {activeConfirmation ? <div className={deletionStyles.dialogContent}>
-        <p className={deletionStyles.dialogEyebrow}>HAPUS ANALISIS</p>
         <h2 id="history-delete-title">Hapus {activeConfirmation.item.repository.fullName}?</h2>
         <p id="history-delete-description">
           Arsip analisis, graph, dokumentasi, serta ekspor PDF dan Markdown akan dihapus secara permanen. Analisis turunan tetap ada, tetapi tautan ke analisis induk ini mungkin terhapus. Tindakan ini tidak dapat dibatalkan.

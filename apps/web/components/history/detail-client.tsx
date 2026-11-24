@@ -204,10 +204,10 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
   const breadcrumb = [{ label: "Workspace", href: "/workspace" }, { label: "Riwayat", href: "/workspace/history" }, { label: "Progres" }];
   if (reason === "not-found") return <DesignFrame active="history">
     <PageHead breadcrumb={breadcrumb} title="Analisis tidak tersedia" />
-    <EmptyState tone="error" role="alert" icon={{ group: "repository", name: "imgRepo" }} title="Analisis tidak ditemukan" action={<Button href="/workspace/history" variant="secondary">Kembali ke riwayat</Button>}>Record ini bukan milik akun yang masuk, atau sudah dihapus.</EmptyState>
+    <EmptyState tone="error" role="alert" icon="repo" title="Analisis tidak ditemukan" action={<Button href="/workspace/history" variant="secondary">Kembali ke riwayat</Button>}>Record ini bukan milik akun yang masuk, atau sudah dihapus.</EmptyState>
   </DesignFrame>;
   if (!detail) return <DesignFrame active="history">
-    <EmptyState role="status" icon={{ group: "repository", name: "imgRepo" }} title="Memuat detail analisis">Tunggu sesaat.</EmptyState>
+    <EmptyState role="status" icon="repo" title="Memuat detail analisis">Tunggu sesaat.</EmptyState>
   </DesignFrame>;
 
   const total = detail.stages.length;
@@ -272,7 +272,6 @@ export function AnalysisDetailClient({ analysisId, accountKey, initial, reason }
       <aside className={progressStyles.side} aria-label="Ringkasan analisis">
         <Panel>
           <div className={progressStyles.summary}>
-            <p className={progressStyles.label}>Ringkasan</p>
             <div className={progressStyles.elapsedCard} data-active={active} role="timer" aria-label={`${active ? "Waktu berjalan" : "Durasi analisis"}: ${duration}`}>
               <span className={progressStyles.activityMark} aria-hidden="true" />
               <span className={progressStyles.elapsedCopy}>

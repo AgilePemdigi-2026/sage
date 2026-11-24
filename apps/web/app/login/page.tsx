@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { authRequiredMessage, parseGitHubAuthConfig, safeAuthErrorMessage } from "../../lib/auth/config.ts";
-import { AssetIcon, Button, DesignFrame, Panel } from "../../components/design-system/ui.tsx";
+import { Button, DesignFrame, Panel } from "../../components/design-system/ui.tsx";
+import { Icon } from "../../components/design-system/icons.tsx";
 
 export const metadata: Metadata = {
   title: "Masuk",
@@ -24,8 +25,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
     <DesignFrame>
       <div className="mx-auto flex min-h-[calc(100dvh-170px)] w-full max-w-[560px] flex-col justify-center py-6 sm:py-12">
         <Panel>
-          <p className="text-label uppercase text-teal-700">Akses workspace</p>
-          <h1 className="mt-3 text-h1 text-ink">Masuk dengan GitHub</h1>
+          <h1 className="text-h1 text-ink">Masuk dengan GitHub</h1>
           <p className="mt-3 text-body text-muted">
             SAGE memakai GitHub App untuk menghubungkan akunmu. Token disimpan dan digunakan hanya di server.
             Sesi lokal berakhir paling lambat dalam delapan jam; setelah itu, masuk lagi untuk mengotorisasi ulang.
@@ -35,7 +35,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           {message ? <p role="alert" className="mt-6 rounded-control bg-warning-fill px-4 py-3 text-body-sm font-semibold text-warning">{message}</p> : null}
           <form className="mt-7" action="/auth/github" method="post">
             <Button type="submit" variant="github" size="lg" block disabled={!ready}>
-              <AssetIcon group="landing" name="imgGithub" />Masuk dengan GitHub
+              <Icon name="github" />Masuk dengan GitHub
             </Button>
             <p className="mt-3 text-body-sm text-ink">
               Sebelum masuk, baca <Link className="underline underline-offset-4" href="/policies#ketentuan">ketentuan layanan</Link> dan <Link className="underline underline-offset-4" href="/policies#privasi">kebijakan privasi</Link>.

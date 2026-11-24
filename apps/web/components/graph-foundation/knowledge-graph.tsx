@@ -4,6 +4,7 @@ import cytoscape from "cytoscape";
 import type { Core, ElementDefinition, StylesheetJson } from "cytoscape";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { GraphViewModel } from "./graph-projection";
+import { Icon } from "../design-system/icons.tsx";
 import styles from "./graph-foundation.module.css";
 
 /** Warna graph diambil dari token @theme (apps/web/app/globals.css) saat kanvas dibuat; nilai cadangan = token yang sama.
@@ -14,7 +15,7 @@ function themeTokens() {
   return {
     ink: read("--color-ink", "#061e42"),
     muted: read("--color-muted", "#4a5b73"),
-    subtle: read("--color-subtle", "#66788f"),
+    subtle: read("--color-subtle", "#5f6f85"),
     surface: read("--color-surface", "#ffffff"),
     subtleBg: read("--color-subtle-bg", "#eef3f7"),
     teal50: read("--color-teal-50", "#e6faf6"),
@@ -268,9 +269,9 @@ export function GraphCanvas({ graph, selectedId, onSelect, collapsed = false }: 
       <div ref={hostRef} role="region" aria-label="Kanvas knowledge graph" aria-describedby="graph-canvas-help" className={styles.canvas} hidden={collapsed} />
       <div className={styles.canvasToolbar} aria-label="Kontrol kanvas">
         <div className={styles.canvasActions}>
-          <button type="button" className={styles.zoomButton} onClick={() => scaleBy(1.2)} aria-label="Perbesar" title="Perbesar" disabled={!graph.nodes.length}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></button>
-          <button type="button" className={styles.zoomButton} onClick={() => scaleBy(1 / 1.2)} aria-label="Perkecil" title="Perkecil" disabled={!graph.nodes.length}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 8h10" /></svg></button>
-          <button type="button" className={styles.zoomButton} onClick={fitGraph} aria-label="Sesuaikan tampilan" title="Sesuaikan tampilan" disabled={!graph.nodes.length}><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" /></svg></button>
+          <button type="button" className={styles.zoomButton} onClick={() => scaleBy(1.2)} aria-label="Perbesar" title="Perbesar" disabled={!graph.nodes.length}><Icon name="plus" /></button>
+          <button type="button" className={styles.zoomButton} onClick={() => scaleBy(1 / 1.2)} aria-label="Perkecil" title="Perkecil" disabled={!graph.nodes.length}><Icon name="minus" /></button>
+          <button type="button" className={styles.zoomButton} onClick={fitGraph} aria-label="Sesuaikan tampilan" title="Sesuaikan tampilan" disabled={!graph.nodes.length}><Icon name="fit" /></button>
         </div>
         <output className={styles.zoomOutput} aria-live="polite" aria-label="Tingkat zoom">{displayedZoom}%</output>
       </div>

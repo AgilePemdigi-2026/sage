@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { motion } from "motion/react";
 import { applyAddReviewOverlay, emptyAddReviewOverlay, type AddReviewOverlay } from "@sage/documents/add-overlay";
 import { isAddBaselineModel, type AddBaselineModel, type AddElement, type AddRelationship } from "@sage/documents/baseline-add-model";
 import { createAddMarkdown } from "@sage/documents/baseline-markdown";
@@ -10,7 +11,9 @@ import { addViewFigureNumber, addViewNarratives } from "@sage/documents/baseline
 import { coreRelationshipLabel, projectCoreBaselineView } from "@sage/documents/baseline-core-views";
 import { PHASE_C_ADD, PHASE_C_ADD_TOC, logicalSchemaRows, baselineCatalogMappings, phaseCAddContents, includedAddSections, addAnalyzerCoverageNotes, sourceBackedApplicationPortfolio } from "@sage/documents/phase-c-add";
 import { AnalysisNavigation } from "../analysis-navigation/analysis-navigation.tsx";
-import { AssetIcon, Badge, Button, EmptyState, Field, MaskIcon, OverflowX, SkeletonRows, useVisibleSection } from "../design-system/ui.tsx";
+import { Badge, Button, EmptyState, Field, OverflowX, Skeleton, SkeletonRows, Spinner, Toast, useFeedbackTransition, useVisibleSection } from "../design-system/ui.tsx";
+import designStyles from "../design-system/ui.module.css";
+import { Icon } from "../design-system/icons.tsx";
 import { AnalysisPageHead } from "../analysis-navigation/analysis-page-head.tsx";
 import type { AnalysisHeadData } from "../../lib/analyses/analysis-head.ts";
 import styles from "./add-workspace.module.css";
@@ -32,8 +35,8 @@ const documentTitle = PHASE_C_ADD.document.title.toLowerCase().replace(/\b\w/gu,
 /** Ringkasan isi dokumen dari struktur PHASE_C_ADD_TOC (bukan angka karangan). */
 const ADD_PARTS = (() => {
   const groups = [
-    { id: PHASE_C_ADD.dataArchitecture.id, title: "Data Architecture", icon: "imgFeatureData" },
-    { id: PHASE_C_ADD.applicationArchitecture.id, title: "Application Architecture", icon: "imgFeatureApplication" },
+    { id: PHASE_C_ADD.dataArchitecture.id, title: "Data Architecture", icon: "database" as const },
+    { id: PHASE_C_ADD.applicationArchitecture.id, title: "Application Architecture", icon: "layers" as const },
   ];
   return groups.map(group => {
     const start = PHASE_C_ADD_TOC.findIndex(item => item.id === group.id);
@@ -42,6 +45,24 @@ const ADD_PARTS = (() => {
     return { ...group, count: sections.length, summary: sections.slice(0, 3).join(", ") };
   });
 })();
+
+/** Skeleton tata letak dokumen (daftar isi · isi · panel ekspor) dengan tinggi kotak yang sama dengan bagian aslinya. */
+function DocumentSkeleton() {
+  return <div className={doc.layout} role="status" aria-label="Memuat ADD">
+    <span className={designStyles.srOnly}>Memuat baseline Phase C…</span>
+    <div className={`${doc.toc} ${doc.tocSkeleton}`} aria-hidden="true">
+      <Skeleton width={110} height={24} />
+      {Array.from({ length: 9 }, (_, index) => <Skeleton key={index} width={index % 3 === 0 ? "55%" : "80%"} height={index % 3 === 0 ? 16 : 20} />)}
+    </div>
+    <div className={doc.content} aria-hidden="true">
+      <Skeleton className={doc.tocMobileSkeleton} height={50} />
+      <div className={doc.headerSkeleton}><Skeleton width="70%" height={36} /><Skeleton width="90%" height={26} /><Skeleton height={112} /></div>
+      <div className={doc.metrics}>{Array.from({ length: 4 }, (_, index) => <Skeleton key={index} height={89} />)}</div>
+      <Skeleton height={360} />
+    </div>
+    <div className={doc.rail} aria-hidden="true"><Skeleton height={300} /></div>
+  </div>;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -89,7 +110,7 @@ function PrintRelationshipRegister({ model }: { model: AddBaselineModel }) {
   return <section className={styles.printRelationshipRegister} aria-labelledby="complete-relationship-register-title">
     <h3 id="complete-relationship-register-title">Core Relationship Register</h3>
     <p>Only the source-supported relationships shown in the stakeholder views are listed here. Lower-level endpoint and function links remain available in their catalogs.</p>
-    <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><RelationshipTable model={model} relationships={relationships} showAllEvidence /></OverflowX>
+    <OverflowX className={styles.tableScroll} label="Core Relationship Register; geser untuk melihat kolom lain"><RelationshipTable model={model} relationships={relationships} showAllEvidence /></OverflowX>
   </section>;
 }
 
@@ -302,7 +323,7 @@ function ViewDiagram({ model, view }: { model: AddBaselineModel; view: "dataStru
     <p className={styles.figureInterpretation}>{hasDiagram ? "Gambar " + addViewFigureNumber(model, view, 1) + " memperlihatkan bahwa " : ""}{narratives.interpretation}</p>
     <details className={styles.relationshipDetails}>
       <summary>{relationships.length} core relationships and source evidence</summary>
-      <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><RelationshipTable model={model} relationships={relationships} /></OverflowX>
+      <OverflowX className={styles.tableScroll} label={typeLabel + " — relationships; geser untuk melihat kolom lain"}><RelationshipTable model={model} relationships={relationships} /></OverflowX>
     </details>
   </div>;
 }
@@ -322,7 +343,7 @@ function DataCatalog({ model }: { model: AddBaselineModel }) {
   });
   const entries = allEntries.filter(({ element }) => `${element.name} ${element.description ?? ""} ${element.featureGroup ?? ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.businessDataModel.id} aria-labelledby="data-catalog-title">
-    <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>BASELINE</p><h2 id="data-catalog-title">{PHASE_C_ADD.sections.businessDataModel.title}</h2><p>Data entities and application access detected in source.</p></div><label className={styles.searchLabel}>Search data <input type="search" value={query} onChange={event => { setQuery(event.currentTarget.value); }} placeholder="Name or feature" /></label></div>
+    <div className={styles.sectionTitle}><div><h2 id="data-catalog-title">{PHASE_C_ADD.sections.businessDataModel.title}</h2><p>Data entities and application access detected in source.</p></div><label className={styles.searchLabel}>Search data <input type="search" value={query} onChange={event => { setQuery(event.currentTarget.value); }} placeholder="Name or feature" /></label></div>
     <h3 className={styles.documentSubheading}>Data Entity Catalog</h3>
     <OverflowX className={`${styles.tableScroll} ${styles.screenDataCatalog}`} label="Katalog data entity; geser untuk melihat kolom lain"><DataEntityTable model={model} entries={entries} /></OverflowX>
     <OverflowX className={`${styles.tableScroll} ${styles.printDataCatalog}`} label="Katalog data entity; geser untuk melihat kolom lain"><DataEntityTable model={model} entries={allEntries} /></OverflowX>
@@ -332,7 +353,7 @@ function DataCatalog({ model }: { model: AddBaselineModel }) {
 function ApplicationCatalog({ model }: { model: AddBaselineModel }) {
   const portfolio = sourceBackedApplicationPortfolio(model);
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.applicationCatalog.id} aria-labelledby="application-catalog-title">
-    <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>CATALOG</p><h2 id="application-catalog-title">{PHASE_C_ADD.sections.applicationCatalog.title}</h2><p>Current application components and interfaces found in the analyzed source snapshot.</p></div></div>
+    <div className={styles.sectionTitle}><div><h2 id="application-catalog-title">{PHASE_C_ADD.sections.applicationCatalog.title}</h2><p>Current application components and interfaces found in the analyzed source snapshot.</p></div></div>
     <div className={styles.portfolioGrid}>{portfolio.length ? portfolio.map(row => { const item = model.elements.find(element => element.id === row.elementId); return item ? <article className={styles.portfolioItem} key={item.id}><span>Baseline · {elementTypeLabel(item.type)}</span><h3>{item.name}</h3><p>{item.description ?? "Component in the analyzed repository."}</p><EvidenceList model={model} spans={item.evidence} /></article> : null; }) : <p className={styles.muted}>No application component was identified in this repository snapshot.</p>}</div>
   </section>;
 }
@@ -340,8 +361,8 @@ function ApplicationCatalog({ model }: { model: AddBaselineModel }) {
 function InterfaceCatalog({ model }: { model: AddBaselineModel }) {
   const mapping = baselineCatalogMappings(model);
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.interfaceCatalog.id} aria-labelledby="interface-catalog-title">
-    <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>CATALOG</p><h2 id="interface-catalog-title">{PHASE_C_ADD.sections.interfaceCatalog.title}</h2></div></div>
-    {model.catalogs.interfaces.length ? <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><table className={styles.interfaceTable}><TableColumns widths={[21, 10, 19, 15, 15, 20]} /><thead><tr><th>Interface</th><th>Protocol</th><th>Contract</th><th>Provider</th><th>Consumer</th><th>Evidence</th></tr></thead><tbody>{model.catalogs.interfaces.map(row => { const item = model.elements.find(element => element.id === row.elementId); return item ? <tr key={item.id}><th scope="row">{item.name}</th><td>{row.protocol ?? ""}</td><td>{row.contract}</td><td>{mapping("provider", item.id)}</td><td>{mapping("consumer", item.id)}</td><td><EvidenceList model={model} spans={item.evidence} /></td></tr> : null; })}</tbody></table></OverflowX> : <p className={styles.muted}>No interface was identified in this repository snapshot.</p>}
+    <div className={styles.sectionTitle}><div><h2 id="interface-catalog-title">{PHASE_C_ADD.sections.interfaceCatalog.title}</h2></div></div>
+    {model.catalogs.interfaces.length ? <OverflowX className={styles.tableScroll} label="Interface catalog; geser untuk melihat kolom lain"><table className={styles.interfaceTable}><TableColumns widths={[21, 10, 19, 15, 15, 20]} /><thead><tr><th>Interface</th><th>Protocol</th><th>Contract</th><th>Provider</th><th>Consumer</th><th>Evidence</th></tr></thead><tbody>{model.catalogs.interfaces.map(row => { const item = model.elements.find(element => element.id === row.elementId); return item ? <tr key={item.id}><th scope="row">{item.name}</th><td>{row.protocol ?? ""}</td><td>{row.contract}</td><td>{mapping("provider", item.id)}</td><td>{mapping("consumer", item.id)}</td><td><EvidenceList model={model} spans={item.evidence} /></td></tr> : null; })}</tbody></table></OverflowX> : <p className={styles.muted}>No interface was identified in this repository snapshot.</p>}
   </section>;
 }
 
@@ -349,8 +370,8 @@ function FunctionalCatalog({ model }: { model: AddBaselineModel }) {
   const mapping = baselineCatalogMappings(model);
   const entries = model.elements.filter(element => element.type === "ApplicationFunction" || element.type === "ApplicationService");
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.logicalApplicationComponents.id} aria-labelledby="functional-decomposition-title">
-    <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>CATALOG</p><h2 id="functional-decomposition-title">{PHASE_C_ADD.sections.logicalApplicationComponents.title}</h2><p>Functions and services recognized in source. Each item remains linked to evidence and relationship confidence.</p></div></div>
-    <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><table className={styles.functionalTable}><TableColumns widths={[18, 18, 18, 24, 22]} /><thead><tr><th>Application</th><th>Feature group</th><th>Function or service</th><th>Description</th><th>Evidence</th></tr></thead><tbody>
+    <div className={styles.sectionTitle}><div><h2 id="functional-decomposition-title">{PHASE_C_ADD.sections.logicalApplicationComponents.title}</h2><p>Functions and services recognized in source. Each item remains linked to evidence and relationship confidence.</p></div></div>
+    <OverflowX className={styles.tableScroll} label="Functional decomposition; geser untuk melihat kolom lain"><table className={styles.functionalTable}><TableColumns widths={[18, 18, 18, 24, 22]} /><thead><tr><th>Application</th><th>Feature group</th><th>Function or service</th><th>Description</th><th>Evidence</th></tr></thead><tbody>
       {entries.map(item => <tr key={item.id}><td>{mapping("application", item.id)}</td><td>{item.featureGroup}</td><th scope="row">{item.name}</th><td>{item.description ?? "No additional description was extracted."}</td><td><EvidenceList model={model} spans={item.evidence} /></td></tr>)}
       {!entries.length ? <tr><td colSpan={5} className={styles.emptyCell}>No application functions or modules were recognized in this snapshot.</td></tr> : null}
     </tbody></table></OverflowX>
@@ -363,8 +384,8 @@ function CrudMatrix({ model }: { model: AddBaselineModel }) {
   const cell = (value: "yes" | "no" | "unknown") => value === "yes" ? "✓" : "";
   const rows = model.matrices.applicationData.filter(row => row.evidence.length > 0 && [row.create, row.read, row.update, row.delete].includes("yes"));
   return <section className={styles.sectionCard} id={PHASE_C_ADD.sections.dataCrudMatrix.id} aria-labelledby="crud-matrix-title">
-    <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>MATRIX</p><h2 id="crud-matrix-title">{PHASE_C_ADD.sections.dataCrudMatrix.title}</h2><p>C = Create, R = Read, U = Update, D = Delete. Marks indicate operations supported by source evidence.</p></div></div>
-    <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><table className={styles.crudTable}><TableColumns widths={[20, 19, 8, 8, 8, 8, 29]} /><thead><tr><th>Application component</th><th>Data entity</th><th>C</th><th>R</th><th>U</th><th>D</th><th>Evidence</th></tr></thead><tbody>{rows.map((row, index) => <tr key={`${row.applicationId}:${row.dataId}:${index}`}><th scope="row">{appById.get(row.applicationId) ?? "Unknown application"}</th><td>{dataById.get(row.dataId) ?? "Unknown data object"}</td><td>{cell(row.create)}</td><td>{cell(row.read)}</td><td>{cell(row.update)}</td><td>{cell(row.delete)}</td><td><EvidenceList model={model} spans={row.evidence} /></td></tr>)}</tbody></table></OverflowX>
+    <div className={styles.sectionTitle}><div><h2 id="crud-matrix-title">{PHASE_C_ADD.sections.dataCrudMatrix.title}</h2><p>C = Create, R = Read, U = Update, D = Delete. Marks indicate operations supported by source evidence.</p></div></div>
+    <OverflowX className={styles.tableScroll} label="Data CRUD matrix; geser untuk melihat kolom lain"><table className={styles.crudTable}><TableColumns widths={[20, 19, 8, 8, 8, 8, 29]} /><thead><tr><th>Application component</th><th>Data entity</th><th>C</th><th>R</th><th>U</th><th>D</th><th>Evidence</th></tr></thead><tbody>{rows.map((row, index) => <tr key={`${row.applicationId}:${row.dataId}:${index}`}><th scope="row">{appById.get(row.applicationId) ?? "Unknown application"}</th><td>{dataById.get(row.dataId) ?? "Unknown data object"}</td><td>{cell(row.create)}</td><td>{cell(row.read)}</td><td>{cell(row.update)}</td><td>{cell(row.delete)}</td><td><EvidenceList model={model} spans={row.evidence} /></td></tr>)}</tbody></table></OverflowX>
     {!rows.length ? <p className={styles.muted}>No application–data operation has enough source evidence for this matrix yet.</p> : null}
   </section>;
 }
@@ -387,9 +408,19 @@ function ReviewEditor({ model, overlay, update, reset, markReviewed, save, savin
     return `${name} ${element.description ?? ""} ${elementTypeLabel(element.type)}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()) && (group === "all" || (assignedGroup ?? "unassigned") === group);
   });
   const pageSize = 12; const pages = Math.max(1, Math.ceil(filtered.length / pageSize)); const currentPage = Math.min(page, pages - 1);
+  const badgeTransition = useFeedbackTransition(0.18);
+  const progressTransition = useFeedbackTransition(0.3);
+  const reviewedCount = reviewable.filter(element => (overlay.elements[element.id]?.review ?? element.review) === "confirmed" || (overlay.elements[element.id]?.review ?? element.review) === "rejected").length;
+  const reviewedShare = reviewable.length ? (reviewedCount / reviewable.length) * 100 : 0;
   const visible = filtered.slice(currentPage * pageSize, currentPage * pageSize + pageSize);
   return <section className={styles.sectionCard + " " + styles.reviewPanel} id="review" aria-labelledby="review-title">
-    <div className={styles.sectionTitle}><div><p className={styles.eyebrow}>REVIEW</p><h2 id="review-title">Review and correct the baseline</h2><p>Corrections are stored as a versioned overlay. The analyzed source facts remain unchanged.</p></div><span className={styles.reviewStatusPill}><Badge tone={overlay.status === "reviewed" ? "success" : "warning"}>{overlay.status === "reviewed" ? "Reviewed" : "Draft"} · revision {overlay.revision}</Badge></span></div>
+    <div className={styles.sectionTitle}><div><h2 id="review-title">Review and correct the baseline</h2><p>Corrections are stored as a versioned overlay. The analyzed source facts remain unchanged.</p></div><span className={styles.reviewStatusPill}><Badge tone={overlay.status === "reviewed" ? "success" : "warning"}>{overlay.status === "reviewed" ? "Reviewed" : "Draft"} · revision {overlay.revision}</Badge></span></div>
+    <div className={styles.reviewProgress}>
+      <div className={styles.reviewProgressHead}><span>Progres review</span><span>{reviewedCount} / {reviewable.length} elemen</span></div>
+      <div className={styles.reviewProgressTrack} role="progressbar" aria-label="Progres review elemen" aria-valuemin={0} aria-valuemax={reviewable.length} aria-valuenow={reviewedCount}>
+        <motion.span initial={false} animate={{ width: `${reviewedShare}%` }} transition={{ ...progressTransition, delay: progressTransition.duration ? 0.12 : 0 }} />
+      </div>
+    </div>
     <div className={styles.reviewToolbar}><label>Search elements <input type="search" disabled={saving} value={query} onChange={event => { setQuery(event.currentTarget.value); setPage(0); }} placeholder="Name or description" /></label><label>Feature group <select disabled={saving} value={group} onChange={event => { setGroup(event.currentTarget.value); setPage(0); }}><option value="all">All groups</option><option value="unassigned">Unassigned</option>{featureGroups.map(item => <option key={item} value={item}>{item}</option>)}</select></label><span>{filtered.length} of {reviewable.length} elements</span></div>
     <div className={styles.reviewRows}>{visible.map(element => {
       const changes = overlay.elements[element.id] ?? {}; const name = changes.name ?? element.name; const selectedGroup = changes.featureGroup === undefined ? element.featureGroup ?? "unassigned" : changes.featureGroup ?? "unassigned";
@@ -401,12 +432,15 @@ function ReviewEditor({ model, overlay, update, reset, markReviewed, save, savin
       return <article key={element.id} className={styles.reviewRow}>
         <div className={styles.reviewHead}>
           <div className={styles.reviewIdentity}><span>{elementTypeLabel(element.type)}</span><strong>{name}</strong><EvidenceList model={model} spans={element.evidence} /></div>
-          <Badge tone={reviewState === "confirmed" ? "success" : reviewState === "rejected" ? "error" : "neutral"}>{reviewState === "confirmed" ? "Dikonfirmasi" : reviewState === "rejected" ? "Ditolak" : "Belum direview"}</Badge>
+          {/* Badge status berganti dengan scale kecil (remount per status), sebelum progres review bertambah. */}
+          <motion.span key={reviewState ?? "unreviewed"} className={styles.reviewBadge} initial={{ scale: 0.85 }} animate={{ scale: 1 }} transition={badgeTransition}>
+            <Badge tone={reviewState === "confirmed" ? "success" : reviewState === "rejected" ? "error" : "neutral"}>{reviewState === "confirmed" ? "Dikonfirmasi" : reviewState === "rejected" ? "Ditolak" : "Belum direview"}</Badge>
+          </motion.span>
         </div>
         <div className={styles.reviewEdit}>
           <div className={styles.reviewFields}>
             <Field className={styles.reviewField} label="Display name" disabled={saving} value={name} maxLength={180} onChange={event => update(element.id, { name: event.currentTarget.value })} />
-            <Field className={styles.reviewField} id={groupId} label="Feature group" disabled={saving} trailing={<AssetIcon group="header" name="imgIconChevronDown" />}>
+            <Field className={styles.reviewField} id={groupId} label="Feature group" disabled={saving} trailing={<Icon name="chevronDown" />}>
               <select id={groupId} disabled={saving} value={selectedGroup} onChange={event => update(element.id, { featureGroup: event.currentTarget.value === "unassigned" ? null : event.currentTarget.value })}><option value="unassigned">Unassigned</option>{featureGroups.map(item => <option key={item} value={item}>{item}</option>)}</select>
             </Field>
           </div>
@@ -419,7 +453,7 @@ function ReviewEditor({ model, overlay, update, reset, markReviewed, save, savin
       </article>;
     })}</div>
     <div className={styles.pagination}><button type="button" className={styles.secondaryButton} disabled={saving || currentPage === 0} onClick={() => setPage(currentPage - 1)}>Previous</button><span>Page {currentPage + 1} of {pages}</span><button type="button" className={styles.secondaryButton} disabled={saving || currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}>Next</button></div>
-    <div className={styles.reviewFooter}><div><button className={styles.secondaryButton} disabled={saving} type="button" onClick={() => markReviewed(overlay.status === "reviewed" ? "draft" : "reviewed")}>{overlay.status === "reviewed" ? "Reopen as draft" : "Mark document reviewed"}</button><p>Review status records your sign-off; it does not claim that source evidence changed.</p></div><button className={styles.primaryButton} type="button" disabled={saving} onClick={save}>{saving ? "Saving review…" : "Save review"}</button></div>
+    <div className={styles.reviewFooter}><div><button className={styles.secondaryButton} disabled={saving} type="button" onClick={() => markReviewed(overlay.status === "reviewed" ? "draft" : "reviewed")}>{overlay.status === "reviewed" ? "Reopen as draft" : "Mark document reviewed"}</button><p>Review status records your sign-off; it does not claim that source evidence changed.</p></div><button className={styles.primaryButton} type="button" disabled={saving} aria-busy={saving || undefined} onClick={save}>{saving ? <><Spinner />Saving review…</> : "Save review"}</button></div>
     {saveMessage ? <p className={styles.successMessage} role="status">{saveMessage}</p> : null}{saveError ? <p className={styles.errorMessage} role="alert">{saveError}</p> : null}
   </section>;
 }
@@ -427,6 +461,8 @@ function ReviewEditor({ model, overlay, update, reset, markReviewed, save, savin
 function ExportPanel({ model, modelHash, overlay, analysisId, accountKey }: { model: AddBaselineModel; modelHash: string; overlay: AddReviewOverlay; analysisId: string; accountKey: string }) {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [pdfError, setPdfError] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const closeToast = useCallback(() => setToast(null), []);
   const downloadPdf = async () => {
     setPdfBusy(true);
     setPdfError("");
@@ -444,6 +480,7 @@ function ExportPanel({ model, modelHash, overlay, analysisId, accountKey }: { mo
       anchor.download = `sage-add-${repositoryName}.pdf`;
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+      setToast("File siap diunduh: PDF");
     } catch (error) {
       setPdfError(error instanceof Error ? error.message : "PDF belum dapat diunduh.");
     } finally {
@@ -456,14 +493,16 @@ function ExportPanel({ model, modelHash, overlay, analysisId, accountKey }: { mo
     const href = URL.createObjectURL(blob); const anchor = document.createElement("a");
     anchor.href = href; anchor.download = repositoryName + "-architecture-definition-document.md"; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+    setToast("File siap diunduh: Markdown");
   };
   const downloadLatex = () => {
     const blob = new Blob([createAddLatex(model, overlay, (span, fileOnly) => githubEvidence(model.snapshot.repository, model.snapshot.commitSha, span, fileOnly), { modelHash, generatedAt: new Date().toISOString() })], { type: "application/x-tex;charset=utf-8" });
     const href = URL.createObjectURL(blob); const anchor = document.createElement("a");
     anchor.href = href; anchor.download = repositoryName + "-architecture-definition-document.tex"; anchor.click();
     window.setTimeout(() => URL.revokeObjectURL(href), 1000);
+    setToast("File siap diunduh: LaTeX");
   };
-  return <section className={`${styles.sectionCard} ${styles.exportPanel}`} id="export" aria-labelledby="export-title"><div><p className={styles.eyebrow}>EXPORT</p><h2 id="export-title">Export Architecture Definition Document (ADD)</h2><p>Markdown and LaTeX use the same Phase C baseline, repository snapshot, review overlay, catalogs, matrices, and evidence links. PDF is compiled from the LaTeX template using the saved baseline and review.</p></div><div className={styles.exportActions}><button className={styles.primaryButton} type="button" onClick={downloadMarkdown}>Download Markdown</button><button className={styles.secondaryButton} type="button" onClick={downloadLatex}>Download LaTeX</button><button className={styles.primaryButton} type="button" disabled={pdfBusy} onClick={() => void downloadPdf()}>{pdfBusy ? "Membuat PDF…" : "Download PDF"}</button></div>{pdfError ? <p role="alert">{pdfError}</p> : null}</section>;
+  return <section className={`${styles.sectionCard} ${styles.exportPanel}`} id="export" aria-labelledby="export-title"><div><h2 id="export-title">Export Architecture Definition Document (ADD)</h2><p>Markdown and LaTeX use the same Phase C baseline, repository snapshot, review overlay, catalogs, matrices, and evidence links. PDF is compiled from the LaTeX template using the saved baseline and review.</p></div><div className={styles.exportActions}><button className={styles.primaryButton} type="button" onClick={downloadMarkdown}>Download Markdown</button><button className={styles.secondaryButton} type="button" onClick={downloadLatex}>Download LaTeX</button><button className={styles.primaryButton} type="button" disabled={pdfBusy} aria-busy={pdfBusy || undefined} onClick={() => void downloadPdf()}>{pdfBusy ? <><Spinner />Membuat PDF…</> : "Download PDF"}</button></div>{pdfError ? <p role="alert">{pdfError}</p> : null}<Toast message={toast} onClose={closeToast} /></section>;
 }
 
 export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: string; accountKey: string; context?: AddPageContext }) {
@@ -598,9 +637,10 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
   const documentHeader = activeModel ? <header className={styles.pageHeader} id={PHASE_C_ADD.document.id}>
     {context ? <h2>{documentTitle}</h2> : <h1>{documentTitle}</h1>}
     <p>Architecture Definition Document (ADD) · Baseline Data Architecture and Application Architecture generated from one repository snapshot.</p>
-    <dl className={styles.snapshotDetails}><div><dt>Repository</dt><dd>{activeModel.snapshot.repository}</dd></div><div><dt>Source commit</dt><dd><code>{activeModel.snapshot.commitSha}</code></dd></div><div><dt>Branch</dt><dd>{activeModel.snapshot.branch ?? "Not recorded"}</dd></div><div><dt>ArchiMate profile</dt><dd>{activeModel.archimateVersion}</dd></div></dl>
+    <dl className={styles.snapshotDetails}><div><dt>Repository</dt><dd><code>{activeModel.snapshot.repository}</code></dd></div><div><dt>Source commit</dt><dd><code>{activeModel.snapshot.commitSha}</code></dd></div><div><dt>Branch</dt><dd>{activeModel.snapshot.branch ? <code>{activeModel.snapshot.branch}</code> : "Not recorded"}</dd></div><div><dt>ArchiMate profile</dt><dd>{activeModel.archimateVersion}</dd></div></dl>
   </header> : null;
-  return <main className={styles.page}>
+  // <div>, bukan <main>: DesignFrame sudah menyediakan satu landmark <main> per halaman.
+  return <div className={styles.page}>
     {context ? <AnalysisPageHead head={context} tab="Architecture Definition Document" /> : null}
     {!context ? documentHeader : null}
     <AnalysisNavigation analysisId={analysisId} active="document" resultsAvailable={context ? context.resultsAvailable : true} />
@@ -610,26 +650,24 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
     </div> : null}
 
     <div key={pageState} className={states.stateBlock}>
-      {pageState === "loading" ? <section className={states.card} aria-label="Memuat ADD"><SkeletonRows rows={3} label="Memuat baseline Phase C…" /></section> : null}
+      {pageState === "loading" ? <DocumentSkeleton /> : null}
 
       {pageState === "error" && notReady ? <section className={states.card} aria-labelledby="add-not-ready-title">
-        <p className={states.label}>Architecture Definition Document</p>
         <h2 id="add-not-ready-title" className={states.heading}>{analysisActive ? "Analisis belum selesai" : "Hasil analisis belum siap untuk ADD"}</h2>
-        <EmptyState role="status" icon={{ group: "landing", name: "imgFeatureData" }} action={<Button href={analysisHref} variant="secondary" arrow>Buka progres analisis</Button>}>{error}</EmptyState>
+        <EmptyState role="status" icon="fileText" action={<Button href={analysisHref} variant="secondary" arrow>Buka progres analisis</Button>}>{error}</EmptyState>
       </section> : null}
 
       {pageState === "error" && !notReady ? <section className={states.card}>
-        <EmptyState tone="error" role="alert" icon={{ group: "landing", name: "imgFeatureData" }} title="ADD belum dapat dimuat" action={<Button variant="secondary" onClick={() => void load()}>Coba lagi</Button>}>{errorCode ? <><code>{errorCode}</code> — </> : null}{error}</EmptyState>
+        <EmptyState tone="error" role="alert" icon="fileText" title="ADD belum dapat dimuat" action={<Button variant="secondary" onClick={() => void load()}>Coba lagi</Button>}>{errorCode ? <><code>{errorCode}</code> — </> : null}{error}</EmptyState>
       </section> : null}
 
       {pageState === "not-generated" ? <div className={states.columns}>
         <section className={states.card} aria-labelledby="generate-add-title">
-          <p className={states.labelTeal}>Buat dokumen</p>
           <h2 id="generate-add-title" className={states.heading}>Baseline Data and Application Architecture</h2>
           <p className={states.lead}>Dokumen disusun dari Code Knowledge Graph dan model semantik {shortSha ? <>commit <code>{shortSha}</code></> : "snapshot yang dianalisis"}. Dokumen memuat temuan yang didukung source.</p>
           <ul className={states.parts}>
             {ADD_PARTS.map(part => <li key={part.title} className={states.part}>
-              <span className={states.partIcon}><MaskIcon group="landing" name={part.icon} size={20} /></span>
+              <span className={states.partIcon}><Icon name={part.icon} /></span>
               <span className={states.partCopy}><strong>{part.title}</strong><span>{part.summary}</span></span>
             </li>)}
           </ul>
@@ -650,7 +688,7 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
         <section className={`${states.card} ${states.resultPanel}`} aria-labelledby="add-result-title">
           <h2 id="add-result-title" className={states.heading}>Hasil</h2>
           {generating ? <SkeletonRows rows={4} label="Menyusun baseline ADD…" /> : <div className={states.empty}>
-            <span className={states.emptyIcon}><MaskIcon group="landing" name="imgFeatureData" size={34} /></span>
+            <span className={states.emptyIcon}><Icon name="fileText" /></span>
             <strong>ADD belum dibuat</strong>
             <p>Pilih “Generate ADD baseline” untuk menyusun Data Architecture dan Application Architecture beserta diagram ArchiMate (Data Structure dan Application Cooperation) dari snapshot yang sama.</p>
             <Button href={`${analysisHref}/graph`} variant="ghost">Lihat Code Knowledge</Button>
@@ -671,7 +709,7 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
       <section className={styles.chapterGroup} id={PHASE_C_ADD.dataArchitecture.id} aria-labelledby="data-architecture-title">
         <h2 id="data-architecture-title">{PHASE_C_ADD.dataArchitecture.title}</h2>
         {included.has(PHASE_C_ADD.sections.dataBaseline.id) ? <section className={`${styles.baseline} ${styles.templateSection}`} id={PHASE_C_ADD.sections.dataBaseline.id} aria-labelledby="data-baseline-title">
-          <p className={styles.eyebrow}></p><h3 id="data-baseline-title">{PHASE_C_ADD.sections.dataBaseline.title}</h3><p>{activeModel.narratives.dataBaseline}</p>
+          <h3 id="data-baseline-title">{PHASE_C_ADD.sections.dataBaseline.title}</h3><p>{activeModel.narratives.dataBaseline}</p>
           <p>Only the baseline is included. Target architecture is outside this generated document.</p>
         </section> : null}
         {included.has(PHASE_C_ADD.sections.businessDataModel.id) ? <DataCatalog model={activeModel} /> : null}
@@ -687,7 +725,7 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
           </OverflowX>
         </section> : null}
         {included.has(PHASE_C_ADD.sections.logicalDataModel.id) ? <section className={`${styles.baseline} ${styles.templateSection}`} id={PHASE_C_ADD.sections.logicalDataModel.id} aria-labelledby="logical-data-model-title">
-          <div className={styles.baselineHeading}><div><p className={styles.eyebrow}></p><h3 id="logical-data-model-title">{PHASE_C_ADD.sections.logicalDataModel.title}</h3></div><span className={styles.archimateTag}>ArchiMate Data Structure</span></div>
+          <div className={styles.baselineHeading}><div><h3 id="logical-data-model-title">{PHASE_C_ADD.sections.logicalDataModel.title}</h3></div><span className={styles.archimateTag}>ArchiMate Data Structure</span></div>
           <p>View ini merangkum objek data dan relasi yang ditemukan di source. Atribut, primary key, foreign key, dan kardinalitas tidak ditampilkan di view ini.</p>
           <ViewDiagram model={activeModel} view="dataStructure" />
         </section> : null}
@@ -696,21 +734,21 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
       <section className={styles.chapterGroup} id={PHASE_C_ADD.applicationArchitecture.id} aria-labelledby="application-architecture-title">
         <h2 id="application-architecture-title">{PHASE_C_ADD.applicationArchitecture.title}</h2>
         {included.has(PHASE_C_ADD.sections.applicationDesign.id) ? <section className={`${styles.baseline} ${styles.templateSection}`} id={PHASE_C_ADD.sections.applicationDesign.id} aria-labelledby="application-design-title">
-          <div className={styles.baselineHeading}><div><p className={styles.eyebrow}></p><h3 id="application-design-title">{PHASE_C_ADD.sections.applicationDesign.title}</h3><p>{activeModel.narratives.applicationBaseline}</p></div><span className={styles.archimateTag}>ArchiMate Application Cooperation</span></div>
+          <div className={styles.baselineHeading}><div><h3 id="application-design-title">{PHASE_C_ADD.sections.applicationDesign.title}</h3><p>{activeModel.narratives.applicationBaseline}</p></div><span className={styles.archimateTag}>ArchiMate Application Cooperation</span></div>
           <ViewDiagram model={activeModel} view="applicationCooperation" />
         </section> : null}
         {included.has(PHASE_C_ADD.sections.applicationCatalog.id) ? <ApplicationCatalog model={activeModel} /> : null}
         {included.has(PHASE_C_ADD.sections.logicalApplicationComponents.id) ? <FunctionalCatalog model={activeModel} /> : null}
         {included.has(PHASE_C_ADD.sections.interfaceCatalog.id) ? <InterfaceCatalog model={activeModel} /> : null}
         {included.has(PHASE_C_ADD.sections.applicationInteractions.id) ? <section className={`${styles.sectionCard} ${styles.templateSection}`} id={PHASE_C_ADD.sections.applicationInteractions.id} aria-labelledby="application-interactions-title">
-          <p className={styles.eyebrow}></p><h3 id="application-interactions-title">{PHASE_C_ADD.sections.applicationInteractions.title}</h3>
-          {activeModel.matrices.applicationInteractions.length ? <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><table className={styles.interactionTable}><TableColumns widths={[22, 22, 26, 30]} /><thead><tr><th>Source application</th><th>Target application</th><th>Mechanism</th><th>Evidence</th></tr></thead><tbody>{activeModel.matrices.applicationInteractions.map((row, index) => <tr key={`${row.sourceApplicationId}:${row.targetApplicationId}:${index}`}><td>{activeModel.elements.find(item => item.id === row.sourceApplicationId)?.name ?? row.sourceApplicationId}</td><td>{activeModel.elements.find(item => item.id === row.targetApplicationId)?.name ?? row.targetApplicationId}</td><td>{row.mechanism}</td><td><EvidenceList model={activeModel} spans={row.evidence} /></td></tr>)}</tbody></table></OverflowX> : <p className={styles.muted}>No interaction between separately identified applications or communication mechanism was confirmed in this repository snapshot. Internal calls remain in the Application Cooperation view.</p>}
+          <h3 id="application-interactions-title">{PHASE_C_ADD.sections.applicationInteractions.title}</h3>
+          {activeModel.matrices.applicationInteractions.length ? <OverflowX className={styles.tableScroll} label="Application interactions; geser untuk melihat kolom lain"><table className={styles.interactionTable}><TableColumns widths={[22, 22, 26, 30]} /><thead><tr><th>Source application</th><th>Target application</th><th>Mechanism</th><th>Evidence</th></tr></thead><tbody>{activeModel.matrices.applicationInteractions.map((row, index) => <tr key={`${row.sourceApplicationId}:${row.targetApplicationId}:${index}`}><td>{activeModel.elements.find(item => item.id === row.sourceApplicationId)?.name ?? row.sourceApplicationId}</td><td>{activeModel.elements.find(item => item.id === row.targetApplicationId)?.name ?? row.targetApplicationId}</td><td>{row.mechanism}</td><td><EvidenceList model={activeModel} spans={row.evidence} /></td></tr>)}</tbody></table></OverflowX> : <p className={styles.muted}>No interaction between separately identified applications or communication mechanism was confirmed in this repository snapshot. Internal calls remain in the Application Cooperation view.</p>}
         </section> : null}
       </section>
       <PrintRelationshipRegister model={activeModel} />
       <section className={`${styles.sectionCard} ${styles.sourceNotes}`} id="source-notes" aria-labelledby="source-notes-title">
         <h2 id="source-notes-title">Source and analysis notes</h2>
-        <OverflowX className={styles.tableScroll} label="Tabel dokumen; geser untuk melihat kolom lain"><table><tbody>
+        <OverflowX className={styles.tableScroll} label="Source and analysis notes; geser untuk melihat kolom lain"><table><tbody>
           <tr><th scope="row">ADD model SHA-256</th><td><code>{visibleData!.modelHash}</code></td></tr>
           <tr><th scope="row">Source CKG SHA-256</th><td><code>{activeModel.sourceCkgHash}</code></td></tr>
           <tr><th scope="row">Analyzer version</th><td>{activeModel.generation.extractorVersion}</td></tr>
@@ -719,11 +757,11 @@ export function AddWorkspace({ analysisId, accountKey, context }: { analysisId: 
         {addAnalyzerCoverageNotes(activeModel).length ? <><h3 className={styles.documentSubheading}>Analysis coverage</h3><ul>{addAnalyzerCoverageNotes(activeModel).map(item => <li key={item}>{item}</li>)}</ul></> : null}
       </section>
       <details id="optional-corrections" data-print-hide><summary>Koreksi hasil (opsional)</summary><ReviewEditor model={activeModel} overlay={overlay} update={updateElement} reset={resetElement} markReviewed={status => setOverlay(current => ({ ...current, status }))} save={() => void saveReview()} saving={saving} saveMessage={saveMessage} saveError={saveError} /></details>
-      <p className={styles.footer}>Generated from source commit {activeModel.snapshot.commitSha}. Corrections remain in review overlay revision {overlay.revision}.</p>
+      <p className={styles.footer}>Generated from source commit <code>{activeModel.snapshot.commitSha}</code>. Corrections remain in review overlay revision {overlay.revision}.</p>
       </div>
       <aside className={doc.rail} aria-label="Panel bagian aktif dan ekspor" data-print-hide>
         <ExportPanel analysisId={analysisId} accountKey={accountKey} model={visibleData!.model} modelHash={visibleData!.modelHash} overlay={overlay} />
       </aside>
     </div> : null}
-  </main>;
+  </div>;
 }

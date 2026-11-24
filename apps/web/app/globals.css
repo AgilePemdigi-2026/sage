@@ -3,8 +3,10 @@
 /* SAGE redesign tokens — sumber: Figma "Redesign kit" (250:23), frame 01 (251:6), 02 (251:138), "00 Motion spec" (254:1578). */
 @theme static {
   /* Font */
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: var(--font-sans);
+  /* Keluarga font dari next/font/local (app/layout.tsx): Plus Jakarta Sans & JetBrains Mono + fallback ber-metrik. */
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   /* Brand */
   --color-teal-*: initial;
@@ -24,7 +26,7 @@
   --color-border: #dde5ec;
   --color-border-soft: #edf2f7;
   --color-muted: #4a5b73;
-  --color-subtle: #66788f;
+  --color-subtle: #5f6f85; /* ≥4.5:1 di atas surface, canvas, subtle-bg, dan teal-50 (hue sama dengan #66788F lama) */
 
   /* Status (teks / isi) */
   --color-success: #1b6b3a;
@@ -40,6 +42,9 @@
   --radius-control: 12px;
   --radius-card: 20px;
   --radius-pill: 999px;
+  /* Radius konsentris: elemen bersarang = radius luar − padding; bila hasilnya ≤ 4 px (mis. kartu 20 / padding 24)
+     dipakai minimum lembut 4 px. Kontrol interaktif (tombol, field) tetap radius-control. */
+  --radius-inset: 4px;
 
   /* Shadow */
   --shadow-soft: 0 2px 6px rgb(15 23 42 / 4%);
@@ -94,14 +99,24 @@
   --duration-slow: 300ms;
 }
 
-html { scroll-behavior: smooth; background: var(--color-surface); }
+/* Sudut conic-gradient garis berputar kapsul header (ui.module.css .header::before). */
+@property --sage-angle { syntax: "<angle>"; initial-value: 0deg; inherits: false; }
+
+html { scroll-behavior: smooth; }
 body {
   margin: 0;
   background: var(--color-canvas);
   color: var(--color-ink);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
+  /* Angka (durasi, timer, x/9, jumlah, tanggal) berlebar tetap agar tidak bergoyang saat berubah. */
+  font-variant-numeric: tabular-nums;
 }
+/* Path, SHA, dan kode selalu mono lewat token (bukan "monospace" bawaan browser). */
+:where(code, kbd, samp, pre) { font-family: var(--font-mono); }
+:where(h1, h2, h3, h4) { text-wrap: balance; }
+/* Token headline (h1, wordmark): saat ini sama dengan --font-sans; satu titik ubah bila keluarga headline dipisah. */
+:where(h1) { font-family: var(--font-display); }
 ::selection { background: var(--color-teal-100); color: var(--color-ink); }
 
 /* Hover yang bergerak (CLAUDE.md "Keputusan navigasi & landing"): 200 ms, dimatikan saat reduced-motion. */
@@ -140,54 +155,3 @@ body {
   [data-print-hide] { display: none !important; }
   body { background: #fff; }
 }
-
-.sage-policies {
-  max-inline-size: 72ch;
-  margin-inline: auto;
-  padding: clamp(1rem, 5vw, 3rem);
-  color: #172b45;
-  line-height: 1.65;
-}
-.sage-policies h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); font-weight: 800; text-wrap: balance; }
-.sage-policies h2 { font-size: 1.25rem; font-weight: 700; }
-.sage-policies p, .sage-policies nav, .sage-policies section { margin-block-start: 1rem; }
-.sage-policies a { color: #005f55; text-decoration: underline; text-underline-offset: .2em; }
-.sage-policies a:focus-visible { outline: 2px solid #005f55; outline-offset: 4px; }
-
-.sage-footer {
-  background: var(--color-canvas);
-  color: var(--color-muted);
-  font-size: .875rem;
-}
-.sage-footer-inner {
-  max-width: 1200px;
-  margin-inline: auto;
-  padding: 1.5rem 0 max(1.5rem, env(safe-area-inset-bottom));
-  border-top: 1px solid var(--color-border);
-}
-.sage-footer-brand {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: .5rem 1.5rem;
-}
-.sage-footer-brand a { font-size: 1.125rem; font-weight: 800; color: var(--color-ink); text-decoration: none; }
-.sage-footer-brand a span { color: var(--color-teal-500); }
-.sage-footer-links { display: flex; flex-wrap: wrap; gap: 0 1.25rem; margin-top: .75rem; }
-.sage-footer p { margin: .25rem 0 0; font-size: .8125rem; }
-@media (max-width: 1264px) {
-  .sage-footer-inner { margin-inline: 32px; }
-}
-@media (max-width: 600px) {
-  .sage-footer-inner { margin-inline: 16px; }
-}
-.sage-footer-links a {
-  display: inline-flex;
-  align-items: center;
-  min-block-size: 44px;
-  color: #005f55;
-  text-decoration: underline;
-  text-underline-offset: .2em;
-}
-.sage-footer a:focus-visible { outline: 2px solid #005f55; outline-offset: 3px; }

@@ -3,69 +3,183 @@
 .section { scroll-margin-top: 96px; }
 
 /* ── Hero ─────────────────────────────────────────────────────────── */
-.hero { display: grid; gap: 48px; align-items: center; padding: 64px 0 72px; }
-.copy { display: flex; flex-direction: column; align-items: flex-start; gap: 24px; min-width: 0; }
-.label { margin: 0; color: var(--color-teal-700); font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); text-transform: uppercase; }
-.title { margin: 0; color: var(--color-ink); font-size: var(--text-display); line-height: var(--text-display--line-height); font-weight: 800; letter-spacing: var(--text-display--letter-spacing); }
-.title > span { display: block; }
-.title > span + span { color: var(--color-teal-700); }
-.lead { max-width: 576px; margin: 0; color: var(--color-muted); font-size: 17px; line-height: 1.7; }
-.actions { display: flex; flex-wrap: wrap; gap: 12px; }
-.trust { display: flex; flex-wrap: wrap; gap: 10px 16px; margin: 0; padding: 0; list-style: none; }
+.hero { display: grid; justify-items: center; gap: 56px; padding: 72px 0 112px; }
+/* Angka di seluruh landing memakai lebar tetap (tabular-nums). */
+.copy, .block { font-variant-numeric: tabular-nums; }
+.copy { display: flex; flex-direction: column; align-items: center; gap: 24px; max-width: 880px; min-width: 0; text-align: center; }
+.title { margin: 0; color: var(--color-ink); font-family: var(--font-display); font-size: var(--text-display); line-height: var(--text-display--line-height); font-weight: 800; letter-spacing: var(--text-display--letter-spacing); text-wrap: balance; }
+/* teal-700 di atas canvas = 4.84:1 (teks besar; tetap lolos ambang 4.5 teks normal). */
+.titleAccent { color: var(--color-teal-700); }
+.lead { max-width: 640px; margin: 0; color: var(--color-muted); font-size: 17px; line-height: 1.7; text-wrap: pretty; }
+.actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; }
+.trust { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px 20px; margin: 0; padding: 0; list-style: none; }
 .trust li { display: inline-flex; align-items: center; gap: 8px; color: var(--color-muted); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
+/* Koreksi optik: ikon 20 px terhadap caption 13 px tampak turun; naikkan 0.5 px. */
+.trust svg { flex: 0 0 auto; color: var(--color-teal-700); transform: translateY(-0.5px); }
+.srOnly { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 
-/* ── Ilustrasi pratinjau ADD (HTML/CSS) ───────────────────────────── */
-.illustration { position: relative; width: 100%; max-width: 560px; margin: 0 auto; padding: 36px 0 32px; }
-.glow { position: absolute; left: 50%; top: 50%; width: min(420px, 90%); aspect-ratio: 1; border-radius: 50%; transform: translate(-50%, -50%); background: radial-gradient(circle, rgb(201 245 240 / 90%) 0%, rgb(242 247 247 / 0%) 70%); }
-.window { position: relative; overflow: hidden; width: 100%; max-width: 440px; margin: 0 auto; border: 1px solid var(--color-border-soft); border-radius: 16px; background: var(--color-surface); box-shadow: var(--shadow-pop); }
-.windowBar { display: flex; align-items: center; gap: 6px; padding: 12px 16px; }
-.dot { width: 9px; height: 9px; border-radius: 50%; }
-.dot:nth-child(1) { background: #f0a9a2; }
-.dot:nth-child(2) { background: #e5c27a; }
-.dot:nth-child(3) { background: #9ad3af; }
-.fileName { margin-left: auto; color: var(--color-subtle); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 500; }
-.windowBody { display: grid; gap: 12px; padding: 8px 20px 22px; }
-.windowBody .label { margin-bottom: 0; }
-.dataRow { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--color-border-soft); border-radius: 10px; }
-.dataIcon { display: inline-grid; place-items: center; flex: 0 0 26px; width: 26px; height: 26px; border-radius: 10px; background: var(--color-teal-50); }
-.dataName { flex: 1 1 auto; min-width: 0; color: var(--color-ink); font-size: 14px; line-height: 1.6; font-weight: 700; }
-.dataTable { color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
-.chip { position: absolute; z-index: 1; display: inline-flex; align-items: center; gap: 8px; padding: 10px 14px; border-radius: 12px; box-shadow: var(--shadow-pop); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 500; white-space: nowrap; }
-.chipEvidence { top: 0; right: 0; border: 1px solid var(--color-border-soft); color: var(--color-teal-700); background: var(--color-surface); }
-.chipSha { bottom: 0; left: 0; color: white; background: var(--color-ink); }
+/* ── Mockup produk (komponen nyata, data contoh statis) ──────────────
+   Stage radius 28 − padding 16 → kartu radius 12; isi kartu (padding 16) → inset radius 4 (minimum lembut, ≈ 12 − 16).
+   Tinggi stage tetap → tanpa CLS. */
+.stage {
+  --stage-pad: 16px;
+  position: relative; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.12fr) minmax(0, 1fr); gap: 16px;
+  width: 100%; max-width: 1200px; height: 420px; padding: var(--stage-pad);
+  border: 1px solid var(--color-border-soft); border-radius: 28px; background: var(--color-subtle-bg);
+  font-variant-numeric: tabular-nums;
+}
+/* Di luar viewport: hentikan animasi tak berujung (spinner/pulse tahap aktif); animasi masuk satu kali tidak disentuh. */
+.stage[data-paused] [data-status="active"] > span:first-child,
+.stage[data-paused] [data-status="active"] > span:first-child::before,
+.stage[data-paused] [data-status="active"] > span:first-child::after { animation-play-state: paused; }
+.mockCard {
+  display: flex; flex-direction: column; gap: 10px; min-width: 0; min-height: 0; overflow: hidden; padding: 16px;
+  border: 1px solid var(--color-border-soft); border-radius: calc(28px - var(--stage-pad)); background: var(--color-surface); box-shadow: var(--shadow-soft);
+  text-align: left;
+}
+.mockHead { display: flex; align-items: center; gap: 8px; color: var(--color-teal-700); }
+/* Koreksi optik: ikon garis 20 px tampak sedikit tinggi terhadap teks 14 px bold. */
+.mockHead svg { flex: 0 0 auto; transform: translateY(-0.5px); }
+.mockTitle { flex: 1 1 auto; min-width: 0; color: var(--color-ink); font-size: 14px; line-height: 1.4; font-weight: 700; }
+.mockCount { color: var(--color-muted); font-size: var(--text-caption); line-height: 1.4; font-weight: 600; }
+.mockMeta { margin: -4px 0 0; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; }
+
+/* Progres: PipelineStep kit dalam ukuran ringkas (indikator 18 px, tanpa garis penghubung). */
+.mockSteps { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.mockSteps > li { gap: 10px; padding: 2px 0; margin: 0 !important; }
+.mockSteps > li::after { display: none; }
+.mockSteps > li > span:first-child { flex-basis: 18px; width: 18px; height: 18px; }
+.mockSteps > li > span:first-child svg { width: 12px; height: 12px; }
+.mockSteps > li[data-status="active"] > span:first-child::after { width: 6px; height: 6px; }
+.mockSteps > li > span:nth-child(2) > span { font-size: 12.5px; line-height: 1.45; font-weight: 600; }
+
+/* Isi kartu ADD / Code Knowledge: skeleton (tanpa teks) ↔ isi, satu sel grid. */
+.mockBodyStack { display: grid; flex: 1 1 auto; min-height: 0; }
+.mockBodyStack > * { grid-area: 1 / 1; min-width: 0; }
+.mockBody { display: flex; flex-direction: column; gap: 10px; }
+.mockSkeleton { display: grid; align-content: start; gap: 10px; padding-top: 4px; opacity: 0; transition: opacity var(--duration-slow) var(--ease-out-soft); }
+.mockSkeleton[data-show] { opacity: 1; }
+.mockSkeleton span { display: block; height: 10px; border-radius: 4px; background: var(--color-subtle-bg); }
+.mockSkeleton span:nth-child(2) { height: 92px; }
+.mockSkeleton span:nth-child(3) { width: 70%; }
+.mockSkeleton span:nth-child(4) { width: 85%; }
+
+.mockSection { display: flex; gap: 8px; margin: 0; color: var(--color-ink); font-size: 13px; line-height: 1.4; font-weight: 700; }
+.mockNumber { color: var(--color-teal-700); }
+.mockInset { padding: 6px; border: 1px solid var(--color-border-soft); border-radius: 4px; background: var(--color-canvas); }
+.archimate { display: block; width: 100%; height: auto; max-height: 128px; }
+.archimateBox { fill: #e8f1fb; stroke: #1d5fa8; stroke-width: 1.25; }
+.archimateBand { stroke: #1d5fa8; stroke-width: 1.25; fill: none; }
+.archimateLink { fill: none; stroke: var(--color-ink); stroke-width: 1.5; }
+.archimateLabel { fill: var(--color-ink); font-family: var(--font-sans); font-size: 12px; font-weight: 600; }
+.mockRows { display: grid; gap: 4px; margin: 0; }
+.mockRows > div { display: flex; justify-content: space-between; gap: 12px; padding: 6px 8px; border-radius: 4px; background: var(--color-canvas); }
+.mockRows dt { color: var(--color-ink); font-size: 12.5px; line-height: 1.4; font-weight: 600; }
+.mockRows dd { margin: 0; overflow: hidden; color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+
+.mockNode { display: flex; align-items: center; gap: 10px; padding: 10px; border: 1px solid var(--color-border-soft); border-radius: 4px; color: var(--color-teal-700); }
+.mockNode > span { display: grid; gap: 1px; min-width: 0; }
+.mockNode strong { color: var(--color-ink); font-family: var(--font-mono); font-size: 13px; line-height: 1.4; }
+.mockKind { color: var(--color-muted); font-size: 12px; line-height: 1.4; font-weight: 600; }
+.mockRelations { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.mockRelations li { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; color: var(--color-muted); font-size: 12px; line-height: 1.4; }
+.mockRelations code { color: var(--color-ink); font-family: var(--font-mono); font-size: var(--text-mono-sm); }
+.mockEvidence {
+  display: flex; align-items: center; gap: 8px; margin: 0; padding: 8px 10px; border: 1px solid var(--color-border-soft); border-left-width: 3px; border-radius: 4px;
+  color: var(--color-teal-700); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 600; overflow-wrap: anywhere;
+}
+.mockEvidence svg { flex: 0 0 auto; }
+.mockCode { margin: 0; padding: 8px 0; overflow: hidden; border-radius: 4px; background: var(--color-ink); color: #dbe6f3; font-family: var(--font-mono); font-size: 11.5px; line-height: 1.6; }
+.mockCode code { display: grid; }
+.mockCode span { display: block; padding: 0 10px; white-space: pre; transition: background-color var(--duration-slow) var(--ease-out-soft); }
+.mockCode span[data-hit] { background: rgb(42 198 174 / 22%); }
+.mockCode i { display: inline-block; width: 22px; margin-right: 8px; color: #9fb0c6; font-style: normal; text-align: right; }
+
+/* < 1060 px: kartu bertumpuk dalam stage setinggi tetap; adegan terbaru masuk dengan geser horizontal (tanpa opacity,
+   agar teks tidak pernah setengah transparan). Stage memotong kartu yang sedang keluar/masuk. */
+@media (max-width: 1059px) {
+  .stage { display: block; height: 390px; max-width: 560px; overflow: hidden; }
+  .mockCard { position: absolute; inset: var(--stage-pad); transition: transform 400ms var(--ease-out-soft), visibility 400ms; }
+  .stage[data-scene="progress"] [data-card]:not([data-card="progress"]),
+  .stage[data-scene="add"] [data-card]:not([data-card="add"]),
+  .stage[data-scene="ck"] [data-card]:not([data-card="ck"]) { visibility: hidden; transform: translateX(calc(100% + 2 * var(--stage-pad))); }
+  /* Kartu sebelumnya keluar ke kiri, bukan ke kanan. */
+  .stage[data-scene="add"] [data-card="progress"],
+  .stage[data-scene="ck"] [data-card="progress"],
+  .stage[data-scene="ck"] [data-card="add"] { transform: translateX(calc(-100% - 2 * var(--stage-pad))); }
+}
+
+/* ── Bento fitur: kartu radius 20 / padding 24 → inset radius 4 (minimum lembut, ≈ 20 − 24). ── */
+.bento { display: grid; gap: 20px; font-variant-numeric: tabular-nums; }
+.bentoCard {
+  display: flex; flex-direction: column; gap: 12px; min-width: 0; padding: 24px;
+  border: 1px solid var(--color-border-soft); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-soft);
+}
+.bentoKicker { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-teal-700); font-size: var(--text-caption); line-height: 1.4; font-weight: 700; }
+.bentoKicker svg { flex: 0 0 auto; transform: translateY(-0.5px); }
+.bentoTitle { margin: 0; color: var(--color-ink); font-size: var(--text-h3); line-height: var(--text-h3--line-height); font-weight: 700; letter-spacing: var(--text-h3--letter-spacing); text-wrap: balance; }
+.bentoText { margin: 0; color: var(--color-muted); font-size: var(--text-body-sm); line-height: var(--text-body-sm--line-height); }
+.bentoLarge .bentoTitle { font-size: var(--text-h2); line-height: var(--text-h2--line-height); letter-spacing: var(--text-h2--letter-spacing); }
+
+.docSnippet { display: grid; gap: 10px; margin: 8px 0 0; padding: 16px; border: 1px solid var(--color-border-soft); border-radius: 4px; background: var(--color-canvas); }
+.docHeading { display: flex; gap: 8px; color: var(--color-ink); font-size: 14px; line-height: 1.4; font-weight: 700; }
+.docNumber { color: var(--color-teal-700); }
+.docTableWrap { min-width: 0; }
+.docTable { width: 100%; border-collapse: collapse; background: var(--color-surface); font-size: 13px; line-height: 1.4; }
+.docTable th, .docTable td { padding: 8px 10px; border: 1px solid var(--color-border-soft); text-align: left; }
+.docTable thead th { color: var(--color-muted); font-size: 12px; font-weight: 700; background: var(--color-subtle-bg); }
+.docTable thead th:not(:first-child) { text-align: center; }
+.docTable tbody th { color: var(--color-ink); font-weight: 600; white-space: nowrap; }
+.docTable td { color: var(--color-ink); font-family: var(--font-mono); font-weight: 600; text-align: center; }
+.docEvidence { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--color-teal-700); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; font-weight: 600; }
+
+.kindList { display: grid; gap: 6px; margin: auto 0 0; padding: 0; list-style: none; }
+.kindList li { display: flex; justify-content: space-between; gap: 12px; padding: 8px 12px; border-radius: 4px; background: var(--color-canvas); color: var(--color-ink); font-size: 13px; line-height: 1.4; font-weight: 600; }
+.kindCount { color: var(--color-teal-700); font-weight: 700; }
+.historyRow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; margin-top: auto; padding: 12px; border-radius: 4px; background: var(--color-canvas); }
+.historyRepo { min-width: 0; overflow: hidden; color: var(--color-ink); font-family: var(--font-mono); font-size: 13px; line-height: 1.4; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.historySha { color: var(--color-muted); font-family: var(--font-mono); font-size: var(--text-mono-sm); line-height: 1.4; }
+.historyFormats { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; color: var(--color-teal-700); font-size: 13px; line-height: 1.4; font-weight: 600; }
+
+.bentoLarge .docSnippet { flex: 1 1 auto; align-content: start; }
+.docTable tbody tr:nth-child(even) > * { background: rgb(242 247 248 / 60%); }
+@media (min-width: 900px) {
+  .bento { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: auto auto; }
+  .bentoLarge { grid-column: 1 / span 2; grid-row: 1 / span 2; }
+  .bentoLarge .docTable th, .bentoLarge .docTable td { padding: 11px 12px; }
+}
+/* Layar sempit: tabel dipadatkan agar muat tanpa scroll horizontal (tidak ada region scroll yang tak terjangkau keyboard). */
+@media (max-width: 560px) {
+  .bentoCard { padding: 20px; }
+  .docSnippet { padding: 12px; }
+  .docTable { table-layout: fixed; font-size: 12px; }
+  .docTable th, .docTable td { padding: 6px 4px; overflow-wrap: anywhere; }
+  .docTable thead th:first-child, .docTable tbody th { width: 38%; }
+  .docTable thead th { font-size: 11px; }
+}
 
 /* ── Section bersama ──────────────────────────────────────────────── */
-.block { display: grid; gap: 28px; padding: 24px 0 72px; }
+/* Spasi berjenjang: antar section 112 px > judul→isi 32 px > di dalam kepala section 8 px > antar kartu 20 px. */
+.block { display: grid; gap: 32px; padding: 0 0 112px; }
 .blockHead { display: grid; gap: 8px; max-width: 720px; }
-.blockTitle { margin: 0; color: var(--color-ink); font-size: var(--text-h2); line-height: var(--text-h2--line-height); font-weight: 700; letter-spacing: var(--text-h2--letter-spacing); }
+.blockTitle { margin: 0; color: var(--color-ink); font-size: var(--text-h2); line-height: var(--text-h2--line-height); font-weight: 700; letter-spacing: var(--text-h2--letter-spacing); text-wrap: balance; }
 .blockLead { margin: 0; color: var(--color-muted); font-size: var(--text-body); line-height: 1.7; }
-.grid3 { display: grid; gap: 20px; }
 .grid4 { display: grid; gap: 20px; margin: 0; padding: 0; list-style: none; }
 .grid4 > li { min-width: 0; }
 
 /* ── Footer ───────────────────────────────────────────────────────── */
-.footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 24px; margin-top: 8px; padding: 24px 0 8px; border-top: 1px solid var(--color-border); color: var(--color-subtle); font-size: var(--text-caption); line-height: 1.5; font-weight: 500; }
-.wordmark { color: var(--color-ink); font-size: 18px; line-height: 1.3; font-weight: 800; letter-spacing: -0.02em; text-decoration: none; }
-.wordmark span { color: var(--color-teal-500); }
 
 @media (min-width: 720px) {
-  .grid3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (min-width: 1060px) {
-  .hero { grid-template-columns: minmax(0, 1fr) 560px; gap: 64px; padding: 64px 0 88px; }
-  .illustration { height: 420px; padding: 0; }
-  .window { position: absolute; top: 60px; left: 60px; width: 440px; }
-  .chipEvidence { top: 20px; left: 310px; right: auto; }
-  .chipSha { top: 304px; left: 20px; bottom: auto; }
   .grid4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (max-width: 680px) {
-  .hero { gap: 40px; padding: 32px 0 48px; }
+  .hero { gap: 40px; padding: 40px 0 72px; }
   .title { font-size: 36px; }
   .lead { font-size: var(--text-body); }
   .actions { width: 100%; }
   .actions > * { flex: 1 1 auto; }
-  .block { padding: 8px 0 56px; }
-  .dataTable { display: none; }
+  .block { gap: 24px; padding: 0 0 72px; }
 }

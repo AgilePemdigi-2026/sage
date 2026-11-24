@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Icon } from "../design-system/icons.tsx";
 import type { CcmSnapshot, EvidenceSpan } from "@sage/contracts";
 import { explainCkgEdge } from "@sage/documents/semantic/explanations";
 import type {
@@ -353,7 +354,7 @@ export function NodeInspector({
       type="button"
       className={styles.inspectorSourceAction}
       data-testid={testId}
-      aria-label={`Buka bukti source ${label}, baris ${evidence.startLine} sampai ${evidence.endLine}`}
+      aria-label={`Buka source, baris ${evidence.startLine}–${evidence.endLine} (bukti ${label})`}
       onClick={(event) => openSource(evidence, file, label, event.currentTarget)}
     >Buka source, baris {evidence.startLine}–{evidence.endLine}</button>;
   }
@@ -385,7 +386,7 @@ export function NodeInspector({
       : setOutgoingVisible((count) => count + 6);
     return <section className={styles.inspectorRelationGroup} aria-labelledby={`node-inspector-${direction}-title`}>
       <h3 id={`node-inspector-${direction}-title`}>{title} <span>({relations.length})</span></h3>
-      {relations.length === 0 ? <p className={styles.inspectorEmpty}>Tidak ada relasi {incoming ? "masuk" : "keluar"} langsung.</p> : <ul className={styles.inspectorRelations} data-testid={`node-inspector-${direction}`}>
+      {relations.length === 0 ? <p className={styles.inspectorEmpty}>Tidak ada relasi {incoming ? "masuk" : "keluar"} langsung.</p> : <ul id={`node-inspector-${direction}`} className={styles.inspectorRelations} data-testid={`node-inspector-${direction}`}>
         {visibleRelations.map(({ edge, peer }, index) => <li key={`${edge.id}:${index}`} data-testid={`node-inspector-${direction}-edge`} data-edge-id={edge.id}>
           <p className={styles.inspectorRelationFlow}>
             <span>{incoming ? peer.name : node?.name}</span><span aria-hidden="true"> → </span><span>{incoming ? node?.name : peer.name}</span>
@@ -415,7 +416,7 @@ export function NodeInspector({
       <div className={styles.inspectorHeader}>
         <p className={styles.inspectorEyebrow}>Inspector · graph kanonik</p>
         <button type="button" data-testid="node-inspector-close" className={styles.inspectorClose} onClick={onClose} aria-label="Tutup inspektor node" title="Tutup">
-          <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+          <Icon name="close" />
         </button>
       </div>
       <div className={styles.inspectorIdentity}>
@@ -488,7 +489,7 @@ export function NodeInspector({
             <code>{sourceTarget.file.path}</code>
           </div>
           <button type="button" className={styles.inspectorClose} onClick={closeSource} aria-label="Tutup source evidence" title="Tutup">
-            <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            <Icon name="close" />
           </button>
         </div>
         <dl className={styles.sourceContext}>

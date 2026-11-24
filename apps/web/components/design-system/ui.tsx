@@ -2,38 +2,51 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type AnchorHTMLAttributes, type CSSProperties, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
-import assetManifest from "../../public/design/figma/manifest.json";
+import { AnimatePresence, LayoutGroup, MotionConfig, motion, useMotionValueEvent, useReducedMotion, useScroll, type Transition, type Variants } from "motion/react";
+import { Children, isValidElement, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, type AnchorHTMLAttributes, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
+import { Icon, type IconName } from "./icons.tsx";
 import { useHeaderAccount } from "./account-context.tsx";
+import { loginGatedHref } from "./login-gated.ts";
 import styles from "./ui.module.css";
-
-type AssetRecord = { src: string; width: string; height: string };
-const assets = assetManifest as Record<string, Record<string, AssetRecord>>;
 
 function cx(...names: Array<string | false | null | undefined>): string {
   return names.filter(Boolean).join(" ");
 }
 
+/* ── Motion umpan balik ───────────────────────────────────────────── */
+
+/** Transisi umpan balik singkat (Motion spec: 150–300 ms, ease-out-soft); durasi 0 saat prefers-reduced-motion. */
+export function useFeedbackTransition(duration = 0.2): Transition {
+  const reduced = useReducedMotion();
+  return reduced ? { duration: 0 } : { duration, ease: [0.2, 0.8, 0.2, 1] };
+}
+
 /* ── Header (RD/Header, frame 01) ─────────────────────────────────────── */
 
-export type NavKey = "home" | "repositories" | "history" | "none";
+export type NavKey = "home" | "repositories" | "history" | "docs" | "none";
 
 const navigation: ReadonlyArray<{ key: Exclude<NavKey, "none">; label: string; href: string }> = [
   { key: "home", label: "Beranda", href: "/" },
   { key: "repositories", label: "Repository", href: "/workspace/repositories" },
   { key: "history", label: "Riwayat", href: "/workspace/history" },
+  { key: "docs", label: "Dokumentasi", href: "/#dokumentasi" },
 ];
 
-export function SiteFooter() {
-  return <footer className="sage-footer" data-print-hide>
-    <div className="sage-footer-inner">
-      <div className="sage-footer-brand"><Link href="/" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link><span>Source-code Architecture Graph Extraction · AgilePemdigi 2026</span></div>
-      <nav aria-label="Kebijakan SAGE" className="sage-footer-links">
-        <Link href="/policies#cookie">Kebijakan cookie</Link><Link href="/policies#privasi">Privasi</Link><Link href="/policies#ketentuan">Ketentuan</Link><Link href="/policies#pengembalian-dana">Pengembalian dana</Link><Link href="/policies#penghapusan">Penghapusan data</Link>
-      </nav>
-      <p>SAGE menggunakan cookie yang diperlukan untuk login.</p>
-    </div>
-  </footer>;
+/** Di landing, pill aktif mengikuti section yang terlihat (#dokumentasi → Dokumentasi, selain itu Beranda). */
+function useLandingSection(enabled: boolean): NavKey {
+  const [section, setSection] = useState<NavKey>("home");
+  useEffect(() => {
+    if (!enabled) return;
+    const target = document.getElementById("dokumentasi");
+    if (!target || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setSection(entry?.isIntersecting ? "docs" : "home"),
+      { rootMargin: "-35% 0px -55% 0px" },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [enabled]);
+  return section;
 }
 
 function initials(account: { login: string; displayName: string | null }): string {
@@ -45,16 +58,86 @@ function initials(account: { login: string; displayName: string | null }): strin
 
 function AccountMenu({ login, displayName }: { login: string; displayName: string | null }) {
   return <details className={styles.account}>
-    <summary className={styles.accountPill} aria-label={`Akun @${login}`}>
-      <span className={styles.avatar} aria-hidden="true">{initials({ login, displayName })}</span>
+    <summary className={styles.accountPill} aria-label={`@${login} · menu akun`}>
+      {/* Inisial lewat ::before (bukan teks DOM) agar nama aksesibel "@login · menu akun" memuat seluruh teks yang terlihat. */}
+      <span className={styles.avatar} aria-hidden="true" data-initials={initials({ login, displayName })} />
       <span className={styles.accountName}>@{login}</span>
-      <AssetIcon group="header" name="imgIconChevronDown" className={styles.chevron} />
+      <Icon name="chevronDown" className={styles.chevron} />
     </summary>
     <div className={styles.accountMenu}>
       <Link href="/workspace">Workspace</Link>
       <form action="/auth/logout" method="post"><button type="submit">Keluar</button></form>
     </div>
   </details>;
+}
+
+/** Kapsul melayang aktif setelah scroll melewati ambang ini (px). */
+const FLOATING_THRESHOLD = 24;
+/** Pill nav: satu indikator yang bergeser antar item (layoutId). Reduced-motion → MotionConfig mematikan slide. */
+const PILL_SPRING = { type: "spring", stiffness: 400, damping: 35 } as const;
+
+/**
+ * Kapsul tanpa layout shift: kotak header tetap full-width; lapisan latar (headerSurface) berada permanen di geometri kapsul
+ * dan di posisi atas di-scale menutup full-width. --sx = lebar header / lebar kapsul, diukur saat ukuran berubah (bukan per frame).
+ */
+function useSurfaceScale() {
+  const header = useRef<HTMLElement>(null);
+  const surface = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    const headerElement = header.current;
+    const surfaceElement = surface.current;
+    if (!headerElement || !surfaceElement) return;
+    const measure = () => {
+      const capsule = surfaceElement.offsetWidth;
+      if (capsule > 0) headerElement.style.setProperty("--sx", String(headerElement.clientWidth / capsule));
+      headerElement.dataset.measured = "true";
+    };
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(headerElement);
+    return () => observer.disconnect();
+  }, []);
+  return { headerRef: header, surfaceRef: surface };
+}
+
+function useFloatingHeader(): boolean {
+  const { scrollY } = useScroll();
+  const [floating, setFloating] = useState(false);
+  useMotionValueEvent(scrollY, "change", value => setFloating(value > FLOATING_THRESHOLD));
+  // Halaman dibuka/dipulihkan di posisi tengah: sinkronkan sekali setelah hidrasi (SSR selalu bentuk diam).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sinkronisasi awal dengan posisi scroll browser.
+    setFloating(scrollY.get() > FLOATING_THRESHOLD);
+  }, [scrollY]);
+  return floating;
+}
+
+function NavPills({ current, signedIn }: { current: NavKey; signedIn: boolean }) {
+  const [hovered, setHovered] = useState<NavKey | null>(null);
+  // Tanpa hover/fokus, pill hover "beristirahat" di bawah item aktif sehingga hover berikutnya bergeser dari sana.
+  const hoverTarget = hovered ?? (current === "none" ? null : current);
+  return <LayoutGroup id="site-nav">
+    <nav className={styles.nav} aria-label="Navigasi utama" onMouseLeave={() => setHovered(null)}>
+      {navigation.map(item => {
+        const isActive = current === item.key;
+        return <Link
+          key={item.key}
+          href={loginGatedHref(item.href, signedIn)}
+          className={styles.navLink}
+          data-hovered={hovered === item.key && !isActive ? "true" : undefined}
+          aria-current={isActive ? (item.key === "docs" ? "location" : "page") : undefined}
+          onMouseEnter={() => setHovered(item.key)}
+          onFocus={() => setHovered(item.key)}
+          onBlur={() => setHovered(null)}
+        >
+          {hoverTarget === item.key ? <motion.span layoutId="nav-hover" className={styles.navHover} transition={PILL_SPRING} aria-hidden="true" /> : null}
+          {isActive ? <motion.span layoutId="nav-active" className={styles.navActive} transition={PILL_SPRING} aria-hidden="true" /> : null}
+          <span className={styles.navLabel}>{item.label}</span>
+        </Link>;
+      })}
+    </nav>
+  </LayoutGroup>;
 }
 
 export function DesignFrame({ children, active = "none" }: {
@@ -64,30 +147,132 @@ export function DesignFrame({ children, active = "none" }: {
   const pathname = usePathname();
   const onLanding = pathname === "/";
   const onLogin = pathname === "/login";
-  const current: NavKey = onLanding ? "home" : active;
+  const landingSection = useLandingSection(onLanding);
+  const current: NavKey = onLanding ? landingSection : active;
   const account = useHeaderAccount();
+  const floating = useFloatingHeader();
+  const { headerRef, surfaceRef } = useSurfaceScale();
 
   return <div className={styles.frame}>
     <a className={styles.skip} href="#main-content">Lewati navigasi</a>
-    <header className={styles.header} data-print-hide>
-      <Link className={styles.brand} href="/" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link>
-      <nav className={styles.nav} aria-label="Navigasi utama">
-        {navigation.map(item => <Link
-          key={item.key}
-          href={item.href}
-          className={styles.navPill}
-          aria-current={current === item.key ? "page" : undefined}
-        >{item.label}</Link>)}
-      </nav>
-      <div className={styles.headerEnd}>
-        {account
-          ? <AccountMenu login={account.login} displayName={account.displayName} />
-          : onLogin ? null : <Button href="/login" variant="primary" size="md">Masuk</Button>}
-      </div>
-    </header>
+    {/* Slot menyisakan tinggi header di dokumen (tanpa CLS); header sendiri fixed agar bisa berubah jadi kapsul. */}
+    <div className={styles.headerSlot} data-print-hide>
+      <MotionConfig reducedMotion="user">
+        <header ref={headerRef} className={styles.header} data-floating={floating ? "true" : undefined}>
+          <span ref={surfaceRef} className={styles.headerSurface} aria-hidden="true" />
+          <Link className={styles.brand} href="/" aria-label="SAGE, halaman utama">SAGE<span>.</span></Link>
+          <NavPills current={current} signedIn={Boolean(account)} />
+          <div className={styles.headerEnd}>
+            {account
+              ? <AccountMenu login={account.login} displayName={account.displayName} />
+              : onLogin ? null : <Button href="/login" variant="primary" size="md">Masuk</Button>}
+          </div>
+        </header>
+      </MotionConfig>
+    </div>
     <main className={styles.main} id="main-content" tabIndex={-1}>{children}</main>
-    <SiteFooter />
+    <SiteFooter signedIn={Boolean(account)} />
   </div>;
+}
+
+/* ── Logo orb (app/icon.svg) ──────────────────────────────────────── */
+
+export function BrandOrb({ size = 32 }: { size?: number }) {
+  return <svg className={styles.orb} width={size} height={size} viewBox="0 0 100 100" aria-hidden="true" focusable="false">
+    <circle cx="50" cy="50" r="48" fill="#061E42" />
+    <circle cx="50" cy="50" r="45" fill="none" stroke="#2AC6AE" strokeWidth="3" />
+    <circle cx="48" cy="54" r="22" fill="#2AC6AE" />
+    <path d="M36 50 A14 14 0 0 1 50 36 A18 18 0 0 0 40 52 Z" fill="#C9F6F0" />
+    <path d="M71 22 L76 29 L71 36 L66 29 Z" fill="#C9F6F0" />
+    <circle cx="79" cy="44" r="3" fill="#2AC6AE" />
+  </svg>;
+}
+
+/* ── Footer situs ─────────────────────────────────────────────────── */
+
+const REPOSITORY_URL = "https://github.com/AgilePemdigi-2026/sage";
+
+const footerColumns: ReadonlyArray<{ title: string; links: ReadonlyArray<{ label: string; href: string }> }> = [
+  { title: "Produk", links: navigation.map(item => ({ label: item.label, href: item.href })) },
+  { title: "Kebijakan", links: [
+    { label: "Privasi", href: "/policies#privasi" },
+    { label: "Ketentuan", href: "/policies#ketentuan" },
+    { label: "Cookie", href: "/policies#cookie" },
+    { label: "Penghapusan data", href: "/policies#penghapusan" },
+    { label: "Pengembalian dana", href: "/policies#pengembalian-dana" },
+  ] },
+  { title: "Proyek", links: [{ label: "Repositori GitHub", href: REPOSITORY_URL }] },
+];
+
+export function SiteFooter({ signedIn }: { signedIn: boolean }) {
+  return <footer className={styles.siteFooter} data-print-hide>
+    <div className={styles.siteFooterInner}>
+      <div className={styles.siteFooterBrand}>
+        <Link className={styles.siteFooterLogo} href="/" aria-label="SAGE, halaman utama"><BrandOrb /><span>SAGE<span>.</span></span></Link>
+        <p>Dokumentasi arsitektur dari source code, dengan setiap klaim tertaut ke file, baris, dan commit.</p>
+        <p className={styles.siteFooterCopy}>© 2026 AgilePemdigi</p>
+      </div>
+      <nav className={styles.siteFooterNav} aria-label="Navigasi footer">
+        {footerColumns.map(column => <div key={column.title} className={styles.siteFooterColumn}>
+          <h2>{column.title}</h2>
+          <ul>
+            {column.links.map(link => {
+              const external = /^https?:\/\//.test(link.href);
+              return <li key={link.href}>{external
+                ? <a href={link.href} target="_blank" rel="noopener noreferrer">{link.label}<span className={styles.srOnly}> (membuka tab baru)</span></a>
+                : <Link href={loginGatedHref(link.href, signedIn)}>{link.label}</Link>}</li>;
+            })}
+          </ul>
+        </div>)}
+      </nav>
+    </div>
+  </footer>;
+}
+
+/* ── Pemberitahuan cookie ─────────────────────────────────────────── */
+
+const COOKIE_NOTICE_KEY = "sage-cookie-notice";
+
+/**
+ * Kartu melayang kiri bawah. Tidak pernah dirender saat SSR: baru muncul setelah hidrasi jika belum ditutup,
+ * sehingga tidak ada kilatan di alur dokumen (mis. saat redirect). Status tutup disimpan di localStorage.
+ */
+export function CookieNotice() {
+  const [visible, setVisible] = useState(false);
+  useEffect(() => {
+    let dismissed = false;
+    try { dismissed = window.localStorage.getItem(COOKIE_NOTICE_KEY) === "dismissed"; } catch { /* storage diblokir: tetap tampil */ }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- sengaja setelah hidrasi; SSR selalu tanpa kartu.
+    if (!dismissed) setVisible(true);
+  }, []);
+  const ref = useRef<HTMLElement>(null);
+  // Selama kartu tampil, footer mendapat ruang bawah setinggi kartu + jarak tepinya + 16 px (lihat .siteFooter),
+  // sehingga baris terakhir footer tidak tertutup. Variabel dihapus saat kartu ditutup.
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!visible || !element) return;
+    const root = document.documentElement;
+    const measure = () => {
+      const fromBottom = window.innerHeight - element.getBoundingClientRect().bottom;
+      root.style.setProperty("--cookie-notice-space", `${Math.ceil(element.offsetHeight + Math.max(0, fromBottom) + 16)}px`);
+    };
+    measure();
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    observer?.observe(element);
+    return () => { observer?.disconnect(); root.style.removeProperty("--cookie-notice-space"); };
+  }, [visible]);
+  if (!visible) return null;
+  function dismiss() {
+    try { window.localStorage.setItem(COOKIE_NOTICE_KEY, "dismissed"); } catch { /* tetap tutup untuk sesi ini */ }
+    setVisible(false);
+  }
+  return <aside ref={ref} className={styles.cookieNotice} aria-label="Cookie dan kebijakan SAGE" data-print-hide data-cookie-notice>
+    <p>SAGE hanya memakai cookie untuk login.</p>
+    <div className={styles.cookieNoticeActions}>
+      <Link href="/policies#cookie">Kebijakan cookie</Link>
+      <Button size="sm" onClick={dismiss}>Mengerti</Button>
+    </div>
+  </aside>;
 }
 
 /* ── RD/Button ────────────────────────────────────────────────────────── */
@@ -95,7 +280,7 @@ export function DesignFrame({ children, active = "none" }: {
 type ButtonOwnProps = {
   /** `github` = latar ink + teks putih (tombol GitHub, CLAUDE.md). */
   variant?: "primary" | "secondary" | "ghost" | "github" | "link";
-  size?: "md" | "lg";
+  size?: "sm" | "md" | "lg";
   block?: boolean;
   /** Tambahkan panah yang bergeser 4px saat hover. */
   arrow?: boolean;
@@ -110,7 +295,7 @@ type ButtonAsLink = ButtonOwnProps & Omit<AnchorHTMLAttributes<HTMLAnchorElement
 export function Button(props: ButtonAsButton | ButtonAsLink) {
   const { variant = "primary", size = "md", block = false, arrow = false, loading = false, children, className, ...rest } = props;
   const classes = cx(
-    styles.button, styles[`button_${variant}`], size === "lg" && styles.button_lg, block && styles.button_block,
+    styles.button, styles[`button_${variant}`], size === "lg" && styles.button_lg, size === "sm" && styles.button_sm, block && styles.button_block,
     "hover-lift-button", arrow && "hover-arrow", className,
   );
   const content = <>{loading ? <Spinner /> : null}{children}{arrow && !loading ? <ArrowIcon /> : null}</>;
@@ -123,9 +308,7 @@ export function Button(props: ButtonAsButton | ButtonAsLink) {
 }
 
 export function ArrowIcon() {
-  return <svg data-arrow width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <path d="M3.333 8h9.334M8.667 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>;
+  return <Icon name="arrowRight" data-arrow="" />;
 }
 
 /* ── Pill & bagian terlihat ───────────────────────────────────────── */
@@ -293,18 +476,9 @@ export function Panel({ title, children, className, interactive = false }: {
 
 /* ── Feature card (frame 01, 251:112) ───────────────────────────────── */
 
-/** Ikon aset Figma yang bisa diwarnai ulang (mask + currentColor), mis. saat hover kartu. */
-export function MaskIcon({ group, name, size, className }: { group: string; name: string; size?: number; className?: string }) {
-  const record = assets[group]?.[name];
-  if (!record) return null;
-  const width = size ?? Number(record.width);
-  const height = size ?? Number(record.height);
-  const style = { width, height, "--icon": `url(${record.src})` } as CSSProperties;
-  return <span className={cx(styles.maskIcon, className)} style={style} aria-hidden="true" />;
-}
-
 export function FeatureCard({ icon, number, title, children, href, linkLabel, headingLevel = 3 }: {
-  icon: { group: string; name: string };
+  /** Node ikon dari set tunggal (<Icon> dari icons.tsx). */
+  icon: ReactNode;
   number?: string;
   title: ReactNode;
   children: ReactNode;
@@ -315,7 +489,7 @@ export function FeatureCard({ icon, number, title, children, href, linkLabel, he
 }) {
   const Heading = headingLevel === 2 ? "h2" : "h3";
   const body = <>
-    <span className={styles.featureIcon}><MaskIcon group={icon.group} name={icon.name} size={22} /></span>
+    <span className={styles.featureIcon}>{icon}</span>
     {number ? <span className={styles.featureNumber}>{number}</span> : null}
     <Heading className={styles.featureTitle}>{title}</Heading>
     <p className={styles.featureText}>{children}</p>
@@ -330,31 +504,47 @@ export function FeatureCard({ icon, number, title, children, href, linkLabel, he
   >{body}{external ? <span className={styles.srOnly}> (membuka tab baru)</span> : null}</a>;
 }
 
-/** Fade-up saat masuk viewport, stagger 60 ms per anak langsung. Konten tetap terlihat tanpa JS / reduced-motion. */
+const REVEAL_ITEM: Variants = {
+  hidden: { opacity: 0, y: 8 },
+  shown: { opacity: 1, y: 0, transition: { duration: 0.2, ease: [0.2, 0.8, 0.2, 1] } },
+};
+const REVEAL_GROUP: Variants = { hidden: {}, shown: { transition: { staggerChildren: 0.06 } } };
+
+/**
+ * Fade-up saat masuk viewport (Motion whileInView, sekali), stagger 60 ms per item. Setiap anak dibungkus satu item
+ * (<li> untuk as="ol"/"ul"). SSR dan tanpa JS: konten langsung terlihat; setelah hidrasi baru "dipersenjatai" bila grup
+ * berada di bawah layar dan pengguna tidak memilih reduced-motion (remount ber-key, tak terlihat karena di luar layar).
+ */
 export function Reveal({ children, className, as = "div" }: { children: ReactNode; className?: string; as?: "div" | "ol" | "ul" }) {
   const ref = useRef<HTMLElement>(null);
-  const [state, setState] = useState<"idle" | "hidden" | "shown">("idle");
+  const reduced = useReducedMotion();
+  const [armed, setArmed] = useState(false);
   useEffect(() => {
     const element = ref.current;
-    if (!element || typeof IntersectionObserver === "undefined") return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    if (element.getBoundingClientRect().top < window.innerHeight * 0.9) return;
-    setState("hidden");
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry?.isIntersecting) { setState("shown"); observer.disconnect(); }
-    }, { rootMargin: "0px 0px -10% 0px" });
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  const Tag = as as "div";
-  return <Tag ref={ref as React.RefObject<HTMLDivElement>} className={cx(styles.reveal, className)} data-reveal={state}>{children}</Tag>;
+    if (!element || reduced) return;
+    // Keputusan setelah hidrasi; SSR selalu tampil.
+    if (element.getBoundingClientRect().top > window.innerHeight * 0.9) setArmed(true);
+  }, [reduced]);
+  const Group = as === "ol" ? motion.ol : as === "ul" ? motion.ul : motion.div;
+  const Item = as === "div" ? motion.div : motion.li;
+  return <Group
+    key={armed ? "armed" : "static"}
+    ref={ref as React.RefObject<never>}
+    className={className}
+    variants={REVEAL_GROUP}
+    initial={armed ? "hidden" : false}
+    whileInView="shown"
+    viewport={{ once: true, margin: "0px 0px -10% 0px" }}
+  >
+    {Children.toArray(children).map((child, index) => <Item key={isValidElement(child) && child.key !== null ? child.key : index} variants={REVEAL_ITEM}>{child}</Item>)}
+  </Group>;
 }
 
 /* ── Page head (frame 02, 251:158) ────────────────────────────────── */
 
 export function PageHead({ breadcrumb, title, description, aside, titleId, backLink }: {
   breadcrumb?: ReadonlyArray<{ label: string; href?: string }>;
-  /** Di layar ≤480 px breadcrumb diringkas menjadi satu tautan kembali (mis. "← Riwayat"). */
+  /** Di layar ≤480 px breadcrumb diringkas menjadi satu tautan kembali (mis. "Riwayat" dengan panah kembali). */
   backLink?: { label: string; href: string };
   title: ReactNode;
   description?: ReactNode;
@@ -365,7 +555,7 @@ export function PageHead({ breadcrumb, title, description, aside, titleId, backL
   return <div className={styles.pageHead}>
     <div className={styles.pageHeadCopy}>
       {breadcrumb?.length ? <nav aria-label="Breadcrumb">
-        {backLink ? <Link className={styles.breadcrumbBack} href={backLink.href}><span aria-hidden="true">←</span> {backLink.label}</Link> : null}
+        {backLink ? <Link className={styles.breadcrumbBack} href={backLink.href}><Icon name="arrowLeft" />{backLink.label}</Link> : null}
         <ol className={cx(styles.breadcrumb, backLink && styles.breadcrumbFull)}>
         {breadcrumb.map((item, index) => <li key={item.label} aria-current={index === breadcrumb.length - 1 ? "page" : undefined}>
           {item.href && index < breadcrumb.length - 1 ? <Link href={item.href}>{item.label}</Link> : item.label}
@@ -390,19 +580,22 @@ export function Stepper({ steps, current, label = "Langkah" }: { steps: readonly
   </ol>;
 }
 
-/** Empty / info state gaya kit: border dashed, ikon dalam kotak, satu kalimat, maksimal satu aksi. */
-export function EmptyState({ icon, title, children, action, tone = "neutral", role }: {
-  icon?: { group: string; name: string };
+/** Empty / info state gaya kit: border dashed, ikon dalam kotak, satu kalimat, maksimal satu aksi.
+ *  `variant="page"`: versi satu halaman penuh (mis. 404) — tersentral, judul menjadi <h1>, boleh dua aksi. */
+export function EmptyState({ icon, title, children, action, tone = "neutral", role, variant = "inline" }: {
+  icon?: IconName;
   title?: ReactNode;
   children: ReactNode;
   action?: ReactNode;
   tone?: "neutral" | "error";
   role?: "status" | "alert";
+  variant?: "inline" | "page";
 }) {
-  return <div className={styles.emptyState} data-tone={tone} role={role}>
-    {icon ? <span className={styles.emptyIcon}><MaskIcon group={icon.group} name={icon.name} size={18} /></span> : null}
+  const page = variant === "page";
+  return <div className={cx(styles.emptyState, page && styles.emptyPage)} data-tone={tone} role={role}>
+    {icon ? <span className={styles.emptyIcon}><Icon name={icon} /></span> : null}
     <div className={styles.emptyCopy}>
-      {title ? <strong>{title}</strong> : null}
+      {title ? page ? <h1>{title}</h1> : <strong>{title}</strong> : null}
       <span>{children}</span>
     </div>
     {action ? <div className={styles.emptyAction}>{action}</div> : null}
@@ -417,6 +610,11 @@ export function SkeletonRows({ rows = 3, label, className }: { rows?: number; la
       <span className={styles.skeletonIcon} /><span className={styles.skeletonLines}><span /><span /></span>
     </div>)}
   </div>;
+}
+
+/** Blok skeleton (pulse 1.6 s; diam saat reduced-motion). Ukuran mengikuti kotak teks/kontrol asli agar tanpa CLS. */
+export function Skeleton({ width, height, className, style }: { width?: number | string; height: number | string; className?: string; style?: React.CSSProperties }) {
+  return <span className={cx(styles.skeletonBlock, className)} style={{ width, height, ...style }} aria-hidden="true" />;
 }
 
 export function Spinner() {
@@ -458,9 +656,11 @@ type FieldProps = Omit<InputHTMLAttributes<HTMLInputElement>, "children"> & {
   hideLabel?: boolean;
   /** Ganti <input> bawaan, misalnya dengan <select>. Kontrol harus memakai id yang sama. */
   children?: ReactNode;
+  /** Kontrol sedang memuat isi (mis. daftar branch): kotak berdenyut dengan ukuran yang sama, isi disembunyikan. */
+  loading?: boolean;
 };
 
-export function Field({ label, icon, trailing, hint, error, optional = false, mono = false, hideLabel = false, children, id, className, ...input }: FieldProps) {
+export function Field({ label, icon, trailing, hint, error, optional = false, mono = false, hideLabel = false, loading = false, children, id, className, ...input }: FieldProps) {
   const generatedId = useId();
   const controlId = id ?? generatedId;
   const hintId = hint ? `${controlId}-hint` : undefined;
@@ -468,7 +668,7 @@ export function Field({ label, icon, trailing, hint, error, optional = false, mo
   const describedBy = cx(input["aria-describedby"], hintId, errorId) || undefined;
   return <div className={cx(styles.field, className)}>
     <label className={hideLabel ? styles.srOnly : styles.fieldLabel} htmlFor={controlId}>{label}{optional ? <>{" "}<span className={styles.fieldOptional}>(opsional)</span></> : null}</label>
-    <div className={cx(styles.fieldControl, mono && styles.fieldMono)} data-invalid={error ? "true" : undefined} data-disabled={input.disabled ? "true" : undefined}>
+    <div className={cx(styles.fieldControl, mono && styles.fieldMono)} data-invalid={error ? "true" : undefined} data-disabled={input.disabled ? "true" : undefined} data-loading={loading ? "true" : undefined}>
       {icon ? <span className={styles.fieldIcon} aria-hidden="true">{icon}</span> : null}
       {children ?? <input id={controlId} {...input} aria-invalid={error ? true : input["aria-invalid"]} aria-describedby={describedBy} />}
       {trailing}
@@ -490,10 +690,11 @@ export function PipelineStep({ status, title, meta, aside, className, ...rest }:
   aside?: ReactNode;
   className?: string;
 } & Omit<React.LiHTMLAttributes<HTMLLIElement>, "title">) {
+  // Status awal (render server) disimpan: tahap yang sudah selesai sejak dimuat tidak beranimasi.
+  const [initialStatus] = useState(status);
   return <li className={cx(styles.step, className)} data-status={status} aria-current={status === "active" ? "step" : undefined} {...rest}>
-    {/* key per status: ikon di-remount saat status berubah sehingga crossfade + scale .8→1 berjalan. */}
-    <span key={status} className={styles.stepIndicator} aria-hidden="true">
-      {status === "done" ? <AssetIcon group="pipeline" name="imgIconCheck" /> : null}
+    <span className={styles.stepIndicator} aria-hidden="true">
+      {status === "done" ? <StepCheck animateIn={initialStatus !== "done"} /> : null}
     </span>
     <span className={styles.stepText}>
       <span className={styles.stepTitle}>{title}</span>
@@ -501,6 +702,14 @@ export function PipelineStep({ status, title, meta, aside, className, ...rest }:
     </span>
     {aside ? <span className={styles.stepAside}>{aside}</span> : null}
   </li>;
+}
+
+/** Centang tahap: muncul dengan scale hanya saat status berubah menjadi selesai (bukan saat halaman dimuat). */
+function StepCheck({ animateIn }: { animateIn: boolean }) {
+  const transition = useFeedbackTransition(0.22);
+  return <motion.span className={styles.stepCheck} initial={animateIn ? { scale: 0.4, opacity: 0 } : false} animate={{ scale: 1, opacity: 1 }} transition={transition}>
+    <Icon name="check" />
+  </motion.span>;
 }
 
 /* ── Progress bar ─────────────────────────────────────────────────── */
@@ -517,31 +726,50 @@ export function ProgressBar({ value, max, label, indeterminate = false }: { valu
 
 export function CopySha({ sha, label }: { sha: string; /** Teks tampilan (mis. SHA pendek); yang disalin tetap SHA penuh. */ label?: string }) {
   const [copied, setCopied] = useState(false);
+  const timer = useRef<number | null>(null);
+  const transition = useFeedbackTransition(0.15);
+  useEffect(() => () => { if (timer.current !== null) window.clearTimeout(timer.current); }, []);
   async function copy() {
     try {
       await navigator.clipboard.writeText(sha);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
+      if (timer.current !== null) window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setCopied(false), 1500);
     } catch {
       setCopied(false);
     }
   }
+  // Lebar tombol tetap (muat label terpanjang) sehingga pergantian label tidak menggeser SHA di sebelahnya.
   return <div className={styles.copySha}>
     <code title={label ? sha : undefined}>{label ?? sha}</code>
-    <button type="button" onClick={() => void copy()} aria-label="Salin SHA lengkap">{copied ? "Tersalin" : "Salin"}</button>
+    <button type="button" onClick={() => void copy()} aria-label={copied ? "SHA lengkap tersalin" : "Salin SHA lengkap"} data-copied={copied ? "true" : undefined}>
+      <AnimatePresence mode="popLayout" initial={false}>
+        <motion.span key={copied ? "copied" : "idle"} className={styles.copyLabel} initial={{ y: 6, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -6, opacity: 0 }} transition={transition}>
+          {copied ? <>Tersalin<Icon name="check" size={14} /></> : "Salin"}
+        </motion.span>
+      </AnimatePresence>
+    </button>
+    <span className={styles.srOnly} aria-live="polite">{copied ? "SHA lengkap tersalin ke clipboard." : ""}</span>
   </div>;
 }
 
-export function AssetIcon({ group, name, className }: { group: string; name: string; className?: string }) {
-  const record = assets[group]?.[name];
-  if (!record) return null;
-  // eslint-disable-next-line @next/next/no-img-element -- Local Figma SVGs keep their manifest dimensions.
-  return <img
-    className={className}
-    src={record.src}
-    width={Number(record.width)}
-    height={Number(record.height)}
-    alt=""
-    aria-hidden="true"
-  />;
+/* ── Toast ────────────────────────────────────────────────────────── */
+
+/** Toast kecil kanan bawah. Wilayah aria-live selalu ada di DOM agar pesan baru diumumkan; bisa ditutup, hilang sendiri 6 s. */
+export function Toast({ message, onClose }: { message: string | null; onClose: () => void }) {
+  const transition = useFeedbackTransition(0.2);
+  useEffect(() => {
+    if (!message) return;
+    const timer = window.setTimeout(onClose, 6000);
+    return () => window.clearTimeout(timer);
+  }, [message, onClose]);
+  return <div className={styles.toastRegion} aria-live="polite" role="status">
+    <AnimatePresence>
+      {message ? <motion.div key={message} className={styles.toast} initial={{ y: 12, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 12, opacity: 0 }} transition={transition}>
+        <Icon name="checkCircle" />
+        <span>{message}</span>
+        <button type="button" className={styles.toastClose} onClick={onClose} aria-label="Tutup notifikasi"><Icon name="close" /></button>
+      </motion.div> : null}
+    </AnimatePresence>
+  </div>;
 }

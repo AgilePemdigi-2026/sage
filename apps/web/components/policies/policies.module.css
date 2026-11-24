@@ -1,0 +1,31 @@
+/* /policies: daftar isi sticky kiri + konten baca ±720 px. Token dari app/globals.css. */
+.layout { display: grid; grid-template-columns: 220px minmax(0, 720px); justify-content: center; gap: 56px; padding: 24px 0 16px; }
+
+.toc { position: sticky; top: 104px; align-self: start; }
+.tocLabel {
+  margin: 0 0 12px; color: var(--color-subtle);
+  font-size: var(--text-label); line-height: var(--text-label--line-height); font-weight: 700; letter-spacing: var(--text-label--letter-spacing); text-transform: uppercase;
+}
+.toc ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+
+.content { min-width: 0; color: var(--color-muted); font-size: var(--text-body); line-height: var(--text-body--line-height); }
+.back { display: inline-flex; align-items: center; gap: 4px; color: var(--color-teal-700); font-size: var(--text-caption); line-height: 1.5; font-weight: 600; text-decoration: none; }
+.back:hover { text-decoration: underline; text-underline-offset: 3px; }
+.content h1 {
+  margin: 12px 0 0; color: var(--color-ink); text-wrap: balance;
+  font-size: var(--text-h1); line-height: var(--text-h1--line-height); font-weight: 800; letter-spacing: var(--text-h1--letter-spacing);
+}
+.content p { margin: 16px 0 0; }
+.intro { padding-bottom: 32px; border-bottom: 1px solid var(--color-border); }
+.content section { padding-top: 32px; scroll-margin-top: 96px; }
+.content h2 {
+  margin: 0; color: var(--color-ink);
+  font-size: var(--text-h2); line-height: var(--text-h2--line-height); font-weight: 700; letter-spacing: var(--text-h2--letter-spacing);
+}
+.content a:not(.back) { color: var(--color-teal-700); font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+
+@media (max-width: 900px) {
+  .layout { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 8px; }
+  .toc { position: static; padding: 16px; border: 1px solid var(--color-border-soft); border-radius: var(--radius-card); background: var(--color-surface); box-shadow: var(--shadow-soft); }
+}
+.back svg { margin-left: -4px; }
