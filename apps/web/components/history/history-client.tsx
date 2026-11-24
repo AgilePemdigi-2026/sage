@@ -172,6 +172,8 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
       </div>
       {filtersActive ? <Button variant="link" onClick={clearFilters}>Hapus filter</Button> : null}
     </div>
+    {/* Catatan di atas kartu: tinggi daftar berubah saat data tiba, jadi tidak ada elemen terlihat di bawahnya yang bergeser (CLS). */}
+    <p className={css.footnote}>Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaruan otomatis.</p>
     <Panel className={css.card}>
       {!visibleLoaded ? <HistorySkeleton /> : null}
       {visibleError ? <div className={css.state}><EmptyState tone="error" role="alert" icon="repo" title="Riwayat gagal dimuat" action={<Button variant="secondary" onClick={() => setReloadKey(key => key + 1)}>Coba lagi</Button>}>Periksa koneksi lalu muat ulang halaman.</EmptyState></div> : null}
@@ -187,7 +189,6 @@ export function HistoryClient({ accountKey }: { accountKey: string }) {
         {load ? <div className={css.loadMore}><Button variant="link" onClick={() => load()}>Muat lebih banyak</Button></div> : null}
       </> : null}
     </Panel>
-    <p className={css.footnote}>Status diperbarui saat halaman dimuat; halaman detail analisis melakukan pembaruan otomatis.</p>
     <dialog
       ref={deleteDialog}
       className={deletionStyles.dialog}
