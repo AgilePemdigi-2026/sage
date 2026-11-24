@@ -1,0 +1,15 @@
+{
+  "observedAt": "2026-11-24T00:13:49Z",
+  "testedCodeCommit": "4787c78244718dd495a399d88701d283ac5dc07d",
+  "mergedVia": "PR #151 (b8722a5)",
+  "target": "Landing page / pada server standalone produksi lokal (harness Docker sage-bdd-ui, port 3100)",
+  "tool": "Lighthouse 13.6.0, throttling simulasi; emulasi mobile 412 px dan desktop 1350 px",
+  "runs": [
+    { "formFactor": "mobile", "run": 1, "performance": 100, "accessibility": 100, "lcpMs": 1075, "cls": 0.00005, "tbtMs": 14 },
+    { "formFactor": "mobile", "run": 2, "performance": 100, "accessibility": 100, "lcpMs": 1065, "cls": 0.00005, "tbtMs": 16 },
+    { "formFactor": "mobile", "run": 3, "performance": 100, "accessibility": 100, "lcpMs": 1063, "cls": 0.00005, "tbtMs": 14 },
+    { "formFactor": "desktop", "run": 1, "performance": 100, "accessibility": 100, "lcpMs": 294, "cls": 0.00008, "tbtMs": 0 }
+  ],
+  "scope": "Hanya halaman landing tanpa sesi. Halaman kerja (Repository, Progres, ADD, Code Knowledge, Riwayat) tidak diukur dengan Lighthouse.",
+  "limitations": "Server lokal tanpa CDN/proxy produksi; angka produksi di sage.caiis.ai.id bisa berbeda. Laporan HTML/JSON lengkap disimpan lokal di artifacts/bdd/ui-revisi-2-sesiD-runB/lighthouse/ (tidak di-commit)."
+}
