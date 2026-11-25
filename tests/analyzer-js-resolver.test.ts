@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { analyzeReferences } from "@sage/analyzer-js";
-import { validateCcm, type CcmEdge, type CcmSnapshot } from "@sage/contracts";
+import { validateCcm, type CcmEdge, type CcmNode, type CcmSnapshot } from "@sage/contracts";
 
 const snapshot: CcmSnapshot = {
   repository: "AgilePemdigi-2026/sage",
@@ -46,6 +46,35 @@ function analyze(sources: Record<string, Uint8Array>, configurationSources?: Rec
   sourcesForResult = new Map(Object.entries(sources));
   return analyzeReferences({ snapshot, sources, ...(configurationSources ? { configurationSources } : {}) });
 }
+
+test("empty and whitespace module specifiers retain bounded evidence without dropping other files", () => {
+  const imports = [
+    ['import "";', ""],
+    ['import " ";', " "],
+    [`import "package${" ".repeat(100)}";`, `package${" ".repeat(100)}`],
+    ['import("");', ""],
+    ['require("");', ""],
+    ['export * from "";', ""],
+  ] as const;
+  const sources = {
+    "src/legacy.js": bytes(imports.map(([line]) => line).join("\n")),
+    "src/normal.ts": bytes("export function normal() { return 1; }"),
+  };
+  const result = analyze(sources);
+  const ccm = result.ccm;
+  assert.ok(ccm, result.errorCode ?? "No canonical model");
+  assert.equal(validateCcm(ccm, sources).ok, true);
+  assert.ok(ccm.nodes.some(node => node.name === "normal"));
+  const references = ccm.edges.filter(edge => (edge.kind === "IMPORTS" || edge.kind === "EXPORTS") && edge.resolution === "Unresolved");
+  for (const [index, [, observed]] of imports.entries()) {
+    const reference = references.find(edge => edge.evidence[0]?.startLine === index + 1);
+    assert.ok(reference, `Missing unresolved reference on line ${index + 1}`);
+    const target: CcmNode | undefined = ccm.nodes.find(node => node.id === reference.targetId);
+    assert.equal(target?.attributes.observedExpression, observed);
+    assert.equal(target?.name, observed.trim() || "unresolved");
+    assertEvidence(result, reference, observed || '""', "src/legacy.js");
+  }
+});
 
 test("ESM imports, named calls, shadowing, dynamic loads, and missing modules carry conservative evidence", () => {
   const sources = {

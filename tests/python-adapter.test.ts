@@ -80,6 +80,47 @@ test("external imports remain valid CCM facts and FastAPI paths reach the ADD in
   assert.ok(add.catalogs.interfaces.some(item => add.elements.find(element => element.id === item.elementId)?.name === "GET /books"));
 });
 
+test("multiline from-import openers preserve module evidence and do not invalidate Python routes", () => {
+  const sources = {
+    "app/models.py": encoder.encode("class Item:\n    pass\n"),
+    "app/routes.py": encoder.encode([
+      "from app.models import (  # grouped import",
+      "    Item,",
+      ")",
+      "from external.helpers import (  # grouped external import",
+      "    helper,",
+      ")",
+      "@app.get('/items')",
+      "def list_items():",
+      "    return []",
+      "",
+    ].join("\n")),
+  };
+  const result = analyzePythonSources({ snapshot, sources });
+  assert.ok(result.ccm, JSON.stringify(result.diagnostics));
+  assert.equal(validateCcm(result.ccm, sources).ok, true);
+  const local = result.ccm.nodes.find(node => node.kind === "Module" && node.filePath === "app/models.py");
+  const external = result.ccm.nodes.find(node => node.kind === "UnresolvedReference" && node.name === "external.helpers");
+  assert.ok(local && external);
+  assert.ok(result.ccm.edges.some(edge => edge.kind === "IMPORTS" && edge.targetId === local.id && edge.resolution === "Exact" && edge.evidence[0]?.startLine === 1));
+  assert.ok(result.ccm.edges.some(edge => edge.kind === "IMPORTS" && edge.targetId === external.id && edge.resolution === "Unresolved" && edge.evidence[0]?.startLine === 4));
+  assert.equal(result.ccm.nodes.find(node => node.name === "list_items")?.attributes.routePath, "/items");
+});
+
+test("Python module names and repeat base references keep unrelated source analyzable", () => {
+  const sources = {
+    " .py": encoder.encode("def helper():\n    return 1\n"),
+    "models.py": encoder.encode("class Parent: pass\nclass Child(Parent, Parent): pass\n"),
+    "routes.py": encoder.encode("@app.get('/status')\ndef status():\n    return {}\n"),
+  };
+  const result = analyzePythonSources({ snapshot, sources });
+  assert.ok(result.ccm, JSON.stringify(result.diagnostics));
+  assert.equal(validateCcm(result.ccm, sources).ok, true);
+  assert.ok(result.ccm.nodes.some(node => node.name === "helper" && node.filePath === " .py"));
+  assert.ok(result.ccm.nodes.some(node => node.attributes.routePath === "/status"));
+  assert.equal(result.ccm.edges.filter(edge => edge.kind === "EXTENDS").length, 1);
+});
+
 test("FastAPI api_route methods expand through the semantic model into ADD interfaces", () => {
   const sources = { "app.py": encoder.encode([
     "from fastapi import FastAPI",
