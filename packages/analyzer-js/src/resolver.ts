@@ -14,7 +14,7 @@ import {
 import { analyzeDeclarations, type DeclarationAnalysisInput, type DeclarationAnalysisResult } from "./index.ts";
 
 const UTF8 = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
-const RESOLVER_VERSION = "0.3.0";
+const RESOLVER_VERSION = "0.3.1";
 const MAX_CONFIGURATION_BYTES = 1024 * 1024;
 const BUILTIN_TYPES = new Set([
   "any", "unknown", "never", "void", "undefined", "null", "string", "number", "boolean", "bigint", "symbol",
@@ -184,7 +184,7 @@ function addUnresolved(ccm: CcmV1, from: CcmNode, kind: EdgeKind, evidence: Evid
   const qualifiedName = `${evidence.filePath}:${evidence.startByte}:${evidence.endByte}:${reason}:${expression}`;
   const target: CcmNode = {
     id: createNodeId({ snapshotSha: ccm.snapshot.commitSha, language: from.language, filePath: null, kind: "UnresolvedReference", qualifiedName, startByte: null, endByte: null }),
-    kind: "UnresolvedReference", name: expression.slice(-80) || "unresolved", qualifiedName, language: from.language,
+    kind: "UnresolvedReference", name: expression.trim().slice(-80) || "unresolved", qualifiedName, language: from.language,
     filePath: null, location: null, parentId: null, origin: "unresolved", signature: null,
     attributes: { observedExpression: expression.slice(0, 512), reason },
   };
@@ -503,8 +503,11 @@ function addContainment(ccm: CcmV1): void {
 }
 function addModuleEdge(ccm: CcmV1, context: FileContext, ast: ts.Node, specifier: ts.StringLiteralLike, kind: "IMPORTS" | "EXPORTS", contexts: Map<string, FileContext>): ResolvedModule {
   const offsets = context.offsets;
-  const start = specifier.getStart(context.sourceFile) + 1;
-  const evidence = span(context, offsets, start, Math.max(start, specifier.end - 1));
+  const tokenStart = specifier.getStart(context.sourceFile);
+  // An empty string has no interior bytes. Its quotes still identify the reference.
+  const evidence = specifier.end - tokenStart === 2
+    ? span(context, offsets, tokenStart, specifier.end)
+    : span(context, offsets, tokenStart + 1, specifier.end - 1);
   const resolution = resolveModule(context, specifier.text, contexts);
   context.moduleTargets.set(ast, resolution.file ?? null);
   const sourceNode = nearestSourceNode(ast, context);

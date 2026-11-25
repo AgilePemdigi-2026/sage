@@ -54,9 +54,10 @@ test("Markdown chunks preserve the legacy fixture bytes and stay bounded", async
   const rendered = chunks.join("");
 
   assert.equal(rendered, renderMarkdownDocument(document));
+  // Resolver version and provenance hashes are part of the rendered fixture.
   assert.equal(createHash("sha256").update(rendered, "utf8").digest("hex"),
-    "fe284af2f529042baf59db20b6bc0f5e2eef0f334dcf3d9e96276e8d0e1c61aa",
-    "the current analyzer fixture renders byte-for-byte like the pre-bounds renderer");
+    "714f8abfa2fb3183ee1b04108f786f5b3f1ade3af31b87df80f0a8f5c80b9d11",
+    "the current analyzer fixture preserves the expected Markdown bytes");
   assert.ok(chunks.every(chunk => Buffer.byteLength(chunk, "utf8") <= 64 * 1024),
     "each chunk fits the writer's bounded write size");
   assert.ok(Buffer.byteLength(rendered, "utf8") < MAX_MARKDOWN_EXPORT_BYTES);

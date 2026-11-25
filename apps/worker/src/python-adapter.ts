@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { canonicalizeCcm, createEdgeId, createNodeId, type CcmEdge, type CcmFile, type CcmLimitation, type CcmNode, type CcmSnapshot, type CcmV1, type EvidenceSpan, type JsonValue } from "@sage/contracts";
 
-const VERSION = "sage-python-static-0.1.1";
+const VERSION = "sage-python-static-0.1.2";
 const sha256 = (value: Uint8Array | string) => createHash("sha256").update(value).digest("hex");
 function lineIndent(line: string): number { return line.match(/^[ \t]*/u)?.[0].replaceAll("\t", "    ").length ?? 0; }
 function lineOffsets(text: string): number[] {
@@ -108,7 +108,8 @@ function decoratorsBefore(lines: string[], index: number): string {
   return lines.slice(start, index).join("\n");
 }
 function pythonModule(path: string): string {
-  return path.replace(/\\/gu, "/").replace(/(?:\/__init__)?\.py$/u, "").replaceAll("/", ".") || "__init__";
+  const name = path.replace(/\\/gu, "/").replace(/(?:\/__init__)?\.py$/u, "").replaceAll("/", ".");
+  return name.trim() ? name : path;
 }
 function importModulePath(currentPath: string, requestedModule: string): string {
   const leadingDots = requestedModule.match(/^\.+/u)?.[0].length ?? 0;
@@ -118,6 +119,15 @@ function importModulePath(currentPath: string, requestedModule: string): string 
   const packageParts = currentPath.endsWith("/__init__.py") ? currentParts : currentParts.slice(0, -1);
   const base = packageParts.slice(0, Math.max(0, packageParts.length - leadingDots + 1));
   return [...base, ...suffix.split(".").filter(Boolean)].join(".");
+}
+function fromImportSymbols(expression: string | undefined): Array<{ symbol: string; alias: string }> {
+  const list = expression?.trim() ?? "";
+  // A multiline import opener provides evidence for the module. Its bindings are unknown.
+  if (list.startsWith("(") && !list.endsWith(")")) return [];
+  return list.replace(/^\(|\)$/gu, "").split(",").flatMap(value => {
+    const match = value.trim().match(/^([A-Za-z_]\w*)(?:\s+as\s+([A-Za-z_]\w*))?$/u);
+    return match ? [{ symbol: match[1]!, alias: match[2] ?? match[1]! }] : [];
+  });
 }
 function literalMethodList(value: string): string[] | null {
   const list = value.match(/^\s*\[([\s\S]*)\]\s*$/u)?.[1];
@@ -173,9 +183,7 @@ export function analyzePythonSources(input: { snapshot: CcmSnapshot; sources: Re
       if (deleted) for (const name of assignmentTargetNames(deleted)) assignments.set(name, [...(assignments.get(name) ?? []), lineIndex + 1]);
       const fromImport = codeLines[lineIndex]?.match(/^\s*from\s+\.*[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*\s+import\s+(.+)$/u)?.[1];
       const importMatch = codeLines[lineIndex]?.match(/^\s*import\s+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)(?:\s+as\s+([A-Za-z_]\w*))?/u);
-      const importedNames = fromImport?.replace(/[()]/gu, "").split(/\s*,\s*/u).map(value => {
-        const [name, alias] = value.split(/\s+as\s+/u); return alias ?? name;
-      }).filter((name): name is string => Boolean(name && /^[A-Za-z_]\w*$/u.test(name))) ?? [];
+      const importedNames = fromImportSymbols(fromImport).map(item => item.alias);
       if (importMatch) importedNames.push(importMatch[2] ?? importMatch[1]!.split(".")[0]!);
       for (const name of importedNames) assignments.set(name, [...(assignments.get(name) ?? []), lineIndex + 1]);
       if (fromImport && (!importedNames.length || fromImport.includes("*"))) {
@@ -205,9 +213,7 @@ export function analyzePythonSources(input: { snapshot: CcmSnapshot; sources: Re
         if (loopTarget) for (const name of loopTarget.match(/[A-Za-z_]\w*/gu) ?? []) recordUncertain(name, lineIndex + 1);
         for (const alias of raw.matchAll(/\bas\s+([A-Za-z_]\w*)/gu)) recordUncertain(alias[1]!, lineIndex + 1);
         const fromImport = raw.match(/^\s*from\s+\.*[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*\s+import\s+(.+)$/u)?.[1];
-        const importedNames = fromImport?.replace(/[()]/gu, "").split(/\s*,\s*/u).map(value => {
-          const [name, alias] = value.split(/\s+as\s+/u); return alias ?? name;
-        }).filter((name): name is string => Boolean(name && /^[A-Za-z_]\w*$/u.test(name))) ?? [];
+        const importedNames = fromImportSymbols(fromImport).map(item => item.alias);
         const directImport = raw.match(/^\s*import\s+[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*(?:\s+as\s+([A-Za-z_]\w*))?/u);
         for (const name of importedNames) recordUncertain(name, lineIndex + 1);
         if (directImport) recordUncertain(directImport[1] ?? raw.match(/^\s*import\s+([A-Za-z_]\w*)/u)?.[1] ?? "", lineIndex + 1);
@@ -313,15 +319,11 @@ export function analyzePythonSources(input: { snapshot: CcmSnapshot; sources: Re
       if (indentAt(codeLines, index) !== 0) continue;
       const importMatch = line.match(/^\s*(?:from\s+(\.*[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*|\.+)\s+import\s+(.+)|import\s+([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)(?:\s+as\s+([A-Za-z_]\w*))?)/u);
       if (!importMatch) continue;
-      const requestedModule = importMatch[1] ?? importMatch[3] ?? "";
-      const importedModule = importModulePath(path, requestedModule);
+      const requestedModule = (importMatch[1] ?? importMatch[3])!;
+      const importedModule = importModulePath(path, requestedModule) || requestedModule;
       const span = evidence(path, hash, text, offsets, index + 1, index + 1, "reference");
       const localPath = pathByModule.get(importedModule) ?? pathByModule.get(importedModule.replaceAll(".", "/"));
-      const importedNames = importMatch[2]?.replace(/[()]/gu, "").split(/\s*,\s*/u).filter(Boolean) ?? [];
-      const importSymbols = importedNames.map(value => {
-        const [symbol, alias] = value.split(/\s+as\s+/u);
-        return { symbol, alias: alias ?? symbol };
-      }).filter((item): item is { symbol: string; alias: string } => Boolean(item.symbol && item.alias));
+      const importSymbols = fromImportSymbols(importMatch[2]);
       const symbolName = importSymbols[0]?.symbol;
       const symbolCandidates = localPath && symbolName ? declarations.get(localPath)?.filter(node => node.kind === "Class" && node.name === symbolName) ?? [] : [];
       const symbolCandidate = symbolCandidates.length === 1 ? symbolCandidates[0] : undefined;
@@ -356,6 +358,7 @@ export function analyzePythonSources(input: { snapshot: CcmSnapshot; sources: Re
   const classNodes = nodes.filter(node => node.language === "python" && node.kind === "Class" && topLevelClassIds.has(node.id));
   for (const node of classNodes) {
     const baseList = typeof node.attributes.bases === "string" ? node.attributes.bases.split(",").map(value => value.trim()).filter(Boolean) : [];
+    const seenBaseIds = new Set<string>();
     for (const baseBinding of baseList) {
       if (!/^[A-Za-z_]\w*$/u.test(baseBinding) || !node.filePath) continue;
       const childLine = node.location?.startLine ?? Number.MAX_SAFE_INTEGER;
@@ -373,8 +376,9 @@ export function analyzePythonSources(input: { snapshot: CcmSnapshot; sources: Re
       const latestKnownLine = candidates[0]?.line ?? 0;
       const unknownImportLine = (unknownImportLinesByPath.get(node.filePath) ?? []).filter(line => line < childLine && line > latestKnownLine).sort((a, b) => b - a)[0];
       const target = unknownImportLine ? null : candidates[0]?.node?.kind === "Class" ? candidates[0].node : null;
-      if (!target) continue;
+      if (!target || seenBaseIds.has(target.id)) continue;
       const span = node.location ? { ...node.location, role: "reference" as const } : null; if (!span) continue;
+      seenBaseIds.add(target.id);
       edges.push({ id: createEdgeId({ snapshotSha: hashSnapshot, sourceId: node.id, targetId: target.id, kind: "EXTENDS", resolution: "Exact", evidence: [span], unresolvedReason: null }), sourceId: node.id, targetId: target.id, kind: "EXTENDS", resolution: "Exact", evidence: [span], unresolvedReason: null });
     }
   }
