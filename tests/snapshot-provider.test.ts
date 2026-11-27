@@ -376,3 +376,27 @@ test("provider failures are mapped to safe errors without exposing raw response 
     return true;
   });
 });
+
+test("repositories over the source file budget try the bounded whole commit archive", async () => {
+  const tree = [
+    ...Array.from({ length: 251 }, (_, index) => ({
+      path: 'src/file-' + index + '.ts', type: "blob", mode: "100644", sha, size: 100,
+    })),
+    { path: "docs/reference.pdf", type: "blob", mode: "100644", sha, size: 22 * 1024 * 1024 },
+  ];
+  const f = publicFetcher((url, init) => {
+    if (url.pathname === '/repos/open-org/repo/git/trees/' + sha) return json({ tree, truncated: false });
+    if (url.pathname === '/repos/open-org/repo/tarball/' + sha) {
+      assert.equal(new Headers(init?.headers).get("Authorization"), 'Bearer ' + token);
+      return new Response(null, { status: 302, headers: { Location: codeload + '/open-org/repo/legacy.tar.gz/' + sha } });
+    }
+    assert.equal(url.href, codeload + '/open-org/repo/legacy.tar.gz/' + sha);
+    assert.equal(new Headers(init?.headers).has("Authorization"), false);
+    return new Response(archiveBytes);
+  });
+  assert.deepEqual(await fetchRepositoryArchive({
+    repository: "open-org/repo", githubRepositoryId: "100", commitSha: sha,
+    accessToken: token, sourceOnly: true, fetcher: f.fetcher,
+  }), archiveBytes);
+  assert.equal(f.requests.length, 4);
+});

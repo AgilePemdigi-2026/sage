@@ -59,9 +59,11 @@ export async function fetchSourceArchive(input: {
     if (reason) { selection.omitted.push({ path: entry.path, reason }); continue; }
     if (!Number.isSafeInteger(entry.size) || entry.size < 0 || typeof entry.sha !== "string" || !/^[a-f0-9]{40}$/.test(entry.sha)) throw new GitHubRepositoryError("UNAVAILABLE");
     planned += entry.size;
-    if (planned > MAX_TOTAL || selected.length >= MAX_FILES) throw new GitHubRepositoryError("UNAVAILABLE");
     selected.push(entry);
   }
+  // If per-blob fetching exceeds its budget, let the caller try the immutable
+  // whole archive. Its download and extraction limits still apply.
+  if (planned > MAX_TOTAL || selected.length > MAX_FILES) return null;
   const files: Array<{ path: string; bytes: Buffer }> = new Array(selected.length);
   let next = 0;
   // Four requests at once, with a strict overall deadline supplied by the caller.
